@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcode-select:*)",
+      "Bash(pod --version:*)",
+      "Bash(test:*)",
+      "Bash(brew:*)",
+      "Bash(export PATH=\"/opt/homebrew/opt/node@20/bin:$PATH\")",
+      "Bash(sudo gem install:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(export PATH=\"/opt/homebrew/opt/ruby/bin:$PATH\")",
+      "Bash(npx expo prebuild:*)",
+      "Bash(pod install)",
+      "Bash(xcrun simctl:*)",
+      "Bash(cat:*)",
+      "Bash(npx expo install:*)",
+      "Bash(killall:*)",
+      "Bash(npx expo run:ios:*)",
+      "Bash(tee:*)",
+      "Bash(npx expo start:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npx expo --version)",
+      "WebSearch",
+      "WebFetch(domain:docs.expo.dev)",
+      "WebFetch(domain:expo.dev)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(export PATH:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/opt/homebrew/opt/ruby/bin:/opt/homebrew/opt/node@20/bin:$PATH\")",
+      "Bash(node -e:*)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(supabase login:*)",
+      "Bash(grep:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/opt/homebrew/opt/node@20/bin:$PATH\")",
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(git init:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

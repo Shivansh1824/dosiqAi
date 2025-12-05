@@ -1,0 +1,183 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { Colors, Sizes } from '../constants';
+import { MedicationWithStatus, getMedicineTypeIcon, getMedicineTypeColor, getInstructionText } from '../types/medicationSchedule';
+
+interface MedicationCardProps {
+    medication: MedicationWithStatus;
+    onTake: (medicationId: string, scheduledTime: string) => void;
+}
+
+export default function MedicationCard({ medication, onTake }: MedicationCardProps) {
+    const isTaken = medication.status === 'taken';
+    const isMissed = medication.status === 'missed';
+    const isPending = medication.status === 'pending';
+
+    const iconName = getMedicineTypeIcon(medication.type);
+    const iconColor = getMedicineTypeColor(medication.type);
+
+    const handleTakePress = () => {
+        if (!isTaken) {
+            onTake(medication.id, medication.scheduled_time);
+        }
+    };
+
+    return (
+        <View style={[
+            styles.container,
+            isTaken && styles.containerTaken,
+            isMissed && styles.containerMissed,
+        ]}>
+            {/* Left: Medicine Icon */}
+            <View style={[styles.iconContainer, { backgroundColor: iconColor + '15' }]}>
+                <Feather
+                    name={iconName as any}
+                    size={24}
+                    color={isTaken ? Colors.gray400 : iconColor}
+                />
+            </View>
+
+            {/* Center: Medicine Info */}
+            <View style={styles.infoContainer}>
+                <Text style={[
+                    styles.name,
+                    isTaken && styles.nameTaken,
+                ]}>
+                    {medication.name}
+                </Text>
+                <Text style={[
+                    styles.dosage,
+                    isTaken && styles.dosageTaken,
+                ]}>
+                    {medication.dosage}
+                </Text>
+
+                {/* Instruction Badge */}
+                <View style={styles.instructionBadge}>
+                    <Text style={styles.instructionText}>
+                        {getInstructionText(medication.instructions)}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Right: Take Button / Checkmark */}
+            <TouchableOpacity
+                style={[
+                    styles.actionButton,
+                    isTaken && styles.actionButtonTaken,
+                ]}
+                onPress={handleTakePress}
+                disabled={isTaken}
+                activeOpacity={0.7}
+            >
+                {isTaken ? (
+                    <Feather name="check-circle" size={28} color={Colors.success} />
+                ) : (
+                    <View style={styles.takeButton}>
+                        <Text style={styles.takeButtonText}>Take</Text>
+                    </View>
+                )}
+            </TouchableOpacity>
+
+            {/* Taken Time */}
+            {isTaken && medication.taken_at && (
+                <Text style={styles.takenTime}>
+                    Taken at {new Date(medication.taken_at).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}
+                </Text>
+            )}
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        padding: Sizes.md,
+        marginBottom: Sizes.sm,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    containerTaken: {
+        opacity: 0.6,
+        backgroundColor: Colors.gray50,
+    },
+    containerMissed: {
+        borderLeftWidth: 3,
+        borderLeftColor: Colors.error,
+    },
+    iconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: Sizes.md,
+    },
+    infoContainer: {
+        flex: 1,
+    },
+    name: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    nameTaken: {
+        color: Colors.textSecondary,
+        textDecorationLine: 'line-through',
+    },
+    dosage: {
+        fontSize: 14,
+        color: Colors.textSecondary,
+        marginBottom: 6,
+    },
+    dosageTaken: {
+        color: Colors.gray400,
+    },
+    instructionBadge: {
+        alignSelf: 'flex-start',
+        backgroundColor: Colors.gray100,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    instructionText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: Colors.gray600,
+    },
+    actionButton: {
+        marginLeft: Sizes.sm,
+    },
+    actionButtonTaken: {
+        // No additional styles needed
+    },
+    takeButton: {
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    takeButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.white,
+    },
+    takenTime: {
+        position: 'absolute',
+        bottom: 8,
+        right: 12,
+        fontSize: 11,
+        color: Colors.gray400,
+    },
+});

@@ -1,0 +1,54 @@
+import { useEffect, useState } from 'react';
+import { useAuthStore } from '../store/authStore';
+import { useDocumentSync } from './useDocumentSync';
+
+/**
+ * Hook to handle app initialization
+ * Loads auth state from AsyncStorage before rendering the app
+ *
+ * Usage in App.tsx:
+ * const { isAppReady } = useAppInitialization();
+ * if (!isAppReady) return <SplashScreen />;
+ */
+export const useAppInitialization = () => {
+  console.log('[DEBUG] [useAppInitialization] Hook called');
+
+  const [isAppReady, setIsAppReady] = useState(false);
+  const initialize = useAuthStore((state) => state.initialize);
+
+  // Start automatic document sync (60-second polling)
+  useDocumentSync();
+
+  useEffect(() => {
+    console.log('[DEBUG] [useAppInitialization] useEffect triggered');
+
+    const initApp = async () => {
+      try {
+        console.log('[DEBUG] [AppInit] Starting app initialization...');
+        console.log('[DEBUG] [AppInit] Timestamp:', new Date().toISOString());
+
+        // Initialize auth store (loads from AsyncStorage)
+        console.log('[DEBUG] [AppInit] Calling auth store initialize...');
+        await initialize();
+        console.log('[DEBUG] [AppInit] Auth store initialized successfully');
+
+        // Add any other initialization tasks here
+        // e.g., load fonts, check for updates, etc.
+
+        console.log('[DEBUG] [AppInit] App initialization complete');
+        setIsAppReady(true);
+        console.log('[DEBUG] [AppInit] isAppReady set to true');
+      } catch (error) {
+        console.error('[DEBUG] [AppInit] ❌ Initialization error:', error);
+        console.error('[DEBUG] [AppInit] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+        // Even if there's an error, we should let the app load
+        console.log('[DEBUG] [AppInit] Setting isAppReady to true despite error');
+        setIsAppReady(true);
+      }
+    };
+
+    initApp();
+  }, [initialize]);
+
+  return { isAppReady };
+};

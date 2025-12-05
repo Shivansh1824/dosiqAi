@@ -1,0 +1,230 @@
+/**
+ * Enhanced medication types for the new Medication tab screen
+ * These extend the existing Medication interface with additional fields for scheduling and tracking
+ */
+
+// Medicine form types
+export type MedicineType =
+    | 'pill'
+    | 'capsule'
+    | 'tablet'
+    | 'syrup'
+    | 'liquid'
+    | 'injection'
+    | 'drops'
+    | 'inhaler'
+    | 'cream'
+    | 'other';
+
+// Medication status for daily tracking
+export type MedicationStatus = 'pending' | 'taken' | 'missed' | 'skipped';
+
+// Time of day categories
+export type TimeOfDayCategory = 'morning' | 'afternoon' | 'evening' | 'night';
+
+// Instruction types
+export type MedicationInstruction =
+    | 'before_meal'
+    | 'after_meal'
+    | 'with_food'
+    | 'empty_stomach'
+    | 'before_sleep'
+    | 'with_water'
+    | 'as_needed'
+    | 'other';
+
+/**
+ * Enhanced Medication Schedule interface
+ * Extends the base Medication with additional scheduling and tracking fields
+ */
+export interface MedicationSchedule {
+    id: string;
+    user_id: string;
+    family_member_id?: string;
+
+    // Basic info
+    name: string;
+    dosage: string; // e.g., "500mg", "10ml", "1 tablet"
+    type: MedicineType;
+
+    // Scheduling
+    frequency: string; // e.g., "Daily", "Twice daily", "Every 8 hours"
+    times: string[]; // Array of time strings e.g., ["08:00", "14:00", "20:00"]
+    start_date: string; // ISO date string
+    end_date?: string; // ISO date string, optional for ongoing medications
+    duration_days?: number; // Alternative to end_date
+
+    // Instructions
+    instructions: MedicationInstruction;
+    custom_instructions?: string; // For "other" or additional notes
+    purpose?: string; // What is this medication for? e.g., "For viral fever"
+
+    // Reminders
+    reminder_enabled: boolean;
+    reminder_minutes_before?: number; // e.g., 15 minutes before scheduled time
+
+    // Status
+    is_active: boolean;
+    color: string;
+
+    // Metadata
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * Medication Log - tracks when medications are taken
+ */
+export interface MedicationLog {
+    id: string;
+    medication_id: string;
+    user_id: string;
+
+    // Scheduled vs actual
+    scheduled_date: string; // ISO date string (just date, no time)
+    scheduled_time: string; // Time string e.g., "08:00"
+    taken_at?: string; // ISO datetime string when actually taken
+
+    // Status
+    status: MedicationStatus;
+
+    // Notes
+    notes?: string; // e.g., "Felt nauseous after taking"
+
+    // Metadata
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * Daily medication schedule view
+ * Used for displaying medications grouped by time of day
+ */
+export interface DailyMedicationView {
+    date: string; // ISO date string
+    morning: MedicationWithStatus[];
+    afternoon: MedicationWithStatus[];
+    evening: MedicationWithStatus[];
+    night: MedicationWithStatus[];
+}
+
+/**
+ * Medication with current status for a specific date/time
+ */
+export interface MedicationWithStatus extends MedicationSchedule {
+    scheduled_time: string;
+    status: MedicationStatus;
+    log_id?: string; // ID of the log entry if exists
+    taken_at?: string;
+}
+
+// Helper function to get medicine type icon name
+export const getMedicineTypeIcon = (type: MedicineType): string => {
+    switch (type) {
+        case 'pill':
+        case 'capsule':
+        case 'tablet':
+            return 'circle';
+        case 'syrup':
+        case 'liquid':
+            return 'droplet';
+        case 'injection':
+            return 'activity';
+        case 'drops':
+            return 'droplet';
+        case 'inhaler':
+            return 'wind';
+        case 'cream':
+            return 'package';
+        default:
+            return 'package';
+    }
+};
+
+// Helper function to get medicine type color
+export const getMedicineTypeColor = (type: MedicineType): string => {
+    switch (type) {
+        case 'pill':
+        case 'capsule':
+        case 'tablet':
+            return '#3B82F6'; // Blue
+        case 'syrup':
+        case 'liquid':
+            return '#8B5CF6'; // Purple
+        case 'injection':
+            return '#EF4444'; // Red
+        case 'drops':
+            return '#06B6D4'; // Cyan
+        case 'inhaler':
+            return '#10B981'; // Green
+        case 'cream':
+            return '#F59E0B'; // Orange
+        default:
+            return '#6B7280'; // Gray
+    }
+};
+
+// Helper function to get instruction display text
+export const getInstructionText = (instruction: MedicationInstruction): string => {
+    switch (instruction) {
+        case 'before_meal':
+            return 'Before Meal';
+        case 'after_meal':
+            return 'After Meal';
+        case 'with_food':
+            return 'With Food';
+        case 'empty_stomach':
+            return 'Empty Stomach';
+        case 'before_sleep':
+            return 'Before Sleep';
+        case 'with_water':
+            return 'With Water';
+        case 'as_needed':
+            return 'As Needed';
+        default:
+            return 'Other';
+    }
+};
+
+// Helper function to categorize time into time of day
+export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
+    const hour = parseInt(time.split(':')[0]);
+
+    if (hour >= 5 && hour < 12) {
+        return 'morning';
+    } else if (hour >= 12 && hour < 17) {
+        return 'afternoon';
+    } else if (hour >= 17 && hour < 21) {
+        return 'evening';
+    } else {
+        return 'night';
+    }
+};
+
+// Helper function to get time of day display text
+export const getTimeOfDayText = (category: TimeOfDayCategory): string => {
+    switch (category) {
+        case 'morning':
+            return 'Morning';
+        case 'afternoon':
+            return 'Afternoon';
+        case 'evening':
+            return 'Evening';
+        case 'night':
+            return 'Night';
+    }
+};
+
+// Helper function to get time of day icon
+export const getTimeOfDayIcon = (category: TimeOfDayCategory): string => {
+    switch (category) {
+        case 'morning':
+            return 'sunrise';
+        case 'afternoon':
+            return 'sun';
+        case 'evening':
+            return 'sunset';
+        case 'night':
+            return 'moon';
+    }
+};
