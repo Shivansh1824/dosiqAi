@@ -33,7 +33,9 @@
       "Bash(grep:*)",
       "Bash(export PATH=\"/opt/homebrew/bin:/opt/homebrew/opt/node@20/bin:$PATH\")",
       "Bash(npx supabase functions deploy:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:www.capiproduct.com)"
     ],
     "deny": [],
     "ask": []

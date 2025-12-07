@@ -1,19 +1,14 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Dimensions, ImageBackground } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
-import { BlurView } from 'expo-blur';
-import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
+import { Colors, Sizes } from '../constants';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAppointmentsStore } from '../store/appointmentsStore';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { useFocusEffect } from '@react-navigation/native';
-import { formatAppointmentDateTime } from '../types/appointment';
-import { getFrequencyText } from '../types/medication';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
@@ -21,17 +16,6 @@ import { DocumentType } from '../types/document';
 import { compressImage } from '../utils/imageCompression';
 import { saveFileLocally } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
-// Get time-based greeting
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good Morning';
-  if (hour < 17) return 'Good Afternoon';
-  return 'Good Evening';
-};
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -43,7 +27,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const { documents, isLoading: isLoadingDocs, fetchDocuments, addDocument } = useDocumentsStore();
   const { medications, fetchMedications } = useMedicationsStore();
   const { appointments, fetchAppointments } = useAppointmentsStore();
-  const { familyMembers, activeMember, isInitialized, fetchFamilyMembers, setActiveMember } = useFamilyMembersStore();
+  const { familyMembers, activeMember, fetchFamilyMembers, setActiveMember } = useFamilyMembersStore();
 
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -51,18 +35,18 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
-  // Fetch all data with cache-first approach
+  // Animations
+  const fabScale = useRef(new Animated.Value(1)).current;
+  const fabPulse = useRef(new Animated.Value(1)).current;
+
   const loadData = useCallback(async () => {
     if (user?.id) {
-      // Step 0: CRITICAL - Ensure primary "Self" family member exists FIRST
-      // This must happen before any data loading to avoid race conditions
       try {
         await useFamilyMembersStore.getState().ensurePrimaryMemberExists(user.id, user.name || 'Me');
       } catch (error) {
         console.error('[HomeScreen] Failed to ensure primary member:', error);
       }
 
-      // Step 1: Load from cache instantly (no loading spinner)
       await Promise.all([
         useDocumentsStore.getState().loadFromCache(user.id),
         useMedicationsStore.getState().loadFromCache(user.id),
@@ -70,9 +54,8 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         useFamilyMembersStore.getState().loadFromCache(user.id),
       ]);
 
-      // Step 2: Refresh from Supabase silently in background
       await Promise.all([
-        fetchDocuments(user.id, true), // silent=true
+        fetchDocuments(user.id, true),
         fetchMedications(user.id, true),
         fetchAppointments(user.id, true),
         fetchFamilyMembers(user.id, true),
@@ -80,39 +63,47 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   }, [user?.id, user?.name, fetchDocuments, fetchMedications, fetchAppointments, fetchFamilyMembers]);
 
-  // Initial load
   useEffect(() => {
     loadData();
+
+    // FAB pulsing animation - Subtle
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(fabPulse, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabPulse, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, [loadData]);
 
-  // Refresh on focus
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])
   );
 
-  // Pull to refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   }, [loadData]);
 
-  // Request permissions for image picker
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your photo library to upload images.'
-      );
+      Alert.alert('Permission Required', 'Please allow access to your photo library to upload images.');
       return false;
     }
     return true;
   };
 
-  // Pick image from photo library
   const pickImage = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
@@ -121,7 +112,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        quality: 1.0, // Use max quality, we'll compress it ourselves
+        quality: 1.0,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -140,21 +131,17 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   };
 
-  // Take photo with camera
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your camera to take photos.'
-      );
+      Alert.alert('Permission Required', 'Please allow access to your camera to take photos.');
       return;
     }
 
     try {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        quality: 1.0, // Use max quality, we'll compress it ourselves
+        quality: 1.0,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -173,7 +160,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   };
 
-  // Pick document file
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -184,8 +170,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
         const fileName = result.assets[0].name;
-
-        // Check if it's an image (compress) or PDF (skip compression)
         const isImage = fileName?.toLowerCase().match(/\.(jpg|jpeg|png|heic|webp)$/i);
 
         if (isImage) {
@@ -207,7 +191,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   };
 
-  // Upload file - saves locally and stores metadata in Supabase
   const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string) => {
     if (!user?.id) {
       Alert.alert('Error', 'Please log in to upload documents.');
@@ -219,86 +202,42 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       return;
     }
 
-    // CRITICAL: Verify active Supabase session before upload
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
-        console.error('[HomeScreen] No active Supabase session for upload');
-        Alert.alert(
-          'Session Expired',
-          'Your login session has expired. Please log out and log in again to continue uploading documents.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Optionally navigate to profile/logout
-                console.log('[HomeScreen] User acknowledged session expiration');
-              }
-            }
-          ]
-        );
+        Alert.alert('Session Expired', 'Your login session has expired. Please log out and log in again.');
         return;
       }
     } catch (error) {
-      console.error('[HomeScreen] Session check failed:', error);
-      Alert.alert(
-        'Authentication Error',
-        'Unable to verify your login session. Please log out and log in again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Authentication Error', 'Unable to verify your login session. Please log out and log in again.');
       return;
     }
 
-    // DEFENSIVE CHECK: If no active member, auto-create the primary "Self" member
-    // This ensures the main user can ALWAYS upload their documents
     let memberForUpload = activeMember;
     if (!memberForUpload) {
-      console.log('[HomeScreen] No active member found, auto-creating primary member...');
       try {
-        memberForUpload = await useFamilyMembersStore.getState().ensurePrimaryMemberExists(
-          user.id,
-          user.name || 'Me'
-        );
-
+        memberForUpload = await useFamilyMembersStore.getState().ensurePrimaryMemberExists(user.id, user.name || 'Me');
         if (!memberForUpload) {
-          console.error('[HomeScreen] Failed to create primary member - no valid session');
-          Alert.alert(
-            'Setup Required',
-            'Unable to set up your profile. Please log in again.',
-            [{ text: 'OK' }]
-          );
+          Alert.alert('Setup Required', 'Unable to set up your profile. Please log in again.');
           return;
         }
-
-        console.log('[HomeScreen] Primary member auto-created:', memberForUpload.id);
       } catch (error) {
-        console.error('[HomeScreen] Failed to auto-create primary member:', error);
         Alert.alert('Error', 'Failed to set up your profile. Please try again.');
         return;
       }
     }
 
-    // VALIDATION: Ensure family member has a valid UUID (not a placeholder)
     if (memberForUpload.id.startsWith('local-')) {
-      console.error('[HomeScreen] Cannot upload with placeholder family member ID:', memberForUpload.id);
-      Alert.alert(
-        'Invalid Profile',
-        'Your profile is not properly set up. Please log out and log in again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Invalid Profile', 'Your profile is not properly set up. Please log out and log in again.');
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // Generate unique document ID
       const documentId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Determine filename
       const originalFileName = fileName || `${type}_${Date.now()}.${uri.split('.').pop() || 'jpg'}`;
 
-      // Save file locally to user's folder
       const { relativePath, fileSize, absolutePath } = await saveFileLocally(
         uri,
         memberForUpload.name,
@@ -306,53 +245,37 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         originalFileName
       );
 
-      // Determine document type
       const fileExtension = originalFileName.split('.').pop()?.toLowerCase() || '';
       const docType: DocumentType = fileExtension === 'pdf' ? 'Report' : 'Imaging';
 
-      // Save document metadata to database (using relative path for persistence)
       const savedDocument = await addDocument({
         user_id: user.id,
         title: originalFileName.replace(/\.[^/.]+$/, '') || `Document ${new Date().toLocaleDateString()}`,
         type: docType,
-        local_file_path: relativePath, // Store relative path for persistence across rebuilds
+        local_file_path: relativePath,
         family_member_id: memberForUpload.id,
         file_size: fileSize,
         is_local: true,
         color: '',
       });
 
-      // Get the actual document ID from Supabase (UUID)
       const actualDocumentId = savedDocument?.id || documentId;
-      console.log('[HomeScreen] Document saved with ID:', actualDocumentId);
-
-      // Refresh documents list
       await fetchDocuments(user.id);
 
-      // Get absolute path for analysis
       const { getAbsolutePath } = await import('../utils/fileStorage');
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 
-      // Show success and trigger analysis
-      Alert.alert(
-        'Success',
-        'Document uploaded successfully! Analyzing...',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Trigger analysis in background (non-blocking) with correct document ID
-              console.log('[HomeScreen] Triggering analysis for document:', actualDocumentId);
-              console.log('[HomeScreen] Analysis path:', analysisPath);
-
-              const { triggerAnalysis } = useDocumentsStore.getState();
-              triggerAnalysis(actualDocumentId, analysisPath).catch((error) => {
-                console.error('[HomeScreen] Background analysis failed:', error);
-              });
-            },
+      Alert.alert('Success', 'Document uploaded successfully! Analyzing...', [
+        {
+          text: 'OK',
+          onPress: () => {
+            const { triggerAnalysis } = useDocumentsStore.getState();
+            triggerAnalysis(actualDocumentId, analysisPath).catch((error) => {
+              console.error('[HomeScreen] Background analysis failed:', error);
+            });
           },
-        ]
-      );
+        },
+      ]);
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');
@@ -361,7 +284,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   };
 
-  // Show iOS action sheet for upload options
   const showUploadOptions = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -384,356 +306,243 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         }
       );
     } else {
-      // Android - show Alert with options
-      Alert.alert(
-        'Upload Document',
-        'Choose an option',
-        [
-          { text: 'Photo Library', onPress: pickImage },
-          { text: 'Take Photo', onPress: takePhoto },
-          { text: 'Choose Files', onPress: pickDocument },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+      Alert.alert('Upload Document', 'Choose an option', [
+        { text: 'Photo Library', onPress: pickImage },
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose Files', onPress: pickDocument },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   };
 
-  // Get only the 3 most recent documents for display
   const recentDocuments = documents.slice(0, 3);
 
-  // Get next upcoming appointment
-  const nextAppointment = appointments.length > 0 ? appointments[0] : null;
-
-  // Get today's medications
-  const todayMedications = medications.slice(0, 2);
-
-  // Format date for display
-  const formatDateShort = (dateString: string) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
-
-  // Memoized greeting
-  const greeting = useMemo(() => getGreeting(), []);
-
-  const stats = [
-    { icon: 'file-text', label: 'Documents', value: String(documents.length), color: '#3B82F6', bgColor: 'rgba(59, 130, 246, 0.15)' },
-    { icon: 'heart', label: 'Health Records', value: String(documents.filter(d => d.ai_analysis_result).length), color: '#EC4899', bgColor: 'rgba(236, 72, 153, 0.15)' },
-    { icon: 'users', label: 'Family', value: String(familyMembers.length), color: '#8B5CF6', bgColor: 'rgba(139, 92, 246, 0.15)' },
-  ];
-
-  const quickActions = [
-    { icon: 'camera', label: 'Scan', color: '#3B82F6', onPress: takePhoto },
-    { icon: 'image', label: 'Gallery', color: '#10B981', onPress: pickImage },
-    { icon: 'file-plus', label: 'Files', color: '#F59E0B', onPress: pickDocument },
-    { icon: 'activity', label: 'Health', color: '#EC4899', onPress: () => onNavigate('health') },
-  ];
 
   return (
     <View style={styles.container}>
-      {/* Gradient Background */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2', '#f093fb']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradientBackground}
-      />
-
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Glassmorphic Header */}
-        <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'}</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerIconButton} onPress={() => setShowFamilyModal(true)}>
-              <BlurView intensity={80} tint="light" style={styles.glassButton}>
-                <Feather name="users" size={20} color={Colors.white} />
-              </BlurView>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.greetingSection}>
+              <Text style={styles.greeting}>Hello,</Text>
+              <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'} 👋</Text>
+            </View>
+
+            {/* Active Profile Card - Clean Professional */}
+            <TouchableOpacity
+              style={styles.profileCardWrapper}
+              onPress={() => setShowFamilyModal(true)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileCard}>
+                <View style={styles.profileCardLeft}>
+                  <View style={styles.profileCardAvatar}>
+                    <Feather name="user" size={20} color="#4A90E2" />
+                  </View>
+                  <View>
+                    <Text style={styles.profileCardLabel}>Managing health for</Text>
+                    <Text style={styles.profileCardName}>{activeMember?.name || user?.name || 'Select Profile'}</Text>
+                  </View>
+                </View>
+                <View style={{ marginLeft: 12 }}>
+                  <Feather name="chevron-down" size={20} color="#9CA3AF" />
+                </View>
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconButton}>
-              <BlurView intensity={80} tint="light" style={styles.glassButton}>
-                <View style={styles.notificationDot} />
-                <Feather name="bell" size={20} color={Colors.white} />
-              </BlurView>
-            </TouchableOpacity>
           </View>
-        </Animated.View>
+
+          <TouchableOpacity style={styles.notificationButton}>
+            <Feather name="bell" size={22} color={Colors.gray700} />
+          </TouchableOpacity>
+        </View>
 
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
           }
         >
-          {/* Active Profile Card - Glassmorphic */}
-          <Animated.View entering={FadeInDown.delay(200).duration(600)}>
-            <TouchableOpacity onPress={() => setShowFamilyModal(true)} activeOpacity={0.9}>
-              <BlurView intensity={40} tint="light" style={styles.profileCard}>
-                <View style={styles.profileCardInner}>
-                  <View style={styles.profileAvatarLarge}>
-                    <LinearGradient
-                      colors={['#fff', '#f0f0f0']}
-                      style={styles.avatarGradient}
-                    >
-                      <Feather name="user" size={32} color="#667eea" />
-                    </LinearGradient>
-                  </View>
-                  <View style={styles.profileInfo}>
-                    <Text style={styles.profileLabel}>Managing Health For</Text>
-                    <Text style={styles.profileName}>{activeMember?.name || user?.name || 'User'}</Text>
-                    {activeMember?.relationship && activeMember.relationship !== 'Self' && (
-                      <View style={styles.relationshipBadge}>
-                        <Text style={styles.relationshipText}>{activeMember.relationship}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.switchButton}>
-                    <Feather name="chevron-down" size={20} color="rgba(255,255,255,0.8)" />
-                  </View>
-                </View>
-              </BlurView>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* Main Scan CTA - Hero Button */}
-          <Animated.View entering={FadeInDown.delay(300).duration(600)}>
+          {/* Stats Row - Clean Professional Cards */}
+          <View style={styles.statsContainer}>
+            {/* Documents Card - Blue Theme */}
             <TouchableOpacity
-              style={styles.scanHeroButton}
-              onPress={showUploadOptions}
-              activeOpacity={0.9}
-              disabled={isUploading}
+              style={styles.statCardWrapper}
+              onPress={() => onNavigate('documents')}
+              activeOpacity={0.85}
             >
-              <BlurView intensity={60} tint="light" style={styles.scanHeroInner}>
-                <View style={styles.scanIconContainer}>
-                  <LinearGradient
-                    colors={['#3B82F6', '#8B5CF6']}
-                    style={styles.scanIconGradient}
-                  >
-                    <Feather name="camera" size={32} color={Colors.white} />
-                  </LinearGradient>
+              <View style={styles.statCardContent}>
+                <View style={[styles.statIconCircle, { backgroundColor: '#E8F4FD' }]}>
+                  <Feather name="file-text" size={20} color="#4A90E2" />
                 </View>
-                <View style={styles.scanTextContainer}>
-                  <Text style={styles.scanHeroTitle}>Scan Document</Text>
-                  <Text style={styles.scanHeroSubtitle}>Digitize your medical records instantly</Text>
+                <View style={styles.statTextContainer}>
+                  <Text style={styles.statValue}>{documents.length}</Text>
+                  <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit>Documents</Text>
                 </View>
-                <View style={styles.scanArrow}>
-                  <Feather name="arrow-right" size={24} color="rgba(255,255,255,0.6)" />
-                </View>
-              </BlurView>
+              </View>
             </TouchableOpacity>
-          </Animated.View>
 
-          {/* Quick Actions Grid */}
-          <Animated.View entering={FadeInDown.delay(400).duration(600)} style={styles.quickActionsContainer}>
-            <Text style={styles.sectionTitleLight}>Quick Actions</Text>
-            <View style={styles.quickActionsGrid}>
-              {quickActions.map((action, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.quickActionItem}
-                  onPress={action.onPress}
-                  activeOpacity={0.8}
-                >
-                  <BlurView intensity={50} tint="light" style={styles.quickActionGlass}>
-                    <View style={[styles.quickActionIcon, { backgroundColor: action.color + '30' }]}>
-                      <Feather name={action.icon as any} size={22} color={action.color} />
-                    </View>
-                    <Text style={styles.quickActionLabel}>{action.label}</Text>
-                  </BlurView>
-                </TouchableOpacity>
-              ))}
+            {/* Medications Card - Orange Theme */}
+            <TouchableOpacity
+              style={styles.statCardWrapper}
+              onPress={() => onNavigate('medications')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.statCardContent}>
+                <View style={[styles.statIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                  <Feather name="package" size={20} color="#F59E0B" />
+                </View>
+                <View style={styles.statTextContainer}>
+                  <Text style={styles.statValue}>{medications.length}</Text>
+                  <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit>Medications</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Appointments Card - Teal Theme */}
+            <TouchableOpacity
+              style={styles.statCardWrapper}
+              onPress={() => onNavigate('appointments')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.statCardContent}>
+                <View style={[styles.statIconCircle, { backgroundColor: '#CCFBF1' }]}>
+                  <Feather name="calendar" size={20} color="#14B8A6" />
+                </View>
+                <View style={styles.statTextContainer}>
+                  <Text style={styles.statValue}>{appointments.length}</Text>
+                  <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit>Appointments</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* AI Health Insights Card */}
+          <TouchableOpacity style={styles.insightsCard} activeOpacity={0.85}>
+            <View style={styles.insightsContent}>
+              <View style={styles.insightsIcon}>
+                <Feather name="zap" size={20} color="#4A90E2" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.insightsTitle}>Health Insight</Text>
+                <Text style={styles.insightsText}>
+                  You've uploaded {documents.length} document{documents.length !== 1 ? 's' : ''} this month. Keep tracking your health!
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="#9CA3AF" />
             </View>
-          </Animated.View>
-
-          {/* Stats Overview */}
-          <Animated.View entering={FadeInDown.delay(500).duration(600)} style={styles.statsContainer}>
-            <Text style={styles.sectionTitleLight}>Your Health at a Glance</Text>
-            <View style={styles.statsRow}>
-              {stats.map((stat, index) => (
-                <BlurView key={index} intensity={40} tint="light" style={styles.statCard}>
-                  <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
-                    <Feather name={stat.icon as any} size={20} color={stat.color} />
-                  </View>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </BlurView>
-              ))}
-            </View>
-          </Animated.View>
-
-          {/* Today's Schedule */}
-          {(nextAppointment || todayMedications.length > 0) && (
-            <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.scheduleContainer}>
-              <Text style={styles.sectionTitleLight}>Today's Schedule</Text>
-              <BlurView intensity={40} tint="light" style={styles.scheduleCard}>
-                {nextAppointment && (
-                  <TouchableOpacity
-                    style={styles.scheduleItem}
-                    onPress={() => onNavigate('appointments')}
-                  >
-                    <View style={[styles.scheduleIcon, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-                      <Feather name="calendar" size={18} color="#F59E0B" />
-                    </View>
-                    <View style={styles.scheduleInfo}>
-                      <Text style={styles.scheduleTitle}>{nextAppointment.title}</Text>
-                      <Text style={styles.scheduleTime}>
-                        {formatAppointmentDateTime(nextAppointment.date, nextAppointment.time)}
-                      </Text>
-                    </View>
-                    <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.5)" />
-                  </TouchableOpacity>
-                )}
-                {todayMedications.map((med, index) => (
-                  <TouchableOpacity
-                    key={med.id}
-                    style={[styles.scheduleItem, index === 0 && nextAppointment && styles.scheduleItemBorder]}
-                    onPress={() => onNavigate('medications')}
-                  >
-                    <View style={[styles.scheduleIcon, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                      <Feather name="package" size={18} color="#10B981" />
-                    </View>
-                    <View style={styles.scheduleInfo}>
-                      <Text style={styles.scheduleTitle}>{med.name}</Text>
-                      <Text style={styles.scheduleTime}>{med.dosage} • {getFrequencyText(med.frequency)}</Text>
-                    </View>
-                    <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.5)" />
-                  </TouchableOpacity>
-                ))}
-              </BlurView>
-            </Animated.View>
-          )}
+          </TouchableOpacity>
 
           {/* Recent Documents Section */}
-          <Animated.View entering={FadeInDown.delay(700).duration(600)} style={styles.documentsSection}>
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitleLight}>Recent Documents</Text>
+              <Text style={styles.sectionTitle}>Recent Documents</Text>
               <TouchableOpacity onPress={() => onNavigate('documents')}>
                 <Text style={styles.seeAllText}>See All</Text>
               </TouchableOpacity>
             </View>
 
             {isLoadingDocs ? (
-              <BlurView intensity={40} tint="light" style={styles.loadingCard}>
-                <ActivityIndicator size="small" color={Colors.white} />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.primary} />
                 <Text style={styles.loadingText}>Loading documents...</Text>
-              </BlurView>
+              </View>
             ) : recentDocuments.length === 0 ? (
-              <BlurView intensity={40} tint="light" style={styles.emptyCard}>
-                <View style={styles.emptyIconContainer}>
-                  <Feather name="file-text" size={40} color="rgba(255,255,255,0.5)" />
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIcon}>
+                  <Feather name="file-text" size={32} color={Colors.gray300} />
                 </View>
                 <Text style={styles.emptyTitle}>No documents yet</Text>
-                <Text style={styles.emptySubtitle}>Scan your first medical document to get started</Text>
-                <TouchableOpacity style={styles.emptyButton} onPress={showUploadOptions}>
-                  <LinearGradient
-                    colors={['#3B82F6', '#8B5CF6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.emptyButtonGradient}
-                  >
-                    <Feather name="plus" size={18} color={Colors.white} />
-                    <Text style={styles.emptyButtonText}>Add Document</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </BlurView>
+                <Text style={styles.emptySubtitle}>Tap the + button to add your first document</Text>
+              </View>
             ) : (
               <View style={styles.documentsList}>
                 {recentDocuments.map((doc, index) => {
                   const displayTitle = doc.ai_analysis_result?.file_name || doc.title;
-                  const formatDocType = (type: string) => type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
                   const displayType = doc.ai_analysis_result?.document_type
-                    ? formatDocType(doc.ai_analysis_result.document_type)
+                    ? doc.ai_analysis_result.document_type.charAt(0).toUpperCase() + doc.ai_analysis_result.document_type.slice(1).replace(/_/g, ' ')
                     : doc.type;
-                  const isAnalyzed = !!doc.ai_analysis_result;
+
+                  // Dynamic card colors - Clean Professional
+                  const cardColors = [
+                    { borderColor: '#8B5CF6', iconBg: '#EDE9FE', iconColor: '#8B5CF6' },
+                    { borderColor: '#EC4899', iconBg: '#FCE7F3', iconColor: '#EC4899' },
+                    { borderColor: '#14B8A6', iconBg: '#CCFBF1', iconColor: '#14B8A6' },
+                  ];
+                  const colorScheme = cardColors[index % cardColors.length];
 
                   return (
-                    <Animated.View
+                    <TouchableOpacity
                       key={doc.id}
-                      entering={FadeInRight.delay(100 * index).duration(400)}
+                      style={[styles.documentCardNew, { borderLeftColor: colorScheme.borderColor }]}
+                      onPress={() => onNavigate('document', { document: doc })}
+                      activeOpacity={0.85}
                     >
-                      <TouchableOpacity
-                        style={styles.documentCard}
-                        onPress={() => onNavigate('document', { document: doc })}
-                        activeOpacity={0.8}
-                      >
-                        <BlurView intensity={40} tint="light" style={styles.documentCardInner}>
-                          <View style={[styles.documentIcon, { backgroundColor: isAnalyzed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)' }]}>
-                            <Feather
-                              name={isAnalyzed ? 'check-circle' : 'file-text'}
-                              size={22}
-                              color={isAnalyzed ? '#10B981' : '#3B82F6'}
-                            />
-                          </View>
-                          <View style={styles.documentInfo}>
-                            <Text style={styles.documentTitle} numberOfLines={1}>{displayTitle}</Text>
-                            <View style={styles.documentMeta}>
-                              <View style={[styles.typeBadge, isAnalyzed && styles.typeBadgeAnalyzed]}>
-                                <Text style={[styles.typeBadgeText, isAnalyzed && styles.typeBadgeTextAnalyzed]}>
-                                  {isAnalyzed ? 'Analyzed' : displayType}
-                                </Text>
-                              </View>
-                              <Text style={styles.documentDate}>{formatDateShort(doc.created_at)}</Text>
+                      <View style={styles.documentCardContent}>
+                        <View style={[styles.documentIconNew, { backgroundColor: colorScheme.iconBg }]}>
+                          <Feather name="file-text" size={22} color={colorScheme.iconColor} />
+                        </View>
+                        <View style={styles.documentInfoNew}>
+                          <Text style={styles.documentTitleNew} numberOfLines={1}>{displayTitle}</Text>
+                          <View style={styles.documentMetaNew}>
+                            <View style={styles.typeBadgeNew}>
+                              <Text style={styles.typeBadgeTextNew}>{displayType}</Text>
                             </View>
+                            <Text style={styles.documentDateNew}>{formatDate(doc.created_at)}</Text>
                           </View>
-                          <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.5)" />
-                        </BlurView>
-                      </TouchableOpacity>
-                    </Animated.View>
+                        </View>
+                        <View style={styles.documentStatusBadge}>
+                          <Feather name="check-circle" size={16} color="#10B981" />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
             )}
-          </Animated.View>
+          </View>
 
-          {/* Bottom Padding */}
           <View style={{ height: 120 }} />
         </ScrollView>
 
-        {/* Glassmorphic Bottom Navigation */}
-        <View style={styles.bottomNavWrapper}>
-          <BlurView intensity={80} tint="dark" style={styles.bottomNav}>
-            <TouchableOpacity style={styles.navItem}>
-              <View style={styles.navItemActive}>
-                <Feather name="home" size={22} color={Colors.white} />
-              </View>
-              <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
-            </TouchableOpacity>
+        {/* Floating Action Button with Subtle Animation */}
+        <Animated.View style={[styles.fabShadow, { transform: [{ scale: fabPulse }] }]}>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={showUploadOptions}
+            activeOpacity={0.8}
+            disabled={isUploading}
+          >
+            <Feather name="upload-cloud" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+        </Animated.View>
 
-            <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('documents')}>
-              <View style={styles.navItemInactive}>
-                <Feather name="folder" size={22} color="rgba(255,255,255,0.5)" />
-              </View>
-              <Text style={styles.navText}>Documents</Text>
-            </TouchableOpacity>
-
-            {/* Center Scan Button */}
-            <TouchableOpacity style={styles.navCenterButton} onPress={showUploadOptions} disabled={isUploading}>
-              <LinearGradient
-                colors={['#3B82F6', '#8B5CF6']}
-                style={styles.navCenterGradient}
-              >
-                <Feather name="plus" size={28} color={Colors.white} />
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('health')}>
-              <View style={styles.navItemInactive}>
-                <Feather name="heart" size={22} color="rgba(255,255,255,0.5)" />
-              </View>
-              <Text style={styles.navText}>Health</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('profile')}>
-              <View style={styles.navItemInactive}>
-                <Feather name="user" size={22} color="rgba(255,255,255,0.5)" />
-              </View>
-              <Text style={styles.navText}>Profile</Text>
-            </TouchableOpacity>
-          </BlurView>
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          <TouchableOpacity style={styles.navItem}>
+            <View style={styles.navIconActive}>
+              <Feather name="home" size={22} color={Colors.primary} />
+            </View>
+            <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('medications')}>
+            <Feather name="package" size={22} color={Colors.gray400} />
+            <Text style={styles.navText}>Medications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('health')}>
+            <Feather name="heart" size={22} color={Colors.gray400} />
+            <Text style={styles.navText}>Health</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('profile')}>
+            <Feather name="user" size={22} color={Colors.gray400} />
+            <Text style={styles.navText}>Profile</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
@@ -804,22 +613,10 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               <Feather name="plus-circle" size={20} color={Colors.primary} />
               <Text style={styles.addMemberButtonText}>Add Family Member</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={() => {
-                setShowFamilyModal(false);
-                // Add logout logic here if needed
-              }}
-            >
-              <Feather name="log-out" size={20} color={Colors.error} />
-              <Text style={styles.logoutButtonText}>Log Out</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Add Family Member Modal */}
       <AddFamilyMemberModal
         visible={showAddMemberModal}
         onClose={() => setShowAddMemberModal(false)}
@@ -831,9 +628,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradientBackground: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F9FAFB',
   },
   safeArea: {
     flex: 1,
@@ -843,332 +638,373 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: Sizes.lg,
-    paddingTop: Sizes.sm,
-    paddingBottom: Sizes.md,
+    paddingTop: 16,
+    paddingBottom: 16,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  headerLeft: {
+  headerContent: {
     flex: 1,
+    marginRight: Sizes.md,
   },
-  headerRight: {
-    flexDirection: 'row',
-    gap: Sizes.sm,
-  },
-  headerIconButton: {
-    overflow: 'hidden',
-    borderRadius: 20,
-  },
-  glassButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    zIndex: 1,
+  greetingSection: {
+    marginBottom: 14,
   },
   greeting: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15,
+    color: Colors.gray500,
     marginBottom: 2,
   },
   userName: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '700',
-    color: Colors.white,
+    color: Colors.gray900,
   },
+  profileCardWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4A90E2',
+  },
+  profileCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  profileCardAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F4FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4A90E2',
+  },
+  profileCardLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+    fontWeight: '500',
+  },
+  profileCardName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  profileCardChevron: {
+    marginLeft: 8,
+  },
+  profileStreakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  profileStreakText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  notificationButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+  },
+
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: Sizes.lg,
-    paddingTop: Sizes.sm,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
 
-  // Profile Card
-  profileCard: {
-    borderRadius: 20,
-    marginBottom: Sizes.md,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+  // Stats Container - Clean Professional
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
   },
-  profileCardInner: {
+  statCardWrapper: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  statCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Sizes.md,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
   },
-  profileAvatarLarge: {
-    marginRight: Sizes.md,
+  statCardGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderRadius: 20,
+    position: 'relative',
   },
-  avatarGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  statIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
-  profileInfo: {
+  statTextContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
-  profileLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+  statValueNew: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
     marginBottom: 2,
   },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  relationshipBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginTop: 4,
-    alignSelf: 'flex-start',
-  },
-  relationshipText: {
-    fontSize: 11,
-    color: Colors.white,
-    fontWeight: '500',
-  },
-  switchButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Scan Hero Button
-  scanHeroButton: {
-    marginBottom: Sizes.lg,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  scanHeroInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Sizes.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  scanIconContainer: {
-    marginRight: Sizes.md,
-  },
-  scanIconGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scanTextContainer: {
-    flex: 1,
-  },
-  scanHeroTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.white,
-    marginBottom: 2,
-  },
-  scanHeroSubtitle: {
+  statLabelNew: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
   },
-  scanArrow: {
+  // Old styles for backwards compatibility
+  statCardBlur: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  statCardOverlay: {
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderRadius: 24,
+  },
+  statIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  statValue: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1F2937',
+    lineHeight: 30,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  // AI Insights Card
+  insightsCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4A90E2',
+  },
+  insightsGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  insightsIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#E8F4FD',
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Quick Actions
-  quickActionsContainer: {
-    marginBottom: Sizes.lg,
-  },
-  quickActionsGrid: {
+  insightsContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Sizes.sm,
-  },
-  quickActionItem: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  quickActionGlass: {
-    paddingVertical: Sizes.md,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    overflow: 'hidden',
+    padding: 16,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
   },
-  quickActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Sizes.xs,
+  insightsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
   },
-  quickActionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.white,
+  insightsText: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
   },
 
-  // Section Titles
-  sectionTitleLight: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.white,
-    marginBottom: Sizes.md,
+  // Section
+  section: {
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Sizes.md,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
   },
   seeAllText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#4A90E2',
     fontWeight: '600',
   },
 
-  // Stats
-  statsContainer: {
-    marginBottom: Sizes.lg,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Sizes.sm,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Sizes.md,
-    paddingHorizontal: Sizes.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Sizes.xs,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-  },
-
-  // Schedule Section
-  scheduleContainer: {
-    marginBottom: Sizes.lg,
-  },
-  scheduleCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    overflow: 'hidden',
-    padding: Sizes.sm,
-  },
-  scheduleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Sizes.sm,
-    borderRadius: 12,
-  },
-  scheduleItemBorder: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: Sizes.xs,
-    paddingTop: Sizes.md,
-  },
-  scheduleIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Sizes.sm,
-  },
-  scheduleInfo: {
-    flex: 1,
-  },
-  scheduleTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: 2,
-  },
-  scheduleTime: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-
-  // Documents Section
-  documentsSection: {
-    marginBottom: Sizes.lg,
-  },
+  // Documents List - New Design
   documentsList: {
-    gap: Sizes.sm,
+    gap: 12,
   },
-  documentCard: {
-    marginBottom: Sizes.xs,
-    borderRadius: 16,
+  documentCardNew: {
+    borderRadius: 12,
     overflow: 'hidden',
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    borderLeftWidth: 3,
   },
-  documentCardInner: {
+  documentCardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Sizes.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 14,
+    gap: 12,
+  },
+  documentCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  documentIconNew: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
+  },
+  documentInfoNew: {
+    flex: 1,
+  },
+  documentTitleNew: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 6,
+  },
+  documentMetaNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typeBadgeNew: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  typeBadgeTextNew: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  documentDateNew: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  documentStatusBadge: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Old document card styles for backwards compatibility
+  documentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gray50,
+    padding: Sizes.md,
+    borderRadius: 12,
+    marginBottom: Sizes.sm,
   },
   documentIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 10,
+    backgroundColor: '#E8F0FE',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Sizes.md,
@@ -1177,10 +1013,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.gray900,
+    marginBottom: 6,
+    lineHeight: 18,
   },
   documentMeta: {
     flexDirection: 'row',
@@ -1188,59 +1025,46 @@ const styles = StyleSheet.create({
     gap: Sizes.sm,
   },
   typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.gray200,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   typeBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  typeBadgeAnalyzed: {
-    backgroundColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  typeBadgeTextAnalyzed: {
-    color: '#10B981',
+    color: Colors.gray600,
   },
   documentDate: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: Colors.gray500,
   },
 
-  // Empty & Loading States
-  loadingCard: {
+  // Loading & Empty States
+  loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: Sizes.xl,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
+    backgroundColor: Colors.gray50,
+    borderRadius: 12,
     gap: Sizes.sm,
-    overflow: 'hidden',
   },
   loadingText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: Colors.gray500,
   },
-  emptyCard: {
+  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
     padding: Sizes.xl,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: Colors.gray50,
+    borderRadius: 12,
   },
-  emptyIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Sizes.md,
@@ -1248,108 +1072,86 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.white,
+    color: Colors.gray700,
     marginBottom: 4,
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
-    textAlign: 'center',
-    marginBottom: Sizes.lg,
-  },
-  emptyButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  emptyButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    gap: Sizes.xs,
-  },
-  emptyButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: Colors.white,
+    color: Colors.gray500,
+    textAlign: 'center',
+  },
+
+  // Floating Action Button - Clean Professional
+  fabShadow: {
+    position: 'absolute',
+    right: 24,
+    bottom: 100,
+  },
+  fab: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#4A90E2',
+    shadowColor: '#4A90E2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Bottom Navigation
-  bottomNavWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: Sizes.md,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
-  },
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Sizes.sm,
-    paddingHorizontal: Sizes.xs,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 28,
-    overflow: 'hidden',
+    paddingHorizontal: Sizes.md,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
+    paddingBottom: Platform.OS === 'ios' ? 24 : Sizes.sm,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: Sizes.xs,
   },
-  navItemActive: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  navIconActive: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F0FE',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  navItemInactive: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  navCenterButton: {
-    marginTop: -30,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  navCenterGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   navText: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontWeight: '500',
-    marginTop: 2,
+    fontSize: 11,
+    color: Colors.gray400,
+    marginTop: 4,
   },
   navTextActive: {
-    color: Colors.white,
+    color: Colors.primary,
     fontWeight: '600',
   },
 
-  // Upload Loading Overlay
+  // Loading Overlay
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   loadingBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
     padding: Sizes.xl,
     alignItems: 'center',
     minWidth: 200,
@@ -1357,21 +1159,21 @@ const styles = StyleSheet.create({
   uploadingText: {
     marginTop: Sizes.md,
     fontSize: 16,
-    color: Colors.textPrimary,
+    color: Colors.gray700,
     fontWeight: '600',
   },
 
-  // Family Member Modal
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   familyModalContainer: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '75%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '70%',
   },
   familyModalHeader: {
     flexDirection: 'row',
@@ -1382,9 +1184,9 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.gray100,
   },
   familyModalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: Colors.gray900,
   },
   familyMembersList: {
     padding: Sizes.lg,
@@ -1393,28 +1195,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Sizes.md,
-    borderRadius: 16,
+    borderRadius: 12,
     marginBottom: Sizes.sm,
     backgroundColor: Colors.gray50,
   },
   familyMemberItemActive: {
-    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    backgroundColor: '#E8F0FE',
     borderWidth: 2,
-    borderColor: '#667eea',
+    borderColor: Colors.primary,
   },
   familyMemberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Sizes.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   familyMemberInfo: {
     flex: 1,
@@ -1422,12 +1219,12 @@ const styles = StyleSheet.create({
   familyMemberName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 2,
+    color: Colors.gray900,
   },
   familyMemberRelationship: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: Colors.gray500,
+    marginTop: 2,
   },
   addMemberButton: {
     flexDirection: 'row',
@@ -1437,30 +1234,14 @@ const styles = StyleSheet.create({
     padding: Sizes.md,
     margin: Sizes.lg,
     marginTop: 0,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#667eea',
+    borderColor: Colors.primary,
     borderStyle: 'dashed',
   },
   addMemberButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#667eea',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Sizes.sm,
-    padding: Sizes.md,
-    margin: Sizes.lg,
-    marginTop: 0,
-    borderRadius: 16,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.error,
+    color: Colors.primary,
   },
 });
