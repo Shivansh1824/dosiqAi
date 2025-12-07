@@ -22,13 +22,17 @@ interface DocumentDetailScreenProps {
   navigation: DocumentDetailNavigationProp;
 }
 
-export default function DocumentDetailScreen({ onBack, document, navigation }: DocumentDetailScreenProps) {
+export default function DocumentDetailScreen({ onBack, document: documentProp, navigation }: DocumentDetailScreenProps) {
   const { familyMembers } = useFamilyMembersStore();
-  const { analysisProgress, retryAnalysis } = useDocumentsStore();
+  const { documents, analysisProgress, retryAnalysis } = useDocumentsStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [fileNotFound, setFileNotFound] = useState(false);
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
   const [downloading, setDownloading] = useState(false);
+
+  // Get LIVE document from store (updates when AI analysis completes and updates title)
+  // Falls back to prop if not found in store (e.g., during initial load)
+  const document = documents.find(d => d.id === documentProp.id) || documentProp;
 
   // Get analysis progress for this document
   const documentProgress = analysisProgress[document.id] || 0;
@@ -36,6 +40,9 @@ export default function DocumentDetailScreen({ onBack, document, navigation }: D
   // Get family member name
   const familyMember = familyMembers.find(m => m.id === document.family_member_id);
   const patientName = familyMember?.name || 'Unknown';
+
+  // Get display title - prefer AI-generated filename from analysis result, fallback to document title
+  const displayTitle = document.ai_analysis_result?.file_name || document.title;
 
   // Check if file exists and set image URI
   useEffect(() => {
@@ -112,7 +119,7 @@ export default function DocumentDetailScreen({ onBack, document, navigation }: D
       // Navigate to embedded PDF viewer
       navigation.navigate('PdfViewer', {
         uri: imageUri,
-        title: document.title
+        title: displayTitle
       });
       console.log('[DocumentDetail] Navigated to PdfViewer with URI:', imageUri);
     } else {
@@ -218,124 +225,246 @@ export default function DocumentDetailScreen({ onBack, document, navigation }: D
     }
   };
 
+  // Helper to get summary from new or legacy structure
+  const getSummary = (result: DocumentAnalysisResult): string | undefined => {
+    return result.common_data?.summary || result.summary;
+  };
+
+  // Helper to format document type
+  const formatDocumentType = (type: string): string => {
+    return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+  };
+
   // Component for displaying analysis results
-  const AnalysisResultsDisplay = ({ result }: { result: DocumentAnalysisResult }) => (
-    <View style={styles.analysisContent}>
-      {/* Summary */}
-      {result.summary && (
-        <View style={styles.analysisSection}>
-          <Text style={styles.analysisSectionTitle}>Summary</Text>
-          <Text style={styles.analysisText}>{result.summary}</Text>
-        </View>
-      )}
+  const AnalysisResultsDisplay = ({ result }: { result: DocumentAnalysisResult }) => {
+    const summary = getSummary(result);
+    const patientInfo = result.patient_info;
+    const commonData = result.common_data;
+    const prescriptionData = result.prescription_data;
+    const reportData = result.report_data;
+    const analysisMetadata = result.analysis_metadata;
 
-      {/* Document Type & Date */}
-      {(result.documentType || result.documentDate) && (
-        <View style={styles.analysisGrid}>
-          {result.documentType && (
-            <View style={styles.analysisGridItem}>
-              <Text style={styles.analysisLabel}>Type</Text>
-              <Text style={styles.analysisValue}>{result.documentType}</Text>
-            </View>
-          )}
-          {result.documentDate && (
-            <View style={styles.analysisGridItem}>
-              <Text style={styles.analysisLabel}>Date</Text>
-              <Text style={styles.analysisValue}>{result.documentDate}</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Critical Findings */}
-      {result.criticalFindings && result.criticalFindings.length > 0 && (
-        <View style={styles.analysisSection}>
-          <View style={styles.criticalHeader}>
-            <Feather name="alert-triangle" size={18} color={Colors.error} />
-            <Text style={[styles.analysisSectionTitle, styles.criticalTitle]}>
-              Critical Findings
-            </Text>
+    return (
+      <View style={styles.analysisContent}>
+        {/* Summary - Primary display */}
+        {summary && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Summary</Text>
+            <Text style={styles.analysisText}>{summary}</Text>
           </View>
-          {result.criticalFindings.map((finding, index) => (
-            <View key={index} style={styles.criticalItem}>
-              <View style={styles.criticalDot} />
-              <Text style={styles.criticalText}>{finding}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+        )}
 
-      {/* Medications */}
-      {result.medications && result.medications.length > 0 && (
-        <View style={styles.analysisSection}>
-          <Text style={styles.analysisSectionTitle}>Medications</Text>
-          {result.medications.map((med: any, index: number) => (
-            <View key={index} style={styles.medicationItem}>
-              <Feather name="circle" size={6} color={Colors.primary} />
-              <Text style={styles.medicationText}>
-                {typeof med === 'string' ? med : `${med.name} - ${med.dosage}`}
+        {/* Document Type & Visit Date */}
+        {(result.document_type || commonData?.visit_date) && (
+          <View style={styles.analysisGrid}>
+            {result.document_type && (
+              <View style={styles.analysisGridItem}>
+                <Text style={styles.analysisLabel}>Type</Text>
+                <Text style={styles.analysisValue}>{formatDocumentType(result.document_type)}</Text>
+              </View>
+            )}
+            {commonData?.visit_date && (
+              <View style={styles.analysisGridItem}>
+                <Text style={styles.analysisLabel}>Visit Date</Text>
+                <Text style={styles.analysisValue}>{commonData.visit_date}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Patient Info */}
+        {patientInfo && (patientInfo.name || patientInfo.age || patientInfo.gender) && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Patient Information</Text>
+            <View style={styles.patientInfoContainer}>
+              {patientInfo.name && (
+                <View style={styles.patientInfoRow}>
+                  <Text style={styles.analysisLabel}>Name</Text>
+                  <Text style={styles.analysisValue}>{patientInfo.name}</Text>
+                </View>
+              )}
+              {patientInfo.age && (
+                <View style={styles.patientInfoRow}>
+                  <Text style={styles.analysisLabel}>Age</Text>
+                  <Text style={styles.analysisValue}>{patientInfo.age}</Text>
+                </View>
+              )}
+              {patientInfo.gender && (
+                <View style={styles.patientInfoRow}>
+                  <Text style={styles.analysisLabel}>Gender</Text>
+                  <Text style={styles.analysisValue}>{patientInfo.gender}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Doctor & Hospital Info */}
+        {prescriptionData && (prescriptionData.doctor_name || prescriptionData.hospital_name) && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Healthcare Provider</Text>
+            <View style={styles.patientInfoContainer}>
+              {prescriptionData.doctor_name && (
+                <View style={styles.patientInfoRow}>
+                  <Text style={styles.analysisLabel}>Doctor</Text>
+                  <Text style={styles.analysisValue}>{prescriptionData.doctor_name}</Text>
+                </View>
+              )}
+              {prescriptionData.hospital_name && (
+                <View style={styles.patientInfoRow}>
+                  <Text style={styles.analysisLabel}>Hospital</Text>
+                  <Text style={styles.analysisValue}>{prescriptionData.hospital_name}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Diagnosis */}
+        {prescriptionData?.medical_issue_diagnosis && (
+          <View style={styles.analysisSection}>
+            <View style={styles.criticalHeader}>
+              <Feather name="activity" size={18} color={Colors.primary} />
+              <Text style={[styles.analysisSectionTitle, { marginLeft: 8, marginBottom: 0 }]}>
+                Diagnosis
               </Text>
             </View>
-          ))}
-        </View>
-      )}
+            <Text style={[styles.analysisText, { marginTop: 8 }]}>
+              {prescriptionData.medical_issue_diagnosis}
+            </Text>
+          </View>
+        )}
 
-      {/* Vital Signs */}
-      {result.vitalSigns && Object.keys(result.vitalSigns).length > 0 && (
-        <View style={styles.analysisSection}>
-          <Text style={styles.analysisSectionTitle}>Vital Signs</Text>
-          <View style={styles.vitalSignsGrid}>
-            {Object.entries(result.vitalSigns).map(([key, value]) => (
-              <View key={key} style={styles.vitalSignItem}>
-                <Text style={styles.vitalSignLabel}>{key}</Text>
-                <Text style={styles.vitalSignValue}>{String(value)}</Text>
+        {/* Medications */}
+        {prescriptionData?.medicines && prescriptionData.medicines.length > 0 && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Medications</Text>
+            {prescriptionData.medicines.map((med, index) => (
+              <View key={index} style={styles.medicationCard}>
+                <View style={styles.medicationHeader}>
+                  <Feather name="package" size={16} color={Colors.primary} />
+                  <Text style={styles.medicationName}>{med.exact_written_name}</Text>
+                </View>
+                {med.assumed_enriched_data?.scientific_name && (
+                  <Text style={styles.medicationScientific}>
+                    ({med.assumed_enriched_data.scientific_name})
+                  </Text>
+                )}
+                <View style={styles.medicationDetails}>
+                  {med.dosage_instruction && (
+                    <Text style={styles.medicationDetail}>
+                      💊 {med.dosage_instruction}
+                    </Text>
+                  )}
+                  {med.frequency && (
+                    <Text style={styles.medicationDetail}>
+                      🕐 {med.frequency}
+                    </Text>
+                  )}
+                  {med.duration && (
+                    <Text style={styles.medicationDetail}>
+                      📅 {med.duration}
+                    </Text>
+                  )}
+                  {med.special_instructions && (
+                    <Text style={styles.medicationDetail}>
+                      ⚠️ {med.special_instructions}
+                    </Text>
+                  )}
+                </View>
               </View>
             ))}
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Lab Results */}
-      {result.labResults && result.labResults.length > 0 && (
-        <View style={styles.analysisSection}>
-          <Text style={styles.analysisSectionTitle}>Lab Results</Text>
-          {result.labResults.map((lab: any, index: number) => (
-            <View key={index} style={styles.labResultItem}>
-              <Text style={styles.labResultName}>
-                {typeof lab === 'string' ? lab : lab.name}
-              </Text>
-              {typeof lab === 'object' && lab.value && (
-                <Text style={styles.labResultValue}>
-                  {lab.value} {lab.unit || ''}
-                </Text>
-              )}
+        {/* Recommended Tests */}
+        {prescriptionData?.recommended_tests && prescriptionData.recommended_tests.length > 0 && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Recommended Tests</Text>
+            {prescriptionData.recommended_tests.map((test, index) => (
+              <View key={index} style={styles.testItem}>
+                <Feather name="clipboard" size={14} color={Colors.primary} />
+                <View style={styles.testContent}>
+                  <Text style={styles.testName}>{test.test_name}</Text>
+                  {test.reason && (
+                    <Text style={styles.testReason}>{test.reason}</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Lab Results (from report_data) */}
+        {reportData?.grouped_metrics && reportData.grouped_metrics.length > 0 && (
+          <View style={styles.analysisSection}>
+            {reportData.lab_name && (
+              <Text style={styles.labName}>{reportData.lab_name}</Text>
+            )}
+            <Text style={styles.analysisSectionTitle}>Lab Results</Text>
+            {reportData.grouped_metrics.map((group, groupIndex) => (
+              <View key={groupIndex} style={styles.labGroup}>
+                <Text style={styles.labGroupName}>{group.group_name}</Text>
+                {group.metrics.map((metric, metricIndex) => (
+                  <View key={metricIndex} style={styles.labMetricItem}>
+                    <View style={styles.labMetricHeader}>
+                      <Text style={styles.labMetricName}>{metric.metric_name}</Text>
+                      {metric.status && metric.status !== 'normal' && (
+                        <View style={[
+                          styles.metricStatusBadge,
+                          metric.status === 'critical' && styles.metricStatusCritical,
+                          metric.status === 'high' && styles.metricStatusHigh,
+                          metric.status === 'low' && styles.metricStatusLow,
+                        ]}>
+                          <Text style={styles.metricStatusText}>
+                            {metric.status.toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.labMetricValue}>
+                      {metric.value} {metric.unit || ''}
+                    </Text>
+                    {metric.reference_range && (
+                      <Text style={styles.labMetricReference}>
+                        Ref: {metric.reference_range}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Confidence Score */}
+        {analysisMetadata?.confidence_score && (
+          <View style={styles.confidenceContainer}>
+            <Text style={styles.confidenceLabel}>Analysis Confidence</Text>
+            <View style={styles.confidenceBar}>
+              <View
+                style={[
+                  styles.confidenceFill,
+                  { width: `${analysisMetadata.confidence_score * 100}%` }
+                ]}
+              />
             </View>
-          ))}
-        </View>
-      )}
+            <Text style={styles.confidenceValue}>
+              {Math.round(analysisMetadata.confidence_score * 100)}%
+            </Text>
+          </View>
+        )}
 
-      {/* Diagnoses */}
-      {result.diagnoses && result.diagnoses.length > 0 && (
-        <View style={styles.analysisSection}>
-          <Text style={styles.analysisSectionTitle}>Diagnoses</Text>
-          {result.diagnoses.map((diagnosis, index) => (
-            <View key={index} style={styles.diagnosisItem}>
-              <Feather name="circle" size={6} color={Colors.primary} />
-              <Text style={styles.diagnosisText}>{diagnosis}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Raw Text Fallback */}
-      {result.rawText && !result.summary && (
-        <View style={styles.analysisSection}>
-          <Text style={styles.analysisSectionTitle}>Analysis</Text>
-          <Text style={styles.analysisText}>{result.rawText}</Text>
-        </View>
-      )}
-    </View>
-  );
+        {/* Raw Text Fallback */}
+        {result.rawText && !summary && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Analysis</Text>
+            <Text style={styles.analysisText}>{result.rawText}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -349,7 +478,7 @@ export default function DocumentDetailScreen({ onBack, document, navigation }: D
         >
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{document.title}</Text>
+        <Text style={styles.headerTitle}>{displayTitle}</Text>
         <TouchableOpacity
           style={styles.headerButtonRight}
           activeOpacity={0.6}
@@ -420,93 +549,60 @@ export default function DocumentDetailScreen({ onBack, document, navigation }: D
             </View>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Type</Text>
-              <Text style={styles.detailValue}>{document.type}</Text>
+              <Text style={styles.detailValue}>
+                {document.ai_analysis_result?.document_type
+                  ? formatDocumentType(document.ai_analysis_result.document_type)
+                  : document.type}
+              </Text>
             </View>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Patient</Text>
-              <Text style={styles.detailValue}>{patientName}</Text>
+              <Text style={styles.detailValue}>
+                {document.ai_analysis_result?.patient_info?.name || patientName}
+              </Text>
             </View>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>File Size</Text>
               <Text style={styles.detailValue}>{formatFileSize(document.file_size)}</Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Storage</Text>
-              <View style={styles.statusBadge}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusText}>Local</Text>
-              </View>
+              <Text style={styles.detailLabel}>Analysis</Text>
+              {document.ai_analysis_status === 'processing' ? (
+                <View style={[styles.statusBadge, styles.statusBadgeProcessing]}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={[styles.statusText, styles.statusTextProcessing]}>Processing</Text>
+                </View>
+              ) : document.ai_analysis_status === 'completed' ? (
+                <View style={[styles.statusBadge, styles.statusBadgeSuccess]}>
+                  <Feather name="check-circle" size={12} color={Colors.success} />
+                  <Text style={[styles.statusText, styles.statusTextSuccess]}>Completed</Text>
+                </View>
+              ) : document.ai_analysis_status === 'failed' ? (
+                <View style={[styles.statusBadge, styles.statusBadgeError]}>
+                  <Feather name="alert-circle" size={12} color={Colors.error} />
+                  <Text style={[styles.statusText, styles.statusTextError]}>Failed</Text>
+                </View>
+              ) : (
+                <View style={styles.statusBadge}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>Pending</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
-        {/* AI Analysis Card */}
-        {document.ai_analysis_status && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>AI Analysis</Text>
-              {document.ai_analysis_status === 'completed' && (
-                <View style={[styles.statusBadge, styles.statusBadgeSuccess]}>
-                  <Feather name="check-circle" size={14} color={Colors.success} />
-                  <Text style={[styles.statusText, styles.statusTextSuccess]}>Completed</Text>
-                </View>
-              )}
-              {document.ai_analysis_status === 'processing' && (
-                <View style={[styles.statusBadge, styles.statusBadgeProcessing]}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={[styles.statusText, styles.statusTextProcessing]}>Processing...</Text>
-                </View>
-              )}
-              {document.ai_analysis_status === 'failed' && (
-                <View style={[styles.statusBadge, styles.statusBadgeError]}>
-                  <Feather name="alert-circle" size={14} color={Colors.error} />
-                  <Text style={[styles.statusText, styles.statusTextError]}>Failed</Text>
-                </View>
-              )}
+        {/* Summary Card - Only show when analysis is completed with summary */}
+        {document.ai_analysis_status === 'completed' &&
+          document.ai_analysis_result &&
+          getSummary(document.ai_analysis_result) && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Summary</Text>
+              <Text style={styles.analysisText}>
+                {getSummary(document.ai_analysis_result)}
+              </Text>
             </View>
-
-            {/* Processing Progress */}
-            {document.ai_analysis_status === 'processing' && documentProgress > 0 && (
-              <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${documentProgress}%` }]} />
-                </View>
-                <Text style={styles.progressText}>{documentProgress}%</Text>
-              </View>
-            )}
-
-            {/* Analysis Results */}
-            {document.ai_analysis_status === 'completed' && document.ai_analysis_result && (
-              <AnalysisResultsDisplay result={document.ai_analysis_result} />
-            )}
-
-            {/* Error State */}
-            {document.ai_analysis_status === 'failed' && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorMessage}>
-                  {document.ai_analysis_error || 'Analysis failed'}
-                </Text>
-                {imageUri && (
-                  <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={() => retryAnalysis(document.id, imageUri)}
-                  >
-                    <Feather name="refresh-cw" size={18} color={Colors.primary} />
-                    <Text style={styles.retryButtonText}>Retry Analysis</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Pending State */}
-            {document.ai_analysis_status === 'pending' && (
-              <View style={styles.pendingContainer}>
-                <Feather name="clock" size={32} color={Colors.gray400} />
-                <Text style={styles.pendingText}>Analysis pending</Text>
-              </View>
-            )}
-          </View>
-        )}
+          )}
 
         {/* Extra padding */}
         <View style={{ height: 20 }} />
@@ -1020,5 +1116,175 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginTop: Sizes.sm,
+  },
+
+  // New Analysis Display Styles
+  patientInfoContainer: {
+    gap: Sizes.sm,
+  },
+  patientInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+
+  // Medication Card Styles
+  medicationCard: {
+    backgroundColor: Colors.gray50,
+    borderRadius: 12,
+    padding: Sizes.md,
+    marginBottom: Sizes.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  medicationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  medicationName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  medicationScientific: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginLeft: 24,
+    marginBottom: 8,
+  },
+  medicationDetails: {
+    marginTop: 4,
+    gap: 4,
+  },
+  medicationDetail: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    paddingLeft: 8,
+  },
+
+  // Test Styles
+  testItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  testContent: {
+    flex: 1,
+  },
+  testName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+  testReason: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+
+  // Lab Results Styles
+  labName: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  labGroup: {
+    marginTop: Sizes.sm,
+  },
+  labGroupName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginBottom: Sizes.xs,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primary + '30',
+  },
+  labMetricItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  labMetricHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  labMetricName: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  labMetricValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  labMetricReference: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  metricStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  metricStatusCritical: {
+    backgroundColor: Colors.errorLight,
+  },
+  metricStatusHigh: {
+    backgroundColor: '#FEF3C7',
+  },
+  metricStatusLow: {
+    backgroundColor: '#DBEAFE',
+  },
+  metricStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.error,
+  },
+
+  // Confidence Meter Styles
+  confidenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.sm,
+    paddingTop: Sizes.md,
+    marginTop: Sizes.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
+  },
+  confidenceLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  confidenceBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.gray100,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  confidenceFill: {
+    height: '100%',
+    backgroundColor: Colors.success,
+    borderRadius: 3,
+  },
+  confidenceValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.success,
+    minWidth: 35,
+    textAlign: 'right',
   },
 });

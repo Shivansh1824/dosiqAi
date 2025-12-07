@@ -114,22 +114,34 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
 
     // Call Edge Function
     console.log('[DocumentAnalysis] Calling Edge Function...');
-    const { data, error } = await supabase.functions.invoke('analyze-document', {
-      body: {
-        documentId,
-        base64Image,
-        fileType,
-        prompt: customPrompt,
-      },
-    });
+    console.log('[DocumentAnalysis] Request body size:', JSON.stringify({ documentId, fileType }).length + base64Image.length, 'bytes');
 
-    if (error) {
-      console.error('[DocumentAnalysis] Edge Function error:', error);
-      throw error;
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-document', {
+        body: {
+          documentId,
+          base64Image,
+          fileType,
+          prompt: customPrompt,
+        },
+      });
+
+      if (error) {
+        console.error('[DocumentAnalysis] Edge Function error:', error);
+        console.error('[DocumentAnalysis] Error details:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+
+      console.log('[DocumentAnalysis] Analysis completed successfully');
+      console.log('[DocumentAnalysis] Response data:', JSON.stringify(data, null, 2));
+      return data as AnalysisResponse;
+    } catch (fetchError: any) {
+      console.error('[DocumentAnalysis] Fetch error caught:', fetchError);
+      console.error('[DocumentAnalysis] Fetch error name:', fetchError?.name);
+      console.error('[DocumentAnalysis] Fetch error message:', fetchError?.message);
+      console.error('[DocumentAnalysis] Fetch error stack:', fetchError?.stack);
+      throw fetchError;
     }
-
-    console.log('[DocumentAnalysis] Analysis completed successfully');
-    return data as AnalysisResponse;
 
   } catch (error: any) {
     console.error('[DocumentAnalysis] Error:', error);

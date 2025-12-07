@@ -80,7 +80,15 @@ export default function DocumentsScreen() {
                         </Text>
                     </View>
                 ) : (
-                    documents.map((doc) => (
+                    documents.map((doc) => {
+                        // Prefer AI-generated filename from analysis result, fallback to document title
+                        const displayTitle = doc.ai_analysis_result?.file_name || doc.title;
+                        // Prefer AI-detected document type, fallback to original type
+                        const formatDocType = (type: string) => type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+                        const displayType = doc.ai_analysis_result?.document_type
+                            ? formatDocType(doc.ai_analysis_result.document_type)
+                            : doc.type;
+                        return (
                         <TouchableOpacity
                             key={doc.id}
                             style={styles.documentCard}
@@ -91,17 +99,18 @@ export default function DocumentsScreen() {
                                 <Feather name="file-text" size={24} color={doc.color} />
                             </View>
                             <View style={styles.documentInfo}>
-                                <Text style={styles.documentTitle}>{doc.title}</Text>
+                                <Text style={styles.documentTitle}>{displayTitle}</Text>
                                 <View style={styles.documentMeta}>
                                     <View style={styles.typeBadge}>
-                                        <Text style={styles.typeBadgeText}>{doc.type}</Text>
+                                        <Text style={styles.typeBadgeText}>{displayType}</Text>
                                     </View>
                                     <Text style={styles.documentDate}>{formatDate(doc.created_at)}</Text>
                                 </View>
                             </View>
                             <Feather name="chevron-right" size={20} color={Colors.gray400} />
                         </TouchableOpacity>
-                    ))
+                        );
+                    })
                 )}
             </ScrollView>
         </SafeAreaView>

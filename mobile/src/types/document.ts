@@ -12,15 +12,90 @@ export type DocumentType =
 
 export type DocumentAnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
+// Medicine structure from prescription
+export interface MedicineInfo {
+  exact_written_name: string;
+  assumed_enriched_data?: {
+    is_identified: boolean;
+    scientific_name?: string;
+  };
+  dosage_instruction?: string;
+  frequency?: string;
+  duration?: string;
+  special_instructions?: string;
+}
+
+// Recommended test structure
+export interface RecommendedTest {
+  test_name: string;
+  reason?: string;
+}
+
+// Lab metric structure
+export interface LabMetric {
+  metric_name: string;
+  value: string;
+  unit?: string;
+  reference_range?: string;
+  status?: 'normal' | 'high' | 'low' | 'critical';
+}
+
+// Grouped lab metrics
+export interface GroupedMetrics {
+  group_name: string;
+  metrics: LabMetric[];
+}
+
+// AI Analysis result structure matching the prompt output
 export interface DocumentAnalysisResult {
-  documentType?: string;
-  patientName?: string;
-  documentDate?: string;
-  vitalSigns?: Record<string, any>;
-  labResults?: Array<any>;
-  diagnoses?: Array<string>;
-  medications?: Array<any>;
-  criticalFindings?: Array<string>;
+  // Document type
+  document_type?: string;
+
+  // AI-generated filename
+  file_name?: string;
+
+  // Analysis metadata
+  analysis_metadata?: {
+    confidence_score?: number;
+    scan_clarity?: string;
+  };
+
+  // Error response
+  error_response?: {
+    is_error: boolean;
+    user_message?: string;
+    technical_reason?: string;
+  };
+
+  // Patient info
+  patient_info?: {
+    name?: string;
+    age?: string;
+    gender?: string;
+  };
+
+  // Common data (includes summary)
+  common_data?: {
+    visit_date?: string;
+    summary?: string;
+  };
+
+  // Prescription specific data
+  prescription_data?: {
+    doctor_name?: string;
+    hospital_name?: string;
+    medical_issue_diagnosis?: string;
+    recommended_tests?: RecommendedTest[];
+    medicines?: MedicineInfo[];
+  };
+
+  // Report/Lab specific data
+  report_data?: {
+    lab_name?: string;
+    grouped_metrics?: GroupedMetrics[];
+  };
+
+  // Legacy fields for backwards compatibility
   summary?: string;
   rawText?: string; // Fallback if JSON parsing fails
   parseError?: string;

@@ -278,11 +278,99 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       // Wait a bit to show completion
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Refresh documents to get updated analysis
+      // Get document info for user_id
       const localDocuments = get().documents;
       const document = localDocuments.find((doc) => doc.id === documentId);
+
+      // Use analysis result directly from the API response (more reliable than refetching)
+      // The Edge Function returns the parsed analysis in result.analysis
+      console.log('[DocumentsStore] Full result from Edge Function:', JSON.stringify(result, null, 2));
+
+      const analysisResult = result.analysis;
+      console.log('[DocumentsStore] Analysis result object:', analysisResult);
+      console.log('[DocumentsStore] Analysis result type:', typeof analysisResult);
+
+      const aiGeneratedFilename = analysisResult?.file_name;
+      const aiDocumentType = analysisResult?.document_type;
+
+      console.log('[DocumentsStore] Extracted values - aiGeneratedFilename:', aiGeneratedFilename, ', aiDocumentType:', aiDocumentType);
+
       if (document?.user_id) {
-        await get().fetchDocuments(document.user_id, true); // Silent refresh
+
+        if ((aiGeneratedFilename || aiDocumentType) && isSupabaseConfigured()) {
+          try {
+            const updateFields: { title?: string; type?: string } = {};
+
+            // Handle filename update with duplicate checking
+            if (aiGeneratedFilename) {
+              let finalTitle = aiGeneratedFilename;
+              const existingDocs = get().documents.filter(
+                (doc) => doc.id !== documentId && doc.user_id === document.user_id
+              );
+
+              // Find all documents with the same base filename
+              const duplicates = existingDocs.filter((doc) => {
+                // Check if title matches exactly or has a number suffix
+                return doc.title === aiGeneratedFilename ||
+                  doc.title.match(new RegExp(`^${aiGeneratedFilename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(\\d+\\)$`));
+              });
+
+              if (duplicates.length > 0) {
+                // Find the highest number used
+                let maxNumber = 0;
+                duplicates.forEach((doc) => {
+                  const match = doc.title.match(/\((\d+)\)$/);
+                  if (match) {
+                    maxNumber = Math.max(maxNumber, parseInt(match[1]));
+                  } else if (doc.title === aiGeneratedFilename) {
+                    maxNumber = Math.max(maxNumber, 0);
+                  }
+                });
+
+                // Append next number
+                finalTitle = `${aiGeneratedFilename} (${maxNumber + 1})`;
+              }
+
+              updateFields.title = finalTitle;
+            }
+
+            // Map AI document type to DocumentType enum
+            if (aiDocumentType) {
+              const typeMapping: { [key: string]: string } = {
+                'prescription': 'Prescription',
+                'lab_report': 'Lab Report',
+                'lab report': 'Lab Report',
+                'imaging': 'Imaging',
+                'report': 'Report',
+                'record': 'Record',
+                'other': 'Other',
+              };
+              const mappedType = typeMapping[aiDocumentType.toLowerCase()] || 'Other';
+              updateFields.type = mappedType;
+            }
+
+            // Update document in Supabase
+            if (Object.keys(updateFields).length > 0) {
+              console.log('[DocumentsStore] Updating document with fields:', updateFields);
+              const { error: updateError } = await supabase
+                .from('documents')
+                .update(updateFields)
+                .eq('id', documentId);
+
+              if (updateError) {
+                console.error('[DocumentsStore] Error updating document:', updateError);
+              } else {
+                console.log('[DocumentsStore] Successfully updated document title/type');
+              }
+            }
+          } catch (error) {
+            console.error('[DocumentsStore] Error updating document:', error);
+            // Don't throw - update is not critical
+          }
+        }
+
+        // Always refresh documents after analysis to get the latest state (including ai_analysis_result)
+        await get().fetchDocuments(document.user_id, true);
       }
 
       // Clear analyzing state

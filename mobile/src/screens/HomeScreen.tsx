@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Dimensions, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
 import { BlurView } from 'expo-blur';
+import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
@@ -21,7 +22,16 @@ import { compressImage } from '../utils/imageCompression';
 import { saveFileLocally } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 
-// Removed: No longer uploading to Supabase Storage
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+// Get time-based greeting
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+};
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -394,182 +404,338 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   // Get next upcoming appointment
   const nextAppointment = appointments.length > 0 ? appointments[0] : null;
 
+  // Get today's medications
+  const todayMedications = medications.slice(0, 2);
+
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDateShort = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Memoized greeting
+  const greeting = useMemo(() => getGreeting(), []);
+
   const stats = [
-    { icon: 'file-text', label: 'Documents', value: String(documents.length), color: '#3B82F6', bgColor: '#EFF6FF' },
-    { icon: 'activity', label: 'Medications', value: String(medications.length), color: '#10B981', bgColor: '#ECFDF5' },
-    { icon: 'calendar', label: 'Appointments', value: String(appointments.length), color: '#F59E0B', bgColor: '#FEF3C7' },
+    { icon: 'file-text', label: 'Documents', value: String(documents.length), color: '#3B82F6', bgColor: 'rgba(59, 130, 246, 0.15)' },
+    { icon: 'heart', label: 'Health Records', value: String(documents.filter(d => d.ai_analysis_result).length), color: '#EC4899', bgColor: 'rgba(236, 72, 153, 0.15)' },
+    { icon: 'users', label: 'Family', value: String(familyMembers.length), color: '#8B5CF6', bgColor: 'rgba(139, 92, 246, 0.15)' },
+  ];
+
+  const quickActions = [
+    { icon: 'camera', label: 'Scan', color: '#3B82F6', onPress: takePhoto },
+    { icon: 'image', label: 'Gallery', color: '#10B981', onPress: pickImage },
+    { icon: 'file-plus', label: 'Files', color: '#F59E0B', onPress: pickDocument },
+    { icon: 'activity', label: 'Health', color: '#EC4899', onPress: () => onNavigate('health') },
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'} 👋</Text>
-        </View>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Feather name="bell" size={24} color={Colors.gray700} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      {/* Gradient Background */}
+      <LinearGradient
+        colors={['#667eea', '#764ba2', '#f093fb']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientBackground}
+      />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-        }
-      >
-        {/* Profile Card with Glassmorphism */}
-        <TouchableOpacity onPress={() => setShowFamilyModal(true)} activeOpacity={0.9}>
-          <LinearGradient
-            colors={[Colors.primary, Colors.secondary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.profileCard}
-          >
-            <View style={styles.profileCardContent}>
-              <View style={styles.profileInfo}>
-                <View style={styles.profileAvatar}>
-                  <Feather name="user" size={28} color={Colors.white} />
-                </View>
-                <View style={styles.profileTextContainer}>
-                  <Text style={styles.profileLabel}>Active Profile</Text>
-                  <Text style={styles.profileName}>{activeMember?.name || user?.name || 'User'}</Text>
-                </View>
-              </View>
-              <View style={styles.switchIconContainer}>
-                <Feather name="chevron-down" size={20} color={Colors.white} />
-              </View>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Quick Stats - Horizontal Scroll */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Quick Overview</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
-            {stats.map((stat, index) => (
-              <View key={index} style={[styles.statCard, index === stats.length - 1 && styles.statCardLast]}>
-                <View style={[styles.statIconContainer, { backgroundColor: stat.bgColor }]}>
-                  <Feather name={stat.icon as any} size={24} color={stat.color} />
-                </View>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Recent Documents Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Documents</Text>
-            <TouchableOpacity onPress={() => onNavigate('documents')}>
-              <Text style={styles.seeAllText}>See All</Text>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Glassmorphic Header */}
+        <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'}</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerIconButton} onPress={() => setShowFamilyModal(true)}>
+              <BlurView intensity={80} tint="light" style={styles.glassButton}>
+                <Feather name="users" size={20} color={Colors.white} />
+              </BlurView>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIconButton}>
+              <BlurView intensity={80} tint="light" style={styles.glassButton}>
+                <View style={styles.notificationDot} />
+                <Feather name="bell" size={20} color={Colors.white} />
+              </BlurView>
             </TouchableOpacity>
           </View>
+        </Animated.View>
 
-          <View style={styles.documentsList}>
-            {isLoadingDocs ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.loadingText}>Loading documents...</Text>
-              </View>
-            ) : recentDocuments.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Feather name="file-text" size={48} color={Colors.gray300} />
-                <Text style={styles.emptyText}>No documents yet</Text>
-                <Text style={styles.emptySubtext}>Tap the upload button to add your first document</Text>
-              </View>
-            ) : (
-              recentDocuments.map((doc) => (
-                <TouchableOpacity
-                  key={doc.id}
-                  style={styles.documentCard}
-                  onPress={() => onNavigate('document', { document: doc })}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.documentIconContainer, { backgroundColor: doc.color + '15' }]}>
-                    <Feather name="file-text" size={24} color={doc.color} />
-                  </View>
-                  <View style={styles.documentInfo}>
-                    <Text style={styles.documentTitle}>{doc.title}</Text>
-                    <View style={styles.documentMeta}>
-                      <View style={styles.typeBadge}>
-                        <Text style={styles.typeBadgeText}>{doc.type}</Text>
-                      </View>
-                      <Text style={styles.documentDate}>{formatDate(doc.created_at)}</Text>
-                    </View>
-                  </View>
-                  <Feather name="chevron-right" size={20} color={Colors.gray400} />
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* Extra padding for FAB */}
-        <View style={{ height: 80 }} />
-      </ScrollView>
-
-      {/* Modern Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={showUploadOptions}
-        activeOpacity={0.8}
-        disabled={isUploading}
-      >
-        <LinearGradient
-          colors={[Colors.primary, Colors.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />
+          }
         >
-          <Feather name="upload-cloud" size={28} color={Colors.white} />
-        </LinearGradient>
-      </TouchableOpacity>
+          {/* Active Profile Card - Glassmorphic */}
+          <Animated.View entering={FadeInDown.delay(200).duration(600)}>
+            <TouchableOpacity onPress={() => setShowFamilyModal(true)} activeOpacity={0.9}>
+              <BlurView intensity={40} tint="light" style={styles.profileCard}>
+                <View style={styles.profileCardInner}>
+                  <View style={styles.profileAvatarLarge}>
+                    <LinearGradient
+                      colors={['#fff', '#f0f0f0']}
+                      style={styles.avatarGradient}
+                    >
+                      <Feather name="user" size={32} color="#667eea" />
+                    </LinearGradient>
+                  </View>
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.profileLabel}>Managing Health For</Text>
+                    <Text style={styles.profileName}>{activeMember?.name || user?.name || 'User'}</Text>
+                    {activeMember?.relationship && activeMember.relationship !== 'Self' && (
+                      <View style={styles.relationshipBadge}>
+                        <Text style={styles.relationshipText}>{activeMember.relationship}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.switchButton}>
+                    <Feather name="chevron-down" size={20} color="rgba(255,255,255,0.8)" />
+                  </View>
+                </View>
+              </BlurView>
+            </TouchableOpacity>
+          </Animated.View>
 
-      {/* Modern Bottom Navigation */}
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem}>
-            <View style={styles.navItemActive}>
-              <Feather name="home" size={24} color={Colors.primary} />
-            </View>
-            <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
-          </TouchableOpacity>
+          {/* Main Scan CTA - Hero Button */}
+          <Animated.View entering={FadeInDown.delay(300).duration(600)}>
+            <TouchableOpacity
+              style={styles.scanHeroButton}
+              onPress={showUploadOptions}
+              activeOpacity={0.9}
+              disabled={isUploading}
+            >
+              <BlurView intensity={60} tint="light" style={styles.scanHeroInner}>
+                <View style={styles.scanIconContainer}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#8B5CF6']}
+                    style={styles.scanIconGradient}
+                  >
+                    <Feather name="camera" size={32} color={Colors.white} />
+                  </LinearGradient>
+                </View>
+                <View style={styles.scanTextContainer}>
+                  <Text style={styles.scanHeroTitle}>Scan Document</Text>
+                  <Text style={styles.scanHeroSubtitle}>Digitize your medical records instantly</Text>
+                </View>
+                <View style={styles.scanArrow}>
+                  <Feather name="arrow-right" size={24} color="rgba(255,255,255,0.6)" />
+                </View>
+              </BlurView>
+            </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('medications')}>
-            <View style={styles.navItemInactive}>
-              <Feather name="package" size={24} color={Colors.gray400} />
+          {/* Quick Actions Grid */}
+          <Animated.View entering={FadeInDown.delay(400).duration(600)} style={styles.quickActionsContainer}>
+            <Text style={styles.sectionTitleLight}>Quick Actions</Text>
+            <View style={styles.quickActionsGrid}>
+              {quickActions.map((action, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.quickActionItem}
+                  onPress={action.onPress}
+                  activeOpacity={0.8}
+                >
+                  <BlurView intensity={50} tint="light" style={styles.quickActionGlass}>
+                    <View style={[styles.quickActionIcon, { backgroundColor: action.color + '30' }]}>
+                      <Feather name={action.icon as any} size={22} color={action.color} />
+                    </View>
+                    <Text style={styles.quickActionLabel}>{action.label}</Text>
+                  </BlurView>
+                </TouchableOpacity>
+              ))}
             </View>
-            <Text style={styles.navText}>Medications</Text>
-          </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('health')}>
-            <View style={styles.navItemInactive}>
-              <Feather name="heart" size={24} color={Colors.gray400} />
+          {/* Stats Overview */}
+          <Animated.View entering={FadeInDown.delay(500).duration(600)} style={styles.statsContainer}>
+            <Text style={styles.sectionTitleLight}>Your Health at a Glance</Text>
+            <View style={styles.statsRow}>
+              {stats.map((stat, index) => (
+                <BlurView key={index} intensity={40} tint="light" style={styles.statCard}>
+                  <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
+                    <Feather name={stat.icon as any} size={20} color={stat.color} />
+                  </View>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                </BlurView>
+              ))}
             </View>
-            <Text style={styles.navText}>Health</Text>
-          </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('profile')}>
-            <View style={styles.navItemInactive}>
-              <Feather name="user" size={24} color={Colors.gray400} />
+          {/* Today's Schedule */}
+          {(nextAppointment || todayMedications.length > 0) && (
+            <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.scheduleContainer}>
+              <Text style={styles.sectionTitleLight}>Today's Schedule</Text>
+              <BlurView intensity={40} tint="light" style={styles.scheduleCard}>
+                {nextAppointment && (
+                  <TouchableOpacity
+                    style={styles.scheduleItem}
+                    onPress={() => onNavigate('appointments')}
+                  >
+                    <View style={[styles.scheduleIcon, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+                      <Feather name="calendar" size={18} color="#F59E0B" />
+                    </View>
+                    <View style={styles.scheduleInfo}>
+                      <Text style={styles.scheduleTitle}>{nextAppointment.title}</Text>
+                      <Text style={styles.scheduleTime}>
+                        {formatAppointmentDateTime(nextAppointment.date, nextAppointment.time)}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                )}
+                {todayMedications.map((med, index) => (
+                  <TouchableOpacity
+                    key={med.id}
+                    style={[styles.scheduleItem, index === 0 && nextAppointment && styles.scheduleItemBorder]}
+                    onPress={() => onNavigate('medications')}
+                  >
+                    <View style={[styles.scheduleIcon, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+                      <Feather name="package" size={18} color="#10B981" />
+                    </View>
+                    <View style={styles.scheduleInfo}>
+                      <Text style={styles.scheduleTitle}>{med.name}</Text>
+                      <Text style={styles.scheduleTime}>{med.dosage} • {getFrequencyText(med.frequency)}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                ))}
+              </BlurView>
+            </Animated.View>
+          )}
+
+          {/* Recent Documents Section */}
+          <Animated.View entering={FadeInDown.delay(700).duration(600)} style={styles.documentsSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitleLight}>Recent Documents</Text>
+              <TouchableOpacity onPress={() => onNavigate('documents')}>
+                <Text style={styles.seeAllText}>See All</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.navText}>Profile</Text>
-          </TouchableOpacity>
+
+            {isLoadingDocs ? (
+              <BlurView intensity={40} tint="light" style={styles.loadingCard}>
+                <ActivityIndicator size="small" color={Colors.white} />
+                <Text style={styles.loadingText}>Loading documents...</Text>
+              </BlurView>
+            ) : recentDocuments.length === 0 ? (
+              <BlurView intensity={40} tint="light" style={styles.emptyCard}>
+                <View style={styles.emptyIconContainer}>
+                  <Feather name="file-text" size={40} color="rgba(255,255,255,0.5)" />
+                </View>
+                <Text style={styles.emptyTitle}>No documents yet</Text>
+                <Text style={styles.emptySubtitle}>Scan your first medical document to get started</Text>
+                <TouchableOpacity style={styles.emptyButton} onPress={showUploadOptions}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#8B5CF6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.emptyButtonGradient}
+                  >
+                    <Feather name="plus" size={18} color={Colors.white} />
+                    <Text style={styles.emptyButtonText}>Add Document</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </BlurView>
+            ) : (
+              <View style={styles.documentsList}>
+                {recentDocuments.map((doc, index) => {
+                  const displayTitle = doc.ai_analysis_result?.file_name || doc.title;
+                  const formatDocType = (type: string) => type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+                  const displayType = doc.ai_analysis_result?.document_type
+                    ? formatDocType(doc.ai_analysis_result.document_type)
+                    : doc.type;
+                  const isAnalyzed = !!doc.ai_analysis_result;
+
+                  return (
+                    <Animated.View
+                      key={doc.id}
+                      entering={FadeInRight.delay(100 * index).duration(400)}
+                    >
+                      <TouchableOpacity
+                        style={styles.documentCard}
+                        onPress={() => onNavigate('document', { document: doc })}
+                        activeOpacity={0.8}
+                      >
+                        <BlurView intensity={40} tint="light" style={styles.documentCardInner}>
+                          <View style={[styles.documentIcon, { backgroundColor: isAnalyzed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)' }]}>
+                            <Feather
+                              name={isAnalyzed ? 'check-circle' : 'file-text'}
+                              size={22}
+                              color={isAnalyzed ? '#10B981' : '#3B82F6'}
+                            />
+                          </View>
+                          <View style={styles.documentInfo}>
+                            <Text style={styles.documentTitle} numberOfLines={1}>{displayTitle}</Text>
+                            <View style={styles.documentMeta}>
+                              <View style={[styles.typeBadge, isAnalyzed && styles.typeBadgeAnalyzed]}>
+                                <Text style={[styles.typeBadgeText, isAnalyzed && styles.typeBadgeTextAnalyzed]}>
+                                  {isAnalyzed ? 'Analyzed' : displayType}
+                                </Text>
+                              </View>
+                              <Text style={styles.documentDate}>{formatDateShort(doc.created_at)}</Text>
+                            </View>
+                          </View>
+                          <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.5)" />
+                        </BlurView>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })}
+              </View>
+            )}
+          </Animated.View>
+
+          {/* Bottom Padding */}
+          <View style={{ height: 120 }} />
+        </ScrollView>
+
+        {/* Glassmorphic Bottom Navigation */}
+        <View style={styles.bottomNavWrapper}>
+          <BlurView intensity={80} tint="dark" style={styles.bottomNav}>
+            <TouchableOpacity style={styles.navItem}>
+              <View style={styles.navItemActive}>
+                <Feather name="home" size={22} color={Colors.white} />
+              </View>
+              <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('documents')}>
+              <View style={styles.navItemInactive}>
+                <Feather name="folder" size={22} color="rgba(255,255,255,0.5)" />
+              </View>
+              <Text style={styles.navText}>Documents</Text>
+            </TouchableOpacity>
+
+            {/* Center Scan Button */}
+            <TouchableOpacity style={styles.navCenterButton} onPress={showUploadOptions} disabled={isUploading}>
+              <LinearGradient
+                colors={['#3B82F6', '#8B5CF6']}
+                style={styles.navCenterGradient}
+              >
+                <Feather name="plus" size={28} color={Colors.white} />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('health')}>
+              <View style={styles.navItemInactive}>
+                <Feather name="heart" size={22} color="rgba(255,255,255,0.5)" />
+              </View>
+              <Text style={styles.navText}>Health</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('profile')}>
+              <View style={styles.navItemInactive}>
+                <Feather name="user" size={22} color="rgba(255,255,255,0.5)" />
+              </View>
+              <Text style={styles.navText}>Profile</Text>
+            </TouchableOpacity>
+          </BlurView>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Loading Overlay */}
       {(isUploading || isCompressing) && (
@@ -658,118 +824,228 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         visible={showAddMemberModal}
         onClose={() => setShowAddMemberModal(false)}
       />
-    </SafeAreaView >
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bgSecondary,
   },
+  gradientBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  safeArea: {
+    flex: 1,
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Sizes.lg,
-    paddingTop: Sizes.md,
-    paddingBottom: Sizes.lg,
-    backgroundColor: Colors.white,
+    paddingTop: Sizes.sm,
+    paddingBottom: Sizes.md,
   },
-  greeting: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    marginBottom: 4,
+  headerLeft: {
+    flex: 1,
   },
-  userName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+  headerRight: {
+    flexDirection: 'row',
+    gap: Sizes.sm,
   },
-  notificationButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.gray100,
+  headerIconButton: {
+    overflow: 'hidden',
+    borderRadius: 20,
+  },
+  glassButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  notificationBadge: {
+  notificationDot: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.error,
-    borderWidth: 2,
-    borderColor: Colors.white,
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    zIndex: 1,
+  },
+  greeting: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 2,
+  },
+  userName: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: Colors.white,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: Sizes.lg,
-    paddingTop: Sizes.md,
-    paddingBottom: Sizes.xxl,
+    paddingTop: Sizes.sm,
   },
 
   // Profile Card
   profileCard: {
     borderRadius: 20,
-    padding: Sizes.lg,
-    marginBottom: Sizes.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    marginBottom: Sizes.md,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  profileCardContent: {
+  profileCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: Sizes.md,
   },
-  profileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  profileAvatarLarge: {
+    marginRight: Sizes.md,
   },
-  profileAvatar: {
+  avatarGradient: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Sizes.md,
   },
-  profileTextContainer: {
+  profileInfo: {
     flex: 1,
   },
   profileLabel: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 2,
   },
   profileName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.white,
   },
-  switchIconContainer: {
+  relationshipBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  relationshipText: {
+    fontSize: 11,
+    color: Colors.white,
+    fontWeight: '500',
+  },
+  switchButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  // Sections
-  sectionContainer: {
-    marginBottom: Sizes.xl,
+  // Scan Hero Button
+  scanHeroButton: {
+    marginBottom: Sizes.lg,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  scanHeroInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Sizes.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  scanIconContainer: {
+    marginRight: Sizes.md,
+  },
+  scanIconGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanTextContainer: {
+    flex: 1,
+  },
+  scanHeroTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.white,
+    marginBottom: 2,
+  },
+  scanHeroSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  scanArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Quick Actions
+  quickActionsContainer: {
+    marginBottom: Sizes.lg,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Sizes.sm,
+  },
+  quickActionItem: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  quickActionGlass: {
+    paddingVertical: Sizes.md,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Sizes.xs,
+  },
+  quickActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+
+  // Section Titles
+  sectionTitleLight: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.white,
+    marginBottom: Sizes.md,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -777,75 +1053,121 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Sizes.md,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
   seeAllText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '600',
   },
 
   // Stats
-  statsScroll: {
-    marginHorizontal: -Sizes.lg,
-    paddingHorizontal: Sizes.lg,
+  statsContainer: {
+    marginBottom: Sizes.lg,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: Sizes.sm,
   },
   statCard: {
-    backgroundColor: Colors.white,
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Sizes.md,
+    paddingHorizontal: Sizes.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 16,
-    padding: Sizes.lg,
-    marginRight: Sizes.md,
-    width: 120,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    overflow: 'hidden',
   },
-  statCardLast: {
-    marginRight: 0,
-  },
-  statIconContainer: {
-    width: 48,
-    height: 48,
+  statIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Sizes.sm,
+    marginBottom: Sizes.xs,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 4,
+    color: Colors.white,
   },
   statLabel: {
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
   },
 
-  // Documents
-  documentsList: {
-    gap: Sizes.md,
+  // Schedule Section
+  scheduleContainer: {
+    marginBottom: Sizes.lg,
   },
-  documentCard: {
+  scheduleCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    padding: Sizes.sm,
+  },
+  scheduleItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: Sizes.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: Sizes.sm,
+    borderRadius: 12,
   },
-  documentIconContainer: {
-    width: 48,
-    height: 48,
+  scheduleItemBorder: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: Sizes.xs,
+    paddingTop: Sizes.md,
+  },
+  scheduleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Sizes.sm,
+  },
+  scheduleInfo: {
+    flex: 1,
+  },
+  scheduleTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.white,
+    marginBottom: 2,
+  },
+  scheduleTime: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+
+  // Documents Section
+  documentsSection: {
+    marginBottom: Sizes.lg,
+  },
+  documentsList: {
+    gap: Sizes.sm,
+  },
+  documentCard: {
+    marginBottom: Sizes.xs,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  documentCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Sizes.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  documentIcon: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -855,10 +1177,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 6,
+    color: Colors.white,
+    marginBottom: 4,
   },
   documentMeta: {
     flexDirection: 'row',
@@ -866,61 +1188,109 @@ const styles = StyleSheet.create({
     gap: Sizes.sm,
   },
   typeBadge: {
-    backgroundColor: Colors.gray100,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   typeBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    color: Colors.gray600,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  typeBadgeAnalyzed: {
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  typeBadgeTextAnalyzed: {
+    color: '#10B981',
   },
   documentDate: {
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
 
-  // FAB
-  fab: {
-    position: 'absolute',
-    bottom: 120,
-    right: Sizes.lg,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
+  // Empty & Loading States
+  loadingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Sizes.xl,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    gap: Sizes.sm,
+    overflow: 'hidden',
   },
-  fabGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  loadingText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Sizes.xl,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  emptyIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: Sizes.md,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    marginBottom: Sizes.lg,
+  },
+  emptyButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  emptyButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: Sizes.xs,
+  },
+  emptyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.white,
   },
 
   // Bottom Navigation
-  bottomNavContainer: {
+  bottomNavWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'transparent',
+    paddingHorizontal: Sizes.md,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
-    paddingHorizontal: Sizes.md,
-    paddingTop: Sizes.sm,
-    paddingBottom: Sizes.lg,
-    borderTopWidth: 1,
-    borderTopColor: Colors.gray100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 8,
+    alignItems: 'center',
+    paddingVertical: Sizes.sm,
+    paddingHorizontal: Sizes.xs,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 28,
+    overflow: 'hidden',
   },
   navItem: {
     flex: 1,
@@ -928,74 +1298,58 @@ const styles = StyleSheet.create({
     paddingVertical: Sizes.xs,
   },
   navItemActive: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primaryLight + '20',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
   },
   navItemInactive: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+  },
+  navCenterButton: {
+    marginTop: -30,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  navCenterGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   navText: {
-    fontSize: 11,
-    color: Colors.textSecondary,
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.5)',
     fontWeight: '500',
+    marginTop: 2,
   },
   navTextActive: {
-    color: Colors.primary,
+    color: Colors.white,
     fontWeight: '600',
-  },
-
-  // Loading & Empty States
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Sizes.xl,
-    gap: Sizes.sm,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Sizes.xl,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginTop: Sizes.md,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Colors.gray400,
-    marginTop: Sizes.xs,
-    textAlign: 'center',
   },
 
   // Upload Loading Overlay
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   loadingBox: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
     padding: Sizes.xl,
     alignItems: 'center',
     minWidth: 200,
@@ -1004,20 +1358,20 @@ const styles = StyleSheet.create({
     marginTop: Sizes.md,
     fontSize: 16,
     color: Colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   // Family Member Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   familyModalContainer: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '70%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '75%',
   },
   familyModalHeader: {
     flexDirection: 'row',
@@ -1039,14 +1393,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Sizes.md,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: Sizes.sm,
     backgroundColor: Colors.gray50,
   },
   familyMemberItemActive: {
-    backgroundColor: Colors.primaryLight + '20',
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: '#667eea',
   },
   familyMemberAvatar: {
     width: 48,
@@ -1056,6 +1410,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Sizes.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   familyMemberInfo: {
     flex: 1,
@@ -1064,10 +1423,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   familyMemberRelationship: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textSecondary,
   },
   addMemberButton: {
@@ -1078,15 +1437,15 @@ const styles = StyleSheet.create({
     padding: Sizes.md,
     margin: Sizes.lg,
     marginTop: 0,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: '#667eea',
     borderStyle: 'dashed',
   },
   addMemberButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.primary,
+    color: '#667eea',
   },
   logoutButton: {
     flexDirection: 'row',
@@ -1096,8 +1455,8 @@ const styles = StyleSheet.create({
     padding: Sizes.md,
     margin: Sizes.lg,
     marginTop: 0,
-    borderRadius: 12,
-    backgroundColor: Colors.error + '10',
+    borderRadius: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   logoutButtonText: {
     fontSize: 16,
