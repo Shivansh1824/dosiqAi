@@ -662,10 +662,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 20,
-    color: Colors.gray500,
-    marginBottom: 6,
-    fontWeight: '700',
+    fontSize: 18,
+    color: Colors.gray600,
+    marginBottom: 4,
+    fontWeight: '600',
   },
   userName: {
     fontSize: 34,
