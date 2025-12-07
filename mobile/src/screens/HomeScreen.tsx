@@ -369,7 +369,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
           }
         >
-          {/* Stats Row - Clean Professional Cards */}
+          {/* Stats Row - Compact Professional Cards */}
           <View style={styles.statsContainer}>
             {/* Documents Card - Blue Theme */}
             <TouchableOpacity
@@ -379,11 +379,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             >
               <View style={styles.statCardContent}>
                 <View style={[styles.statIconCircle, { backgroundColor: '#E8F4FD' }]}>
-                  <Feather name="file-text" size={20} color="#4A90E2" />
+                  <Feather name="file-text" size={18} color="#4A90E2" />
                 </View>
                 <View style={styles.statTextContainer}>
                   <Text style={styles.statValue}>{documents.length}</Text>
-                  <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit>Documents</Text>
+                  <Text style={styles.statLabel} numberOfLines={1}>Documents</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -396,11 +396,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             >
               <View style={styles.statCardContent}>
                 <View style={[styles.statIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                  <Feather name="package" size={20} color="#F59E0B" />
+                  <Feather name="package" size={18} color="#F59E0B" />
                 </View>
                 <View style={styles.statTextContainer}>
                   <Text style={styles.statValue}>{medications.length}</Text>
-                  <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit>Medications</Text>
+                  <Text style={styles.statLabel} numberOfLines={1}>Medications</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -413,11 +413,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             >
               <View style={styles.statCardContent}>
                 <View style={[styles.statIconCircle, { backgroundColor: '#CCFBF1' }]}>
-                  <Feather name="calendar" size={20} color="#14B8A6" />
+                  <Feather name="calendar" size={18} color="#14B8A6" />
                 </View>
                 <View style={styles.statTextContainer}>
                   <Text style={styles.statValue}>{appointments.length}</Text>
-                  <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit>Appointments</Text>
+                  <Text style={styles.statLabel} numberOfLines={1}>Appointments</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -634,34 +634,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Header
+  // Header - Greeting Only (Prominent)
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: Sizes.lg,
-    paddingTop: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
+    backgroundColor: Colors.white,
+  },
+  greetingSection: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 16,
+    color: Colors.gray500,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  userName: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: Colors.gray900,
+    letterSpacing: -0.5,
+  },
+
+  // Profile Card Container - Full Width with Padding
+  profileCardContainer: {
+    paddingHorizontal: Sizes.lg,
+    paddingTop: 12,
     paddingBottom: 16,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-  },
-  headerContent: {
-    flex: 1,
-    marginRight: Sizes.md,
-  },
-  greetingSection: {
-    marginBottom: 14,
-  },
-  greeting: {
-    fontSize: 15,
-    color: Colors.gray500,
-    marginBottom: 2,
-  },
-  userName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.gray900,
   },
   profileCardWrapper: {
     borderRadius: 12,
@@ -676,8 +682,9 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderLeftWidth: 4,
@@ -754,29 +761,29 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
-  // Stats Container - Clean Professional
+  // Stats Container - Compact Professional
   statsContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 20,
   },
   statCardWrapper: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   statCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
   },
   statCardGradient: {
@@ -787,12 +794,12 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   statIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   statTextContainer: {
     flex: 1,
@@ -834,16 +841,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   statValue: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '700',
     color: '#1F2937',
-    lineHeight: 30,
+    lineHeight: 28,
   },
   statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
     color: '#6B7280',
-    marginTop: 2,
+    marginTop: 1,
   },
 
   // AI Insights Card
