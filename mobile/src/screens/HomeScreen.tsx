@@ -337,30 +337,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           </TouchableOpacity>
         </View>
 
-        {/* Family Member Card - Full Width */}
-        <View style={styles.profileCardContainer}>
-          <TouchableOpacity
-            style={styles.profileCardWrapper}
-            onPress={() => setShowFamilyModal(true)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.profileCard}>
-              <View style={styles.profileCardLeft}>
-                <View style={styles.profileCardAvatar}>
-                  <Feather name="user" size={20} color="#4A90E2" />
-                </View>
-                <View>
-                  <Text style={styles.profileCardLabel}>Managing health for</Text>
-                  <Text style={styles.profileCardName}>{activeMember?.name || user?.name || 'Select Profile'}</Text>
-                </View>
-              </View>
-              <View style={{ marginLeft: 8 }}>
-                <Feather name="chevron-down" size={20} color="#9CA3AF" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -369,6 +345,35 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
           }
         >
+          {/* Family Member Card - Full Width */}
+          <View style={styles.profileCardContainer}>
+            <TouchableOpacity
+              style={styles.profileCardWrapper}
+              onPress={() => setShowFamilyModal(true)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileCard}>
+                <View style={styles.profileCardLeft}>
+                  <View style={styles.profileCardAvatar}>
+                    <Feather name="user" size={20} color="#4A90E2" />
+                  </View>
+                  <View>
+                    <Text style={styles.profileCardLabel}>Tracking health for</Text>
+                    <Text style={styles.profileCardName}>
+                      {activeMember?.name || user?.name || 'Select Profile'}
+                      {activeMember?.relationship && (
+                        <Text style={styles.profileCardRelationship}> • {activeMember.relationship}</Text>
+                      )}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ marginLeft: 8 }}>
+                  <Feather name="chevron-down" size={20} color="#9CA3AF" />
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+
           {/* Stats Row - Compact Professional Cards */}
           <View style={styles.statsContainer}>
             {/* Documents Card - Blue Theme */}
@@ -640,8 +645,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Sizes.lg,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 28,
+    paddingBottom: 24,
     backgroundColor: Colors.white,
   },
   greetingSection: {
@@ -650,12 +655,12 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 16,
     color: Colors.gray500,
-    marginBottom: 4,
+    marginBottom: 6,
     fontWeight: '500',
   },
   userName: {
     fontSize: 34,
-    fontWeight: '800',
+    fontWeight: '400',
     color: Colors.gray900,
     letterSpacing: -0.5,
   },
@@ -663,11 +668,8 @@ const styles = StyleSheet.create({
   // Profile Card Container - Full Width with Padding
   profileCardContainer: {
     paddingHorizontal: Sizes.lg,
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   profileCardWrapper: {
     borderRadius: 12,
@@ -683,8 +685,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    padding: 16,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderLeftWidth: 4,
@@ -696,9 +697,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   profileCardAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#E8F4FD',
     justifyContent: 'center',
     alignItems: 'center',
@@ -715,6 +716,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  profileCardRelationship: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.gray500,
   },
   profileCardChevron: {
     marginLeft: 8,
