@@ -322,6 +322,15 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  // Capitalize first letter of each word
+  const titleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -329,7 +338,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         <View style={styles.header}>
           <View style={styles.greetingSection}>
             <Text style={styles.greeting}>Hello,</Text>
-            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'} 👋</Text>
+            <Text style={styles.userName}>{user?.name ? titleCase(user.name) : 'User'} 👋</Text>
           </View>
 
           <TouchableOpacity style={styles.notificationButton}>
@@ -653,14 +662,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 16,
+    fontSize: 20,
     color: Colors.gray500,
     marginBottom: 6,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   userName: {
     fontSize: 34,
-    fontWeight: '400',
+    fontWeight: '600',
     color: Colors.gray900,
     letterSpacing: -0.5,
   },
