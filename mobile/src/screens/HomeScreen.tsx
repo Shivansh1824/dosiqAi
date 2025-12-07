@@ -325,39 +325,39 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Header */}
+        {/* Header - Greeting + Notification */}
         <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View style={styles.greetingSection}>
-              <Text style={styles.greeting}>Hello,</Text>
-              <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'} 👋</Text>
-            </View>
-
-            {/* Active Profile Card - Clean Professional */}
-            <TouchableOpacity
-              style={styles.profileCardWrapper}
-              onPress={() => setShowFamilyModal(true)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.profileCard}>
-                <View style={styles.profileCardLeft}>
-                  <View style={styles.profileCardAvatar}>
-                    <Feather name="user" size={20} color="#4A90E2" />
-                  </View>
-                  <View>
-                    <Text style={styles.profileCardLabel}>Managing health for</Text>
-                    <Text style={styles.profileCardName}>{activeMember?.name || user?.name || 'Select Profile'}</Text>
-                  </View>
-                </View>
-                <View style={{ marginLeft: 12 }}>
-                  <Feather name="chevron-down" size={20} color="#9CA3AF" />
-                </View>
-              </View>
-            </TouchableOpacity>
+          <View style={styles.greetingSection}>
+            <Text style={styles.greeting}>Hello,</Text>
+            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'} 👋</Text>
           </View>
 
           <TouchableOpacity style={styles.notificationButton}>
             <Feather name="bell" size={22} color={Colors.gray700} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Family Member Card - Full Width */}
+        <View style={styles.profileCardContainer}>
+          <TouchableOpacity
+            style={styles.profileCardWrapper}
+            onPress={() => setShowFamilyModal(true)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.profileCard}>
+              <View style={styles.profileCardLeft}>
+                <View style={styles.profileCardAvatar}>
+                  <Feather name="user" size={20} color="#4A90E2" />
+                </View>
+                <View>
+                  <Text style={styles.profileCardLabel}>Managing health for</Text>
+                  <Text style={styles.profileCardName}>{activeMember?.name || user?.name || 'Select Profile'}</Text>
+                </View>
+              </View>
+              <View style={{ marginLeft: 8 }}>
+                <Feather name="chevron-down" size={20} color="#9CA3AF" />
+              </View>
+            </View>
           </TouchableOpacity>
         </View>
 
