@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes } from '../constants';
+import { Colors, Sizes, Typography } from '../constants';
+import { extractFirstName, formatProfileName } from '../utils/nameFormatting';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
@@ -322,15 +323,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Capitalize first letter of each word
-  const titleCase = (str: string) => {
-    return str
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -338,7 +330,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         <View style={styles.header}>
           <View style={styles.greetingSection}>
             <Text style={styles.greeting}>Hello,</Text>
-            <Text style={styles.userName}>{user?.name ? titleCase(user.name) : 'User'} 👋</Text>
+            <Text style={styles.userName}>{user?.name ? extractFirstName(user.name) : 'User'} 👋</Text>
           </View>
 
           <TouchableOpacity style={styles.notificationButton}>
@@ -369,14 +361,14 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                   <View style={styles.profileCardTextContainer}>
                     <Text style={styles.profileCardLabel}>Tracking health for</Text>
                     <Text style={styles.profileCardName}>
-                      {activeMember?.name || user?.name || 'Select Profile'}
+                      {formatProfileName(activeMember?.name || user?.name || 'Select Profile')}
                       {activeMember?.relationship && (
                         <Text style={styles.profileCardRelationship}> • {activeMember.relationship}</Text>
                       )}
                     </Text>
                   </View>
                 </View>
-                <View style={{ marginLeft: 8 }}>
+                <View style={styles.profileCardChevron}>
                   <Feather name="chevron-down" size={20} color="#9CA3AF" />
                 </View>
               </View>
@@ -605,7 +597,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                     <Feather name="user" size={24} color={Colors.primary} />
                   </View>
                   <View style={styles.familyMemberInfo}>
-                    <Text style={styles.familyMemberName}>{member.name}</Text>
+                    <Text style={styles.familyMemberName}>{formatProfileName(member.name)}</Text>
                     {member.relationship && (
                       <Text style={styles.familyMemberRelationship}>{member.relationship}</Text>
                     )}
@@ -663,12 +655,14 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 18,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.gray600,
     marginBottom: 4,
     fontWeight: '600',
   },
   userName: {
     fontSize: 34,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: Colors.gray900,
     letterSpacing: -0.5,
@@ -692,7 +686,6 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     padding: 16,
     borderRadius: 12,
     backgroundColor: '#EBF5FF',
@@ -721,17 +714,20 @@ const styles = StyleSheet.create({
   },
   profileCardLabel: {
     fontSize: 14,
+    fontFamily: Typography.fontFamily.regular,
     color: '#4B5563',
     marginBottom: 2,
     fontWeight: '600',
   },
   profileCardName: {
     fontSize: 16,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
     color: '#1F2937',
   },
   profileCardRelationship: {
     fontSize: 14,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '500',
     color: '#4A90E2',
   },
@@ -861,12 +857,14 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
     color: '#1F2937',
     lineHeight: 28,
   },
   statLabel: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: '#6B7280',
     marginTop: 1,
@@ -909,12 +907,14 @@ const styles = StyleSheet.create({
   },
   insightsTitle: {
     fontSize: 14,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
   },
   insightsText: {
     fontSize: 13,
+    fontFamily: Typography.fontFamily.regular,
     color: '#6B7280',
     lineHeight: 18,
   },
@@ -931,11 +931,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
     color: '#1F2937',
   },
   seeAllText: {
     fontSize: 14,
+    fontFamily: Typography.fontFamily.regular,
     color: '#4A90E2',
     fontWeight: '600',
   },
@@ -983,6 +985,7 @@ const styles = StyleSheet.create({
   },
   documentTitleNew: {
     fontSize: 15,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 6,
@@ -1002,11 +1005,13 @@ const styles = StyleSheet.create({
   },
   typeBadgeTextNew: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: '#6B7280',
   },
   documentDateNew: {
     fontSize: 12,
+    fontFamily: Typography.fontFamily.regular,
     color: '#9CA3AF',
   },
   documentStatusBadge: {
@@ -1078,6 +1083,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.gray500,
   },
   emptyContainer: {
@@ -1097,12 +1103,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: Colors.gray700,
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 14,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.gray500,
     textAlign: 'center',
   },
@@ -1159,6 +1167,7 @@ const styles = StyleSheet.create({
   },
   navText: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.gray400,
     marginTop: 4,
   },
@@ -1185,6 +1194,7 @@ const styles = StyleSheet.create({
   uploadingText: {
     marginTop: Sizes.md,
     fontSize: 16,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.gray700,
     fontWeight: '600',
   },
@@ -1211,6 +1221,7 @@ const styles = StyleSheet.create({
   },
   familyModalTitle: {
     fontSize: 18,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
     color: Colors.gray900,
   },
@@ -1244,11 +1255,13 @@ const styles = StyleSheet.create({
   },
   familyMemberName: {
     fontSize: 16,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: Colors.gray900,
   },
   familyMemberRelationship: {
     fontSize: 13,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.gray500,
     marginTop: 2,
   },
@@ -1267,6 +1280,7 @@ const styles = StyleSheet.create({
   },
   addMemberButtonText: {
     fontSize: 16,
+    fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: Colors.primary,
   },
