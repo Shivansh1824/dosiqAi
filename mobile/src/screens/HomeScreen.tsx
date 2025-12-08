@@ -366,7 +366,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                   <View style={styles.profileCardAvatar}>
                     <Feather name="user" size={20} color="#4A90E2" />
                   </View>
-                  <View>
+                  <View style={styles.profileCardTextContainer}>
                     <Text style={styles.profileCardLabel}>Tracking health for</Text>
                     <Text style={styles.profileCardName}>
                       {activeMember?.name || user?.name || 'Select Profile'}
@@ -674,16 +674,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
-  // Profile Card Container - Full Width with Padding
+  // Profile Card Container - No horizontal padding (aligned with ScrollView)
   profileCardContainer: {
-    paddingHorizontal: Sizes.lg,
     paddingTop: 0,
     paddingBottom: 16,
   },
   profileCardWrapper: {
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#EBF5FF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -696,14 +695,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#EBF5FF',
     borderLeftWidth: 4,
     borderLeftColor: '#4A90E2',
   },
   profileCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    flex: 1,
+  },
+  profileCardTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   profileCardAvatar: {
     width: 40,
@@ -714,12 +717,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#4A90E2',
+    marginRight: 12,
   },
   profileCardLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 14,
+    color: '#4B5563',
     marginBottom: 2,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   profileCardName: {
     fontSize: 16,
@@ -729,7 +733,7 @@ const styles = StyleSheet.create({
   profileCardRelationship: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.gray500,
+    color: '#4A90E2',
   },
   profileCardChevron: {
     marginLeft: 8,
