@@ -35,7 +35,11 @@
       "Bash(npx supabase functions deploy:*)",
       "Bash(git init:*)",
       "Bash(git checkout:*)",
-      "WebFetch(domain:www.capiproduct.com)"
+      "WebFetch(domain:www.capiproduct.com)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(git -C /Users/shivanshrana/Desktop/FamilyCareHealth log --oneline mobile/src/screens/HomeScreen.tsx)",
+      "Bash(git -C /Users/shivanshrana/Desktop/FamilyCareHealth status --porcelain)"
     ],
     "deny": [],
     "ask": []

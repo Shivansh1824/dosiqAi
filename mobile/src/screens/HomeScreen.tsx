@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
@@ -30,11 +30,35 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const { appointments, fetchAppointments } = useAppointmentsStore();
   const { familyMembers, activeMember, fetchFamilyMembers, setActiveMember } = useFamilyMembersStore();
 
+  // Filtered counts for stat cards
+  const documentsCount = documents.length;
+  const activeMedicationsCount = medications.filter(med => med.is_active === true).length;
+  const upcomingAppointmentsCount = appointments.filter(apt => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const aptDate = new Date(apt.date);
+      if (isNaN(aptDate.getTime())) return false;
+      aptDate.setHours(0, 0, 0, 0);
+      return apt.status === 'scheduled' && aptDate >= today;
+    } catch {
+      return false;
+    }
+  }).length;
+
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+
+  // Responsive layout calculations for stat cards
+  const screenWidth = Dimensions.get('window').width;
+  const horizontalPadding = Sizes.lg * 2; // 48px
+  const availableWidth = screenWidth - horizontalPadding;
+  const cardGap = 12;
+  const useScrollView = availableWidth < 360;
+  const cardWidth = useScrollView ? 110 : (availableWidth - 2 * cardGap) / 3;
 
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
@@ -323,6 +347,71 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const renderStatCards = () => {
+    const cards = [
+      {
+        key: 'documents',
+        icon: 'file-text',
+        iconBg: '#E8F4FD',
+        iconColor: '#4A90E2',
+        value: documentsCount,
+        label: 'Documents',
+        onPress: () => onNavigate('documents'),
+      },
+      {
+        key: 'medications',
+        icon: 'activity',
+        iconBg: '#FEF3C7',
+        iconColor: '#F59E0B',
+        value: activeMedicationsCount,
+        label: 'Medications',
+        onPress: () => onNavigate('medications'),
+      },
+      {
+        key: 'appointments',
+        icon: 'calendar',
+        iconBg: '#CCFBF1',
+        iconColor: '#14B8A6',
+        value: upcomingAppointmentsCount,
+        label: 'Appointments',
+        onPress: () => {
+          Alert.alert(
+            'Coming Soon',
+            'Appointments management is under development.',
+            [{ text: 'OK' }]
+          );
+        },
+      },
+    ];
+
+    return cards.map(card => (
+      <TouchableOpacity
+        key={card.key}
+        style={[
+          styles.statCardWrapper,
+          useScrollView && styles.statCardScrollView,
+          !useScrollView && { width: cardWidth }
+        ]}
+        onPress={card.onPress}
+        activeOpacity={0.85}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={`${card.label}: ${card.value}`}
+        accessibilityHint={`View all ${card.label.toLowerCase()}`}
+      >
+        <View style={styles.statCardContent}>
+          <View style={[styles.statIconCircle, { backgroundColor: card.iconBg }]}>
+            <Feather name={card.icon as any} size={24} color={card.iconColor} />
+          </View>
+          <View style={styles.statTextContainer}>
+            <Text style={styles.statValue}>{card.value}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>{card.label}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    ));
+  };
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -375,58 +464,22 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             </TouchableOpacity>
           </View>
 
-          {/* Stats Row - Compact Professional Cards */}
-          <View style={styles.statsContainer}>
-            {/* Documents Card - Blue Theme */}
-            <TouchableOpacity
-              style={styles.statCardWrapper}
-              onPress={() => onNavigate('documents')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.statCardContent}>
-                <View style={[styles.statIconCircle, { backgroundColor: '#E8F4FD' }]}>
-                  <Feather name="file-text" size={18} color="#4A90E2" />
-                </View>
-                <View style={styles.statTextContainer}>
-                  <Text style={styles.statValue}>{documents.length}</Text>
-                  <Text style={styles.statLabel} numberOfLines={1}>Documents</Text>
-                </View>
+          {/* Stats Row - Responsive Professional Cards */}
+          <View style={styles.statsOuterContainer}>
+            {useScrollView ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.statsScrollContent}
+                style={styles.statsScrollView}
+              >
+                {renderStatCards()}
+              </ScrollView>
+            ) : (
+              <View style={styles.statsContainer}>
+                {renderStatCards()}
               </View>
-            </TouchableOpacity>
-
-            {/* Medications Card - Orange Theme */}
-            <TouchableOpacity
-              style={styles.statCardWrapper}
-              onPress={() => onNavigate('medications')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.statCardContent}>
-                <View style={[styles.statIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                  <Feather name="package" size={18} color="#F59E0B" />
-                </View>
-                <View style={styles.statTextContainer}>
-                  <Text style={styles.statValue}>{medications.length}</Text>
-                  <Text style={styles.statLabel} numberOfLines={1}>Medications</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* Appointments Card - Teal Theme */}
-            <TouchableOpacity
-              style={styles.statCardWrapper}
-              onPress={() => onNavigate('appointments')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.statCardContent}>
-                <View style={[styles.statIconCircle, { backgroundColor: '#CCFBF1' }]}>
-                  <Feather name="calendar" size={18} color="#14B8A6" />
-                </View>
-                <View style={styles.statTextContainer}>
-                  <Text style={styles.statValue}>{appointments.length}</Text>
-                  <Text style={styles.statLabel} numberOfLines={1}>Appointments</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            )}
           </View>
 
           {/* AI Health Insights Card */}
@@ -776,98 +829,70 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
-  // Stats Container - Compact Professional
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 10,
+  // Stats Container - Responsive Professional
+  statsOuterContainer: {
     marginBottom: 20,
   },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statsScrollView: {
+    flexGrow: 0,
+  },
+  statsScrollContent: {
+    paddingRight: Sizes.lg,
+    gap: 12,
+  },
   statCardWrapper: {
-    flex: 1,
-    borderRadius: 14,
+    borderRadius: Sizes.radiusLg,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
+  statCardScrollView: {
+    width: 110,
+    minWidth: 110,
+  },
   statCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  statCardGradient: {
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    borderRadius: 20,
-    position: 'relative',
+    paddingVertical: Sizes.md,
+    paddingHorizontal: Sizes.md,
+    borderRadius: Sizes.radiusLg,
+    backgroundColor: Colors.white,
+    minHeight: 80,
   },
   statIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   statTextContainer: {
     flex: 1,
     justifyContent: 'center',
   },
-  statValueNew: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  statLabelNew: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 8,
-  },
-  // Old styles for backwards compatibility
-  statCardBlur: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  statCardOverlay: {
-    paddingVertical: 20,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    borderRadius: 24,
-  },
-  statIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
   statValue: {
     fontSize: 24,
     fontFamily: Typography.fontFamily.regular,
     fontWeight: '700',
-    color: '#1F2937',
+    color: Colors.textPrimary,
     lineHeight: 28,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
-    color: '#6B7280',
-    marginTop: 1,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 
   // AI Insights Card
