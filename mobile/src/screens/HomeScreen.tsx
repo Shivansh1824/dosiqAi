@@ -57,8 +57,10 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const horizontalPadding = Sizes.lg * 2; // 48px
   const availableWidth = screenWidth - horizontalPadding;
   const cardGap = 12;
-  const useScrollView = availableWidth < 360;
-  const cardWidth = useScrollView ? 110 : (availableWidth - 2 * cardGap) / 3;
+  const minCardWidth = 115; // Minimum width for full label display
+  const requiredWidth = (minCardWidth * 3) + (cardGap * 2); // 369px needed for 3 cards
+  const useScrollView = availableWidth < requiredWidth;
+  const cardWidth = useScrollView ? minCardWidth : (availableWidth - 2 * cardGap) / 3;
 
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
