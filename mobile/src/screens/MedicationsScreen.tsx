@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import CalendarStrip from '../components/CalendarStrip';
 import TimeSection from '../components/TimeSection';
 import AddMedicationModal from '../components/AddMedicationModal';
+import CalendarModal, { CalendarEvent } from '../components/CalendarModal';
 import { MedicationWithStatus, getTimeOfDayCategory } from '../types/medicationSchedule';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
@@ -19,6 +20,7 @@ export default function MedicationsScreen() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
 
     // Fetch medications on mount
     useEffect(() => {
@@ -27,15 +29,35 @@ export default function MedicationsScreen() {
         }
     }, [user?.id, fetchMedications]);
 
-    // Convert store medications to scheduled format
-    const convertToScheduledMedications = (meds: Medication[]): MedicationWithStatus[] => {
+    // Convert store medications to scheduled format with date filtering
+    const convertToScheduledMedications = (meds: Medication[], selectedDate: Date): MedicationWithStatus[] => {
         const result: MedicationWithStatus[] = [];
 
-        // Filter active medications only
-        const activeMeds = meds.filter(med => med.is_active);
+        // Normalize selected date to start of day (YYYY-MM-DD) for comparison
+        const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
+        // Filter medications that are:
+        // 1. Active (is_active = true)
+        // 2. Started on or before selected date
+        // 3. Not ended OR ended on or after selected date
+        const activeMeds = meds.filter(med => {
+            if (!med.is_active) return false;
+
+            // Check if medication has started
+            if (med.start_date > selectedDateStr) {
+                return false; // Medication hasn't started yet
+            }
+
+            // Check if medication has ended
+            if (med.end_date && med.end_date < selectedDateStr) {
+                return false; // Medication already ended
+            }
+
+            return true; // Medication is active on selected date
+        });
+
+        // Create scheduled entries for valid medications
         activeMeds.forEach(med => {
-            // Create one entry per time slot
             med.time_of_day.forEach(time => {
                 result.push({
                     ...med,
@@ -62,7 +84,7 @@ export default function MedicationsScreen() {
             night: [] as MedicationWithStatus[],
         };
 
-        const scheduledMeds = convertToScheduledMedications(medications);
+        const scheduledMeds = convertToScheduledMedications(medications, selectedDate);
 
         scheduledMeds.forEach((med) => {
             const category = getTimeOfDayCategory(med.scheduled_time);
@@ -80,6 +102,43 @@ export default function MedicationsScreen() {
     };
 
     const medicationsByTime = groupMedicationsByTimeOfDay();
+
+    // Generate calendar events from medications
+    const getCalendarEvents = (): Record<string, CalendarEvent> => {
+        const events: Record<string, CalendarEvent> = {};
+
+        medications.forEach(med => {
+            if (!med.is_active) return;
+
+            const startDate = new Date(med.start_date);
+            const endDate = med.end_date ? new Date(med.end_date) : null;
+
+            // Generate entries for each day in the medication's range
+            const currentDate = new Date(startDate);
+            const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+            while (true) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                // Add or increment medication count
+                if (!events[dateStr]) {
+                    events[dateStr] = { type: 'medication', count: 0 };
+                }
+                events[dateStr].count += 1;
+
+                // Move to next day
+                currentDate.setDate(currentDate.getDate() + 1);
+
+                // Stop conditions:
+                // 1. If end_date exists and we've reached it
+                // 2. If no end_date, stop after 1 year to prevent infinite loop
+                if (endDate && currentDate > endDate) break;
+                if (!endDate && currentDate > oneYearFromNow) break;
+            }
+        });
+
+        return events;
+    };
 
     // Handle medication take action
     const handleTakeMedication = useCallback((medicationId: string, scheduledTime: string) => {
@@ -151,6 +210,16 @@ export default function MedicationsScreen() {
                 onDateSelect={setSelectedDate}
             />
 
+            {/* Full Calendar Button */}
+            <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setShowCalendarModal(true)}
+                activeOpacity={0.7}
+            >
+                <Feather name="calendar" size={16} color={Colors.primary} />
+                <Text style={styles.calendarButtonText}>View Full Calendar</Text>
+            </TouchableOpacity>
+
             {/* Medications Timeline */}
             <ScrollView
                 style={styles.content}
@@ -197,6 +266,16 @@ export default function MedicationsScreen() {
                 visible={showAddModal}
                 onClose={() => setShowAddModal(false)}
                 onSave={handleSaveMedication}
+            />
+
+            {/* Calendar Modal */}
+            <CalendarModal
+                visible={showCalendarModal}
+                selectedDate={selectedDate}
+                events={getCalendarEvents()}
+                onClose={() => setShowCalendarModal(false)}
+                onDateSelect={setSelectedDate}
+                filterType="medication"
             />
         </SafeAreaView>
     );
@@ -250,5 +329,25 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: Sizes.lg,
+    },
+    calendarButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        marginHorizontal: Sizes.lg,
+        marginTop: Sizes.sm,
+        marginBottom: Sizes.md,
+        backgroundColor: Colors.primary + '10',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.primary + '20',
+    },
+    calendarButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.primary,
     },
 });

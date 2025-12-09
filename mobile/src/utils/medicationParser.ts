@@ -195,16 +195,16 @@ export function parseDuration(durationString: string | null | undefined): number
  * Calculate end date from start date and duration
  *
  * @param startDate - Start date in ISO format (YYYY-MM-DD)
- * @param durationDays - Number of days
+ * @param durationDays - Number of days (start date counts as day 1)
  * @returns End date in ISO format (YYYY-MM-DD)
  *
  * @example
- * calculateEndDate("2025-01-01", 7) // returns "2025-01-08"
+ * calculateEndDate("2025-01-01", 7) // returns "2025-01-07" (7-day course: Jan 1-7)
  */
 export function calculateEndDate(startDate: string, durationDays: number): string {
   const start = new Date(startDate);
   const end = new Date(start);
-  end.setDate(end.getDate() + durationDays);
+  end.setDate(end.getDate() + durationDays - 1);  // Subtract 1 because start date counts as day 1
 
   // Return ISO date string (YYYY-MM-DD)
   return end.toISOString().split('T')[0];
