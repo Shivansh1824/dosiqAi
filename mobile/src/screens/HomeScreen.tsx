@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
@@ -51,16 +51,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const [refreshing, setRefreshing] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-
-  // Responsive layout calculations for stat cards
-  const screenWidth = Dimensions.get('window').width;
-  const horizontalPadding = Sizes.lg * 2; // 48px
-  const availableWidth = screenWidth - horizontalPadding;
-  const cardGap = 12;
-  const minCardWidth = 115; // Minimum width for full label display
-  const requiredWidth = (minCardWidth * 3) + (cardGap * 2); // 369px needed for 3 cards
-  const useScrollView = availableWidth < requiredWidth;
-  const cardWidth = useScrollView ? minCardWidth : (availableWidth - 2 * cardGap) / 3;
 
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
@@ -389,11 +379,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     return cards.map(card => (
       <TouchableOpacity
         key={card.key}
-        style={[
-          styles.statCardWrapper,
-          useScrollView && styles.statCardScrollView,
-          !useScrollView && { width: cardWidth }
-        ]}
+        style={styles.statCardWrapper}
         onPress={card.onPress}
         activeOpacity={0.85}
         accessible={true}
@@ -466,22 +452,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             </TouchableOpacity>
           </View>
 
-          {/* Stats Row - Responsive Professional Cards */}
+          {/* Stats Row - Vertical Cards in Flexbox Row */}
           <View style={styles.statsOuterContainer}>
-            {useScrollView ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.statsScrollContent}
-                style={styles.statsScrollView}
-              >
-                {renderStatCards()}
-              </ScrollView>
-            ) : (
-              <View style={styles.statsContainer}>
-                {renderStatCards()}
-              </View>
-            )}
+            <View style={styles.statsContainer}>
+              {renderStatCards()}
+            </View>
           </View>
 
           {/* AI Health Insights Card */}
@@ -831,23 +806,18 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
-  // Stats Container - Responsive Professional
+  // Stats Container - Vertical Cards in Flexbox Row (NO Scrolling)
   statsOuterContainer: {
     marginBottom: 20,
   },
   statsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row',       // 3 cards in horizontal row
     justifyContent: 'space-between',
-    gap: 12,
-  },
-  statsScrollView: {
-    flexGrow: 0,
-  },
-  statsScrollContent: {
-    paddingRight: Sizes.lg,
-    gap: 12,
+    gap: 12,                    // 12px gap between cards
+    // No paddingHorizontal - parent ScrollView provides it (Sizes.lg = 24px)
   },
   statCardWrapper: {
+    flex: 1,                     // Equal width cards
     borderRadius: Sizes.radiusLg,
     overflow: 'hidden',
     backgroundColor: Colors.white,
@@ -857,18 +827,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  statCardScrollView: {
-    width: 110,
-    minWidth: 110,
-  },
   statCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Sizes.md,
-    paddingHorizontal: Sizes.md,
+    flexDirection: 'column',     // VERTICAL layout (icon → value → label)
+    alignItems: 'center',        // Center all content horizontally
+    justifyContent: 'center',
+    paddingVertical: 20,         // Increased for more breathing room
+    paddingHorizontal: 10,       // Reduced to fit full "Appointments" text
     borderRadius: Sizes.radiusLg,
     backgroundColor: Colors.white,
-    minHeight: 80,
+    minHeight: 120,              // Increased to accommodate labels
   },
   statIconCircle: {
     width: 48,
@@ -876,11 +843,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginBottom: 10,            // Increased for more space below icon
   },
   statTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    alignItems: 'center',        // Center text horizontally
   },
   statValue: {
     fontSize: 24,
@@ -888,13 +854,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
     lineHeight: 28,
+    textAlign: 'center',
+    marginBottom: 6,             // Increased for more space below value
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,                // Compact font for label
     fontFamily: Typography.fontFamily.regular,
     fontWeight: '600',
     color: Colors.textSecondary,
-    marginTop: 2,
+    textAlign: 'center',
   },
 
   // AI Insights Card

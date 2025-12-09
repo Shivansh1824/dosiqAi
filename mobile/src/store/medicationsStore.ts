@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { Medication, MedicationsStore, medicationColors } from '../types/medication';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
+import { ParsedMedication } from '../types/medicationVerification';
+import { calculateEndDate } from '../utils/medicationParser';
 
 /**
  * Zustand store for medications state
@@ -197,6 +199,154 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       console.error('[MedicationsStore] Delete medication error:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to delete medication',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Add medication from AI extraction with source tracking
+   * Specialized version of addMedication for AI-extracted medications
+   */
+  addMedicationFromAI: async (
+    parsedMed: ParsedMedication,
+    userId: string,
+    documentId: string,
+    documentTitle: string,
+    startDate: string,
+    color?: string
+  ): Promise<Medication> => {
+    set({ isLoading: true, error: null });
+
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+      }
+
+      const medications = get().medications;
+
+      // Calculate end date if duration is provided
+      let endDate: string | undefined;
+      if (parsedMed.duration_days) {
+        endDate = calculateEndDate(startDate, parsedMed.duration_days);
+      }
+
+      const newMed: Omit<Medication, 'id' | 'created_at' | 'updated_at'> = {
+        user_id: userId,
+        name: parsedMed.name,
+        dosage: parsedMed.dosage,
+        frequency: parsedMed.frequency,
+        time_of_day: parsedMed.time_of_day,
+        start_date: startDate,
+        end_date: endDate,
+        notes: parsedMed.notes,
+        color: color || medicationColors[medications.length % medicationColors.length],
+        is_active: true,
+
+        // Source tracking fields
+        source_document_id: documentId,
+        source_document_title: documentTitle,
+        ai_extracted: parsedMed.ai_extracted,
+        verified_by_user: parsedMed.verified_by_user,
+        original_frequency_code: parsedMed.original_frequency_code,
+        scientific_name: parsedMed.scientific_name,
+      };
+
+      const { data, error } = await supabase
+        .from('medications')
+        .insert(newMed)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      set({
+        medications: [data, ...medications],
+        isLoading: false,
+      });
+
+      console.log('[MedicationsStore] AI medication added:', data.id);
+
+      // Refresh cache
+      await saveToCache(CacheKeys.medications(userId), [data, ...medications]);
+
+      return data;
+    } catch (error) {
+      console.error('[MedicationsStore] Add AI medication error:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to add medication',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Get all active medications (not expired)
+   * Used for duplicate detection
+   */
+  getActiveMedications: (): Medication[] => {
+    const medications = get().medications;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for fair comparison
+
+    return medications.filter(med => {
+      if (!med.is_active) return false;
+
+      // Check if expired
+      if (med.end_date) {
+        const endDate = new Date(med.end_date);
+        if (endDate < today) return false;
+      }
+
+      return true;
+    });
+  },
+
+  /**
+   * Replace an existing medication with a new one from AI extraction
+   * Used when user chooses "Replace" for duplicate
+   */
+  replaceMedication: async (oldMedicationId: string, newMedicationData: Omit<Medication, 'id' | 'created_at' | 'updated_at'>): Promise<Medication> => {
+    set({ isLoading: true, error: null });
+
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+      }
+
+      // Mark old medication as inactive (soft delete)
+      await get().updateMedication(oldMedicationId, {
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      });
+
+      // Add new medication
+      const { data, error } = await supabase
+        .from('medications')
+        .insert(newMedicationData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const medications = get().medications.map(med =>
+        med.id === oldMedicationId ? { ...med, is_active: false } : med
+      );
+
+      set({
+        medications: [data, ...medications],
+        isLoading: false,
+      });
+
+      console.log('[MedicationsStore] Medication replaced:', oldMedicationId, '->', data.id);
+
+      return data;
+    } catch (error) {
+      console.error('[MedicationsStore] Replace medication error:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to replace medication',
         isLoading: false,
       });
       throw error;

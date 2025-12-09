@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -8,90 +8,50 @@ import CalendarStrip from '../components/CalendarStrip';
 import TimeSection from '../components/TimeSection';
 import AddMedicationModal from '../components/AddMedicationModal';
 import { MedicationWithStatus, getTimeOfDayCategory } from '../types/medicationSchedule';
-
-// Mock data for now - will be replaced with real data from store
-const MOCK_MEDICATIONS: MedicationWithStatus[] = [
-    {
-        id: '1',
-        user_id: 'user1',
-        name: 'Amoxicillin',
-        dosage: '500mg - 1 Tablet',
-        type: 'tablet',
-        frequency: 'Twice daily',
-        times: ['08:00', '20:00'],
-        start_date: '2025-12-01',
-        instructions: 'after_meal',
-        reminder_enabled: true,
-        is_active: true,
-        color: '#3B82F6',
-        created_at: '2025-12-01',
-        updated_at: '2025-12-01',
-        scheduled_time: '08:00',
-        status: 'taken',
-        taken_at: '2025-12-04T08:05:00',
-    },
-    {
-        id: '2',
-        user_id: 'user1',
-        name: 'Vitamin D3',
-        dosage: '2000 IU - 1 Capsule',
-        type: 'capsule',
-        frequency: 'Once daily',
-        times: ['09:00'],
-        start_date: '2025-12-01',
-        instructions: 'with_food',
-        reminder_enabled: true,
-        is_active: true,
-        color: '#F59E0B',
-        created_at: '2025-12-01',
-        updated_at: '2025-12-01',
-        scheduled_time: '09:00',
-        status: 'pending',
-    },
-    {
-        id: '3',
-        user_id: 'user1',
-        name: 'Cough Syrup',
-        dosage: '10ml',
-        type: 'syrup',
-        frequency: 'Three times daily',
-        times: ['08:00', '14:00', '20:00'],
-        start_date: '2025-12-01',
-        end_date: '2025-12-07',
-        instructions: 'after_meal',
-        reminder_enabled: true,
-        is_active: true,
-        color: '#8B5CF6',
-        created_at: '2025-12-01',
-        updated_at: '2025-12-01',
-        scheduled_time: '14:00',
-        status: 'pending',
-    },
-    {
-        id: '4',
-        user_id: 'user1',
-        name: 'Melatonin',
-        dosage: '5mg - 1 Tablet',
-        type: 'tablet',
-        frequency: 'Once daily',
-        times: ['22:00'],
-        start_date: '2025-12-01',
-        instructions: 'before_sleep',
-        reminder_enabled: true,
-        is_active: true,
-        color: '#3B82F6',
-        created_at: '2025-12-01',
-        updated_at: '2025-12-01',
-        scheduled_time: '22:00',
-        status: 'pending',
-    },
-];
+import { useMedicationsStore } from '../store/medicationsStore';
+import { useAuthStore } from '../store/authStore';
+import { Medication, getFrequencyText } from '../types/medication';
 
 export default function MedicationsScreen() {
     const navigation = useNavigation();
+    const { user } = useAuthStore();
+    const { medications, fetchMedications, isLoading } = useMedicationsStore();
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+
+    // Fetch medications on mount
+    useEffect(() => {
+        if (user?.id) {
+            fetchMedications(user.id, true); // silent fetch
+        }
+    }, [user?.id, fetchMedications]);
+
+    // Convert store medications to scheduled format
+    const convertToScheduledMedications = (meds: Medication[]): MedicationWithStatus[] => {
+        const result: MedicationWithStatus[] = [];
+
+        // Filter active medications only
+        const activeMeds = meds.filter(med => med.is_active);
+
+        activeMeds.forEach(med => {
+            // Create one entry per time slot
+            med.time_of_day.forEach(time => {
+                result.push({
+                    ...med,
+                    scheduled_time: time,
+                    status: 'pending', // TODO: Determine status based on logs
+                    dosage: med.dosage,
+                    frequency: getFrequencyText(med.frequency),
+                    times: med.time_of_day,
+                    type: 'tablet', // Default type
+                    reminder_enabled: true,
+                });
+            });
+        });
+
+        return result;
+    };
 
     // Group medications by time of day
     const groupMedicationsByTimeOfDay = () => {
@@ -102,7 +62,9 @@ export default function MedicationsScreen() {
             night: [] as MedicationWithStatus[],
         };
 
-        MOCK_MEDICATIONS.forEach((med) => {
+        const scheduledMeds = convertToScheduledMedications(medications);
+
+        scheduledMeds.forEach((med) => {
             const category = getTimeOfDayCategory(med.scheduled_time);
             grouped[category].push(med);
         });
@@ -128,10 +90,16 @@ export default function MedicationsScreen() {
 
     // Handle refresh
     const onRefresh = useCallback(async () => {
+        if (!user?.id) return;
         setRefreshing(true);
-        // TODO: Fetch medications from store
-        setTimeout(() => setRefreshing(false), 1000);
-    }, []);
+        try {
+            await fetchMedications(user.id);
+        } catch (error) {
+            console.error('Failed to refresh medications:', error);
+        } finally {
+            setRefreshing(false);
+        }
+    }, [user?.id, fetchMedications]);
 
     // Handle add medication
     const handleAddMedication = () => {
@@ -139,9 +107,10 @@ export default function MedicationsScreen() {
     };
 
     // Handle save medication
-    const handleSaveMedication = (medication: any) => {
+    const handleSaveMedication = async (medication: any) => {
         console.log('Saving medication:', medication);
-        // TODO: Save to store
+        // TODO: Connect to addMedication from store
+        setShowAddModal(false);
     };
 
     return (

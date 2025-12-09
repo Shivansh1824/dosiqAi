@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Sizes } from '../constants';
 import { MedicationWithStatus, getMedicineTypeIcon, getMedicineTypeColor, getInstructionText } from '../types/medicationSchedule';
 
@@ -10,6 +11,7 @@ interface MedicationCardProps {
 }
 
 export default function MedicationCard({ medication, onTake }: MedicationCardProps) {
+    const navigation = useNavigation();
     const isTaken = medication.status === 'taken';
     const isMissed = medication.status === 'missed';
     const isPending = medication.status === 'pending';
@@ -20,6 +22,14 @@ export default function MedicationCard({ medication, onTake }: MedicationCardPro
     const handleTakePress = () => {
         if (!isTaken) {
             onTake(medication.id, medication.scheduled_time);
+        }
+    };
+
+    const handleSourcePress = () => {
+        if (medication.source_document_id) {
+            navigation.navigate('DocumentDetail' as never, {
+                documentId: medication.source_document_id
+            } as never);
         }
     };
 
@@ -59,6 +69,20 @@ export default function MedicationCard({ medication, onTake }: MedicationCardPro
                         {getInstructionText(medication.instructions)}
                     </Text>
                 </View>
+
+                {/* Source Indicator - Show if AI-extracted from prescription */}
+                {medication.ai_extracted && medication.source_document_title && (
+                    <TouchableOpacity
+                        style={styles.sourceIndicator}
+                        onPress={handleSourcePress}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name="file-text" size={12} color={Colors.gray400} />
+                        <Text style={styles.sourceText} numberOfLines={1}>
+                            From: {medication.source_document_title}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Right: Take Button / Checkmark */}
@@ -179,5 +203,19 @@ const styles = StyleSheet.create({
         right: 12,
         fontSize: 11,
         color: Colors.gray400,
+    },
+    sourceIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 6,
+        paddingTop: 6,
+        borderTopWidth: 1,
+        borderTopColor: Colors.gray100,
+    },
+    sourceText: {
+        fontSize: 11,
+        color: Colors.gray400,
+        flex: 1,
     },
 });

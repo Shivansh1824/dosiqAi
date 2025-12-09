@@ -13,6 +13,10 @@ import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { File } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
+import MedicationVerificationCard from '../components/MedicationVerificationCard';
+import { useMedicationsStore } from '../store/medicationsStore';
+import { useAuthStore } from '../store/authStore';
+import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -25,10 +29,13 @@ interface DocumentDetailScreenProps {
 export default function DocumentDetailScreen({ onBack, document: documentProp, navigation }: DocumentDetailScreenProps) {
   const { familyMembers } = useFamilyMembersStore();
   const { documents, analysisProgress, retryAnalysis } = useDocumentsStore();
+  const { addMedicationFromAI, getActiveMedications } = useMedicationsStore();
+  const { user } = useAuthStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [fileNotFound, setFileNotFound] = useState(false);
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
 
   // Get LIVE document from store (updates when AI analysis completes and updates title)
   // Falls back to prop if not found in store (e.g., during initial load)
@@ -222,6 +229,114 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       console.error('Error downloading:', error);
       setDownloading(false);
       Alert.alert('Error', 'Failed to download document. Please try again.');
+    }
+  };
+
+  // Handle verify and add medication from AI extraction
+  const handleVerifyAndAddMedication = async (parsedMed: import('../types/medicationVerification').ParsedMedication) => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to add medications');
+      return;
+    }
+
+    try {
+      // Check for duplicates in active medications
+      const activeMeds = getActiveMedications();
+      const duplicate = detectDuplicateMedication(
+        parsedMed.name,
+        parsedMed.dosage,
+        activeMeds
+      );
+
+      if (duplicate) {
+        // Show duplicate alert with options
+        return new Promise<void>((resolve, reject) => {
+          Alert.alert(
+            'Duplicate Medication Detected',
+            `"${parsedMed.name}" is similar to "${duplicate.name}" which is already in your tracker.\n\nWhat would you like to do?`,
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => reject(new Error('User cancelled')),
+              },
+              {
+                text: 'Replace Existing',
+                onPress: async () => {
+                  try {
+                    await addMedicationFromAI(
+                      parsedMed,
+                      user.id,
+                      document.id,
+                      displayTitle,
+                      new Date().toISOString().split('T')[0]
+                    );
+
+                    // Mark old as inactive
+                    await useMedicationsStore.getState().updateMedication(duplicate.id, {
+                      is_active: false,
+                    });
+
+                    // Mark as verified
+                    setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
+
+                    Alert.alert('Success', 'Medication updated in tracker!');
+                    resolve();
+                  } catch (error) {
+                    reject(error);
+                  }
+                },
+              },
+              {
+                text: 'Add Both',
+                onPress: async () => {
+                  try {
+                    await addMedicationFromAI(
+                      parsedMed,
+                      user.id,
+                      document.id,
+                      displayTitle,
+                      new Date().toISOString().split('T')[0]
+                    );
+
+                    // Mark as verified
+                    setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
+
+                    Alert.alert('Success', 'Medication added to tracker!');
+                    resolve();
+                  } catch (error) {
+                    reject(error);
+                  }
+                },
+              },
+            ],
+            { cancelable: true }
+          );
+        });
+      }
+
+      // No duplicate, add directly
+      await addMedicationFromAI(
+        parsedMed,
+        user.id,
+        document.id,
+        displayTitle,
+        new Date().toISOString().split('T')[0]
+      );
+
+      // Mark as verified
+      setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
+
+      Alert.alert('Success', 'Medication added to tracker!', [
+        {
+          text: 'View in Tracker',
+          onPress: () => navigation.navigate('Medications'),
+        },
+        { text: 'OK' },
+      ]);
+    } catch (error) {
+      console.error('[DocumentDetail] Error adding medication:', error);
+      throw error; // Let the card component handle the error
     }
   };
 
@@ -601,6 +716,66 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               <Text style={styles.analysisText}>
                 {getSummary(document.ai_analysis_result)}
               </Text>
+            </View>
+          )}
+
+        {/* Medications Section - Only for prescriptions with medicines */}
+        {document.ai_analysis_status === 'completed' &&
+          document.ai_analysis_result?.prescription_data?.medicines &&
+          document.ai_analysis_result.prescription_data.medicines.length > 0 && (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Medications</Text>
+                <View style={styles.cardBadge}>
+                  <Text style={styles.cardBadgeText}>
+                    {document.ai_analysis_result.prescription_data.medicines.length}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.cardSubtitle}>
+                Review and add medications to your tracker
+              </Text>
+
+              {/* Medication Verification Cards */}
+              <View style={styles.medicationsContainer}>
+                {document.ai_analysis_result.prescription_data.medicines.map((medicine, index) => {
+                  const parsedMed = parseAIMedication(
+                    medicine,
+                    document.id,
+                    displayTitle
+                  );
+
+                  // Check if already verified
+                  const isVerified = verifiedMedications.has(parsedMed.name);
+
+                  // Check for duplicate
+                  const activeMeds = getActiveMedications();
+                  const duplicateOf = detectDuplicateMedication(
+                    parsedMed.name,
+                    parsedMed.dosage,
+                    activeMeds
+                  );
+
+                  return (
+                    <View key={index}>
+                      {isVerified ? (
+                        <View style={styles.verifiedBanner}>
+                          <Feather name="check-circle" size={16} color={Colors.success} />
+                          <Text style={styles.verifiedText}>Added to tracker</Text>
+                        </View>
+                      ) : (
+                        <MedicationVerificationCard
+                          medication={parsedMed}
+                          documentId={document.id}
+                          documentTitle={displayTitle}
+                          onVerifyAndAdd={handleVerifyAndAddMedication}
+                          duplicateOf={duplicateOf || undefined}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
             </View>
           )}
 
@@ -1286,5 +1461,49 @@ const styles = StyleSheet.create({
     color: Colors.success,
     minWidth: 35,
     textAlign: 'right',
+  },
+
+  // Medications Section Styles
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  cardBadge: {
+    backgroundColor: Colors.primary + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  cardBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: Sizes.lg,
+  },
+  medicationsContainer: {
+    gap: Sizes.md,
+  },
+  verifiedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.xs,
+    backgroundColor: Colors.successLight,
+    paddingHorizontal: Sizes.md,
+    paddingVertical: Sizes.sm,
+    borderRadius: 12,
+    marginBottom: Sizes.md,
+    borderWidth: 1,
+    borderColor: Colors.success + '30',
+  },
+  verifiedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.success,
   },
 });

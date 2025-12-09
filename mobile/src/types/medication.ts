@@ -25,6 +25,14 @@ export interface Medication {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+
+  // Source tracking fields for AI-extracted medications
+  source_document_id?: string;           // Links to prescription document
+  source_document_title?: string;        // Quick reference without DB lookup
+  ai_extracted?: boolean;                // True if added via AI extraction
+  verified_by_user?: boolean;            // True if user verified/edited
+  original_frequency_code?: string;      // Store original code (e.g., "Q6H")
+  scientific_name?: string;              // Generic name from AI
 }
 
 export interface MedicationsState {
@@ -40,6 +48,18 @@ export interface MedicationsActions {
   updateMedication: (id: string, updates: Partial<Medication>) => Promise<void>;
   deleteMedication: (id: string) => Promise<void>;
   clearMedications: () => void;
+
+  // AI medication extraction methods
+  addMedicationFromAI: (
+    parsedMed: import('./medicationVerification').ParsedMedication,
+    userId: string,
+    documentId: string,
+    documentTitle: string,
+    startDate: string,
+    color?: string
+  ) => Promise<Medication>;
+  getActiveMedications: () => Medication[];
+  replaceMedication: (oldMedicationId: string, newMedicationData: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<Medication>;
 }
 
 export type MedicationsStore = MedicationsState & MedicationsActions;

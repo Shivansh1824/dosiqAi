@@ -39,7 +39,8 @@
       "Bash(ls:*)",
       "Bash(wc:*)",
       "Bash(git -C /Users/shivanshrana/Desktop/FamilyCareHealth log --oneline mobile/src/screens/HomeScreen.tsx)",
-      "Bash(git -C /Users/shivanshrana/Desktop/FamilyCareHealth status --porcelain)"
+      "Bash(git -C /Users/shivanshrana/Desktop/FamilyCareHealth status --porcelain)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []
