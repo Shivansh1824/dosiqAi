@@ -76,10 +76,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         return;
       }
 
-      // Add color if not present
+      // Calculate color from index (7 colors cycling)
       const medicationsWithColor: Medication[] = (data || []).map((med, index) => ({
         ...med,
-        color: med.color || medicationColors[index % medicationColors.length],
+        color: medicationColors[index % medicationColors.length], // Always calculate from index
       }));
 
       // Save to cache for next time
@@ -110,7 +110,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       const medications = get().medications;
       const newMed = {
         ...med,
-        color: med.color || medicationColors[medications.length % medicationColors.length],
+        // color will be calculated when fetched, no need to include here
       };
 
       const { data, error } = await supabase
@@ -241,7 +241,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         start_date: startDate,
         end_date: endDate,
         notes: parsedMed.notes,
-        color: color || medicationColors[medications.length % medicationColors.length],
+        // color removed - will be calculated from index when fetched
         is_active: true,
 
         // Source tracking fields

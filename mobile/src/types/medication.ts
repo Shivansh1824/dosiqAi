@@ -21,7 +21,7 @@ export interface Medication {
   start_date: string;
   end_date?: string;
   notes?: string;
-  color: string;
+  color: string; // Calculated on-the-fly from index (7 colors cycling), not stored in database
   is_active: boolean;
   created_at: string;
   updated_at: string;
