@@ -155,6 +155,9 @@ export interface DocumentsActions {
   refreshUploadLimit: (userId: string) => Promise<void>;
   clearAnalysisError: (documentId: string) => Promise<void>;
   retryAnalysis: (documentId: string, localFilePath: string) => Promise<void>;
+
+  // Local storage cleanup
+  clearAllLocalDocuments: (userId?: string) => Promise<void>;
 }
 
 export type DocumentsStore = DocumentsState & DocumentsActions;

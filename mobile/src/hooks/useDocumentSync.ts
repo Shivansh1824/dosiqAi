@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 
 /**
- * Hook to automatically sync documents with Supabase every 30 minutes
+ * Hook to automatically sync documents with Supabase every 30 minutes (silent, no UI)
  * Pauses sync when app goes to background to save battery
  *
  * Usage in useAppInitialization.ts:
@@ -15,6 +15,14 @@ export const useDocumentSync = () => {
   const fetchDocuments = useDocumentsStore((state) => state.fetchDocuments);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const appState = useRef(AppState.currentState);
+
+  // Memoize the fetch function to prevent useEffect re-runs
+  const stableFetchDocuments = useCallback(
+    (userId: string, silent: boolean) => {
+      fetchDocuments(userId, silent);
+    },
+    [fetchDocuments]
+  );
 
   useEffect(() => {
     if (!user?.id) {
@@ -29,12 +37,12 @@ export const useDocumentSync = () => {
       console.log('[DocumentSync] Starting sync interval (30min)');
 
       // Initial sync (silent - no loading spinner)
-      fetchDocuments(user.id, true);
+      stableFetchDocuments(user.id, true);
 
       // Set up 30-minute interval
       intervalRef.current = setInterval(() => {
         console.log('[DocumentSync] Running periodic sync...');
-        fetchDocuments(user.id, true); // Always silent for background sync
+        stableFetchDocuments(user.id, true); // Always silent for background sync
       }, 1800000); // 30 minutes = 1800000ms
     };
 
@@ -78,5 +86,5 @@ export const useDocumentSync = () => {
       stopSync();
       subscription.remove();
     };
-  }, [user?.id, fetchDocuments]);
+  }, [user?.id, stableFetchDocuments]);
 };

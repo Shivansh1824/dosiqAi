@@ -1,14 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
+import { Colors, Sizes } from '../constants';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
+import { useDocumentsStore } from '../store/documentsStore';
 
 export default function ProfileScreen() {
     const navigation = useNavigation();
     const { user, logout } = useAuthStore();
+    const { clearAllLocalDocuments } = useDocumentsStore();
+    const [isClearing, setIsClearing] = useState(false);
 
     const menuItems = [
         { icon: 'user', label: 'Personal Information' },
@@ -28,6 +31,42 @@ export default function ProfileScreen() {
             index: 0,
             routes: [{ name: 'Welcome' as never }],
         });
+    };
+
+    const handleClearLocalDocuments = () => {
+        Alert.alert(
+            'Clear Local Documents',
+            'This will delete all locally stored documents and files from this device.\n\nNote: Database records remain unchanged and will need to be cleaned manually.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setIsClearing(true);
+                            await clearAllLocalDocuments(user?.id);
+                            Alert.alert(
+                                'Success',
+                                'All local documents have been cleared successfully.',
+                                [{ text: 'OK' }]
+                            );
+                        } catch (error) {
+                            Alert.alert(
+                                'Error',
+                                'Failed to clear local documents: ' + (error instanceof Error ? error.message : 'Unknown error'),
+                                [{ text: 'OK' }]
+                            );
+                        } finally {
+                            setIsClearing(false);
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     return (
@@ -60,6 +99,18 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                <TouchableOpacity
+                    style={styles.clearDocumentsButton}
+                    onPress={handleClearLocalDocuments}
+                    activeOpacity={0.8}
+                    disabled={isClearing}
+                >
+                    <Feather name="trash-2" size={20} color={Colors.orange} />
+                    <Text style={styles.clearDocumentsText}>
+                        {isClearing ? 'Clearing...' : 'Clear Local Documents'}
+                    </Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
                     <Feather name="log-out" size={20} color={Colors.error} />
@@ -149,6 +200,21 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: Colors.textPrimary,
+    },
+    clearDocumentsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: Sizes.md,
+        backgroundColor: Colors.orange + '10',
+        borderRadius: 12,
+        gap: Sizes.sm,
+        marginBottom: Sizes.md,
+    },
+    clearDocumentsText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.orange,
     },
     logoutButton: {
         flexDirection: 'row',

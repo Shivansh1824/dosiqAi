@@ -18,20 +18,24 @@ interface DayItem {
 export default function CalendarStrip({ selectedDate, onDateSelect }: CalendarStripProps) {
     const scrollViewRef = useRef<ScrollView>(null);
 
-    // Generate 7 days (current week)
+    // Generate 7 days centered around selected date
     const getDaysArray = (): DayItem[] => {
         const days: DayItem[] = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Start from 3 days before today to 3 days after
+        // Center the week around the selected date
+        const centerDate = new Date(selectedDate);
+        centerDate.setHours(0, 0, 0, 0);
+
+        // Start from 3 days before selected date to 3 days after
         for (let i = -3; i <= 3; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
+            const date = new Date(centerDate);
+            date.setDate(centerDate.getDate() + i);
 
             const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
             const dayNumber = date.getDate();
-            const isToday = i === 0;
+            const isToday = date.toDateString() === today.toDateString();
             const isSelected = date.toDateString() === selectedDate.toDateString();
 
             days.push({ date, dayName, dayNumber, isToday, isSelected });
@@ -42,7 +46,7 @@ export default function CalendarStrip({ selectedDate, onDateSelect }: CalendarSt
 
     const days = getDaysArray();
 
-    // Auto-scroll to selected date on mount
+    // Auto-scroll to selected date when it changes
     useEffect(() => {
         const selectedIndex = days.findIndex(d => d.isSelected);
         if (selectedIndex !== -1 && scrollViewRef.current) {
@@ -51,7 +55,7 @@ export default function CalendarStrip({ selectedDate, onDateSelect }: CalendarSt
             const scrollPosition = (selectedIndex * itemWidth) - (itemWidth * 1.5);
             scrollViewRef.current.scrollTo({ x: Math.max(0, scrollPosition), animated: true });
         }
-    }, []);
+    }, [selectedDate]);
 
     return (
         <View style={styles.container}>

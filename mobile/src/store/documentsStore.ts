@@ -459,4 +459,48 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     await get().clearAnalysisError(documentId);
     await get().triggerAnalysis(documentId, localFilePath);
   },
+
+  /**
+   * Clear all local documents (AsyncStorage cache + file storage)
+   * WARNING: This only clears local data. Database records remain untouched.
+   * @param userId - User ID for cache clearing
+   */
+  clearAllLocalDocuments: async (userId?: string) => {
+    try {
+      console.log('[DocumentsStore] Clearing all local documents...');
+
+      // 1. Clear in-memory documents
+      set({ documents: [], error: null });
+      console.log('[DocumentsStore] ✓ Cleared in-memory documents');
+
+      // 2. Clear AsyncStorage cache
+      if (userId) {
+        const { clearCache } = await import('../services/cacheService');
+        await clearCache(CacheKeys.documents(userId));
+        console.log('[DocumentsStore] ✓ Cleared AsyncStorage cache for user:', userId);
+      }
+
+      // 3. Delete all files from FamilyCareHealth directory
+      const { Directory, Paths } = await import('expo-file-system');
+
+      if (Paths.document) {
+        const APP_FOLDER_NAME = 'FamilyCareHealth';
+        const appDir = new Directory(Paths.document, APP_FOLDER_NAME);
+
+        if (appDir.exists) {
+          console.log('[DocumentsStore] Deleting FamilyCareHealth directory...');
+          await appDir.delete();
+          console.log('[DocumentsStore] ✓ Deleted all local document files');
+        } else {
+          console.log('[DocumentsStore] FamilyCareHealth directory does not exist');
+        }
+      }
+
+      console.log('[DocumentsStore] ✅ All local documents cleared successfully');
+      console.log('[DocumentsStore] Note: Database records remain unchanged (manual cleanup required)');
+    } catch (error) {
+      console.error('[DocumentsStore] Error clearing local documents:', error);
+      throw error;
+    }
+  },
 }));

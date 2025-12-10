@@ -357,7 +357,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         iconColor: '#F59E0B',
         value: activeMedicationsCount,
         label: 'Medications',
-        onPress: () => onNavigate('medications'),
+        onPress: () => onNavigate('medicationList'),
       },
       {
         key: 'appointments',

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Sizes, Typography } from '../constants';
 import { Document, DocumentAnalysisResult } from '../types/document';
 import { fileExists, getAbsolutePath } from '../utils/fileStorage';
@@ -22,7 +23,7 @@ type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Doc
 
 interface DocumentDetailScreenProps {
   onBack: () => void;
-  document: Document;
+  document: Document | undefined;
   navigation: DocumentDetailNavigationProp;
 }
 
@@ -36,10 +37,41 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
+  const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
 
+  // VALIDATION: Handle undefined document
+  if (!documentProp) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Document Error</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Feather name="alert-circle" size={48} color={Colors.error} />
+          <Text style={styles.errorTitle}>Document Not Found</Text>
+          <Text style={styles.errorMessage}>
+            The document you're trying to view could not be loaded. Please go back and try again.
+          </Text>
+          <TouchableOpacity style={styles.errorButton} onPress={onBack} activeOpacity={0.8}>
+            <Feather name="arrow-left" size={20} color={Colors.white} />
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // SAFE: documentProp is guaranteed to exist after this point
   // Get LIVE document from store (updates when AI analysis completes and updates title)
   // Falls back to prop if not found in store (e.g., during initial load)
   const document = documents.find(d => d.id === documentProp.id) || documentProp;
+
+  // AsyncStorage key for dismissed medications (NOW SAFE)
+  const DISMISSED_MEDS_STORAGE_KEY = `dismissed_medications_${document.id}`;
 
   // Get analysis progress for this document
   const documentProgress = analysisProgress[document.id] || 0;
@@ -87,6 +119,24 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
     checkFile();
   }, [document.local_file_path]);
+
+  // Load dismissed medications from AsyncStorage on mount
+  useEffect(() => {
+    const loadDismissedMedications = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(DISMISSED_MEDS_STORAGE_KEY);
+        if (stored) {
+          const dismissed = JSON.parse(stored);
+          setDismissedMedicationIds(new Set(dismissed));
+          console.log('[DocumentDetail] Loaded dismissed medications:', dismissed);
+        }
+      } catch (error) {
+        console.error('[DocumentDetail] Error loading dismissed medications:', error);
+      }
+    };
+
+    loadDismissedMedications();
+  }, [document.id]);
 
   // Determine if file is PDF
   const isPdf = document.local_file_path?.toLowerCase().endsWith('.pdf');
@@ -232,8 +282,35 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     }
   };
 
+  // Save dismissed medications to AsyncStorage
+  const saveDismissedToStorage = async (dismissedSet: Set<string>) => {
+    try {
+      await AsyncStorage.setItem(
+        DISMISSED_MEDS_STORAGE_KEY,
+        JSON.stringify(Array.from(dismissedSet))
+      );
+      console.log('[DocumentDetail] Saved dismissed medications:', Array.from(dismissedSet));
+    } catch (error) {
+      console.error('[DocumentDetail] Error saving dismissed medications:', error);
+    }
+  };
+
+  // Handle dismissing a medication from verification list
+  const handleDismissMedication = (medicineIndex: number) => {
+    const dismissId = `${document.id}_${medicineIndex}`;
+
+    console.log('[DocumentDetail] Dismissing medication at index:', medicineIndex);
+
+    setDismissedMedicationIds(prev => {
+      const updated = new Set(prev);
+      updated.add(dismissId);
+      saveDismissedToStorage(updated);
+      return updated;
+    });
+  };
+
   // Handle verify and add medication from AI extraction
-  const handleVerifyAndAddMedication = async (parsedMed: import('../types/medicationVerification').ParsedMedication) => {
+  const handleVerifyAndAddMedication = async (parsedMed: import('../types/medicationVerification').ParsedMedication, startDate: string) => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to add medications');
       return;
@@ -269,7 +346,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       user.id,
                       document.id,
                       displayTitle,
-                      new Date().toISOString().split('T')[0]
+                      startDate
                     );
 
                     // Mark old as inactive
@@ -296,7 +373,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       user.id,
                       document.id,
                       displayTitle,
-                      new Date().toISOString().split('T')[0]
+                      startDate
                     );
 
                     // Mark as verified
@@ -321,7 +398,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         user.id,
         document.id,
         displayTitle,
-        new Date().toISOString().split('T')[0]
+        startDate
       );
 
       // Mark as verified
@@ -677,10 +754,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>File Size</Text>
-              <Text style={styles.detailValue}>{formatFileSize(document.file_size)}</Text>
-            </View>
-            <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Analysis</Text>
               {document.ai_analysis_status === 'processing' ? (
                 <View style={[styles.statusBadge, styles.statusBadgeProcessing]}>
@@ -711,8 +784,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         {document.ai_analysis_status === 'completed' &&
           document.ai_analysis_result &&
           getSummary(document.ai_analysis_result) && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Summary</Text>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Summary</Text>
               <Text style={styles.analysisText}>
                 {getSummary(document.ai_analysis_result)}
               </Text>
@@ -728,7 +801,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 <Text style={styles.cardTitle}>Medications</Text>
                 <View style={styles.cardBadge}>
                   <Text style={styles.cardBadgeText}>
-                    {document.ai_analysis_result.prescription_data.medicines.length}
+                    {document.ai_analysis_result.prescription_data.medicines.length - dismissedMedicationIds.size}
                   </Text>
                 </View>
               </View>
@@ -736,46 +809,53 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 Review and add medications to your tracker
               </Text>
 
-              {/* Medication Verification Cards */}
-              <View style={styles.medicationsContainer}>
-                {document.ai_analysis_result.prescription_data.medicines.map((medicine, index) => {
+              {/* Medication Verification Cards - Single Column */}
+              {document.ai_analysis_result.prescription_data.medicines
+                .map((medicine, index) => ({ medicine, index }))
+                .filter(({ index }) => {
+                  const dismissId = `${document.id}_${index}`;
+                  return !dismissedMedicationIds.has(dismissId);
+                })
+                .map(({ medicine, index }) => {
                   const parsedMed = parseAIMedication(
                     medicine,
                     document.id,
                     displayTitle
                   );
-
-                  // Check if already verified
-                  const isVerified = verifiedMedications.has(parsedMed.name);
-
-                  // Check for duplicate
+                  const suggestedStartDate =
+                    document.ai_analysis_result?.common_data?.visit_date ||
+                    document.created_at.split('T')[0];
                   const activeMeds = getActiveMedications();
                   const duplicateOf = detectDuplicateMedication(
                     parsedMed.name,
                     parsedMed.dosage,
                     activeMeds
                   );
+                  const isVerified = verifiedMedications.has(parsedMed.name);
+
+                  if (isVerified) {
+                    return (
+                      <View key={index} style={styles.verifiedBanner}>
+                        <Feather name="check-circle" size={16} color={Colors.success} />
+                        <Text style={styles.verifiedText}>Added to tracker</Text>
+                      </View>
+                    );
+                  }
 
                   return (
-                    <View key={index}>
-                      {isVerified ? (
-                        <View style={styles.verifiedBanner}>
-                          <Feather name="check-circle" size={16} color={Colors.success} />
-                          <Text style={styles.verifiedText}>Added to tracker</Text>
-                        </View>
-                      ) : (
-                        <MedicationVerificationCard
-                          medication={parsedMed}
-                          documentId={document.id}
-                          documentTitle={displayTitle}
-                          onVerifyAndAdd={handleVerifyAndAddMedication}
-                          duplicateOf={duplicateOf || undefined}
-                        />
-                      )}
-                    </View>
+                    <MedicationVerificationCard
+                      key={index}
+                      medication={parsedMed}
+                      documentId={document.id}
+                      documentTitle={displayTitle}
+                      suggestedStartDate={suggestedStartDate}
+                      onVerifyAndAdd={handleVerifyAndAddMedication}
+                      duplicateOf={duplicateOf || undefined}
+                      medicineIndex={index}
+                      onDismiss={() => handleDismissMedication(index)}
+                    />
                   );
                 })}
-              </View>
             </View>
           )}
 
@@ -924,6 +1004,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: Sizes.md,
+  },
+  summaryCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Sizes.lg,
+    marginBottom: Sizes.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: Sizes.sm,
+    letterSpacing: 0.5,
   },
 
   // Details
@@ -1151,9 +1251,10 @@ const styles = StyleSheet.create({
     marginBottom: Sizes.xs,
   },
   analysisText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: Colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.textPrimary,
+    letterSpacing: 0.2,
   },
   analysisGrid: {
     flexDirection: 'row',
@@ -1488,6 +1589,7 @@ const styles = StyleSheet.create({
   },
   medicationsContainer: {
     gap: Sizes.md,
+    paddingHorizontal: Sizes.md,
   },
   verifiedBanner: {
     flexDirection: 'row',
@@ -1505,5 +1607,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.success,
+  },
+
+  // Error UI styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Sizes.xl,
+    gap: Sizes.lg,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginTop: Sizes.md,
+  },
+  errorMessage: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  errorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Sizes.xl,
+    paddingVertical: Sizes.md,
+    borderRadius: 12,
+    gap: Sizes.sm,
+    marginTop: Sizes.md,
+  },
+  errorButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });

@@ -10,14 +10,18 @@ import AddMedicationModal from '../components/AddMedicationModal';
 import CalendarModal, { CalendarEvent } from '../components/CalendarModal';
 import { MedicationWithStatus, getTimeOfDayCategory } from '../types/medicationSchedule';
 import { useMedicationsStore } from '../store/medicationsStore';
+import { useMedicationLogsStore } from '../store/medicationLogsStore';
 import { useAuthStore } from '../store/authStore';
 import { Medication, getFrequencyText } from '../types/medication';
+import { toLocalDateString, fromLocalDateString, getTodayLocal } from '../utils/dateUtils';
+import * as Haptics from 'expo-haptics';
 
 export default function MedicationsScreen() {
     const navigation = useNavigation();
     const { user } = useAuthStore();
     const { medications, fetchMedications, isLoading } = useMedicationsStore();
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    const { logs, fetchLogsForDate, markAsTaken } = useMedicationLogsStore();
+    const [selectedDate, setSelectedDate] = useState(getTodayLocal());
     const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -29,12 +33,19 @@ export default function MedicationsScreen() {
         }
     }, [user?.id, fetchMedications]);
 
+    // Fetch logs for selected date
+    useEffect(() => {
+        if (user?.id) {
+            fetchLogsForDate(user.id, selectedDate);
+        }
+    }, [selectedDate, user?.id, fetchLogsForDate]);
+
     // Convert store medications to scheduled format with date filtering
     const convertToScheduledMedications = (meds: Medication[], selectedDate: Date): MedicationWithStatus[] => {
         const result: MedicationWithStatus[] = [];
 
-        // Normalize selected date to start of day (YYYY-MM-DD) for comparison
-        const selectedDateStr = selectedDate.toISOString().split('T')[0];
+        // Normalize selected date to local date string (no UTC conversion)
+        const selectedDateStr = toLocalDateString(selectedDate);
 
         // Filter medications that are:
         // 1. Active (is_active = true)
@@ -59,10 +70,18 @@ export default function MedicationsScreen() {
         // Create scheduled entries for valid medications
         activeMeds.forEach(med => {
             med.time_of_day.forEach(time => {
+                // Check if log exists for this medication/date/time
+                const log = useMedicationLogsStore.getState().getLog(
+                    med.id,
+                    selectedDateStr,
+                    time
+                );
+
                 result.push({
                     ...med,
                     scheduled_time: time,
-                    status: 'pending', // TODO: Determine status based on logs
+                    status: log?.status || 'pending',
+                    taken_at: log?.taken_at,
                     dosage: med.dosage,
                     frequency: getFrequencyText(med.frequency),
                     times: med.time_of_day,
@@ -103,49 +122,98 @@ export default function MedicationsScreen() {
 
     const medicationsByTime = groupMedicationsByTimeOfDay();
 
-    // Generate calendar events from medications
+    // Helper function to calculate medication occurrences based on frequency
+    const calculateMedicationOccurrences = (
+        startDateStr: string,    // Changed: now accepts string instead of Date
+        endDateStr: string | null,
+        frequency: string
+    ): string[] => {
+        const occurrences: string[] = [];
+
+        // Convert to local Date objects
+        const currentDate = fromLocalDateString(startDateStr);
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+        const maxDate = endDateStr ? fromLocalDateString(endDateStr) : oneYearFromNow;
+
+        // Determine increment based on frequency
+        let dayIncrement = 1;
+        switch (frequency) {
+            case 'once_daily':
+            case 'twice_daily':
+            case 'three_times_daily':
+            case 'four_times_daily':
+                dayIncrement = 1; // Every day
+                break;
+            case 'weekly':
+                dayIncrement = 7; // Every 7 days
+                break;
+            case 'monthly':
+                dayIncrement = 30; // Approximate monthly (every 30 days)
+                break;
+            case 'as_needed':
+                // PRN medications don't show on calendar
+                return [];
+            default:
+                dayIncrement = 1;
+        }
+
+        // Generate occurrence dates (using local date strings)
+        while (currentDate <= maxDate) {
+            occurrences.push(toLocalDateString(currentDate));
+            currentDate.setDate(currentDate.getDate() + dayIncrement);
+        }
+
+        return occurrences;
+    };
+
+    // Generate calendar events from medications (respects frequency)
     const getCalendarEvents = (): Record<string, CalendarEvent> => {
         const events: Record<string, CalendarEvent> = {};
 
         medications.forEach(med => {
             if (!med.is_active) return;
 
-            const startDate = new Date(med.start_date);
-            const endDate = med.end_date ? new Date(med.end_date) : null;
+            // Calculate actual occurrence dates based on frequency
+            // Pass date strings directly (no Date object conversion)
+            const occurrenceDates = calculateMedicationOccurrences(
+                med.start_date,      // Already a string like "2025-12-09"
+                med.end_date || null,
+                med.frequency
+            );
 
-            // Generate entries for each day in the medication's range
-            const currentDate = new Date(startDate);
-            const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-
-            while (true) {
-                const dateStr = currentDate.toISOString().split('T')[0];
-
-                // Add or increment medication count
+            // Add events for each occurrence date
+            occurrenceDates.forEach(dateStr => {
                 if (!events[dateStr]) {
                     events[dateStr] = { type: 'medication', count: 0 };
                 }
                 events[dateStr].count += 1;
-
-                // Move to next day
-                currentDate.setDate(currentDate.getDate() + 1);
-
-                // Stop conditions:
-                // 1. If end_date exists and we've reached it
-                // 2. If no end_date, stop after 1 year to prevent infinite loop
-                if (endDate && currentDate > endDate) break;
-                if (!endDate && currentDate > oneYearFromNow) break;
-            }
+            });
         });
 
         return events;
     };
 
     // Handle medication take action
-    const handleTakeMedication = useCallback((medicationId: string, scheduledTime: string) => {
-        console.log('Taking medication:', medicationId, 'at', scheduledTime);
-        // TODO: Implement actual medication logging
-        // This will call the medication logs store to mark as taken
-    }, []);
+    const handleTakeMedication = useCallback(async (medicationId: string, scheduledTime: string) => {
+        if (!user?.id) return;
+
+        try {
+            // Haptic feedback
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+            const selectedDateStr = toLocalDateString(selectedDate);
+
+            // Mark as taken in database
+            await markAsTaken(user.id, medicationId, selectedDateStr, scheduledTime);
+
+            console.log('✅ Medication taken:', medicationId, 'at', scheduledTime);
+        } catch (error) {
+            console.error('Failed to mark medication as taken:', error);
+            // TODO: Show error toast to user
+        }
+    }, [user?.id, selectedDate, markAsTaken]);
 
     // Handle refresh
     const onRefresh = useCallback(async () => {

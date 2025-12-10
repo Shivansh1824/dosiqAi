@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, Sizes } from '../constants';
@@ -18,6 +19,25 @@ export default function MedicationCard({ medication, onTake }: MedicationCardPro
 
     const iconName = getMedicineTypeIcon(medication.type);
     const iconColor = getMedicineTypeColor(medication.type);
+
+    // Animation for checkmark bounce
+    const scale = useSharedValue(1);
+
+    useEffect(() => {
+        if (isTaken) {
+            // Bounce animation when taken
+            scale.value = withSpring(1.2, {
+                damping: 8,
+                stiffness: 200,
+            }, () => {
+                scale.value = withSpring(1);
+            });
+        }
+    }, [isTaken]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
 
     const handleTakePress = () => {
         if (!isTaken) {
@@ -86,33 +106,37 @@ export default function MedicationCard({ medication, onTake }: MedicationCardPro
             </View>
 
             {/* Right: Take Button / Checkmark */}
-            <TouchableOpacity
-                style={[
-                    styles.actionButton,
-                    isTaken && styles.actionButtonTaken,
-                ]}
-                onPress={handleTakePress}
-                disabled={isTaken}
-                activeOpacity={0.7}
-            >
-                {isTaken ? (
-                    <Feather name="check-circle" size={28} color={Colors.success} />
-                ) : (
-                    <View style={styles.takeButton}>
-                        <Text style={styles.takeButtonText}>Take</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
+            <View style={styles.actionButtonContainer}>
+                <TouchableOpacity
+                    style={[
+                        styles.actionButton,
+                        isTaken && styles.actionButtonTaken,
+                    ]}
+                    onPress={handleTakePress}
+                    disabled={isTaken}
+                    activeOpacity={0.7}
+                >
+                    {isTaken ? (
+                        <Animated.View style={animatedStyle}>
+                            <Feather name="check-circle" size={28} color={Colors.success} />
+                        </Animated.View>
+                    ) : (
+                        <View style={styles.takeButton}>
+                            <Text style={styles.takeButtonText}>Take</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
 
-            {/* Taken Time */}
-            {isTaken && medication.taken_at && (
-                <Text style={styles.takenTime}>
-                    Taken at {new Date(medication.taken_at).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })}
-                </Text>
-            )}
+                {/* Taken Time - Below checkmark */}
+                {isTaken && medication.taken_at && (
+                    <Text style={styles.takenTime}>
+                        Taken at {new Date(medication.taken_at).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
+                    </Text>
+                )}
+            </View>
         </View>
     );
 }
@@ -180,8 +204,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: Colors.gray600,
     },
-    actionButton: {
+    actionButtonContainer: {
         marginLeft: Sizes.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    actionButton: {
+        // Container for take button or checkmark
     },
     actionButtonTaken: {
         // No additional styles needed
@@ -198,11 +227,11 @@ const styles = StyleSheet.create({
         color: Colors.white,
     },
     takenTime: {
-        position: 'absolute',
-        bottom: 8,
-        right: 12,
-        fontSize: 11,
-        color: Colors.gray400,
+        fontSize: 10,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginTop: 4,
+        textAlign: 'center',
     },
     sourceIndicator: {
         flexDirection: 'row',

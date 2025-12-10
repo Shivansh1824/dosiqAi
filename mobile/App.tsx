@@ -50,6 +50,7 @@ import ScanDocumentScreen from './src/screens/ScanDocumentScreen';
 import DocumentDetailScreen from './src/screens/DocumentDetailScreen';
 import DocumentsScreen from './src/screens/DocumentsScreen';
 import MedicationsScreen from './src/screens/MedicationsScreen';
+import MedicationHomeScreen from './src/screens/MedicationHomeScreen';
 import HealthScreen from './src/screens/HealthScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProfileSwitcherModal from './src/components/ProfileSwitcherModal';
@@ -76,6 +77,7 @@ export type RootStackParamList = {
   Document: undefined;
   Documents: undefined;
   Medications: undefined;
+  MedicationList: undefined;
   Health: undefined;
   Profile: undefined;
   PdfViewer: { uri: string; title: string };
@@ -213,6 +215,7 @@ export default function App() {
                             else if (screen === 'document') navigation.navigate('Document', params);
                             else if (screen === 'documents') navigation.navigate('Documents');
                             else if (screen === 'medications') navigation.navigate('Medications');
+                            else if (screen === 'medicationList') navigation.navigate('MedicationList');
                             else if (screen === 'health') navigation.navigate('Health');
                             else if (screen === 'profile') navigation.navigate('Profile');
                           }}
@@ -256,6 +259,14 @@ export default function App() {
                     <Stack.Screen
                       name="Medications"
                       component={MedicationsScreen}
+                      options={{
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="MedicationList"
+                      component={MedicationHomeScreen}
                       options={{
                         gestureEnabled: true,
                         gestureDirection: 'horizontal',
