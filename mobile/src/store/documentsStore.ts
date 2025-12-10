@@ -83,10 +83,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         return;
       }
 
-      // Add color to each document based on type
+      // Calculate color for each document based on type (not stored in database)
       const documentsWithColor: Document[] = (data || []).map((doc) => ({
         ...doc,
-        color: doc.color || getDocumentColor(doc.type),
+        color: getDocumentColor(doc.type), // Always calculate from type (database optimization)
       }));
 
       // Save to cache for next time

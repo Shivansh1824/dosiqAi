@@ -315,11 +315,11 @@ serve(async (req: Request) => {
     }
 
     // Update document status to 'processing'
+    // Note: Do NOT save ai_analysis_prompt here - only save it on error (NULL by default for successful analyses)
     await supabase
       .from("documents")
       .update({
         ai_analysis_status: "processing",
-        ai_analysis_prompt: prompt || DOCUMENT_ANALYSIS_PROMPT,
       })
       .eq("id", documentId);
 
@@ -344,6 +344,7 @@ serve(async (req: Request) => {
     console.log(`[Success] Analysis completed in ${duration}ms, tokens: ${openRouterResponse.usage.total_tokens}`);
 
     // Update document with analysis result
+    // Clear error and prompt fields on success (NULL by default for successful analyses)
     await supabase
       .from("documents")
       .update({
@@ -351,6 +352,8 @@ serve(async (req: Request) => {
         ai_analysis_result: analysisResult,
         ai_analyzed_at: new Date().toISOString(),
         ai_analysis_tokens_used: openRouterResponse.usage.total_tokens,
+        ai_analysis_error: null, // Clear any previous error
+        ai_analysis_prompt: null, // Keep NULL for successful analyses
       })
       .eq("id", documentId);
 
@@ -377,9 +380,10 @@ serve(async (req: Request) => {
     const duration = Date.now() - startTime;
 
     // Try to update document status to 'failed'
+    // Save the prompt that was used so we know what caused the failure
     try {
       const body = await req.clone().json();
-      const { documentId } = body;
+      const { documentId, prompt } = body;
 
       if (documentId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -388,6 +392,7 @@ serve(async (req: Request) => {
           .update({
             ai_analysis_status: "failed",
             ai_analysis_error: error.message || "Analysis failed",
+            ai_analysis_prompt: prompt || DOCUMENT_ANALYSIS_PROMPT, // Save prompt only on error
           })
           .eq("id", documentId);
       }

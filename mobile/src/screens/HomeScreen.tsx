@@ -265,15 +265,15 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       const fileExtension = originalFileName.split('.').pop()?.toLowerCase() || '';
       const docType: DocumentType = fileExtension === 'pdf' ? 'Report' : 'Imaging';
 
+      // Save document metadata (color calculated from type, file_size not stored for database optimization)
       const savedDocument = await addDocument({
         user_id: user.id,
         title: originalFileName.replace(/\.[^/.]+$/, '') || `Document ${new Date().toLocaleDateString()}`,
         type: docType,
         local_file_path: relativePath,
         family_member_id: memberForUpload.id,
-        file_size: fileSize,
         is_local: true,
-        color: '',
+        color: '', // Will be calculated by store from document type
       });
 
       const actualDocumentId = savedDocument?.id || documentId;

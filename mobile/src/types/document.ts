@@ -109,17 +109,16 @@ export interface Document {
   file_url?: string; // Legacy field, nullable
   local_file_path?: string; // New: local file path
   family_member_id?: string; // New: reference to family member
-  file_size?: number; // New: file size in bytes
   is_local?: boolean; // New: flag for local vs cloud storage
-  color: string;
+  color: string; // Calculated on-the-fly from type, not stored in database
   created_at: string;
   updated_at: string;
 
   // AI Analysis fields
   ai_analysis_status?: DocumentAnalysisStatus;
   ai_analysis_result?: DocumentAnalysisResult;
-  ai_analysis_error?: string;
-  ai_analysis_prompt?: string;
+  ai_analysis_error?: string; // NULL by default, only filled when analysis fails
+  ai_analysis_prompt?: string; // NULL by default, only filled when custom prompt used
   ai_analyzed_at?: string;
   ai_analysis_tokens_used?: number;
 }

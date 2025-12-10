@@ -221,15 +221,15 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const docType: DocumentType = fileExtension === 'pdf' ? 'Report' : 'Imaging';
 
       // Save document metadata to database (using relative path for persistence)
+      // Note: color is calculated on-the-fly from type, file_size not stored (database optimization)
       const savedDocument = await addDocument({
         user_id: user.id,
         title: originalFileName.replace(/\.[^/.]+$/, '') || `Document ${new Date().toLocaleDateString()}`,
         type: docType,
         local_file_path: relativePath, // Store relative path for persistence across rebuilds
         family_member_id: memberForUpload.id,
-        file_size: fileSize,
         is_local: true,
-        color: '',
+        color: '', // Will be calculated by store from document type
       });
 
       // Get the actual document ID from Supabase (UUID)
