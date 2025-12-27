@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { Document, DocumentsStore, getDocumentColor } from '../types/document';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInfo } from '../services/documentAnalysisService';
+import { processLabReport } from '../services/labAnalyticsService';
 
 /**
  * Zustand store for documents state
@@ -302,6 +303,29 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       const aiDocumentType = analysisResult?.document_type;
 
       console.log('[DocumentsStore] Extracted values - aiGeneratedFilename:', aiGeneratedFilename, ', aiDocumentType:', aiDocumentType);
+
+      // Process lab reports - save to lab_reports and test_results tables
+      if (analysisResult && aiDocumentType && (aiDocumentType.toLowerCase() === 'lab_report' || aiDocumentType.toLowerCase() === 'lab report')) {
+        console.log('[DocumentsStore] Detected lab report, processing to database...');
+        try {
+          const labReportResult = await processLabReport(
+            documentId,
+            analysisResult,
+            document?.user_id || '',
+            document?.family_member_id || ''
+          );
+
+          if (labReportResult) {
+            console.log('[DocumentsStore] Lab report processed successfully:', labReportResult.labReportId);
+            console.log('[DocumentsStore] Created', labReportResult.testResultIds.length, 'test results');
+          } else {
+            console.log('[DocumentsStore] Lab report processing returned null (may not be a valid lab report)');
+          }
+        } catch (error) {
+          console.error('[DocumentsStore] Error processing lab report:', error);
+          // Don't throw - this is not critical, document is still saved
+        }
+      }
 
       if (document?.user_id) {
 

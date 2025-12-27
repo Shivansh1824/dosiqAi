@@ -55,6 +55,8 @@ import HealthScreen from './src/screens/HealthScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProfileSwitcherModal from './src/components/ProfileSwitcherModal';
 import PdfViewerScreen from './src/screens/PdfViewerScreen';
+import LabReportDetailScreen from './src/screens/LabReportDetailScreen';
+import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
 
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
@@ -81,6 +83,8 @@ export type RootStackParamList = {
   Health: undefined;
   Profile: undefined;
   PdfViewer: { uri: string; title: string };
+  LabReportDetail: { labReportId: string };
+  LabMetricTrend: { testResultId: string; familyMemberId: string; testCode: string; testName: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -281,6 +285,24 @@ export default function App() {
                         presentation: 'fullScreenModal',
                         headerShown: false,
                         cardStyle: { backgroundColor: '#000' },
+                      }}
+                    />
+                    <Stack.Screen
+                      name="LabReportDetail"
+                      component={LabReportDetailScreen}
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="LabMetricTrend"
+                      component={LabMetricTrendScreen}
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
                       }}
                     />
                   </Stack.Navigator>

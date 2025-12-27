@@ -18,6 +18,7 @@ import MedicationVerificationCard from '../components/MedicationVerificationCard
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
+import { supabase } from '../services/supabaseClient';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -38,6 +39,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const [downloading, setDownloading] = useState(false);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
+  const [labReportId, setLabReportId] = useState<string | null>(null);
 
   // VALIDATION: Handle undefined document
   if (!documentProp) {
@@ -137,6 +139,40 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
     loadDismissedMedications();
   }, [document.id]);
+
+  // Load lab report ID if this document is a lab report
+  useEffect(() => {
+    const loadLabReportId = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('lab_reports')
+          .select('id')
+          .eq('document_id', document.id)
+          .single();
+
+        if (error) {
+          if (error.code !== 'PGRST116') {
+            // PGRST116 = no rows returned (not a lab report)
+            console.error('[DocumentDetail] Error loading lab report:', error);
+          }
+          setLabReportId(null);
+        } else if (data) {
+          setLabReportId(data.id);
+          console.log('[DocumentDetail] Found lab report ID:', data.id);
+        }
+      } catch (error) {
+        console.error('[DocumentDetail] Error querying lab_reports:', error);
+        setLabReportId(null);
+      }
+    };
+
+    // Only query if document has AI analysis and is a lab report
+    if (document.ai_analysis_result && document.document_type?.toLowerCase() === 'lab_report') {
+      loadLabReportId();
+    } else {
+      setLabReportId(null);
+    }
+  }, [document.id, document.ai_analysis_result, document.document_type]);
 
   // Determine if file is PDF
   const isPdf = document.local_file_path?.toLowerCase().endsWith('.pdf');
@@ -593,7 +629,31 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             {reportData.lab_name && (
               <Text style={styles.labName}>{reportData.lab_name}</Text>
             )}
-            <Text style={styles.analysisSectionTitle}>Lab Results</Text>
+            <View style={styles.labResultsHeader}>
+              <Text style={styles.analysisSectionTitle}>Lab Results</Text>
+              <TouchableOpacity
+                style={[
+                  styles.viewLabAnalysisButton,
+                  !labReportId && styles.viewLabAnalysisButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (labReportId) {
+                    navigation.navigate('LabReportDetail', { labReportId });
+                  } else {
+                    Alert.alert(
+                      'Lab Analysis Not Available',
+                      'Interactive lab report data is being processed. Please check back in a moment.',
+                      [{ text: 'OK' }]
+                    );
+                  }
+                }}
+                activeOpacity={0.7}
+                disabled={!labReportId}
+              >
+                <Feather name="trending-up" size={16} color={Colors.white} />
+                <Text style={styles.viewLabAnalysisButtonText}>View Lab Analysis</Text>
+              </TouchableOpacity>
+            </View>
             {reportData.grouped_metrics.map((group, groupIndex) => (
               <View key={groupIndex} style={styles.labGroup}>
                 <Text style={styles.labGroupName}>{group.group_name}</Text>
@@ -1471,6 +1531,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     marginBottom: 4,
+  },
+  labResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Sizes.xs,
+  },
+  viewLabAnalysisButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+  },
+  viewLabAnalysisButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  viewLabAnalysisButtonDisabled: {
+    backgroundColor: Colors.gray400,
+    opacity: 0.6,
   },
   labGroup: {
     marginTop: Sizes.sm,
