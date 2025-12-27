@@ -8,6 +8,12 @@ import { calculateEndDate } from '../utils/medicationParser';
 /**
  * Zustand store for medications state
  * Integrates with Supabase to fetch user medications
+ *
+ * Color Management Strategy:
+ * - Colors calculated on-the-fly, NOT stored in database
+ * - Uses index-based cycling through 7 professional colors
+ * - When fetching: colors calculated from medication index
+ * - When adding: colors NOT sent to database, calculated after insert
  */
 export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   // Initial state

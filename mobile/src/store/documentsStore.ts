@@ -7,6 +7,12 @@ import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInf
 /**
  * Zustand store for documents state
  * Integrates with Supabase to fetch user documents
+ *
+ * Color Management Strategy:
+ * - Colors calculated on-the-fly, NOT stored in database
+ * - When fetching: colors calculated from document type
+ * - When adding: colors NOT sent to database, calculated after insert
+ * - See getDocumentColor() in types/document.ts for logic
  */
 export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   // Initial state
@@ -114,10 +120,8 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         throw new Error('Supabase not configured');
       }
 
-      const newDoc = {
-        ...doc,
-        color: doc.color || getDocumentColor(doc.type),
-      };
+      // Exclude color field - it will be calculated when fetched, not stored in DB
+      const { color, ...newDoc } = doc;
 
       const { data, error } = await supabase
         .from('documents')
@@ -129,17 +133,21 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         throw error;
       }
 
-      // Add to local state
+      // Add to local state with calculated color
       const documents = get().documents;
+      const documentWithColor = {
+        ...data,
+        color: getDocumentColor(data.type),
+      };
       set({
-        documents: [data, ...documents],
+        documents: [documentWithColor, ...documents],
         isLoading: false,
       });
 
       console.log('[DocumentsStore] Document added:', data.id);
 
-      // Return the saved document with its UUID
-      return data;
+      // Return the saved document with its UUID and calculated color
+      return documentWithColor;
     } catch (error) {
       console.error('[DocumentsStore] Add document error:', error);
       set({

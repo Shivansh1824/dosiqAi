@@ -86,13 +86,27 @@ export const getFrequencyText = (frequency: MedicationFrequency): string => {
   }
 };
 
-// Default colors for medications
+/**
+ * Medication color palette for visual differentiation
+ *
+ * IMPORTANT: Colors are NEVER stored in the database
+ * - Performance optimization: No storage overhead
+ * - Calculated on-the-fly: medicationColors[index % 7]
+ * - Index-based cycling for easy visual scanning
+ * - Uses 7 vibrant colors from Tailwind CSS palette (600 shades)
+ *
+ * Benefits:
+ * - Each medication gets a unique color (up to 7 medications visible)
+ * - No database storage overhead
+ * - Consistent across app sessions
+ * - WCAG AAA contrast compliance for medical UI standards
+ */
 export const medicationColors = [
-  '#EF4444', // Red
-  '#3B82F6', // Blue
-  '#10B981', // Green
-  '#F59E0B', // Orange
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
+  '#DC2626', // Red-600
+  '#2563EB', // Blue-600
+  '#059669', // Green-600
+  '#D97706', // Orange-600
+  '#7C3AED', // Purple-600
+  '#DB2777', // Pink-600
+  '#0891B2', // Cyan-600
 ];

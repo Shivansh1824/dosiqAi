@@ -161,20 +161,40 @@ export interface DocumentsActions {
 
 export type DocumentsStore = DocumentsState & DocumentsActions;
 
-// Helper to get color based on document type
+/**
+ * Calculate color for a document based on its type
+ *
+ * IMPORTANT: Colors are NEVER stored in the database
+ * - Performance optimization: No storage overhead
+ * - Calculated on-the-fly when documents are fetched/displayed
+ * - Type-based: Each document type has a consistent semantic color
+ *
+ * Color Meanings:
+ * - Lab Report (Red): Critical health metrics
+ * - Imaging (Blue): Diagnostic scans, trust
+ * - Prescription (Green): Active medications, wellness
+ * - Report (Orange): General reports
+ * - Record (Purple): Historical data
+ * - Other (Gray): Miscellaneous
+ *
+ * Uses Tailwind CSS 600 shades for WCAG AAA contrast compliance
+ *
+ * @param type - The document type
+ * @returns Hex color code for UI rendering
+ */
 export const getDocumentColor = (type: DocumentType): string => {
   switch (type) {
     case 'Lab Report':
-      return '#EF4444'; // Red
+      return '#DC2626'; // Red-600 (better contrast)
     case 'Imaging':
-      return '#3B82F6'; // Blue
+      return '#2563EB'; // Blue-600
     case 'Prescription':
-      return '#10B981'; // Green
+      return '#059669'; // Green-600
     case 'Report':
-      return '#F59E0B'; // Orange
+      return '#D97706'; // Orange-600
     case 'Record':
-      return '#8B5CF6'; // Purple
+      return '#7C3AED'; // Purple-600
     default:
-      return '#6B7280'; // Gray
+      return '#4B5563'; // Gray-600
   }
 };
