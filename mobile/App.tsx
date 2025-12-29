@@ -57,7 +57,6 @@ import ProfileSwitcherModal from './src/components/ProfileSwitcherModal';
 import PdfViewerScreen from './src/screens/PdfViewerScreen';
 import LabReportDetailScreen from './src/screens/LabReportDetailScreen';
 import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
-
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
 import { useAppInitialization } from './src/hooks/useAppInitialization';

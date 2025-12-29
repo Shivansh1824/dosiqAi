@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Sizes, Typography } from '../constants';
@@ -19,6 +19,14 @@ import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
 import { supabase } from '../services/supabaseClient';
+import {
+  MedicalReportAnalysis,
+  calculateReportSummary,
+  formatReportDate,
+  getAbnormalCountInCategory,
+  METRIC_STATUS_COLORS,
+} from '../types/medicalReport';
+import { InfoRow, MetricCard, ExpandableSection } from '../components/medicalReport';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -40,6 +48,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
   const [labReportId, setLabReportId] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
   // VALIDATION: Handle undefined document
   if (!documentProp) {
@@ -463,6 +473,17 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
   };
 
+  // Toggle category expansion (accordion behavior - only one open at a time)
+  const toggleCategory = (categoryName: string) => {
+    if (expandedCategories.has(categoryName)) {
+      // If clicking already open category, close it
+      setExpandedCategories(new Set());
+    } else {
+      // If clicking closed category, open ONLY that one (close all others)
+      setExpandedCategories(new Set([categoryName]));
+    }
+  };
+
   // Component for displaying analysis results
   const AnalysisResultsDisplay = ({ result }: { result: DocumentAnalysisResult }) => {
     const summary = getSummary(result);
@@ -553,11 +574,11 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           <View style={styles.analysisSection}>
             <View style={styles.criticalHeader}>
               <Feather name="activity" size={18} color={Colors.primary} />
-              <Text style={[styles.analysisSectionTitle, { marginLeft: 8, marginBottom: 0 }]}>
+              <Text style={[styles.analysisSectionTitle, { marginLeft: Sizes.sm, marginBottom: 0 }]}>
                 Diagnosis
               </Text>
             </View>
-            <Text style={[styles.analysisText, { marginTop: 8 }]}>
+            <Text style={[styles.analysisText, { marginTop: Sizes.sm }]}>
               {prescriptionData.medical_issue_diagnosis}
             </Text>
           </View>
@@ -840,9 +861,209 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           </View>
         </View>
 
-        {/* Summary Card - Only show when analysis is completed with summary */}
+        {/* Detailed Medical Report Analysis - Always show for medical reports */}
+        {document.ai_analysis_status === 'completed' &&
+          document.ai_analysis_result?.document_type === 'medical_report' &&
+          (() => {
+            const reportData = document.ai_analysis_result as MedicalReportAnalysis;
+            return reportData.report_data?.grouped_metrics && (
+              <View style={styles.detailedReportContainer}>
+                {/* Section Title */}
+                <View style={styles.reportAnalysisSectionHeader}>
+                  <Feather name="activity" size={22} color={Colors.primary} />
+                  <Text style={styles.reportAnalysisSectionTitle}>Report Analysis</Text>
+                </View>
+
+                {/* Patient Summary Card */}
+                {reportData.patient_info && (
+                  <View style={styles.medicalReportPatientCard}>
+                    <View style={styles.medicalReportPatientIconContainer}>
+                      <MaterialCommunityIcons name="account" size={32} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.medicalReportPatientName}>
+                      {reportData.patient_info.name || 'Unknown Patient'}
+                    </Text>
+                    {(reportData.patient_info.age || reportData.patient_info.gender) && (
+                      <View style={styles.medicalReportPatientDetailsRow}>
+                        {reportData.patient_info.age && (
+                          <View style={styles.medicalReportPatientDetailBadge}>
+                            <Text style={styles.medicalReportPatientDetailText}>{reportData.patient_info.age}</Text>
+                          </View>
+                        )}
+                        {reportData.patient_info.gender && (
+                          <View style={styles.medicalReportPatientDetailBadge}>
+                            <Text style={styles.medicalReportPatientDetailText}>{reportData.patient_info.gender}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    <View style={styles.medicalReportDivider} />
+
+                    {reportData.common_data?.visit_date && (
+                      <InfoRow
+                        icon="calendar"
+                        label="Visit Date"
+                        value={formatReportDate(reportData.common_data.visit_date)}
+                      />
+                    )}
+
+                    {reportData.report_data?.report_date && (
+                      <InfoRow
+                        icon="clipboard"
+                        label="Report Date"
+                        value={formatReportDate(reportData.report_data.report_date)}
+                      />
+                    )}
+
+                    {/* Lab Name - NEW (only shows if lab_name exists) */}
+                    {reportData.report_data?.lab_name && (
+                      <InfoRow
+                        icon="activity"
+                        label="Lab"
+                        value={reportData.report_data.lab_name}
+                      />
+                    )}
+
+                    {/* Doctor Name - NEW (only shows if doctor_name exists) */}
+                    {reportData.prescription_data?.doctor_name && (
+                      <InfoRow
+                        icon="user"
+                        label="Doctor"
+                        value={reportData.prescription_data.doctor_name}
+                      />
+                    )}
+
+                    {/* Hospital Name - NEW (only shows if hospital_name exists) */}
+                    {reportData.prescription_data?.hospital_name && (
+                      <InfoRow
+                        icon="home"
+                        label="Hospital"
+                        value={reportData.prescription_data.hospital_name}
+                      />
+                    )}
+                  </View>
+                )}
+
+                {/* AI Summary Card - NEW EXPANDABLE CARD */}
+                {reportData.common_data?.summary && (
+                  <View style={styles.aiSummaryCard}>
+                    <View style={styles.aiSummaryHeader}>
+                      <Feather name="file-text" size={20} color={Colors.primary} />
+                      <Text style={styles.aiSummaryTitle}>AI Summary</Text>
+                    </View>
+
+                    <Text
+                      style={styles.aiSummaryText}
+                      numberOfLines={isSummaryExpanded ? undefined : 4}
+                    >
+                      {reportData.common_data.summary}
+                    </Text>
+
+                    {reportData.common_data.summary.length > 200 && (
+                      <TouchableOpacity
+                        onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                        style={styles.expandButton}
+                      >
+                        <Text style={styles.expandButtonText}>
+                          {isSummaryExpanded ? 'Show Less' : 'View Full Summary'}
+                        </Text>
+                        <Feather
+                          name={isSummaryExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={16}
+                          color={Colors.primary}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Status Summary Card */}
+                {(() => {
+                  const summary = calculateReportSummary(reportData);
+                  return summary && (
+                    <View style={styles.medicalReportStatusCard}>
+                      <Text style={styles.medicalReportStatusTitle}>Test Overview</Text>
+
+                      {/* Total Tests Count */}
+                      <View style={styles.medicalReportTotalTestsRow}>
+                        <Text style={styles.medicalReportTotalTestsLabel}>Total Tests:</Text>
+                        <Text style={styles.medicalReportTotalTestsValue}>{summary.totalMetrics}</Text>
+                      </View>
+
+                      <View style={styles.medicalReportStatusPillsContainer}>
+                        {summary.normalCount > 0 && (
+                          <View style={[styles.medicalReportStatusPill, { backgroundColor: METRIC_STATUS_COLORS.normal.light }]}>
+                            <View style={[styles.medicalReportStatusDot, { backgroundColor: METRIC_STATUS_COLORS.normal.primary }]} />
+                            <Text style={[styles.medicalReportStatusPillText, { color: METRIC_STATUS_COLORS.normal.dark }]}>
+                              {summary.normalCount} Normal
+                            </Text>
+                          </View>
+                        )}
+                        {summary.abnormalCount > 0 && (
+                          <View style={[styles.medicalReportStatusPill, {
+                            backgroundColor: METRIC_STATUS_COLORS.abnormal.light,
+                            borderWidth: 1,
+                            borderColor: METRIC_STATUS_COLORS.abnormal.primary + '40',
+                          }]}>
+                            <View style={[styles.medicalReportStatusDot, { backgroundColor: METRIC_STATUS_COLORS.abnormal.primary }]} />
+                            <Text style={[styles.medicalReportStatusPillText, {
+                              color: METRIC_STATUS_COLORS.abnormal.dark,
+                              fontSize: 14,
+                            }]}>
+                              {summary.abnormalCount} Abnormal
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      {reportData.report_data?.lab_name && (
+                        <View style={styles.medicalReportLabNameRow}>
+                          <MaterialCommunityIcons name="hospital-building" size={20} color={Colors.primary} />
+                          <Text style={styles.medicalReportLabNameText}>{reportData.report_data.lab_name}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* Categories Section */}
+                <View style={styles.medicalReportCategoriesContainer}>
+                  {reportData.report_data.grouped_metrics.map((category) => {
+                    const abnormalCount = getAbnormalCountInCategory(category);
+                    const isExpanded = expandedCategories.has(category.category_name);
+
+                    return (
+                      <ExpandableSection
+                        key={category.category_name}
+                        title={category.category_name}
+                        subtitle={`${category.metrics.length} tests`}
+                        badge={
+                          abnormalCount > 0 ? (
+                            <View style={styles.medicalReportCategoryAbnormalBadge}>
+                              <Text style={styles.medicalReportCategoryAbnormalText}>
+                                {abnormalCount} abnormal
+                              </Text>
+                            </View>
+                          ) : undefined
+                        }
+                        isExpanded={isExpanded}
+                        onToggle={() => toggleCategory(category.category_name)}
+                      >
+                        {category.metrics.map((metric, index) => (
+                          <MetricCard key={`${metric.test_name}-${index}`} metric={metric} />
+                        ))}
+                      </ExpandableSection>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })()}
+
+        {/* Summary Card - Only for prescriptions (not medical reports) */}
         {document.ai_analysis_status === 'completed' &&
           document.ai_analysis_result &&
+          document.ai_analysis_result.document_type !== 'medical_report' &&
           getSummary(document.ai_analysis_result) && (
             <View style={styles.summaryCard}>
               <Text style={styles.summaryTitle}>Summary</Text>
@@ -980,6 +1201,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
   },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerButton: {
     width: 44,
     height: 44,
@@ -1010,15 +1237,11 @@ const styles = StyleSheet.create({
   // Preview Card
   previewCard: {
     backgroundColor: Colors.white,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: Sizes.xl,
     alignItems: 'center',
     marginBottom: Sizes.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Sizes.shadows.sm,
   },
   previewIconContainer: {
     width: 120,
@@ -1053,11 +1276,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: Sizes.lg,
     marginBottom: Sizes.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    ...Sizes.shadows.sm,
   },
   cardTitle: {
     fontSize: 18,
@@ -1070,20 +1289,35 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: Sizes.lg,
     marginBottom: Sizes.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    ...Sizes.shadows.sm,
     borderLeftWidth: 4,
     borderLeftColor: Colors.primary,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Sizes.sm,
   },
   summaryTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: Sizes.sm,
     letterSpacing: 0.5,
+  },
+  viewMedicalReportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.xs,
+    paddingHorizontal: Sizes.sm,
+    paddingVertical: Sizes.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+  },
+  viewMedicalReportButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.white,
   },
 
   // Details
@@ -1110,9 +1344,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.successLight,
     paddingHorizontal: Sizes.sm,
-    paddingVertical: 6,
+    paddingVertical: Sizes.xs,
     borderRadius: 12,
-    gap: 6,
+    gap: Sizes.xs,
   },
   statusDot: {
     width: 6,
@@ -1336,7 +1570,7 @@ const styles = StyleSheet.create({
   criticalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Sizes.xs,
     marginBottom: Sizes.xs,
   },
   criticalTitle: {
@@ -1346,16 +1580,16 @@ const styles = StyleSheet.create({
   criticalItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 6,
+    paddingVertical: Sizes.xs,
     paddingLeft: Sizes.sm,
-    gap: 8,
+    gap: Sizes.sm,
   },
   criticalDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: Colors.error,
-    marginTop: 7,
+    marginTop: Sizes.sm,
   },
   criticalText: {
     flex: 1,
@@ -1366,8 +1600,8 @@ const styles = StyleSheet.create({
   medicationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    gap: 8,
+    paddingVertical: Sizes.xs,
+    gap: Sizes.sm,
   },
   medicationText: {
     fontSize: 14,
@@ -1399,7 +1633,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: Sizes.xs,
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
   },
@@ -1415,8 +1649,8 @@ const styles = StyleSheet.create({
   diagnosisItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    gap: 8,
+    paddingVertical: Sizes.xs,
+    gap: Sizes.sm,
   },
   diagnosisText: {
     fontSize: 14,
@@ -1437,7 +1671,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Sizes.lg,
     paddingVertical: Sizes.sm,
-    gap: 6,
+    gap: Sizes.xs,
   },
   retryButtonText: {
     fontSize: 15,
@@ -1462,7 +1696,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: Sizes.xs,
   },
 
   // Medication Card Styles
@@ -1477,8 +1711,8 @@ const styles = StyleSheet.create({
   medicationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: Sizes.sm,
+    marginBottom: Sizes.xs,
   },
   medicationName: {
     fontSize: 15,
@@ -1490,25 +1724,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     fontStyle: 'italic',
-    marginLeft: 24,
-    marginBottom: 8,
+    marginLeft: Sizes.lg,
+    marginBottom: Sizes.sm,
   },
   medicationDetails: {
-    marginTop: 4,
-    gap: 4,
+    marginTop: Sizes.xs,
+    gap: Sizes.xs,
   },
   medicationDetail: {
     fontSize: 13,
     color: Colors.textSecondary,
-    paddingLeft: 8,
+    paddingLeft: Sizes.sm,
   },
 
   // Test Styles
   testItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 8,
+    gap: Sizes.sm,
+    paddingVertical: Sizes.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
   },
@@ -1523,14 +1757,14 @@ const styles = StyleSheet.create({
   testReason: {
     fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Sizes.xs,
   },
 
   // Lab Results Styles
   labName: {
     fontSize: 12,
     color: Colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: Sizes.xs,
   },
   labResultsHeader: {
     flexDirection: 'row',
@@ -1541,9 +1775,9 @@ const styles = StyleSheet.create({
   viewLabAnalysisButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: Sizes.xs,
+    paddingHorizontal: Sizes.sm,
+    paddingVertical: Sizes.sm,
     backgroundColor: Colors.primary,
     borderRadius: 20,
   },
@@ -1564,12 +1798,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
     marginBottom: Sizes.xs,
-    paddingBottom: 4,
+    paddingBottom: Sizes.xs,
     borderBottomWidth: 1,
     borderBottomColor: Colors.primary + '30',
   },
   labMetricItem: {
-    paddingVertical: 8,
+    paddingVertical: Sizes.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
   },
@@ -1591,13 +1825,13 @@ const styles = StyleSheet.create({
   labMetricReference: {
     fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Sizes.xs,
   },
   metricStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: Sizes.sm,
+    paddingVertical: Sizes.xs,
     borderRadius: 4,
-    marginLeft: 8,
+    marginLeft: Sizes.sm,
   },
   metricStatusCritical: {
     backgroundColor: Colors.errorLight,
@@ -1649,16 +1883,10 @@ const styles = StyleSheet.create({
   },
 
   // Medications Section Styles
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
   cardBadge: {
     backgroundColor: Colors.primary + '20',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: Sizes.sm,
+    paddingVertical: Sizes.xs,
     borderRadius: 12,
   },
   cardBadgeText: {
@@ -1693,25 +1921,12 @@ const styles = StyleSheet.create({
     color: Colors.success,
   },
 
-  // Error UI styles
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Sizes.xl,
-    gap: Sizes.lg,
-  },
+  // Error UI styles (errorContainer and errorMessage already defined above)
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: Colors.textPrimary,
     marginTop: Sizes.md,
-  },
-  errorMessage: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
   },
   errorButton: {
     flexDirection: 'row',
@@ -1728,5 +1943,193 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+  },
+
+  // Detailed Medical Report Inline Styles
+  detailedReportContainer: {
+    marginTop: Sizes.md,
+    marginBottom: Sizes.xl,
+  },
+  reportAnalysisSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.sm,
+    paddingHorizontal: Sizes.lg,
+    marginBottom: Sizes.lg,
+    paddingBottom: Sizes.md,
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary + '20',
+  },
+  reportAnalysisSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  medicalReportPatientCard: {
+    backgroundColor: Colors.white,
+    marginBottom: Sizes.lg,
+    padding: Sizes.lg,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+    ...Sizes.shadows.sm,
+  },
+  medicalReportPatientIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Sizes.md,
+  },
+  medicalReportPatientName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: Sizes.sm,
+    lineHeight: 26,
+  },
+  medicalReportPatientDetailsRow: {
+    flexDirection: 'row',
+    gap: Sizes.sm,
+    marginBottom: Sizes.md,
+  },
+  medicalReportPatientDetailBadge: {
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: Sizes.md,
+    paddingVertical: Sizes.sm,
+    borderRadius: 16,
+  },
+  medicalReportPatientDetailText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  medicalReportDivider: {
+    height: 1,
+    backgroundColor: Colors.gray200,
+    marginVertical: Sizes.lg,
+  },
+  medicalReportStatusCard: {
+    backgroundColor: Colors.white,
+    marginBottom: Sizes.lg,
+    padding: Sizes.lg,
+    borderRadius: 16,
+    ...Sizes.shadows.sm,
+  },
+  medicalReportStatusTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: Sizes.md,
+  },
+  medicalReportStatusPillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Sizes.sm,
+    marginBottom: Sizes.md,
+  },
+  medicalReportStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Sizes.md,
+    paddingVertical: Sizes.sm,
+    borderRadius: 20,
+    gap: Sizes.sm,
+  },
+  medicalReportStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  medicalReportStatusPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  medicalReportTotalTestsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Sizes.md,
+    paddingVertical: Sizes.sm,
+    paddingHorizontal: Sizes.md,
+    backgroundColor: Colors.gray50,
+    borderRadius: 12,
+    gap: Sizes.sm,
+  },
+  medicalReportTotalTestsLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  medicalReportTotalTestsValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  medicalReportLabNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.sm,
+    paddingTop: Sizes.sm,
+  },
+  medicalReportLabNameText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  medicalReportCategoriesContainer: {
+    gap: Sizes.sm,
+  },
+  medicalReportCategoryAbnormalBadge: {
+    backgroundColor: METRIC_STATUS_COLORS.abnormal.light,
+    paddingHorizontal: Sizes.sm,
+    paddingVertical: Sizes.xs,
+    borderRadius: 12,
+  },
+  medicalReportCategoryAbnormalText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: METRIC_STATUS_COLORS.abnormal.dark,
+  },
+
+  // AI Summary Card Styles
+  aiSummaryCard: {
+    backgroundColor: Colors.white,
+    marginBottom: Sizes.lg,
+    padding: Sizes.lg,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+    ...Sizes.shadows.sm,
+  },
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.sm,
+    marginBottom: Sizes.md,
+  },
+  aiSummaryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  aiSummaryText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: Colors.textSecondary,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.xs,
+    marginTop: Sizes.md,
+    alignSelf: 'flex-start',
+  },
+  expandButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
   },
 });
