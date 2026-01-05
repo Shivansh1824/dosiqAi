@@ -192,41 +192,21 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
      * Ensures a primary "Self" family member exists for the user
      * Creates one if it doesn't exist, and sets it as active
      * @returns The primary family member, or null if no valid session
+     * 
+     * DEFENSIVE: Handles race conditions by querying database first and gracefully
+     * handling duplicate key errors (23505) if another call creates the member simultaneously
      */
     ensurePrimaryMemberExists: async (userId: string, userName: string): Promise<FamilyMember | null> => {
         try {
-            const currentMembers = get().familyMembers;
-
-            // Check if a "Self" profile already exists
-            let selfMember = currentMembers.find(m => m.relationship === 'Self');
-
-            if (selfMember) {
-                console.log('[FamilyMembersStore] Primary member already exists:', selfMember.id);
-                // Validate that it's not a placeholder (has valid UUID)
-                if (selfMember.id.startsWith('local-')) {
-                    console.warn('[FamilyMembersStore] Found placeholder member, will not use for database operations');
-                    // Don't set as active if it's a placeholder
-                    set({ isInitialized: true });
-                    return null;
-                }
-                // Set as active and mark as initialized
-                if (!get().activeMember) {
-                    set({ activeMember: selfMember, isInitialized: true });
-                } else {
-                    set({ isInitialized: true });
-                }
-                return selfMember;
-            }
-
-            // IMPORTANT: Only create database record if Supabase is configured and session is active
-            // Without an active Supabase session, RLS policies will block the INSERT
+            // IMPORTANT: Only proceed if Supabase is configured and session is active
+            // Without an active Supabase session, RLS policies will block queries/inserts
             if (!isSupabaseConfigured()) {
                 console.warn('[FamilyMembersStore] Supabase not configured, cannot create family member');
                 set({ isInitialized: true });
                 return null;
             }
 
-            // Verify Supabase session is active before attempting database INSERT
+            // Verify Supabase session is active before attempting database operations
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !session) {
                 console.warn('[FamilyMembersStore] No active Supabase session, cannot create family member');
@@ -234,8 +214,55 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                 return null;
             }
 
-            // Create primary "Self" profile in database (session is active)
+            // DEFENSIVE FIX: Query database FIRST (single source of truth)
+            // This prevents race conditions where multiple calls check in-memory state
+            // before any of them complete the insert
+            const { data: existingMembers, error: queryError } = await supabase
+                .from('family_members')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('relationship', 'Self')
+                .limit(1);
+
+            if (queryError) {
+                console.error('[FamilyMembersStore] Error querying for Self member:', queryError);
+                set({ isInitialized: true });
+                return null;
+            }
+
+            // If Self member exists in database, use it
+            if (existingMembers && existingMembers.length > 0) {
+                const selfMember = existingMembers[0];
+                console.log('[FamilyMembersStore] Primary member already exists:', selfMember.id);
+                
+                // Validate that it's not a placeholder (has valid UUID)
+                if (selfMember.id.startsWith('local-')) {
+                    console.warn('[FamilyMembersStore] Found placeholder member, will not use for database operations');
+                    set({ isInitialized: true });
+                    return null;
+                }
+                
+                // Update in-memory state if not already there
+                const currentMembers = get().familyMembers;
+                if (!currentMembers.find(m => m.id === selfMember.id)) {
+                    set(state => ({
+                        familyMembers: [...state.familyMembers, selfMember],
+                    }));
+                }
+                
+                // Set as active and mark as initialized
+                if (!get().activeMember) {
+                    set({ activeMember: selfMember, isInitialized: true });
+                } else {
+                    set({ isInitialized: true });
+                }
+                
+                return selfMember;
+            }
+
+            // No Self member exists - try to create one
             console.log('[FamilyMembersStore] Creating primary member for user:', userId);
+            
             const { data: newMember, error } = await supabase
                 .from('family_members')
                 .insert([{
@@ -246,10 +273,44 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                 .select()
                 .single();
 
-            if (error) throw error;
+            // DEFENSIVE FIX: Handle duplicate key error gracefully
+            // Error code 23505 = unique_violation (duplicate key)
+            // This can happen if another simultaneous call already created the Self member
+            if (error) {
+                if (error.code === '23505') {
+                    // Another call/thread created it between our query and insert
+                    console.log('[FamilyMembersStore] Duplicate detected (race condition), fetching existing member');
+                    
+                    // Fetch the member that was created by the other call
+                    const { data: fetchedMembers } = await supabase
+                        .from('family_members')
+                        .select('*')
+                        .eq('user_id', userId)
+                        .eq('relationship', 'Self')
+                        .limit(1);
+                    
+                    if (fetchedMembers && fetchedMembers.length > 0) {
+                        const selfMember = fetchedMembers[0];
+                        console.log('[FamilyMembersStore] Successfully recovered from race condition:', selfMember.id);
+                        
+                        // Update state with the existing member
+                        set(state => ({
+                            familyMembers: [...state.familyMembers.filter(m => m.id !== selfMember.id), selfMember],
+                            activeMember: selfMember,
+                            isInitialized: true,
+                        }));
+                        
+                        return selfMember;
+                    }
+                }
+                
+                // Other database error - throw it
+                throw error;
+            }
 
+            // Success - new member created
             console.log('[FamilyMembersStore] Primary member created:', newMember.id);
-
+            
             // Add to state and set as active
             set((state) => ({
                 familyMembers: [...state.familyMembers, newMember],

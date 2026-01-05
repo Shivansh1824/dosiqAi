@@ -24,7 +24,14 @@ export default function DatePickerModal({
   const [selectedDate, setSelectedDate] = useState(new Date(date));
 
   const handleConfirm = () => {
-    onConfirm(selectedDate.toISOString().split('T')[0]);
+    // Fix: Use local date formatting to avoid timezone conversion issues
+    // Previously used toISOString() which applies timezone offset
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const localDateString = `${year}-${month}-${day}`;
+
+    onConfirm(localDateString);
   };
 
   return (

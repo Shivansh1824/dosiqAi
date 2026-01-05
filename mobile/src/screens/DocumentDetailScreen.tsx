@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,7 +12,9 @@ import { useDocumentsStore } from '../store/documentsStore';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import { File } from 'expo-file-system';
+import Pdf from 'react-native-pdf-jsi';
+import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { useMedicationsStore } from '../store/medicationsStore';
@@ -93,7 +95,45 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const patientName = familyMember?.name || 'Unknown';
 
   // Get display title - prefer AI-generated filename from analysis result, fallback to document title
-  const displayTitle = document.ai_analysis_result?.file_name || document.title;
+  // Smart Header Logic
+  const analysis = document.ai_analysis_result;
+
+  const { titleText, subtitleText } = useMemo(() => {
+    let title = document.title;
+    let subtitle = '';
+
+    if (analysis) {
+      // 1. Construct Smart Title
+      if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
+        title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
+      } else if (analysis.document_type) {
+        // Capitalize (e.g., "lab_report" -> "Lab Report")
+        title = analysis.document_type
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      } else if (analysis.file_name) {
+        // Fallback to filename if no specific type data
+        title = analysis.file_name;
+      }
+
+      // 2. Construct Subtitle (Patient • Date)
+      const parts = [];
+      if (analysis.patient_info?.name) parts.push(analysis.patient_info.name);
+
+      if (analysis.common_data?.visit_date) {
+        // Format date if possible (YYYY-MM-DD -> DD MMM YYYY) roughly, or just use raw
+        // For 10/10, let's keep it clean. 
+        parts.push(analysis.common_data.visit_date);
+      }
+      subtitle = parts.join(' • ');
+    }
+
+    return { titleText: title, subtitleText: subtitle };
+  }, [document.title, analysis]);
+
+  // Keep displayTitle for shared PDF viewer
+  const displayTitle = titleText;
 
   // Check if file exists and set image URI
   useEffect(() => {
@@ -132,7 +172,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     checkFile();
   }, [document.local_file_path]);
 
-  // Load dismissed medications from AsyncStorage on mount
   useEffect(() => {
     const loadDismissedMedications = async () => {
       try {
@@ -177,12 +216,12 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     };
 
     // Only query if document has AI analysis and is a lab report
-    if (document.ai_analysis_result && document.document_type?.toLowerCase() === 'lab_report') {
+    if (document.ai_analysis_result && document.ai_analysis_result.document_type?.toLowerCase() === 'lab_report') {
       loadLabReportId();
     } else {
       setLabReportId(null);
     }
-  }, [document.id, document.ai_analysis_result, document.document_type]);
+  }, [document.id, document.ai_analysis_result, document.ai_analysis_result?.document_type]);
 
   // Determine if file is PDF
   const isPdf = document.local_file_path?.toLowerCase().endsWith('.pdf');
@@ -294,7 +333,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
       // Create a File object from the URI to verify it exists
       const file = new File(imageUri);
-
+      // Synchronous check in new API, or await check if needed? fileStorage uses .exists property.
       if (!file.exists) {
         Alert.alert('Error', 'File not found on device');
         setDownloading(false);
@@ -497,9 +536,12 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       <View style={styles.analysisContent}>
         {/* Summary - Primary display */}
         {summary && (
-          <View style={styles.analysisSection}>
-            <Text style={styles.analysisSectionTitle}>Summary</Text>
-            <Text style={styles.analysisText}>{summary}</Text>
+          <View style={styles.aiSummaryCard}>
+            <View style={styles.aiSummaryHeader}>
+              <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
+              <Text style={styles.aiSummaryTitle}>AI Summary</Text>
+            </View>
+            <Text style={styles.aiSummaryText}>{summary}</Text>
           </View>
         )}
 
@@ -527,21 +569,36 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             <Text style={styles.analysisSectionTitle}>Patient Information</Text>
             <View style={styles.patientInfoContainer}>
               {patientInfo.name && (
-                <View style={styles.patientInfoRow}>
-                  <Text style={styles.analysisLabel}>Name</Text>
-                  <Text style={styles.analysisValue}>{patientInfo.name}</Text>
+                <View style={styles.patientInfoChip}>
+                  <View style={styles.patientIconBadge}>
+                    <Feather name="user" size={14} color={Colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.patientInfoLabel}>PATIENT</Text>
+                    <Text style={styles.patientInfoValue}>{patientInfo.name}</Text>
+                  </View>
                 </View>
               )}
               {patientInfo.age && (
-                <View style={styles.patientInfoRow}>
-                  <Text style={styles.analysisLabel}>Age</Text>
-                  <Text style={styles.analysisValue}>{patientInfo.age}</Text>
+                <View style={styles.patientInfoChip}>
+                  <View style={styles.patientIconBadge}>
+                    <Feather name="calendar" size={14} color={Colors.secondary} />
+                  </View>
+                  <View>
+                    <Text style={styles.patientInfoLabel}>AGE</Text>
+                    <Text style={styles.patientInfoValue}>{patientInfo.age}</Text>
+                  </View>
                 </View>
               )}
               {patientInfo.gender && (
-                <View style={styles.patientInfoRow}>
-                  <Text style={styles.analysisLabel}>Gender</Text>
-                  <Text style={styles.analysisValue}>{patientInfo.gender}</Text>
+                <View style={styles.patientInfoChip}>
+                  <View style={styles.patientIconBadge}>
+                    <Feather name="users" size={14} color={Colors.info} />
+                  </View>
+                  <View>
+                    <Text style={styles.patientInfoLabel}>GENDER</Text>
+                    <Text style={styles.patientInfoValue}>{patientInfo.gender}</Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -554,15 +611,25 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             <Text style={styles.analysisSectionTitle}>Healthcare Provider</Text>
             <View style={styles.patientInfoContainer}>
               {prescriptionData.doctor_name && (
-                <View style={styles.patientInfoRow}>
-                  <Text style={styles.analysisLabel}>Doctor</Text>
-                  <Text style={styles.analysisValue}>{prescriptionData.doctor_name}</Text>
+                <View style={styles.patientInfoChip}>
+                  <View style={styles.patientIconBadge}>
+                    <Feather name="user-plus" size={14} color={Colors.success} />
+                  </View>
+                  <View>
+                    <Text style={styles.patientInfoLabel}>DOCTOR</Text>
+                    <Text style={styles.patientInfoValue}>{prescriptionData.doctor_name}</Text>
+                  </View>
                 </View>
               )}
               {prescriptionData.hospital_name && (
-                <View style={styles.patientInfoRow}>
-                  <Text style={styles.analysisLabel}>Hospital</Text>
-                  <Text style={styles.analysisValue}>{prescriptionData.hospital_name}</Text>
+                <View style={styles.patientInfoChip}>
+                  <View style={styles.patientIconBadge}>
+                    <MaterialCommunityIcons name="hospital-building" size={14} color={Colors.warning} />
+                  </View>
+                  <View>
+                    <Text style={styles.patientInfoLabel}>HOSPITAL</Text>
+                    <Text style={styles.patientInfoValue}>{prescriptionData.hospital_name}</Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -574,11 +641,11 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           <View style={styles.analysisSection}>
             <View style={styles.criticalHeader}>
               <Feather name="activity" size={18} color={Colors.primary} />
-              <Text style={[styles.analysisSectionTitle, { marginLeft: Sizes.sm, marginBottom: 0 }]}>
+              <Text style={[styles.analysisSectionTitle, { marginLeft: 8, marginBottom: 0 }]}>
                 Diagnosis
               </Text>
             </View>
-            <Text style={[styles.analysisText, { marginTop: Sizes.sm }]}>
+            <Text style={[styles.analysisText, { marginTop: 12 }]}>
               {prescriptionData.medical_issue_diagnosis}
             </Text>
           </View>
@@ -591,8 +658,12 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             {prescriptionData.medicines.map((med, index) => (
               <View key={index} style={styles.medicationCard}>
                 <View style={styles.medicationHeader}>
-                  <Feather name="package" size={16} color={Colors.primary} />
-                  <Text style={styles.medicationName}>{med.exact_written_name}</Text>
+                  <View style={styles.medIconBadge}>
+                    <Feather name="package" size={14} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.medicationName} numberOfLines={2}>
+                    {med.exact_written_name}
+                  </Text>
                 </View>
                 {med.assumed_enriched_data?.scientific_name && (
                   <Text style={styles.medicationScientific}>
@@ -601,24 +672,28 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 )}
                 <View style={styles.medicationDetails}>
                   {med.dosage_instruction && (
-                    <Text style={styles.medicationDetail}>
-                      💊 {med.dosage_instruction}
-                    </Text>
+                    <View style={styles.medicationDetailRow}>
+                      <Feather name="tablet" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
+                      <Text style={styles.medicationDetail}>{med.dosage_instruction}</Text>
+                    </View>
                   )}
                   {med.frequency && (
-                    <Text style={styles.medicationDetail}>
-                      🕐 {med.frequency}
-                    </Text>
+                    <View style={styles.medicationDetailRow}>
+                      <Feather name="clock" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
+                      <Text style={styles.medicationDetail}>{med.frequency}</Text>
+                    </View>
                   )}
                   {med.duration && (
-                    <Text style={styles.medicationDetail}>
-                      📅 {med.duration}
-                    </Text>
+                    <View style={styles.medicationDetailRow}>
+                      <Feather name="calendar" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
+                      <Text style={styles.medicationDetail}>{med.duration}</Text>
+                    </View>
                   )}
                   {med.special_instructions && (
-                    <Text style={styles.medicationDetail}>
-                      ⚠️ {med.special_instructions}
-                    </Text>
+                    <View style={styles.medicationDetailRow}>
+                      <Feather name="info" size={12} color={Colors.warning} style={{ marginRight: 6 }} />
+                      <Text style={[styles.medicationDetail, { color: Colors.warning }]}>{med.special_instructions}</Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -751,13 +826,26 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         >
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{displayTitle}</Text>
+
+        {/* Smart Header Title */}
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+            {titleText}
+          </Text>
+          {subtitleText ? (
+            <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              {subtitleText}
+            </Text>
+          ) : null}
+        </View>
+
         <TouchableOpacity
           style={styles.headerButtonRight}
+          onPress={handleShare}
           activeOpacity={0.6}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="more-vertical" size={24} color={Colors.textPrimary} />
+          <Feather name="share-2" size={22} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -779,28 +867,137 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 The document file could not be found on this device.
               </Text>
             </>
-          ) : isPdf ? (
+          ) : isPdf && imageUri ? (
             <>
-              <View style={styles.previewIconContainer}>
-                <Feather name="file-text" size={64} color={Colors.primary} />
+              {/* PDF Preview - First Page using react-native-pdf-jsi */}
+              <View style={styles.pdfPreviewWrapper}>
+                <Pdf
+                  source={{ uri: imageUri, cache: true }}
+                  page={1}
+                  scale={1.0}
+                  minScale={1.0}
+                  maxScale={1.0}
+                  spacing={0}
+                  fitPolicy={0}
+                  enablePaging={false}
+                  enableRTL={false}
+                  enableAnnotationRendering={false}
+                  style={styles.pdfPreview}
+                  onLoadComplete={(numberOfPages) => {
+                    console.log(`[DocumentDetail] PDF Loaded: ${numberOfPages} pages`);
+                  }}
+                  onError={(error) => {
+                    console.error('[DocumentDetail] PDF Error:', error);
+                  }}
+                />
+
+                {/* Floating Action Buttons - Overlay on PDF */}
+                <View style={styles.floatingButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={handleViewFullDocument}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.actionIconCircle}>
+                      <Feather name="eye" size={20} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.actionCardLabel}>View</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={handleDownload}
+                    activeOpacity={0.7}
+                    disabled={downloading}
+                  >
+                    <View style={styles.actionIconCircle}>
+                      {downloading ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Feather name="download" size={20} color={Colors.primary} />
+                      )}
+                    </View>
+                    <Text style={styles.actionCardLabel}>
+                      {downloading ? 'Saving...' : 'Save'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <Text style={styles.previewText}>PDF Document</Text>
-              <TouchableOpacity style={styles.viewButton} onPress={handleViewFullDocument}>
-                <Feather name="eye" size={18} color={Colors.primary} />
-                <Text style={styles.viewButtonText}>View Full Document</Text>
-              </TouchableOpacity>
             </>
           ) : imageUri ? (
             <>
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.previewImage}
-                resizeMode="contain"
-              />
-              <TouchableOpacity style={styles.viewButton} onPress={handleViewFullDocument}>
-                <Feather name="eye" size={18} color={Colors.primary} />
-                <Text style={styles.viewButtonText}>View Full Document</Text>
-              </TouchableOpacity>
+              <View>
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.heroOverlay} />
+
+                {/* Floating Action Buttons - Overlay on Image */}
+                <View style={styles.floatingButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={handleViewFullDocument}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.actionIconCircle}>
+                      <Feather name="eye" size={20} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.actionCardLabel}>View</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={handleDownload}
+                    activeOpacity={0.7}
+                    disabled={downloading}
+                  >
+                    <View style={styles.actionIconCircle}>
+                      {downloading ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Feather name="download" size={20} color={Colors.primary} />
+                      )}
+                    </View>
+                    <Text style={styles.actionCardLabel}>
+                      {downloading ? 'Saving...' : 'Save'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Dual Action Cards - View & Download */}
+              <View style={styles.dualActionContainer}>
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={handleViewFullDocument}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.actionIconCircle}>
+                    <Feather name="eye" size={20} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.actionCardLabel}>View</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={handleDownload}
+                  activeOpacity={0.7}
+                  disabled={downloading}
+                >
+                  <View style={styles.actionIconCircle}>
+                    {downloading ? (
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                    ) : (
+                      <Feather name="download" size={20} color={Colors.primary} />
+                    )}
+                  </View>
+                  <Text style={styles.actionCardLabel}>
+                    {downloading ? 'Saving...' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </>
           ) : (
             <>
@@ -815,48 +1012,92 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         {/* Details Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Details</Text>
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>{formatDate(document.created_at)}</Text>
+          <View style={styles.patientInfoContainer}>
+            {/* Row 1: Date & Diagnosis */}
+            <View style={styles.patientInfoChip}>
+              <View style={styles.patientIconBadge}>
+                <Feather name="calendar" size={14} color={Colors.secondary} />
+              </View>
+              <View>
+                <Text style={styles.patientInfoLabel}>DATE</Text>
+                <Text style={styles.patientInfoValue} numberOfLines={1}>
+                  {document.ai_analysis_result?.common_data?.visit_date || formatDate(document.created_at)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Type</Text>
-              <Text style={styles.detailValue}>
-                {document.ai_analysis_result?.document_type
-                  ? formatDocumentType(document.ai_analysis_result.document_type)
-                  : document.type}
-              </Text>
+
+            {document.ai_analysis_result?.prescription_data?.medical_issue_diagnosis && (
+              <View style={styles.patientInfoChip}>
+                <View style={styles.patientIconBadge}>
+                  <Feather name="activity" size={14} color={Colors.error} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.patientInfoLabel}>DIAGNOSIS</Text>
+                  <Text style={styles.patientInfoValue}>
+                    {document.ai_analysis_result.prescription_data.medical_issue_diagnosis}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Row 2: Patient & Doctor */}
+            <View style={styles.patientInfoChip}>
+              <View style={styles.patientIconBadge}>
+                <Feather name="user" size={14} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.patientInfoLabel}>PATIENT</Text>
+                <Text style={styles.patientInfoValue} numberOfLines={1}>
+                  {(document.ai_analysis_result?.patient_info?.name || patientName || '').split(' ')[0]}
+                </Text>
+              </View>
             </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Patient</Text>
-              <Text style={styles.detailValue}>
-                {document.ai_analysis_result?.patient_info?.name || patientName}
-              </Text>
+
+            {document.ai_analysis_result?.prescription_data?.doctor_name && (
+              <View style={styles.patientInfoChip}>
+                <View style={styles.patientIconBadge}>
+                  <Feather name="user-plus" size={14} color={Colors.success} />
+                </View>
+                <View>
+                  <Text style={styles.patientInfoLabel}>DOCTOR</Text>
+                  <Text style={styles.patientInfoValue} numberOfLines={1}>
+                    {document.ai_analysis_result.prescription_data.doctor_name.replace('Dr ', 'Dr. ').split(' ').slice(0, 2).join(' ')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Row 3: Type & Analysis */}
+            <View style={styles.patientInfoChip}>
+              <View style={styles.patientIconBadge}>
+                <Feather name="file" size={14} color={Colors.info} />
+              </View>
+              <View>
+                <Text style={styles.patientInfoLabel}>TYPE</Text>
+                <Text style={styles.patientInfoValue} numberOfLines={1}>
+                  {document.ai_analysis_result?.document_type
+                    ? formatDocumentType(document.ai_analysis_result.document_type)
+                    : document.type}
+                </Text>
+              </View>
             </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Analysis</Text>
-              {document.ai_analysis_status === 'processing' ? (
-                <View style={[styles.statusBadge, styles.statusBadgeProcessing]}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={[styles.statusText, styles.statusTextProcessing]}>Processing</Text>
-                </View>
-              ) : document.ai_analysis_status === 'completed' ? (
-                <View style={[styles.statusBadge, styles.statusBadgeSuccess]}>
-                  <Feather name="check-circle" size={12} color={Colors.success} />
-                  <Text style={[styles.statusText, styles.statusTextSuccess]}>Completed</Text>
-                </View>
-              ) : document.ai_analysis_status === 'failed' ? (
-                <View style={[styles.statusBadge, styles.statusBadgeError]}>
-                  <Feather name="alert-circle" size={12} color={Colors.error} />
-                  <Text style={[styles.statusText, styles.statusTextError]}>Failed</Text>
-                </View>
-              ) : (
-                <View style={styles.statusBadge}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>Pending</Text>
-                </View>
-              )}
+
+            <View style={styles.patientInfoChip}>
+              <View style={styles.patientIconBadge}>
+                <Feather name="check" size={14} color={Colors.success} />
+              </View>
+              <View>
+                <Text style={styles.patientInfoLabel}>STATUS</Text>
+                {document.ai_analysis_status === 'processing' ? (
+                  <Text style={[styles.patientInfoValue, { color: Colors.primary }]}>Processing</Text>
+                ) : document.ai_analysis_status === 'completed' ? (
+                  <Text style={[styles.patientInfoValue, { color: Colors.success }]}>Analyzed</Text>
+                ) : document.ai_analysis_status === 'failed' ? (
+                  <Text style={[styles.patientInfoValue, { color: Colors.error }]}>Failed</Text>
+                ) : (
+                  <Text style={styles.patientInfoValue}>Pending</Text>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -1060,14 +1301,17 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             );
           })()}
 
-        {/* Summary Card - Only for prescriptions (not medical reports) */}
+        {/* AI Summary Card - Prescriptions */}
         {document.ai_analysis_status === 'completed' &&
           document.ai_analysis_result &&
           document.ai_analysis_result.document_type !== 'medical_report' &&
           getSummary(document.ai_analysis_result) && (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Summary</Text>
-              <Text style={styles.analysisText}>
+            <View style={styles.aiSummaryCard}>
+              <View style={styles.aiSummaryHeader}>
+                <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
+                <Text style={styles.aiSummaryTitle}>AI Summary</Text>
+              </View>
+              <Text style={styles.aiSummaryText}>
                 {getSummary(document.ai_analysis_result)}
               </Text>
             </View>
@@ -1144,33 +1388,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          activeOpacity={0.8}
-          onPress={handleDownload}
-          disabled={fileNotFound || downloading}
-        >
-          {downloading ? (
-            <ActivityIndicator size="small" color={Colors.gray700} />
-          ) : (
-            <Feather name="download" size={20} color={fileNotFound ? Colors.gray400 : Colors.gray700} />
-          )}
-          <Text style={[styles.actionButtonText, (fileNotFound || downloading) && styles.actionButtonTextDisabled]}>
-            {downloading ? 'Downloading...' : 'Download'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButtonPrimary, (fileNotFound || downloading) && styles.actionButtonDisabled]}
-          activeOpacity={0.8}
-          onPress={handleShare}
-          disabled={fileNotFound || downloading}
-        >
-          <Feather name="share-2" size={20} color={Colors.white} />
-          <Text style={styles.actionButtonTextPrimary}>Share</Text>
-        </TouchableOpacity>
-      </View>
+
 
       {/* Full Screen Image Modal */}
       {imageUri && (
@@ -1195,8 +1413,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Sizes.lg,
-    paddingVertical: Sizes.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
@@ -1219,10 +1437,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: Colors.gray500,
+    marginTop: 2,
+    textAlign: 'center',
   },
 
   // Scroll
@@ -1230,80 +1461,288 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Sizes.lg,
+    paddingHorizontal: 0, // Full width cards - no horizontal padding
+    paddingTop: 0, // No top padding - image starts right after header
     paddingBottom: 100,
   },
 
-  // Preview Card
+  // Hero Preview Card (2026 Style)
   previewCard: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: Sizes.xl,
+    borderRadius: 0, // No border radius for edge-to-edge design
+    marginBottom: 8, // Minimal spacing - reduced from 12
+    // Deep Premium Shadow
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.08)',
+    overflow: 'hidden', // Essential for hero image
+  },
+  heroImage: {
+    width: '100%',
+    height: 208, // Reduced from 260 (20% reduction for more vertical space)
+    backgroundColor: Colors.gray50,
+  },
+  pdfPreviewContainer: {
+    width: '100%',
+    height: 208, // Reduced from 260 (20% reduction)
+    backgroundColor: Colors.gray50,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Sizes.lg,
-    ...Sizes.shadows.sm,
+    padding: 24,
+  },
+  pdfIconWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pdfPreviewTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  pdfPreviewSubtitle: {
+    fontSize: 14,
+    color: Colors.gray500,
+  },
+  // PDF Preview styles for react-native-pdf-jsi
+  pdfPreviewWrapper: {
+    width: '100%',
+    height: 208, // Reduced from 260 (20% reduction)
+    backgroundColor: Colors.white,
+    overflow: 'hidden',
+  },
+  pdfPreview: {
+    flex: 1,
+    width: '100%',
+    height: 208, // Reduced from 260 (20% reduction)
+    backgroundColor: Colors.white,
+  },
+  // New professional PDF preview card styles
+  pdfPreviewCard: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#FAFAFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  pdfPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  pdfIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFEBEE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  pdfPreviewInfo: {
+    flex: 1,
+  },
+  pdfPreviewType: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  pdfPreviewHint: {
+    fontSize: 14,
+    color: Colors.gray500,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.02)', // Subtle overlay
+  },
+  heroBadgeContainer: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    zIndex: 10,
+  },
+  pageCountBadge: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pageCountText: {
+    fontSize: 11,
+    color: Colors.white,
+    fontWeight: '600',
+  },
+  zoomHintContainer: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)', // Dark blur
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewButtonContainer: {
+    padding: 20,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
   },
   previewIconContainer: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.primaryLight + '15',
+    borderRadius: 40, // Super soft
+    backgroundColor: '#F0F9FF', // Lightest Blue
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Sizes.md,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   previewText: {
     fontSize: 16,
-    color: Colors.textSecondary,
-    marginBottom: Sizes.lg,
+    color: Colors.gray500,
+    marginBottom: 24,
+    fontWeight: '500',
   },
   viewButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Sizes.lg,
-    paddingVertical: Sizes.sm,
-    gap: Sizes.xs,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    gap: 8,
+    width: '100%', // Full width button
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   viewButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 0.3,
   },
+
+  // 2026 Floating Action Buttons - Overlay Design
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: 'transparent', // Transparent container - buttons have their own backgrounds
+    borderRadius: 14,
+    padding: 10,
+  },
+  // Legacy container (will be removed)
+  dualActionContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
+  },
+  actionCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10, // Reduced from 12 for compact look
+    paddingHorizontal: 12, // Reduced from 14 for compact look
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    gap: 6, // Reduced from 8 for tighter spacing
+    shadowColor: Colors.gray900,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    minHeight: 44, // iOS minimum touch target
+  },
+  actionIconCircle: {
+    width: 32, // Reduced from 36 for compact look
+    height: 32, // Reduced from 36 for compact look
+    borderRadius: 16,
+    backgroundColor: Colors.primary + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCardLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+
+
 
   // Cards
   card: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: Sizes.lg,
-    marginBottom: Sizes.lg,
-    ...Sizes.shadows.sm,
+    borderRadius: 0, // No border radius for edge-to-edge design
+    padding: 16, // MD3: Reduced from 20 for tighter layout
+    marginBottom: 8, // Minimal spacing - reduced from 12
+    shadowColor: Colors.gray900,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: Sizes.md,
+    marginBottom: 10, // Minimal spacing - reduced from 12
+    letterSpacing: -0.5, // Modern tight tracking
   },
   summaryCard: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: Sizes.lg,
-    marginBottom: Sizes.lg,
-    ...Sizes.shadows.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
+    borderRadius: 20,
+    padding: 16, // MD3: Reduced from 20 for consistency
+    marginBottom: 20,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.1)',
   },
   summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Sizes.sm,
+    marginBottom: 12,
   },
   summaryTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
-    letterSpacing: 0.5,
+    letterSpacing: -0.3,
   },
   viewMedicalReportButton: {
     flexDirection: 'row',
@@ -1466,7 +1905,7 @@ const styles = StyleSheet.create({
   // Image Preview
   previewImage: {
     width: '100%',
-    height: 250,
+    height: 200, // Reduced from 250 (20% reduction for more vertical space)
     borderRadius: 12,
     marginBottom: Sizes.md,
   },
@@ -1539,7 +1978,7 @@ const styles = StyleSheet.create({
     paddingVertical: Sizes.xs,
   },
   analysisSectionTitle: {
-    fontSize: 15,
+    fontSize: 16, // Unified section titles for symmetry
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: Sizes.xs,
@@ -1688,37 +2127,94 @@ const styles = StyleSheet.create({
     marginTop: Sizes.sm,
   },
 
-  // New Analysis Display Styles
+  // New Analysis Display Styles - Modern Grid (MD3 8dp spacing)
   patientInfoContainer: {
-    gap: Sizes.sm,
-  },
-  patientInfoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8, // MD3 standard: 8dp between cards
+  },
+  patientInfoChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Sizes.xs,
+    backgroundColor: Colors.white,
+    paddingVertical: 10, // Reduced from 12
+    paddingHorizontal: 12, // Reduced from 16
+    borderRadius: 14, // Increased from 12 for softer premium look
+    gap: 8, // MD3 standard: 8dp internal spacing
+    minWidth: '45%',
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    // Modern soft shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  patientIconBadge: {
+    width: 32, // Reduced from 36
+    height: 32, // Reduced from 36
+    borderRadius: 8, // Smaller radius
+    backgroundColor: Colors.gray50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  patientInfoLabel: {
+    fontSize: 11, // MD3/iOS minimum for accessibility
+    color: Colors.gray500,
+    fontWeight: '600',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  patientInfoValue: {
+    fontSize: 13, // Reduced from 14 for better fit
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    flexShrink: 1,
+    lineHeight: 18, // Better readability and prevents overflow
+  },
+  // Legacy row support (removed but keeping placeholder if needed)
+  patientInfoRow: {
+    display: 'none',
   },
 
   // Medication Card Styles
+  // Medication Card Styles
   medicationCard: {
-    backgroundColor: Colors.gray50,
-    borderRadius: 12,
-    padding: Sizes.md,
-    marginBottom: Sizes.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 12, // MD3: Reduced from 16 for tighter layout
+    marginBottom: 8, // MD3: 8dp between cards
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
   medicationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Sizes.sm,
-    marginBottom: Sizes.xs,
+    gap: 12,
+    marginBottom: 8,
+  },
+  medIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.primaryLight + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   medicationName: {
     fontSize: 15,
     fontWeight: '600',
     color: Colors.textPrimary,
     flex: 1,
+    lineHeight: 20,
   },
   medicationScientific: {
     fontSize: 13,
@@ -1730,6 +2226,10 @@ const styles = StyleSheet.create({
   medicationDetails: {
     marginTop: Sizes.xs,
     gap: Sizes.xs,
+  },
+  medicationDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   medicationDetail: {
     fontSize: 13,
@@ -1970,7 +2470,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     marginBottom: Sizes.lg,
     padding: Sizes.lg,
-    borderRadius: 16,
+    borderRadius: 0, // No border radius for edge-to-edge design
     borderLeftWidth: 4,
     borderLeftColor: Colors.primary,
     ...Sizes.shadows.sm,
@@ -2016,7 +2516,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     marginBottom: Sizes.lg,
     padding: Sizes.lg,
-    borderRadius: 16,
+    borderRadius: 0, // No border radius for edge-to-edge design
     ...Sizes.shadows.sm,
   },
   medicalReportStatusTitle: {
@@ -2095,30 +2595,38 @@ const styles = StyleSheet.create({
   },
 
   // AI Summary Card Styles
+  // AI Summary Card Styles
   aiSummaryCard: {
     backgroundColor: Colors.white,
     marginBottom: Sizes.lg,
-    padding: Sizes.lg,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-    ...Sizes.shadows.sm,
+    padding: 24,
+    borderRadius: 0, // No border radius for edge-to-edge design
+    // Medical Trust Shadow (Soft Blue)
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.08)', // Very subtle blue tint
   },
   aiSummaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Sizes.sm,
-    marginBottom: Sizes.md,
+    gap: 12,
+    marginBottom: 16,
   },
   aiSummaryTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+    fontWeight: '800',
+    color: Colors.gray900,
+    letterSpacing: -0.5,
   },
   aiSummaryText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: Colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 26,
+    color: Colors.gray700,
+    fontWeight: '400',
   },
   expandButton: {
     flexDirection: 'row',

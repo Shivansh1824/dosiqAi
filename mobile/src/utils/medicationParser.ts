@@ -166,25 +166,25 @@ export function parseDuration(durationString: string | null | undefined): number
     return null;
   }
 
-  // Pattern: [number] [unit]
-  // Supports: "3 days", "2 weeks", "1 month", "7 days", etc.
-  const match = normalized.match(/(\d+)\s*(day|days|week|weeks|month|months|year|years)/);
+  // Pattern: [number] [unit] (supports abbreviations like "3d", "2w", "1m")
+  // Supports: "3 days", "3d", "2 weeks", "2w", etc.
+  const match = normalized.match(/(\d+)\s*(d|day|days|w|week|weeks|m|month|months|y|year|years)/i);
   if (!match) {
     console.warn(`[MedicationParser] Could not parse duration: "${durationString}"`);
     return null;
   }
 
   const quantity = parseInt(match[1]);
-  const unit = match[2];
+  const unit = match[2].toLowerCase();
 
   // Convert to days
-  if (unit.startsWith('day')) {
+  if (unit.startsWith('d')) {
     return quantity;
-  } else if (unit.startsWith('week')) {
+  } else if (unit.startsWith('w')) {
     return quantity * 7;
-  } else if (unit.startsWith('month')) {
+  } else if (unit.startsWith('m')) {
     return quantity * 30; // Approximate (28-31 days)
-  } else if (unit.startsWith('year')) {
+  } else if (unit.startsWith('y')) {
     return quantity * 365; // Approximate
   }
 
@@ -321,6 +321,79 @@ export function detectDuplicateMedication(
 }
 
 /**
+ * Parse food relationship from special instructions
+ * Detects meal timing keywords and medical abbreviations
+ *
+ * @param specialInstructions - Special instructions text from prescription
+ * @returns FoodRelationship enum value
+ *
+ * @example
+ * parseFoodRelationship("After Dinner") // returns 'after_food'
+ * parseFoodRelationship("Take on empty stomach") // returns 'empty_stomach'
+ * parseFoodRelationship("PC") // returns 'after_food' (post cibum)
+ */
+export function parseFoodRelationship(specialInstructions: string | null | undefined): import('../types/medication').FoodRelationship {
+  if (!specialInstructions) return 'anytime';
+
+  const normalized = specialInstructions.toLowerCase().trim();
+
+  // Empty stomach patterns
+  if (
+    normalized.includes('empty stomach') ||
+    normalized.includes('empty-stomach') ||
+    normalized.includes('before breakfast') ||
+    normalized.includes('30 min before') ||
+    normalized.includes('60 min before') ||
+    normalized.includes('1 hour before') ||
+    normalized.includes('half hour before')
+  ) {
+    return 'empty_stomach';
+  }
+
+  // Before food patterns
+  if (
+    normalized.includes('before food') ||
+    normalized.includes('before meal') ||
+    normalized.includes('before eating') ||
+    normalized.includes('pre meal') ||
+    normalized.includes('15 min before') ||
+    normalized.includes('ac') || // ante cibum (before food)
+    /\bac\b/.test(normalized) // word boundary check for AC
+  ) {
+    return 'before_food';
+  }
+
+  // With food patterns
+  if (
+    normalized.includes('with food') ||
+    normalized.includes('with meal') ||
+    normalized.includes('during meal') ||
+    normalized.includes('during food') ||
+    normalized.includes('while eating')
+  ) {
+    return 'with_food';
+  }
+
+  // After food patterns (most common)
+  if (
+    normalized.includes('after food') ||
+    normalized.includes('after meal') ||
+    normalized.includes('after eating') ||
+    normalized.includes('after dinner') ||
+    normalized.includes('after lunch') ||
+    normalized.includes('after breakfast') ||
+    normalized.includes('post meal') ||
+    normalized.includes('pc') || // post cibum (after food)
+    /\bpc\b/.test(normalized) // word boundary check for PC
+  ) {
+    return 'after_food';
+  }
+
+  // Default to anytime for anything else (including SOS, PRN, unclear instructions)
+  return 'anytime';
+}
+
+/**
  * Determine confidence level based on AI identification
  *
  * @param isIdentified - Whether AI confidently identified the medication
@@ -409,6 +482,9 @@ export function parseAIMedication(
     notes = notes ? `${notes}\n\nFrom: ${documentTitle}` : `From: ${documentTitle}`;
   }
 
+  // Parse food relationship from special instructions
+  const foodRelationship = parseFoodRelationship(medicine.special_instructions);
+
   return {
     name: cleanMedicationName(medicine.exact_written_name),
     scientific_name: medicine.assumed_enriched_data?.scientific_name,
@@ -417,6 +493,7 @@ export function parseAIMedication(
     original_frequency_code: medicine.frequency || '',
     duration_days: durationDays,
     time_of_day: timeSlots,
+    food_relationship: foodRelationship,
     notes,
     confidence,
     ai_extracted: true,

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
 import { ParsedMedication, VerificationConfidence } from '../types/medicationVerification';
-import { getFrequencyText } from '../types/medication';
+import { getFrequencyText, getFoodRelationshipText, FoodRelationship } from '../types/medication';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
 
@@ -43,12 +43,20 @@ export default function MedicationVerificationCard({
   const [editedNotes, setEditedNotes] = useState(medication.notes);
   const [editedFrequency, setEditedFrequency] = useState(medication.frequency);
   const [editedTimeSlots, setEditedTimeSlots] = useState(medication.time_of_day);
+  const [editedFoodRelationship, setEditedFoodRelationship] = useState<FoodRelationship | undefined>(medication.food_relationship || 'anytime');
+  const [editedDuration, setEditedDuration] = useState<number>(medication.duration_days || 5);
 
-  // Modal state for frequency and time slots
+  // Modal state for frequency, food relationship, and time slots
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
+  const [showFoodRelationshipPicker, setShowFoodRelationshipPicker] = useState(false);
   const [showTimeSlotEditor, setShowTimeSlotEditor] = useState(false);
   const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null);
   const [tempTime, setTempTime] = useState(new Date());
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+
+  // Duration Options (Medical Research based: Acute 1-14, Cycles 21-30, Chronic 60-90)
+  const DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 28, 30, 45, 60, 90];
 
   // Frequency options
   const FREQUENCY_OPTIONS = [
@@ -56,9 +64,17 @@ export default function MedicationVerificationCard({
     { value: 'twice_daily', label: 'Twice Daily', icon: '2×' },
     { value: 'three_times_daily', label: '3 Times Daily', icon: '3×' },
     { value: 'four_times_daily', label: '4 Times Daily', icon: '4×' },
-    { value: 'every_other_day', label: 'Every Other Day', icon: 'Alt' },
+
     { value: 'weekly', label: 'Weekly', icon: '1/wk' },
     { value: 'as_needed', label: 'As Needed', icon: 'PRN' },
+  ];
+
+  const FOOD_RELATIONSHIP_OPTIONS = [
+    { value: 'empty_stomach', label: 'Empty Stomach', icon: '⏰', description: '30-60 min before food' },
+    { value: 'before_food', label: 'Before Food', icon: '🍽️', description: '5-15 min before meals' },
+    { value: 'with_food', label: 'With Food', icon: '🍴', description: 'During or immediately after' },
+    { value: 'after_food', label: 'After Food', icon: '✅', description: '1-2 hours after meals' },
+    { value: 'anytime', label: 'Anytime', icon: '🔄', description: 'No restriction' },
   ];
 
   // Helper to generate default time slots based on frequency
@@ -77,30 +93,52 @@ export default function MedicationVerificationCard({
     }
   };
 
+  // Helper to get max time slots allowed for a frequency
+  const getMaxTimeSlotsForFrequency = (frequency: string): number | null => {
+    switch (frequency) {
+      case 'once_daily':
+        return 1;
+      case 'twice_daily':
+        return 2;
+      case 'three_times_daily':
+        return 3;
+      case 'four_times_daily':
+        return 4;
+      case 'every_other_day':
+        return 1;
+      case 'weekly':
+        return 1;
+      case 'as_needed':
+        return null; // No limit
+      default:
+        return null;
+    }
+  };
+
   // Get confidence indicator styling
   const getConfidenceStyles = (confidence: VerificationConfidence) => {
     switch (confidence) {
       case 'high':
         return {
-          borderColor: Colors.success,
-          badgeColor: Colors.successLight,
-          badgeTextColor: Colors.success,
+          badgeColor: '#E6F4EA', // Soft green background
+          badgeTextColor: '#1E4620', // Dark green text
+          iconColor: '#137333', // Medium green icon
           icon: 'check-circle' as const,
           text: 'AI Confident',
         };
       case 'medium':
         return {
-          borderColor: Colors.warning,
-          badgeColor: '#FEF3C7', // Light yellow
-          badgeTextColor: Colors.warning,
+          badgeColor: '#FEF7E0', // Soft yellow background
+          badgeTextColor: '#5F370E', // Dark yellow/brown text
+          iconColor: '#F9AB00', // Medium yellow icon
           icon: 'alert-circle' as const,
           text: 'AI Uncertain',
         };
       case 'low':
         return {
-          borderColor: Colors.error,
-          badgeColor: Colors.errorLight,
-          badgeTextColor: Colors.error,
+          badgeColor: '#FCE8E6', // Soft red background
+          badgeTextColor: '#8C1D18', // Dark red text
+          iconColor: '#C5221F', // Medium red icon
           icon: 'alert-triangle' as const,
           text: 'AI Assumed',
         };
@@ -118,6 +156,8 @@ export default function MedicationVerificationCard({
       notes: editedNotes,
       frequency: editedFrequency,
       time_of_day: editedTimeSlots,
+      food_relationship: editedFoodRelationship,
+      duration_days: editedDuration, // Save the edited duration
       verified_by_user: true, // Mark as user-verified after editing
     });
     setIsEditing(false);
@@ -128,7 +168,35 @@ export default function MedicationVerificationCard({
     setEditedName(medication.name);
     setEditedDosage(medication.dosage);
     setEditedNotes(medication.notes);
+    setEditedFrequency(medication.frequency);
+    setEditedTimeSlots(medication.time_of_day);
+    setEditedFoodRelationship(medication.food_relationship);
+    setEditedDuration(medication.duration_days || 5); // Reset duration
     setIsEditing(false);
+  };
+
+  // Handle Reset to AI (Original Values)
+  const handleResetToAI = () => {
+    Alert.alert(
+      "Reset to AI Defaults?",
+      "This will revert all fields to the original values detected by AI.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: () => {
+            setEditedName(initialMedication.name);
+            setEditedDosage(initialMedication.dosage);
+            setEditedNotes(initialMedication.notes);
+            setEditedFrequency(initialMedication.frequency);
+            setEditedTimeSlots(initialMedication.time_of_day);
+            setEditedFoodRelationship(initialMedication.food_relationship);
+            setEditedDuration(initialMedication.duration_days || 5);
+          }
+        }
+      ]
+    );
   };
 
   // Handle verify and add
@@ -173,230 +241,297 @@ export default function MedicationVerificationCard({
   };
 
   return (
-    <View style={[
-      styles.card,
-      { borderLeftColor: confidenceStyle.borderColor }
-    ]}>
-      {/* Confidence Badge */}
+    <View style={styles.card}>
+      {/* Header Row: Name & Confidence Badge */}
       <View style={styles.cardHeader}>
-        <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor }]}>
-          <Feather name={confidenceStyle.icon} size={14} color={confidenceStyle.badgeTextColor} />
-          <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor }]}>
-            {confidenceStyle.text}
-          </Text>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.cardHeaderActions}>
-          {/* Delete Button */}
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDelete}
-            activeOpacity={0.7}
-          >
-            <Feather name="trash-2" size={16} color={Colors.gray500} />
-          </TouchableOpacity>
-
-          {/* Edit Button */}
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => setIsEditing(!isEditing)}
-            activeOpacity={0.7}
-          >
-            <Feather name={isEditing ? 'x' : 'edit-3'} size={16} color={Colors.gray500} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Medication Name */}
-      <View style={styles.nameRow}>
-        <Feather name="package" size={20} color={Colors.primary} />
-        {isEditing ? (
-          <TextInput
-            style={styles.nameInput}
-            value={editedName}
-            onChangeText={setEditedName}
-            placeholder="Medication name"
-            autoFocus
-          />
-        ) : (
-          <Text style={styles.medicationName}>
-            {medication.name}
-          </Text>
-        )}
-      </View>
-
-      {/* Scientific Name */}
-      {medication.scientific_name && (
-        <Text style={styles.scientificName}>({medication.scientific_name})</Text>
-      )}
-
-      {/* Medication Details Grid */}
-      <View style={styles.detailsGrid}>
-        {/* Dosage */}
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Dosage</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.detailInput}
-              value={editedDosage}
-              onChangeText={setEditedDosage}
-              placeholder="e.g., 500mg"
-            />
-          ) : (
-            <View style={styles.detailValueRow}>
-              <Feather name="droplet" size={14} color={Colors.gray500} />
-              <Text style={styles.detailValue}>{medication.dosage}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Frequency - Editable */}
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Frequency</Text>
-          {isEditing ? (
-            <TouchableOpacity
-              style={styles.frequencyPickerButton}
-              onPress={() => setShowFrequencyPicker(true)}
-            >
-              <Feather name="clock" size={14} color={Colors.primary} />
-              <Text style={styles.frequencyButtonText}>
-                {getFrequencyText(editedFrequency)}
+        <View style={styles.headerLeft}>
+          <View style={styles.iconContainer}>
+            <Feather name="package" size={20} color={Colors.primary} />
+          </View>
+          <View style={styles.headerTitleContainer}>
+            {isEditing ? (
+              <TextInput
+                style={styles.nameInput}
+                value={editedName}
+                onChangeText={setEditedName}
+                placeholder="Medication name"
+                autoFocus
+                multiline
+              />
+            ) : (
+              <Text style={styles.medicationName} numberOfLines={2} adjustsFontSizeToFit>
+                {medication.name}
               </Text>
-              <Feather name="chevron-down" size={16} color={Colors.gray500} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.detailValueRow}>
-              <Feather name="clock" size={14} color={Colors.gray500} />
-              <Text style={styles.detailValue}>{getFrequencyText(medication.frequency)}</Text>
-            </View>
-          )}
-          {medication.original_frequency_code && !isEditing && (
-            <Text style={styles.originalCode}>({medication.original_frequency_code})</Text>
-          )}
-        </View>
+            )}
 
-        {/* Duration */}
-        {medication.duration_days !== null && (
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Duration</Text>
-            <View style={styles.detailValueRow}>
-              <Feather name="calendar" size={14} color={Colors.gray500} />
-              <Text style={styles.detailValue}>
-                {medication.duration_days} {medication.duration_days === 1 ? 'day' : 'days'}
-              </Text>
+            <View style={styles.subtitleRow}>
+              {/* Confidence Badge moved here to prevent title squeezing */}
+              {!isEditing && (
+                <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
+                  <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
+                  <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
+                    {confidenceStyle.text}
+                  </Text>
+                </View>
+              )}
+              {medication.scientific_name && (
+                <Text style={styles.scientificName} numberOfLines={1}>
+                  {medication.scientific_name}
+                </Text>
+              )}
             </View>
           </View>
-        )}
+        </View>
 
-        {/* Time Slots - Editable */}
+        <View style={styles.headerActions}>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setIsEditing(!isEditing)}
+              activeOpacity={0.7}
+            >
+              <Feather name={isEditing ? 'x' : 'edit-3'} size={18} color={Colors.gray500} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleDelete}
+              activeOpacity={0.7}
+            >
+              <Feather name="trash-2" size={18} color={Colors.gray500} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Medication Details Grid */}
+      {/* Medication Details Grid - Compact Layout */}
+      <View style={styles.detailsGrid}>
+
+        {/* Vitals Row: Dosage | Frequency | Food */}
+        <View style={styles.vitalsContainer}>
+          {/* Dosage */}
+          <View style={styles.vitalItem}>
+            <View style={styles.vitalIconBadge}>
+              <Feather name="layers" size={14} color={Colors.primary} />
+            </View>
+            <View>
+              <Text style={styles.vitalLabel}>DOSAGE</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.vitalInput}
+                  value={editedDosage}
+                  onChangeText={setEditedDosage}
+                  placeholder="e.g. 500mg"
+                />
+              ) : (
+                <Text style={styles.vitalValue}>{medication.dosage || '--'}</Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.verticalDivider} />
+
+          {/* Frequency */}
+          <View style={styles.vitalItem}>
+            <View style={styles.vitalIconBadge}>
+              <Feather name="clock" size={14} color={Colors.secondary} />
+            </View>
+            <View>
+              <Text style={styles.vitalLabel}>FREQ</Text>
+              {isEditing ? (
+                <TouchableOpacity onPress={() => setShowFrequencyPicker(true)}>
+                  <Text style={styles.vitalValueLink}>
+                    {getFrequencyText(editedFrequency).replace(/ daily/i, '\ndaily').replace('As needed', 'As\nneeded')}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.vitalValue}>
+                  {getFrequencyText(medication.frequency).replace(/ daily/i, '\ndaily').replace('As needed', 'As\nneeded')}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.verticalDivider} />
+
+          {/* Food */}
+          <View style={styles.vitalItem}>
+            <View style={styles.vitalIconBadge}>
+              <Feather name="coffee" size={14} color={Colors.warning} />
+            </View>
+            <View>
+              <Text style={styles.vitalLabel}>TAKE</Text>
+              {isEditing ? (
+                <TouchableOpacity onPress={() => setShowFoodRelationshipPicker(true)}>
+                  <Text style={styles.vitalValueLink}>
+                    {getFoodRelationshipText(editedFoodRelationship).replace(' ', '\n')}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.vitalValue}>
+                  {getFoodRelationshipText(medication.food_relationship).replace(' ', '\n')}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Time Slots - Horizontal Scroll (The "Potato" Fix) */}
         {(medication.time_of_day.length > 0 || isEditing) && (
-          <View style={styles.detailItem}>
-            <View style={styles.timeSlotsHeader}>
-              <Text style={styles.detailLabel}>Times</Text>
+          <View style={styles.sectionItem}>
+            <View style={styles.compactHeaderRow}>
+              <Text style={styles.detailLabel}>SCHEDULE</Text>
               {isEditing && (
                 <TouchableOpacity
-                  style={styles.addTimeButton}
+                  style={styles.addTimeTinyButton}
                   onPress={() => {
-                    setEditingTimeIndex(null);
-                    setShowTimeSlotEditor(true);
+                    const maxSlots = getMaxTimeSlotsForFrequency(editedFrequency);
+                    if (maxSlots === null || editedTimeSlots.length < maxSlots) {
+                      setEditingTimeIndex(null);
+                      setTempTime(new Date());
+                      setShowTimeSlotEditor(true);
+                    } else {
+                      Alert.alert('Limit Reached', 'Change frequency to add more.');
+                    }
                   }}
                 >
-                  <Feather name="plus" size={14} color={Colors.primary} />
-                  <Text style={styles.addTimeText}>Add</Text>
+                  <Feather name="plus" size={12} color={Colors.primary} />
+                  <Text style={styles.addTimeTinyText}>Add</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <View style={styles.timeSlotsContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeScrollContainer}>
               {(isEditing ? editedTimeSlots : medication.time_of_day).map((time, index) => (
-                <View key={index} style={styles.timeSlot}>
-                  {isEditing ? (
-                    <>
-                      <TouchableOpacity
-                        style={styles.timeSlotEditable}
-                        onPress={() => {
-                          setEditingTimeIndex(index);
-                          const [hours, minutes] = time.split(':');
-                          const date = new Date();
-                          date.setHours(parseInt(hours), parseInt(minutes));
-                          setTempTime(date);
-                          setShowTimeSlotEditor(true);
-                        }}
-                      >
-                        <Feather name="clock" size={12} color={Colors.primary} />
-                        <Text style={styles.timeSlotTextEditable}>{time}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.removeTimeButton}
-                        onPress={() => {
-                          const updated = editedTimeSlots.filter((_, i) => i !== index);
-                          setEditedTimeSlots(updated);
-                        }}
-                      >
-                        <Feather name="x" size={12} color={Colors.error} />
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <Text style={styles.timeSlotText}>{time}</Text>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.timeChipCompact}
+                  activeOpacity={isEditing ? 0.7 : 1}
+                  onPress={() => {
+                    if (isEditing) {
+                      setEditingTimeIndex(index);
+                      // Robust Parsing
+                      try {
+                        const [h, m] = time.split(':').map(Number);
+                        if (!isNaN(h) && !isNaN(m)) {
+                          const d = new Date();
+                          d.setHours(h);
+                          d.setMinutes(m);
+                          d.setSeconds(0);
+                          d.setMilliseconds(0);
+                          setTempTime(d);
+                        } else {
+                          setTempTime(new Date()); // Fallback to now
+                        }
+                      } catch (e) {
+                        setTempTime(new Date());
+                      }
+                      setShowTimeSlotEditor(true);
+                    }
+                  }}
+                >
+                  <Feather name="watch" size={10} color={Colors.primary} />
+                  <Text style={styles.timeChipTextCompact}>{time}</Text>
+                  {isEditing && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const updated = editedTimeSlots.filter((_, i) => i !== index);
+                        setEditedTimeSlots(updated);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Easier to hit
+                    >
+                      <Feather name="x" size={10} color={Colors.primary} style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
                   )}
-                </View>
+                </TouchableOpacity>
               ))}
-            </View>
+              {(!isEditing && medication.time_of_day.length === 0) && (
+                <Text style={styles.emptyStateText}>No specific times</Text>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Duration / Start Date */}
+        <View style={styles.sectionItem}>
+          <Text style={styles.detailLabel}>DURATION & START</Text>
+          <View style={styles.durationRow}>
+            <TouchableOpacity
+              style={styles.dateCompactSelector}
+              onPress={() => setShowDatePicker(true)}
+              disabled={!isEditing && startDate === suggestedStartDate}
+            >
+              <Feather name="calendar" size={14} color={Colors.textSecondary} />
+              <Text style={styles.dateCompactText}>
+                Starts {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </Text>
+              {isEditing && <Feather name="edit-2" size={10} color={Colors.primary} />}
+            </TouchableOpacity>
+
+            {isEditing ? (
+              <TouchableOpacity
+                style={styles.durationBadge}
+                onPress={() => setShowDurationPicker(true)}
+              >
+                <Text style={styles.durationTextLink}>{editedDuration} Days</Text>
+                <Feather name="chevron-down" size={12} color={Colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              medication.duration_days && (
+                <View style={styles.durationBadge}>
+                  <Text style={styles.durationText}>{medication.duration_days} Days</Text>
+                </View>
+              )
+            )}
+          </View>
+        </View>
+
+        {/* Notes / Special Instructions (Collapsible) */}
+        {(medication.notes || isEditing) && (
+          <View style={styles.notesCompactContainer}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setIsNotesExpanded(!isNotesExpanded)}
+              style={styles.notesCompactHeader}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Feather name="info" size={14} color={Colors.textSecondary} />
+                <Text style={[styles.detailLabel, { marginBottom: 0 }]}>INSTRUCTIONS</Text>
+              </View>
+              <Feather name={isNotesExpanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
+            </TouchableOpacity>
+
+            {isEditing ? (
+              <TextInput
+                style={styles.notesInput}
+                value={editedNotes}
+                onChangeText={setEditedNotes}
+                placeholder="Add special instructions..."
+                multiline
+              />
+            ) : (
+              <View>
+                <Text
+                  style={styles.notesText}
+                  numberOfLines={isNotesExpanded ? undefined : 2}
+                >
+                  {medication.notes}
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </View>
-
-      {/* Notes */}
-      {(medication.notes || isEditing) && (
-        <View style={styles.notesSection}>
-          <Text style={styles.detailLabel}>Special Instructions</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.notesInput}
-              value={editedNotes}
-              onChangeText={setEditedNotes}
-              placeholder="Add special instructions..."
-              multiline
-              numberOfLines={3}
-            />
-          ) : (
-            <Text style={styles.notesText}>{medication.notes}</Text>
-          )}
-        </View>
-      )}
-
-      {/* Start Date - Simple Inline Text */}
-      <View style={styles.detailItem}>
-        <Text style={styles.detailLabel}>Start Date</Text>
-        <TouchableOpacity
-          style={styles.dateValueButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.dateValueText}>
-            {new Date(startDate).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </Text>
-          <Feather name="edit-2" size={12} color={Colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Date Assumption Hint - Simple Text */}
-      {startDate !== suggestedStartDate && (
-        <Text style={styles.dateHintText}>
-          Date modified from suggested: {suggestedStartDate}
-        </Text>
-      )}
 
       {/* Duplicate Warning */}
       {duplicateOf && (
         <View style={styles.duplicateWarning}>
           <Feather name="alert-triangle" size={16} color={Colors.warning} />
           <Text style={styles.duplicateText}>
-            Similar to existing medication: {duplicateOf.name}
+            Previously prescribed: {duplicateOf.name}
           </Text>
         </View>
       )}
@@ -405,6 +540,13 @@ export default function MedicationVerificationCard({
       <View style={styles.actionRow}>
         {isEditing ? (
           <>
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleResetToAI}
+              activeOpacity={0.7}
+            >
+              <Feather name="rotate-ccw" size={16} color={Colors.gray500} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={handleCancelEdits}
@@ -418,7 +560,7 @@ export default function MedicationVerificationCard({
               activeOpacity={0.7}
             >
               <Feather name="check" size={18} color={Colors.white} />
-              <Text style={styles.saveButtonText}>Save Changes</Text>
+              <Text style={styles.saveButtonText}>Done</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -428,15 +570,19 @@ export default function MedicationVerificationCard({
             disabled={isVerifying}
             activeOpacity={0.7}
           >
-            <Feather name="check-circle" size={18} color={Colors.white} />
-            <Text style={styles.verifyButtonText}>
-              {isVerifying ? 'Adding...' : 'Verify & Add to Tracker'}
-            </Text>
+            {isVerifying ? (
+              <ActivityIndicator color={Colors.white} size="small" />
+            ) : (
+              <>
+                <Feather name="check" size={18} color={Colors.white} />
+                <Text style={styles.verifyButtonText}>Verify & Add</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Date Picker Modal */}
+      {/* Re-including modals (DatePicker, FrequencyPicker, etc.) - same logic as before, just kept for context */}
       <DatePickerModal
         visible={showDatePicker}
         date={startDate}
@@ -448,6 +594,7 @@ export default function MedicationVerificationCard({
         maximumDate={new Date().toISOString().split('T')[0]}
         minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
       />
+      {/* ... Other modals (Frequency, Food, Time) would follow here ... */}
 
       {/* Frequency Picker Modal */}
       {showFrequencyPicker && (
@@ -477,9 +624,17 @@ export default function MedicationVerificationCard({
                     onPress={() => {
                       setEditedFrequency(option.value as any);
                       setShowFrequencyPicker(false);
+
+                      // Auto-adjust time slots based on new frequency
                       const newTimeSlots = generateDefaultTimeSlots(option.value);
+                      const maxSlots = getMaxTimeSlotsForFrequency(option.value);
+
                       if (newTimeSlots.length > 0) {
+                        // Use default time slots for the new frequency
                         setEditedTimeSlots(newTimeSlots);
+                      } else if (maxSlots !== null && editedTimeSlots.length > maxSlots) {
+                        // Trim existing slots to fit new frequency limit
+                        setEditedTimeSlots(editedTimeSlots.slice(0, maxSlots));
                       }
                     }}
                   >
@@ -488,6 +643,97 @@ export default function MedicationVerificationCard({
                     </View>
                     <Text style={styles.frequencyOptionText}>{option.label}</Text>
                     {editedFrequency === option.value && (
+                      <Feather name="check" size={20} color={Colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Food Relationship Picker Modal */}
+      {showFoodRelationshipPicker && (
+        <Modal
+          visible={showFoodRelationshipPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowFoodRelationshipPicker(false)}
+        >
+          {/* ... existing food picker content ... reuse similarly structured component or update manually if needed */}
+          <View style={styles.modalOverlay}>
+            <View style={styles.frequencyPickerContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Food Relationship</Text>
+                <TouchableOpacity onPress={() => setShowFoodRelationshipPicker(false)}>
+                  <Feather name="x" size={24} color={Colors.gray600} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.frequencyOptions}>
+                {FOOD_RELATIONSHIP_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.frequencyOption,
+                      editedFoodRelationship === option.value && styles.frequencyOptionSelected
+                    ]}
+                    onPress={() => {
+                      setEditedFoodRelationship(option.value as any);
+                      setShowFoodRelationshipPicker(false);
+                    }}
+                  >
+                    <View style={styles.frequencyIconBadge}>
+                      <Text style={styles.frequencyIconText}>{option.icon}</Text>
+                    </View>
+                    <Text style={styles.frequencyOptionText}>{option.label}</Text>
+                    {editedFoodRelationship === option.value && (
+                      <Feather name="check" size={20} color={Colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Duration Picker Modal */}
+      {showDurationPicker && (
+        <Modal
+          visible={showDurationPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDurationPicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.frequencyPickerContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Duration</Text>
+                <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
+                  <Feather name="x" size={24} color={Colors.gray600} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.frequencyOptions}>
+                {DURATION_OPTIONS.map((days) => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.frequencyOption,
+                      editedDuration === days && styles.frequencyOptionSelected
+                    ]}
+                    onPress={() => {
+                      setEditedDuration(days);
+                      setShowDurationPicker(false);
+                    }}
+                  >
+                    <View style={styles.frequencyIconBadge}>
+                      <Feather name="calendar" size={16} color={Colors.gray600} />
+                    </View>
+                    <Text style={styles.frequencyOptionText}>{days} Days</Text>
+                    {editedDuration === days && (
                       <Feather name="check" size={20} color={Colors.primary} />
                     )}
                   </TouchableOpacity>
@@ -517,16 +763,25 @@ export default function MedicationVerificationCard({
                 </TouchableOpacity>
               </View>
 
-              <DateTimePicker
-                value={tempTime}
-                mode="time"
-                display="spinner"
-                onChange={(event, selectedTime) => {
-                  if (selectedTime) {
-                    setTempTime(selectedTime);
-                  }
-                }}
-              />
+              <View style={{ height: 200, width: '100%', justifyContent: 'center' }}>
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  display="spinner"
+                  is24Hour={false}
+                  locale="en-US"
+                  themeVariant="light"
+                  textColor="black"
+                  minimumDate={new Date(2000, 0, 1)}
+                  maximumDate={new Date(2100, 0, 1)}
+                  onChange={(event, selectedTime) => {
+                    if (selectedTime) {
+                      setTempTime(selectedTime);
+                    }
+                  }}
+                  style={{ height: 200, width: '100%' }}
+                />
+              </View>
 
               <View style={styles.timePickerActions}>
                 <TouchableOpacity
@@ -568,423 +823,466 @@ export default function MedicationVerificationCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: Sizes.md,
-    marginBottom: Sizes.md,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    borderRadius: 24, // Softer curves for "Medical Trust"
+    marginBottom: 20,
+    shadowColor: Colors.primaryDark, // Colored shadow
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 20,
+    paddingBottom: 12,
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF', // Blue-50
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Sizes.sm,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    paddingRight: 8,
+    justifyContent: 'center',
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+    flexWrap: 'wrap',
+  },
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.gray50,
+    borderRadius: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.gray100,
+    marginHorizontal: 20,
   },
   confidenceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Sizes.sm,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 4,
+    alignSelf: 'flex-start', // Important for wrapping
   },
   confidenceText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.sm,
-  },
-  deleteButton: {
-    padding: Sizes.xs,
-  },
-  editButton: {
-    padding: Sizes.xs,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.sm,
-    marginBottom: 4,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   medicationName: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  nameInput: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.primary,
-    paddingVertical: 4,
+    fontSize: 20, // Slightly reduced from 22 to fit better
+    fontWeight: '800',
+    color: Colors.gray900,
+    fontFamily: 'System',
+    letterSpacing: -0.5,
+    marginBottom: 2,
   },
   scientificName: {
     fontSize: 13,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    marginLeft: 28,
-    marginBottom: Sizes.md,
-  },
-  detailsGrid: {
-    gap: Sizes.sm,
-    marginTop: Sizes.sm,
-  },
-  detailItem: {
-    gap: Sizes.xs,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
+    color: Colors.gray500,
     fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  detailValueRow: {
+  nameInput: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.gray900,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primary,
+    paddingVertical: 2,
+    minWidth: 150,
+  },
+
+  // --- Compact Details Grid ---
+  detailsGrid: {
+    padding: 20,
+    gap: 20,
+  },
+  vitalsContainer: {
     flexDirection: 'row',
+    backgroundColor: Colors.gray50,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  vitalItem: {
+    flex: 1,
     alignItems: 'center',
     gap: 6,
   },
-  detailValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+  verticalDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.gray200,
   },
-  detailInput: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
+  vitalIconBadge: {
+    width: 28,
+    height: 28,
     borderRadius: 8,
-    paddingHorizontal: Sizes.sm,
-    paddingVertical: 8,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  originalCode: {
-    fontSize: 11,
+  vitalLabel: {
+    fontSize: 10,
+    fontWeight: '700',
     color: Colors.gray400,
-    marginLeft: 20,
-    marginTop: 2,
+    textAlign: 'center',
+    marginBottom: 2,
+    letterSpacing: 0.5,
   },
-  timeSlotsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Sizes.xs,
-  },
-  timeSlot: {
-    backgroundColor: Colors.primaryLight + '20',
-    paddingHorizontal: Sizes.sm,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  timeSlotText: {
+  vitalValue: {
     fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: Colors.gray800,
+    textAlign: 'center',
+    lineHeight: 16, // Tighter leading for multiline
   },
-  timeSlotsHeader: {
+  vitalValueLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
+  vitalInput: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.gray900,
+    textAlign: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primary,
+    minWidth: 40,
+  },
+
+  // --- Sections ---
+  sectionItem: {
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.gray500,
+    letterSpacing: 0.5,
+  },
+  compactHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Sizes.xs,
+    marginBottom: 4,
   },
-  addTimeButton: {
+
+  // --- Time Scroll ---
+  timeScrollContainer: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  timeChipCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Sizes.xs,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: Colors.primaryLight + '20',
-  },
-  addTimeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  timeSlotEditable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Sizes.sm,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: Colors.primaryLight + '20',
-    borderWidth: 1,
-    borderColor: Colors.primary + '40',
-  },
-  timeSlotTextEditable: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  removeTimeButton: {
-    padding: 2,
-    marginLeft: 4,
-  },
-  notesSection: {
-    marginTop: Sizes.md,
     gap: 6,
-  },
-  notesText: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: Colors.textSecondary,
-    backgroundColor: Colors.gray50,
-    padding: Sizes.sm,
-    borderRadius: 8,
-  },
-  notesInput: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.gray50,
     borderWidth: 1,
-    borderColor: Colors.gray200,
-    padding: Sizes.sm,
-    borderRadius: 8,
-    minHeight: 60,
-    textAlignVertical: 'top',
+    borderColor: 'rgba(59, 130, 246, 0.1)',
   },
-  duplicateWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.xs,
-    backgroundColor: '#FEF3C7', // Light yellow
-    paddingHorizontal: Sizes.sm,
-    paddingVertical: Sizes.xs,
-    borderRadius: 8,
-    marginTop: Sizes.md,
-  },
-  duplicateText: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.warning,
-    fontWeight: '500',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: Sizes.sm,
-    marginTop: Sizes.lg,
-  },
-  verifyButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: Sizes.md,
-    borderRadius: 12,
-    gap: Sizes.xs,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  verifyButtonDisabled: {
-    opacity: 0.6,
-  },
-  verifyButtonText: {
-    fontSize: 15,
+  timeChipTextCompact: {
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.white,
+    color: Colors.primaryDark,
   },
-  cancelButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Sizes.md,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.gray300,
+  emptyStateText: {
+    fontSize: 13,
+    color: Colors.gray400,
+    fontStyle: 'italic',
   },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.gray600,
-  },
-  saveButton: {
-    flex: 1,
+
+  // --- Start / Duration ---
+  durationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.success,
-    paddingVertical: Sizes.md,
-    borderRadius: 12,
-    gap: Sizes.xs,
+    gap: 12,
   },
-  saveButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  dateSection: {
-    marginTop: Sizes.md,
-    padding: Sizes.md,
-    backgroundColor: Colors.gray50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-  },
-  dateSectionHeader: {
+  dateCompactSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: Sizes.sm,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  dateSectionLabel: {
-    fontSize: 14,
+  dateCompactText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.textPrimary,
-    flex: 1,
+    color: Colors.gray700,
   },
-  modifiedBadge: {
-    backgroundColor: Colors.primary + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+  durationBadge: {
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  modifiedBadgeText: {
-    fontSize: 10,
+  durationText: {
+    fontSize: 12,
     fontWeight: '600',
+    color: Colors.gray600,
+  },
+  durationTextLink: {
+    fontSize: 12,
+    fontWeight: '700', // Bolder to indicate interaction
     color: Colors.primary,
+    textDecorationLine: 'underline',
   },
-  dateButton: {
+
+  // --- Notes ---
+  notesCompactContainer: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    borderStyle: 'dashed', // Keep dashed reference
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  notesCompactHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    padding: Sizes.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.primary + '40',
+    padding: 12,
+    backgroundColor: Colors.gray50,
   },
-  dateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+  notesText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.gray700,
+    padding: 12,
+    paddingTop: 8,
   },
-  dateValueButton: {
+  notesInput: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.gray900,
+    padding: 12,
+    minHeight: 60,
+  },
+
+  // --- Footer ---
+  duplicateWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Sizes.xs,
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
   },
-  dateValueText: {
-    fontSize: 14,
-    color: Colors.textPrimary,
+  duplicateText: {
+    fontSize: 12,
+    color: Colors.warningDark,
+    flex: 1,
     fontWeight: '500',
   },
-  dateHintText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: Sizes.xs,
-    fontStyle: 'normal',
-  },
-  frequencyPickerButton: {
+  actionRow: {
+    padding: 20,
+    paddingTop: 0,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.xs,
-    backgroundColor: Colors.primaryLight + '20',
-    paddingHorizontal: Sizes.sm,
-    paddingVertical: Sizes.xs,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.primary + '40',
+    gap: 12,
   },
-  frequencyButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
+  verifyButton: {
     flex: 1,
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
+  verifyButtonText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0.3,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: Colors.gray300,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  cancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+  },
+  cancelButtonText: {
+    color: Colors.gray600,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  resetButton: {
+    width: 44, // Square touch target
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.gray100,
+    borderRadius: 12, // Slightly rounded square
+    marginRight: 8,
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: Colors.success,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+
+  // --- Modals (Keep/Update) ---
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   frequencyPickerContainer: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: Sizes.xl,
-    maxHeight: '70%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    maxHeight: '80%',
+    ...Sizes.shadows.xl,
+  },
+  timePickerContainer: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    ...Sizes.shadows.xl,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Sizes.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: Colors.gray900,
   },
   frequencyOptions: {
-    padding: Sizes.md,
+    marginBottom: 20,
   },
   frequencyOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Sizes.md,
-    borderRadius: 12,
-    marginBottom: Sizes.xs,
-    backgroundColor: Colors.gray50,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+    gap: 16,
   },
   frequencyOptionSelected: {
-    backgroundColor: Colors.primaryLight + '20',
-    borderWidth: 2,
-    borderColor: Colors.primary,
+    backgroundColor: '#EFF6FF',
+    borderBottomColor: 'transparent',
+    borderRadius: 12,
+    paddingHorizontal: 12,
   },
   frequencyIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.white,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Sizes.sm,
   },
   frequencyIconText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primary,
+    fontWeight: '600',
+    color: Colors.gray600,
   },
   frequencyOptionText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
+    color: Colors.gray800,
     fontWeight: '500',
-    color: Colors.textPrimary,
-  },
-  timePickerContainer: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: Sizes.xl,
   },
   timePickerActions: {
     flexDirection: 'row',
-    gap: Sizes.sm,
-    padding: Sizes.lg,
+    gap: 16,
+    marginTop: 24,
   },
   timePickerCancelButton: {
     flex: 1,
-    padding: Sizes.md,
-    borderRadius: 12,
-    backgroundColor: Colors.gray200,
+    paddingVertical: 14,
     alignItems: 'center',
+    backgroundColor: Colors.gray100,
+    borderRadius: 14,
   },
   timePickerCancelText: {
     fontSize: 16,
@@ -993,14 +1291,30 @@ const styles = StyleSheet.create({
   },
   timePickerSaveButton: {
     flex: 1,
-    padding: Sizes.md,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
+    paddingVertical: 14,
     alignItems: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
   },
   timePickerSaveText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.white,
+  },
+
+  // Helpers
+  addTimeTinyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  addTimeTinyText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
   },
 });

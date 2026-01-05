@@ -25,6 +25,7 @@ export interface ParsedMedication {
   duration_days: number | null;          // Parsed from duration string
   time_of_day: string[];                 // Auto-generated based on frequency
   notes: string;                         // Combined from special_instructions
+  food_relationship?: import('./medication').FoodRelationship; // Meal timing requirement
 
   // Metadata
   confidence: VerificationConfidence;    // Based on is_identified

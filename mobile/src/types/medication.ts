@@ -11,6 +11,13 @@ export type MedicationFrequency =
   | 'weekly'
   | 'monthly';
 
+export type FoodRelationship =
+  | 'empty_stomach'
+  | 'before_food'
+  | 'with_food'
+  | 'after_food'
+  | 'anytime';
+
 export interface Medication {
   id: string;
   user_id: string;
@@ -33,6 +40,7 @@ export interface Medication {
   verified_by_user?: boolean;            // True if user verified/edited
   original_frequency_code?: string;      // Store original code (e.g., "Q6H")
   scientific_name?: string;              // Generic name from AI
+  food_relationship?: FoodRelationship;  // Meal timing requirement
 }
 
 export interface MedicationsState {
@@ -83,6 +91,25 @@ export const getFrequencyText = (frequency: MedicationFrequency): string => {
       return 'Monthly';
     default:
       return frequency;
+  }
+};
+
+// Helper to get food relationship display text
+export const getFoodRelationshipText = (foodRelationship?: FoodRelationship): string => {
+  if (!foodRelationship) return 'Anytime';
+  switch (foodRelationship) {
+    case 'empty_stomach':
+      return 'Empty Stomach';
+    case 'before_food':
+      return 'Before Food';
+    case 'with_food':
+      return 'With Food';
+    case 'after_food':
+      return 'After Food';
+    case 'anytime':
+      return 'Anytime';
+    default:
+      return 'Anytime';
   }
 };
 
