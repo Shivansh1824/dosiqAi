@@ -39,7 +39,8 @@ export async function generateAnalysisPDF(
     analysisResult: DocumentAnalysisResult,
     documentType: string,
     patientName: string,
-    appLogoBase64?: string
+    appLogoBase64?: string,
+    documentImageBase64?: string
 ): Promise<PDFGenerationResult> {
     const startTime = Date.now();
 
@@ -49,15 +50,15 @@ export async function generateAnalysisPDF(
         // Select template based on document type
         let html: string;
         if (documentType.toLowerCase() === 'prescription' || analysisResult.prescription_data) {
-            html = generatePrescriptionHTML(analysisResult, appLogoBase64);
+            html = generatePrescriptionHTML(analysisResult, appLogoBase64, documentImageBase64);
         } else if (
             documentType.toLowerCase().includes('report') ||
             documentType.toLowerCase().includes('lab') ||
             analysisResult.report_data
         ) {
-            html = generateLabReportHTML(analysisResult, appLogoBase64);
+            html = generateLabReportHTML(analysisResult, appLogoBase64, documentImageBase64);
         } else {
-            html = generatePrescriptionHTML(analysisResult, appLogoBase64);
+            html = generatePrescriptionHTML(analysisResult, appLogoBase64, documentImageBase64);
         }
 
         console.log('[PDFGeneration] HTML template generated, size:', html.length, 'chars');
@@ -184,7 +185,8 @@ export async function generateAndSharePDF(
     documentType: string,
     patientName: string,
     appLogoBase64?: string,
-    shareMessage?: string
+    shareMessage?: string,
+    documentImageBase64?: string
 ): Promise<{
     generated: PDFGenerationResult;
     shared?: ShareResult;
@@ -196,7 +198,8 @@ export async function generateAndSharePDF(
         analysisResult,
         documentType,
         patientName,
-        appLogoBase64
+        appLogoBase64,
+        documentImageBase64
     );
 
     if (!generationResult.success || !generationResult.localPath) {

@@ -73,25 +73,25 @@ export default function ShareModal({
             case 'prescription':
                 return {
                     title: 'Share Prescription',
-                    description: 'Share this prescription with your healthcare provider or save for your records',
-                    docButton: 'Share Prescription Layout',
+                    description: 'Securely share this medical record with your healthcare provider or family.',
+                    docButton: 'Share Original File',
                     analysisButton: 'Share AI Analysis',
-                    icon: 'file-document-edit-outline', // Updated icon
+                    icon: 'file-document-edit-outline',
                 };
             case 'report':
                 return {
                     title: 'Share Report',
-                    description: 'Share this lab report with your doctor or family members',
-                    docButton: 'Share Report File',
-                    analysisButton: 'Share Detailed Analysis',
-                    icon: 'file-chart-outline', // Updated icon
+                    description: 'Securely share this medical record with your healthcare provider or family.',
+                    docButton: 'Share Original File',
+                    analysisButton: 'Share AI Analysis',
+                    icon: 'file-chart-outline',
                 };
             default:
                 return {
                     title: 'Share Document',
-                    description: 'Share this medical document with others',
-                    docButton: 'Share Document File',
-                    analysisButton: 'Share Document Analysis',
+                    description: 'Securely share this medical record with your healthcare provider or family.',
+                    docButton: 'Share Original File',
+                    analysisButton: 'Share AI Analysis',
                     icon: 'file-document-outline',
                 };
         }
@@ -150,8 +150,24 @@ export default function ShareModal({
                     <TouchableOpacity
                         style={styles.actionCard}
                         onPress={() => {
-                            onShareDocument();
-                            handleClose();
+                            // Close modal first, then trigger action after animation
+                            Animated.parallel([
+                                Animated.timing(slideAnim, {
+                                    toValue: SCREEN_HEIGHT,
+                                    duration: 200,
+                                    useNativeDriver: true,
+                                }),
+                                Animated.timing(fadeAnim, {
+                                    toValue: 0,
+                                    duration: 200,
+                                    useNativeDriver: true,
+                                }),
+                            ]).start(() => {
+                                onClose();
+                                setTimeout(() => {
+                                    onShareDocument();
+                                }, 300);
+                            });
                         }}
                         activeOpacity={0.7}
                     >
@@ -160,7 +176,7 @@ export default function ShareModal({
                         </View>
                         <View style={styles.actionContent}>
                             <Text style={styles.actionTitle}>{content.docButton}</Text>
-                            <Text style={styles.actionSubtitle}>Original PDF/Image</Text>
+                            <Text style={styles.actionSubtitle}>Send as PDF or Image</Text>
                         </View>
                         <Feather name="chevron-right" size={20} color={Colors.textSecondary} />
                     </TouchableOpacity>
@@ -168,8 +184,24 @@ export default function ShareModal({
                     <TouchableOpacity
                         style={styles.actionCard}
                         onPress={() => {
-                            onShareAnalysis();
-                            handleClose();
+                            // Close modal first, then trigger action after animation
+                            Animated.parallel([
+                                Animated.timing(slideAnim, {
+                                    toValue: SCREEN_HEIGHT,
+                                    duration: 200,
+                                    useNativeDriver: true,
+                                }),
+                                Animated.timing(fadeAnim, {
+                                    toValue: 0,
+                                    duration: 200,
+                                    useNativeDriver: true,
+                                }),
+                            ]).start(() => {
+                                onClose();
+                                setTimeout(() => {
+                                    onShareAnalysis();
+                                }, 300);
+                            });
                         }}
                         activeOpacity={0.7}
                     >
@@ -178,7 +210,7 @@ export default function ShareModal({
                         </View>
                         <View style={styles.actionContent}>
                             <Text style={styles.actionTitle}>{content.analysisButton}</Text>
-                            <Text style={styles.actionSubtitle}>AI-generated summary text</Text>
+                            <Text style={styles.actionSubtitle}>Key findings & summary</Text>
                         </View>
                         <Feather name="chevron-right" size={20} color={Colors.textSecondary} />
                     </TouchableOpacity>
@@ -225,16 +257,16 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.gray200,
         borderRadius: 2,
         alignSelf: 'center',
-        marginBottom: 24,
+        marginBottom: 20, // Reduced from 24
     },
     header: {
         alignItems: 'center',
-        marginBottom: 32, // Increased spacing
+        marginBottom: 24, // Reduced from 32
     },
     iconContainer: {
-        width: 64, // Larger icon container
-        height: 64,
-        borderRadius: 32,
+        width: 56, // Reduced from 64 for cleaner look
+        height: 56,
+        borderRadius: 28,
         backgroundColor: Colors.bgSecondary,
         justifyContent: 'center',
         alignItems: 'center',
@@ -247,7 +279,7 @@ const styles = StyleSheet.create({
     title: {
         ...Typography.styles.h4,
         color: Colors.textPrimary,
-        marginBottom: 8,
+        marginBottom: 4, // Reduced from 8
         textAlign: 'center',
     },
     description: {
@@ -257,8 +289,8 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     actionsContainer: {
-        gap: 12, // 12px gap between cards
-        marginBottom: 24,
+        gap: 8, // Reduced from 12 for professional tightness
+        marginBottom: 20, // Reduced from 24
     },
     actionCard: {
         flexDirection: 'row',

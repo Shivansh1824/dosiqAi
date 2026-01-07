@@ -29,6 +29,7 @@ import {
   METRIC_STATUS_COLORS,
 } from '../types/medicalReport';
 import { InfoRow, MetricCard, ExpandableSection } from '../components/medicalReport';
+import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
 import ShareModal from '../components/ShareModal'; // Added ShareModal import
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
@@ -48,6 +49,10 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const [fileNotFound, setFileNotFound] = useState(false);
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  // Instant Share: Store pre-generated PDF path
+  const [preGeneratedPdfPath, setPreGeneratedPdfPath] = useState<string | null>(null);
+  const generationPromise = React.useRef<Promise<string | undefined> | null>(null);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -305,52 +310,99 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     }
   };
 
+  /* 
+   * Pre-generate PDF for Instant Sharing
+   */
+  const preparePdfInBackground = useCallback(async () => {
+    if (!document?.ai_analysis_result) return;
+
+    // meaningful key to prevent re-generation if doc hasn't changed
+    // simple check: if we already have a path or promise, skip.
+    if (preGeneratedPdfPath || generationPromise.current) return;
+
+    const task = async (): Promise<string | undefined> => {
+      try {
+        console.log('[InstantShare] Starting background generation...');
+        let documentImageBase64: string | undefined = undefined;
+
+        // Convert document image to base64 for preview if available
+        if (imageUri) {
+          try {
+            if (imageUri.startsWith('file://')) {
+              documentImageBase64 = await FileSystem.readAsStringAsync(imageUri, {
+                encoding: 'base64'
+              });
+            }
+          } catch (e) {
+            console.log('[InstantShare] Failed to load image for preview:', e);
+          }
+        }
+
+        const patientName = document.ai_analysis_result?.patient_info?.name || 'Patient';
+
+        const result = await generateAnalysisPDF(
+          document.ai_analysis_result!,
+          documentType,
+          patientName,
+          undefined,
+          documentImageBase64
+        );
+
+        if (result.success && result.localPath) {
+          console.log('[InstantShare] PDF Ready:', result.localPath);
+          setPreGeneratedPdfPath(result.localPath || null);
+          return result.localPath;
+        }
+      } catch (e) {
+        console.error('[InstantShare] Background generation failed:', e);
+      }
+      return undefined;
+    };
+
+    generationPromise.current = task();
+    await generationPromise.current;
+  }, [document, imageUri, preGeneratedPdfPath, documentType]);
+
+  // Trigger background generation when dependencies are ready
+  useEffect(() => {
+    if (document?.ai_analysis_result && imageUri !== undefined) {
+      preparePdfInBackground();
+    }
+  }, [document, imageUri, preparePdfInBackground]);
+
+  /* 
+   * Handle Share Analysis - Instant or Wait
+   */
   const handleShareAnalysis = async () => {
-    if (!document.ai_analysis_result) {
+    if (!document?.ai_analysis_result) {
       Alert.alert('Error', 'No analysis available to share');
       return;
     }
 
     try {
-      const summary = document.ai_analysis_result.summary;
-      const patient = document.ai_analysis_result.patient_name || 'Patient';
-      const date = document.ai_analysis_result.visit_date || 'Unknown Date';
+      let pdfPath = preGeneratedPdfPath;
 
-      let shareText = '';
-
-      // Header
-      shareText += `${documentType === 'prescription' ? 'Prescription' : documentType === 'report' ? 'Medical Report' : 'Document'} Analysis\n`;
-      shareText += `${'='.repeat(40)}\n\n`;
-
-      // Patient Info
-      shareText += `Patient: ${patient}\n`;
-      shareText += `Date: ${date}\n\n`;
-
-      // Summary
-      shareText += `Summary:\n${summary}\n\n`;
-
-      // Specific details based on type
-      if (documentType === 'prescription' && document.ai_analysis_result.medications) {
-        shareText += `Medications:\n`;
-        document.ai_analysis_result.medications.forEach((med: any) => {
-          shareText += `• ${med.name} ${med.dosage || ''}\n`;
-          shareText += `  ${med.frequency || ''} - ${med.duration || ''}\n`;
-        });
+      // If not ready yet, wait for the background task
+      if (!pdfPath && generationPromise.current) {
+        // Show a non-intrusive indicator via state if needed, or just await
+        // User requested "fast", so we just block the async flow briefly
+        console.log('[InstantShare] PDF not fully ready, waiting for background task...');
+        pdfPath = (await generationPromise.current) || null;
       }
 
-      if (documentType === 'report' && reportData) {
-        shareText += `Key Findings:\n`;
-        if (reportData.critical_count > 0) shareText += `• ${reportData.critical_count} Critical Values\n`;
-        if (reportData.abnormal_count > 0) shareText += `• ${reportData.abnormal_count} Abnormal Values\n`;
+      // If still not ready (failed or didn't start), try one last specific generation (fallback)
+      if (!pdfPath) {
+        console.log('[InstantShare] Fallback generation triggered');
+        await preparePdfInBackground();
+        pdfPath = (await generationPromise.current) || null;
       }
 
-      shareText += `\n${'='.repeat(40)}\n`;
-      shareText += `Generated by FamilyCareHealth`;
+      if (pdfPath) {
+        await sharePDF(pdfPath);
+      } else {
+        Alert.alert('Error', 'Could not generate PDF');
+      }
 
-      await Share.share({
-        message: shareText,
-        title: `${documentType === 'prescription' ? 'Prescription' : 'Report'} Analysis`,
-      });
     } catch (error) {
       console.error('Error sharing analysis:', error);
       Alert.alert('Error', 'Failed to share analysis');
