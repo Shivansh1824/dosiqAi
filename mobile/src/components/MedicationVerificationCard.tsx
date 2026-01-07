@@ -822,24 +822,17 @@ export default function MedicationVerificationCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
-    borderRadius: 24, // Softer curves for "Medical Trust"
-    marginBottom: 20,
-    shadowColor: Colors.primaryDark, // Colored shadow
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
+    // Removed: backgroundColor, borderRadius, shadowColor, shadowOffset, shadowOpacity, shadowRadius, elevation, borderWidth, borderColor
+    marginBottom: 12, // Reduced from 20
+    paddingTop: 12,   // Reduced from 20
     overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: 20,
-    paddingBottom: 12,
+    padding: 16, // Reduced from 20
+    paddingBottom: 10, // Reduced from 12
   },
   headerLeft: {
     flex: 1,
@@ -883,7 +876,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   divider: {
-    height: 1,
+    height: 0, // Hidden - removed divider line after medication name
     backgroundColor: Colors.gray100,
     marginHorizontal: 20,
   },
@@ -927,14 +920,15 @@ const styles = StyleSheet.create({
 
   // --- Compact Details Grid ---
   detailsGrid: {
-    padding: 20,
-    gap: 20,
+    padding: 16, // Reduced from 20
+    gap: 16, // Reduced from 20
   },
   vitalsContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.gray50,
+    backgroundColor: Colors.gray100, // Darker gray for better visibility
     borderRadius: 16,
-    padding: 16,
+    padding: 12, // Reduced from 16
+    gap: 12, // Reduced from 16
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -1142,11 +1136,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
     gap: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    // Removed shadow properties for flat design
   },
   verifyButtonText: {
     color: Colors.white,

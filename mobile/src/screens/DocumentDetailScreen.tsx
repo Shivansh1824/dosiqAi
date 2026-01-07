@@ -1341,7 +1341,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                   const dismissId = `${document.id}_${index}`;
                   return !dismissedMedicationIds.has(dismissId);
                 })
-                .map(({ medicine, index }) => {
+                .map(({ medicine, index }, arrayIndex, filteredArray) => {
                   const parsedMed = parseAIMedication(
                     medicine,
                     document.id,
@@ -1357,28 +1357,34 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     activeMeds
                   );
                   const isVerified = verifiedMedications.has(parsedMed.name);
+                  const isLastItem = arrayIndex === filteredArray.length - 1;
 
                   if (isVerified) {
                     return (
-                      <View key={index} style={styles.verifiedBanner}>
-                        <Feather name="check-circle" size={16} color={Colors.success} />
-                        <Text style={styles.verifiedText}>Added to tracker</Text>
+                      <View key={index}>
+                        <View style={styles.verifiedBanner}>
+                          <Feather name="check-circle" size={16} color={Colors.success} />
+                          <Text style={styles.verifiedText}>Added to tracker</Text>
+                        </View>
+                        {!isLastItem && <View style={styles.medicationDivider} />}
                       </View>
                     );
                   }
 
                   return (
-                    <MedicationVerificationCard
-                      key={index}
-                      medication={parsedMed}
-                      documentId={document.id}
-                      documentTitle={displayTitle}
-                      suggestedStartDate={suggestedStartDate}
-                      onVerifyAndAdd={handleVerifyAndAddMedication}
-                      duplicateOf={duplicateOf || undefined}
-                      medicineIndex={index}
-                      onDismiss={() => handleDismissMedication(index)}
-                    />
+                    <View key={index}>
+                      <MedicationVerificationCard
+                        medication={parsedMed}
+                        documentId={document.id}
+                        documentTitle={displayTitle}
+                        suggestedStartDate={suggestedStartDate}
+                        onVerifyAndAdd={handleVerifyAndAddMedication}
+                        duplicateOf={duplicateOf || undefined}
+                        medicineIndex={index}
+                        onDismiss={() => handleDismissMedication(index)}
+                      />
+                      {!isLastItem && <View style={styles.medicationDivider} />}
+                    </View>
                   );
                 })}
             </View>
@@ -1703,34 +1709,24 @@ const styles = StyleSheet.create({
   // Cards
   card: {
     backgroundColor: Colors.white,
-    borderRadius: 0, // No border radius for edge-to-edge design
-    padding: 16, // MD3: Reduced from 20 for tighter layout
-    marginBottom: 8, // Minimal spacing - reduced from 12
-    shadowColor: Colors.gray900,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 3,
+    // Removed: borderRadius, shadow*, elevation
+    padding: 16, // MD3: Reduced from 20
+    marginBottom: 8, // Minimal spacing
+    // Flat design - no shadows
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 10, // Minimal spacing - reduced from 12
-    letterSpacing: -0.5, // Modern tight tracking
+    marginBottom: 4, // Tighter spacing (was 10)
+    letterSpacing: -0.5,
   },
   summaryCard: {
     backgroundColor: Colors.white,
     borderRadius: 20,
-    padding: 16, // MD3: Reduced from 20 for consistency
+    padding: 16, // MD3: Reduced from 20
     marginBottom: 20,
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.1)',
+    // Flat design - removed shadow, elevation, border
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -2136,21 +2132,13 @@ const styles = StyleSheet.create({
   patientInfoChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    // Removed: backgroundColor, borderWidth, borderColor, shadow*, elevation
     paddingVertical: 10, // Reduced from 12
-    paddingHorizontal: 12, // Reduced from 16
-    borderRadius: 14, // Increased from 12 for softer premium look
+    paddingHorizontal: 0, // Removed horizontal padding since no box
+    // borderRadius irrelevant without background
     gap: 8, // MD3 standard: 8dp internal spacing
     minWidth: '45%',
     flex: 1,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    // Modern soft shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
   },
   patientIconBadge: {
     width: 32, // Reduced from 36
@@ -2397,7 +2385,7 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: Sizes.lg,
+    marginBottom: 12, // Reduced from Sizes.lg (24) for tighter layout
   },
   medicationsContainer: {
     gap: Sizes.md,
@@ -2419,6 +2407,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.success,
+  },
+  medicationDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 0,
+    marginHorizontal: 16, // Match the padding of detailsGrid
   },
 
   // Error UI styles (errorContainer and errorMessage already defined above)
@@ -2447,8 +2441,8 @@ const styles = StyleSheet.create({
 
   // Detailed Medical Report Inline Styles
   detailedReportContainer: {
-    marginTop: Sizes.md,
-    marginBottom: Sizes.xl,
+    marginTop: 0, // Removed top margin (was Sizes.md)
+    marginBottom: Sizes.lg,
   },
   reportAnalysisSectionHeader: {
     flexDirection: 'row',
@@ -2467,13 +2461,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   medicalReportPatientCard: {
-    backgroundColor: Colors.white,
-    marginBottom: Sizes.lg,
-    padding: Sizes.lg,
-    borderRadius: 0, // No border radius for edge-to-edge design
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-    ...Sizes.shadows.sm,
+    // Removed: backgroundColor, shadow*, elevation
+    marginBottom: 12, // Reduced from Sizes.lg (24)
+    paddingHorizontal: Sizes.md,
+    paddingVertical: Sizes.md,
   },
   medicalReportPatientIconContainer: {
     width: 56,
@@ -2513,11 +2504,10 @@ const styles = StyleSheet.create({
     marginVertical: Sizes.lg,
   },
   medicalReportStatusCard: {
-    backgroundColor: Colors.white,
-    marginBottom: Sizes.lg,
-    padding: Sizes.lg,
-    borderRadius: 0, // No border radius for edge-to-edge design
-    ...Sizes.shadows.sm,
+    // Removed: backgroundColor, shadow*, elevation
+    marginBottom: 12, // Reduced from Sizes.lg
+    paddingHorizontal: Sizes.md,
+    paddingVertical: Sizes.md,
   },
   medicalReportStatusTitle: {
     fontSize: 18,
@@ -2597,18 +2587,10 @@ const styles = StyleSheet.create({
   // AI Summary Card Styles
   // AI Summary Card Styles
   aiSummaryCard: {
-    backgroundColor: Colors.white,
-    marginBottom: Sizes.lg,
-    padding: 24,
-    borderRadius: 0, // No border radius for edge-to-edge design
-    // Medical Trust Shadow (Soft Blue)
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.08)', // Very subtle blue tint
+    backgroundColor: Colors.white, // Consistency fix
+    // Removed: shadow*, elevation, border*
+    marginBottom: 12, // Reduced from Sizes.lg for tighter layout
+    padding: 16,
   },
   aiSummaryHeader: {
     flexDirection: 'row',
