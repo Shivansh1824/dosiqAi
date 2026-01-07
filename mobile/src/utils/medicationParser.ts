@@ -130,6 +130,32 @@ export function parseMedicalFrequency(code: string | undefined): MedicationFrequ
     if (times === 2) return 'twice_daily';
     if (times === 3) return 'three_times_daily';
     if (times >= 4) return 'four_times_daily';
+
+  }
+
+  // X-X-X pattern (e.g. 1-0-1, 1-1-1, 0-0-1) representing Morning-Afternoon-Night
+  // Also supports spaces instead of dashes: "1 0 1"
+  const tripleMatch = normalized.match(/^(\d+)[-\s]+(\d+)[-\s]+(\d+)$/);
+  if (tripleMatch) {
+    const morning = parseInt(tripleMatch[1]);
+    const afternoon = parseInt(tripleMatch[2]);
+    const night = parseInt(tripleMatch[3]);
+
+    // Count how many non-zero slots there are to determine frequency
+    // Note: We count successful "events", not total pills.
+    // e.g., 2-0-0 is once daily (Morning), 1-0-1 is twice daily (Morning, Night)
+    let frequencyCount = 0;
+    if (morning > 0) frequencyCount++;
+    if (afternoon > 0) frequencyCount++;
+    if (night > 0) frequencyCount++;
+
+    if (frequencyCount === 1) return 'once_daily';
+    if (frequencyCount === 2) return 'twice_daily';
+    if (frequencyCount === 3) return 'three_times_daily';
+    if (frequencyCount > 3) return 'four_times_daily';
+
+    // If all are 0 (0-0-0), usually means as needed or incorrectly parsed
+    if (frequencyCount === 0) return 'as_needed';
   }
 
   console.warn(`[MedicationParser] Unknown frequency code: "${code}", defaulting to as_needed`);
@@ -246,7 +272,42 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency): string
 
     default:
       return ['08:00']; // Safe default
+
   }
+}
+
+/**
+ * Generate time slots from frequency code pattern if available
+ * Tries to map X-X-X patterns to specific times of day
+ * Falls back to frequency-based default slots
+ *
+ * @param code - Original frequency code (e.g., "1-0-1")
+ * @param frequency - Parsed frequency enum
+ */
+export function generateTimeSlotsFromFrequencyCode(code: string | undefined, frequency: MedicationFrequency): string[] {
+  if (!code) return generateDefaultTimeSlots(frequency);
+
+  const normalized = code.trim().replace(/\s+/g, '');
+
+  // X-X-X pattern (Morning-Afternoon-Night)
+  // e.g. 1-0-1 -> Morning (08:00) and Night (20:00)
+  const tripleMatch = normalized.match(/^(\d+)-(\d+)-(\d+)$/);
+  if (tripleMatch) {
+    const morning = parseInt(tripleMatch[1]);
+    const afternoon = parseInt(tripleMatch[2]);
+    const night = parseInt(tripleMatch[3]);
+
+    const slots: string[] = [];
+    if (morning > 0) slots.push('08:00');
+    if (afternoon > 0) slots.push('14:00');
+    if (night > 0) slots.push('20:00');
+
+    // If we found valid slots, return them
+    if (slots.length > 0) return slots;
+  }
+
+  // Fallback to standard frequency slots
+  return generateDefaultTimeSlots(frequency);
 }
 
 /**
@@ -470,7 +531,8 @@ export function parseAIMedication(
 ): ParsedMedication {
   const frequency = parseMedicalFrequency(medicine.frequency);
   const durationDays = parseDuration(medicine.duration);
-  const timeSlots = generateDefaultTimeSlots(frequency);
+  // Use code-aware time slot generation to capture 1-0-1 specific times
+  const timeSlots = generateTimeSlotsFromFrequencyCode(medicine.frequency, frequency);
   const confidence = determineConfidence(medicine.assumed_enriched_data?.is_identified);
 
   // Build notes from special instructions
