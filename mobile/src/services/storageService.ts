@@ -95,7 +95,7 @@ export const uploadFileToR2 = async (
         const contentType = getContentType(fileName);
 
         // Create unique key for the file (organized by user)
-        const fileKey = `users/${userId}/documents/${Date.now()}_${fileName}`;
+        const fileKey = `users/${userId}/documents/${fileName}`;
 
         // Upload to R2
         const command = new PutObjectCommand({
