@@ -27,7 +27,7 @@ import { STATUS_COLORS } from '../types/labReport';
 import { exportTimeSeriesAsCSV } from '../services/labAnalyticsService';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import { Paths, File } from 'expo-file-system';
 
 type LabMetricTrendNavigationProp = StackNavigationProp<RootStackParamList, 'LabMetricTrend'>;
 type LabMetricTrendRouteProp = RouteProp<RootStackParamList, 'LabMetricTrend'>;
@@ -81,17 +81,16 @@ export default function LabMetricTrendScreen({
       // Generate CSV
       const csv = exportTimeSeriesAsCSV(timeSeriesData);
 
-      // Save to file
+      // Save to file using new expo-file-system API
       const fileName = `${testName.replace(/\s+/g, '_')}_trend_${new Date().toISOString().split('T')[0]}.csv`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      const file = new File(Paths.document, fileName);
 
-      await FileSystem.writeAsStringAsync(fileUri, csv, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      // Write content to file
+      await file.write(csv);
 
       // Share file
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
+        await Sharing.shareAsync(file.uri, {
           mimeType: 'text/csv',
           dialogTitle: `Export ${testName} Data`,
         });
@@ -354,13 +353,13 @@ export default function LabMetricTrendScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.gray50,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Sizes.padding,
+    paddingHorizontal: Sizes.md,
     paddingVertical: 12,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
@@ -425,8 +424,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chartSection: {
-    marginHorizontal: Sizes.margin,
-    marginTop: Sizes.margin,
+    marginHorizontal: Sizes.md,
+    marginTop: Sizes.md,
   },
   chartHint: {
     flexDirection: 'row',
@@ -442,9 +441,9 @@ const styles = StyleSheet.create({
   },
   latestValueCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Sizes.margin,
-    marginTop: Sizes.margin,
-    padding: Sizes.padding,
+    marginHorizontal: Sizes.md,
+    marginTop: Sizes.md,
+    padding: Sizes.md,
     borderRadius: 12,
   },
   sectionTitle: {
@@ -498,9 +497,9 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Sizes.margin,
-    marginTop: Sizes.margin,
-    padding: Sizes.padding,
+    marginHorizontal: Sizes.md,
+    marginTop: Sizes.md,
+    padding: Sizes.md,
     borderRadius: 12,
   },
   statsGrid: {
@@ -527,9 +526,9 @@ const styles = StyleSheet.create({
   },
   annotationsCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Sizes.margin,
-    marginTop: Sizes.margin,
-    padding: Sizes.padding,
+    marginHorizontal: Sizes.md,
+    marginTop: Sizes.md,
+    padding: Sizes.md,
     borderRadius: 12,
   },
   annotationsHeader: {

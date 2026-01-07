@@ -1,11 +1,14 @@
 import { File, Directory, Paths } from 'expo-file-system';
+import * as Crypto from 'expo-crypto';
 
 /**
  * Local file storage utility for offline-first document management
- * Files are stored in: {DocumentDirectory}/FamilyCareHealth/{UserName}/
+ * Files are stored in: {DocumentDirectory}/FamilyCareHealth/documents/
+ * All files use UUID-based filenames for uniqueness and consistency
  */
 
 const APP_FOLDER_NAME = 'FamilyCareHealth';
+const DOCUMENTS_FOLDER_NAME = 'documents';
 
 /**
  * Get the base FamilyCareHealth directory path
@@ -26,6 +29,33 @@ export const getAppDirectory = async (): Promise<string> => {
     }
 
     return appDir.uri;
+};
+
+/**
+ * Get the flat documents directory path (FamilyCareHealth/documents/)
+ * This is the new storage location for all documents using UUID filenames
+ */
+export const getDocumentsDirectory = async (): Promise<string> => {
+    const appDirPath = await getAppDirectory();
+    const docsDir = new Directory(appDirPath, DOCUMENTS_FOLDER_NAME);
+
+    if (!docsDir.exists) {
+        await docsDir.create();
+        console.log('[FileStorage] Created documents directory:', docsDir.uri);
+    }
+
+    return docsDir.uri;
+};
+
+/**
+ * Generate a unique filename using UUID v4
+ * @param extension - File extension (e.g., 'pdf', 'jpg')
+ * @returns UUID-based filename (e.g., '0a83ce65-ac2d-46c5-ac40-53b030987bc6.pdf')
+ */
+export const generateUniqueFilename = (extension: string): string => {
+    const uuid = Crypto.randomUUID();
+    const cleanExtension = extension.replace(/^\./, '').toLowerCase();
+    return `${uuid}.${cleanExtension}`;
 };
 
 /**
@@ -90,8 +120,9 @@ export const getUserDirectory = async (userName: string): Promise<string> => {
                     const fileToDelete = new File(fileUri);
                     await fileToDelete.delete();
                     console.log('[FileStorage] ✓ Deleted as File (forced)');
-                } catch (e) {
-                    console.log('[FileStorage] Delete as File failed (might not be a file):', e.message);
+                } catch (e: unknown) {
+                    const errorMessage = e instanceof Error ? e.message : String(e);
+                    console.log('[FileStorage] Delete as File failed (might not be a file):', errorMessage);
                 }
 
                 // Try deleting as Directory (WITHOUT checking exists first)
@@ -99,8 +130,9 @@ export const getUserDirectory = async (userName: string): Promise<string> => {
                     const dirToDelete = new Directory(appDirPath, sanitizedName);
                     await dirToDelete.delete();
                     console.log('[FileStorage] ✓ Deleted as Directory (forced)');
-                } catch (e) {
-                    console.log('[FileStorage] Delete as Directory failed (might not be a directory):', e.message);
+                } catch (e: unknown) {
+                    const errorMessage = e instanceof Error ? e.message : String(e);
+                    console.log('[FileStorage] Delete as Directory failed (might not be a directory):', errorMessage);
                 }
 
                 // Give the file system a moment to process deletions
@@ -120,9 +152,10 @@ export const getUserDirectory = async (userName: string): Promise<string> => {
                         `Please clear app data and try again.`
                     );
                 }
-            } catch (retryError) {
+            } catch (retryError: unknown) {
                 console.error('[FileStorage] Failed to cleanup and retry:', retryError);
-                throw new Error(`Failed to create user directory for ${userName}. Error: ${retryError.message}`);
+                const errorMessage = retryError instanceof Error ? retryError.message : String(retryError);
+                throw new Error(`Failed to create user directory for ${userName}. Error: ${errorMessage}`);
             }
         } else {
             throw new Error(`Failed to create user directory for ${userName}: ${createError.message}`);
@@ -144,12 +177,13 @@ export const sanitizeFileName = (name: string): string => {
 };
 
 /**
- * Save a file to local storage
+ * Save a file to local storage (LEGACY - kept for backward compatibility)
  * @param sourceUri - URI of the file to save (from camera/picker)
  * @param userName - Name of the user/family member
  * @param documentId - Unique document ID
  * @param originalFileName - Original filename
  * @returns Object with absolute path (for immediate use), relative path (for storage), and file size
+ * @deprecated Use saveFileLocallyWithUUID for new uploads
  */
 export const saveFileLocally = async (
     sourceUri: string,
@@ -192,6 +226,53 @@ export const saveFileLocally = async (
         };
     } catch (error) {
         console.error('[FileStorage] Error saving file:', error);
+        throw new Error('Failed to save file locally');
+    }
+};
+
+/**
+ * Save a file to local storage using UUID-based filename in flat documents folder
+ * This is the PRIMARY function for new document uploads
+ * @param sourceUri - URI of the file to save (from camera/picker)
+ * @param extension - File extension (e.g., 'pdf', 'jpg')
+ * @returns Object with filename (UUID), absolute path, relative path, and file size
+ */
+export const saveFileLocallyWithUUID = async (
+    sourceUri: string,
+    extension: string
+): Promise<{ filename: string; absolutePath: string; relativePath: string; fileSize: number }> => {
+    try {
+        const docsDirPath = await getDocumentsDirectory();
+
+        // Generate UUID-based filename
+        const filename = generateUniqueFilename(extension);
+
+        // Create File objects for source and destination
+        const sourceFile = new File(sourceUri);
+        const docsDirectory = new Directory(docsDirPath);
+        const destinationFile = new File(docsDirectory, filename);
+
+        // Copy file using new API
+        await sourceFile.copy(destinationFile);
+
+        // Get file size using synchronous property
+        const fileSize = destinationFile.size || 0;
+
+        // Get both absolute and relative paths
+        const absolutePath = destinationFile.uri;
+        const relativePath = getRelativePath(absolutePath);
+
+        console.log(`[FileStorage] Saved file with UUID: ${filename} (${(fileSize / 1024).toFixed(2)} KB)`);
+        console.log(`[FileStorage] Relative path: ${relativePath}`);
+
+        return {
+            filename,
+            absolutePath,
+            relativePath,
+            fileSize
+        };
+    } catch (error) {
+        console.error('[FileStorage] Error saving file with UUID:', error);
         throw new Error('Failed to save file locally');
     }
 };

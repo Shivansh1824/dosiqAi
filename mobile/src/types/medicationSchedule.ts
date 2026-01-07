@@ -116,6 +116,11 @@ export interface MedicationWithStatus extends MedicationSchedule {
     status: MedicationStatus;
     log_id?: string; // ID of the log entry if exists
     taken_at?: string;
+
+    // AI extraction source tracking
+    ai_extracted?: boolean; // Whether this medication was extracted by AI from a document
+    source_document_id?: string; // ID of the source document (prescription)
+    source_document_title?: string; // Title of the source document for display
 }
 
 // Helper function to get medicine type icon name

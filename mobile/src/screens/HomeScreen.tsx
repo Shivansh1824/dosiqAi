@@ -15,7 +15,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { DocumentType } from '../types/document';
 import { compressImage } from '../utils/imageCompression';
-import { saveFileLocally } from '../utils/fileStorage';
+import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 
 interface HomeScreenProps {
@@ -252,34 +252,33 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     setIsUploading(true);
 
     try {
-      const documentId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const originalFileName = fileName || `${type}_${Date.now()}.${uri.split('.').pop() || 'jpg'}`;
+      // Get file extension from source URI or fileName
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
 
-      const { relativePath, fileSize, absolutePath } = await saveFileLocally(
+      // Save file locally with UUID filename to flat documents folder
+      const { filename, relativePath, fileSize, absolutePath } = await saveFileLocallyWithUUID(
         uri,
-        memberForUpload.name,
-        documentId,
-        originalFileName
+        extension
       );
 
-      const fileExtension = originalFileName.split('.').pop()?.toLowerCase() || '';
-      const docType: DocumentType = fileExtension === 'pdf' ? 'Report' : 'Imaging';
+      // Determine document type based on extension
+      const docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
 
-      // Save document metadata (color calculated from type, file_size not stored for database optimization)
+      // Save document metadata to database
+      // title = UUID filename for consistency across local, Supabase, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
-        title: originalFileName.replace(/\.[^/.]+$/, '') || `Document ${new Date().toLocaleDateString()}`,
+        title: filename, // UUID filename like "0a83ce65-ac2d.pdf"
         type: docType,
-        local_file_path: relativePath,
+        local_file_path: relativePath, // "documents/0a83ce65-ac2d.pdf"
         family_member_id: memberForUpload.id,
         is_local: true,
         color: '', // Will be calculated by store from document type
       });
 
-      const actualDocumentId = savedDocument?.id || documentId;
+      const actualDocumentId = savedDocument?.id || filename;
       await fetchDocuments(user.id);
 
-      const { getAbsolutePath } = await import('../utils/fileStorage');
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 
       Alert.alert('Success', 'Document uploaded successfully! Analyzing...', [

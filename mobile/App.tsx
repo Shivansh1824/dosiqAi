@@ -281,7 +281,7 @@ export default function App() {
                       name="PdfViewer"
                       component={PdfViewerScreen}
                       options={{
-                        presentation: 'fullScreenModal',
+                        presentation: 'modal',
                         headerShown: false,
                         cardStyle: { backgroundColor: '#000' },
                       }}

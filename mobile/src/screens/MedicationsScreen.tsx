@@ -87,6 +87,7 @@ export default function MedicationsScreen() {
                     times: med.time_of_day,
                     type: 'tablet', // Default type
                     reminder_enabled: true,
+                    instructions: 'other', // Default instruction
                 });
             });
         });

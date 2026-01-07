@@ -12,7 +12,7 @@ import { useDocumentsStore } from '../store/documentsStore';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { DocumentType } from '../types/document';
 import { compressImage } from '../utils/imageCompression';
-import { saveFileLocally, getAbsolutePath } from '../utils/fileStorage';
+import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import { incrementUploadCount } from '../services/documentAnalysisService';
 
 interface ScanDocumentScreenProps {
@@ -202,38 +202,32 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     setIsUploading(true);
 
     try {
-      // Generate unique document ID
-      const documentId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Get file extension from source URI or fileName
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
 
-      // Determine filename
-      const originalFileName = fileName || `${type}_${Date.now()}.${uri.split('.').pop() || 'jpg'}`;
-
-      // Save file locally to user's folder
-      const { relativePath, fileSize, absolutePath } = await saveFileLocally(
+      // Save file locally with UUID filename to flat documents folder
+      const { filename, relativePath, fileSize, absolutePath } = await saveFileLocallyWithUUID(
         uri,
-        memberForUpload.name,
-        documentId,
-        originalFileName
+        extension
       );
 
-      // Determine document type
-      const fileExtension = originalFileName.split('.').pop()?.toLowerCase() || '';
-      const docType: DocumentType = fileExtension === 'pdf' ? 'Report' : 'Imaging';
+      // Determine document type based on extension
+      const docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
 
-      // Save document metadata to database (using relative path for persistence)
-      // Note: color is calculated on-the-fly from type, file_size not stored (database optimization)
+      // Save document metadata to database
+      // title = UUID filename for consistency across local, Supabase, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
-        title: originalFileName.replace(/\.[^/.]+$/, '') || `Document ${new Date().toLocaleDateString()}`,
+        title: filename, // UUID filename like "0a83ce65-ac2d.pdf"
         type: docType,
-        local_file_path: relativePath, // Store relative path for persistence across rebuilds
+        local_file_path: relativePath, // "documents/0a83ce65-ac2d.pdf"
         family_member_id: memberForUpload.id,
         is_local: true,
         color: '', // Will be calculated by store from document type
       });
 
       // Get the actual document ID from Supabase (UUID)
-      const actualDocumentId = savedDocument?.id || documentId;
+      const actualDocumentId = savedDocument?.id || filename;
       console.log('[ScanDocument] Document saved with ID:', actualDocumentId);
 
       // Increment upload count

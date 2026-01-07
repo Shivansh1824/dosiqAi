@@ -247,7 +247,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         start_date: startDate,
         end_date: endDate,
         notes: parsedMed.notes,
-        // color removed - will be calculated from index when fetched
+        color: '', // Will be calculated from index when fetched
         is_active: true,
 
         // Source tracking fields
