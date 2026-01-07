@@ -255,6 +255,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
               // Trigger analysis in background (non-blocking) with correct document ID
               console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId);
               console.log('[ScanDocument] Analysis path:', analysisPath);
+              console.log('[ScanDocument] 🔍 VERIFY THIS PATH: ', analysisPath); // Added for user verification
               triggerAnalysis(actualDocumentId, analysisPath).catch((error) => {
                 console.error('[ScanDocument] Background analysis failed:', error);
               });

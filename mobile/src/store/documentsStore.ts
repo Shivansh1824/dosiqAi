@@ -130,6 +130,8 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         .select()
         .single();
 
+      console.log('[DocumentsStore] Inserting Payload to DB:', JSON.stringify(newDoc, null, 2));
+
       if (error) {
         throw error;
       }

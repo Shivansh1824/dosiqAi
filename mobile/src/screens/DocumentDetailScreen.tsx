@@ -1085,37 +1085,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 </View>
               </View>
 
-              {/* Dual Action Cards - View & Download */}
-              <View style={styles.dualActionContainer}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleViewFullDocument}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.actionIconCircle}>
-                    <Feather name="eye" size={20} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.actionCardLabel}>View</Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleDownload}
-                  activeOpacity={0.7}
-                  disabled={downloading}
-                >
-                  <View style={styles.actionIconCircle}>
-                    {downloading ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <Feather name="download" size={20} color={Colors.primary} />
-                    )}
-                  </View>
-                  <Text style={styles.actionCardLabel}>
-                    {downloading ? 'Saving...' : 'Save'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </>
           ) : (
             <>
@@ -1786,15 +1756,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 10,
   },
-  // Legacy container (will be removed)
-  dualActionContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.gray100,
-  },
+
   actionCard: {
     flex: 1,
     flexDirection: 'row',

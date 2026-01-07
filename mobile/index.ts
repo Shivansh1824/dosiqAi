@@ -1,6 +1,7 @@
 // CRITICAL: Import Reanimated FIRST before any other imports
 // This ensures the worklet runtime initializes properly
 import 'react-native-reanimated';
+import 'react-native-get-random-values';
 
 console.log('[DEBUG] [index.ts] App entry point - Starting application');
 console.log('[DEBUG] [index.ts] Timestamp:', new Date().toISOString());

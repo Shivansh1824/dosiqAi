@@ -65,6 +65,12 @@ export default {
       // Environment variables accessible via expo-constants
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+
+      // R2 Storage Configuration
+      R2_ACCESS_KEY_ID: process.env.EXPO_PUBLIC_R2_ACCESS_KEY_ID,
+      R2_SECRET_ACCESS_KEY: process.env.EXPO_PUBLIC_R2_SECRET_ACCESS_KEY,
+      R2_ENDPOINT: process.env.EXPO_PUBLIC_R2_ENDPOINT,
+      R2_BUCKET_NAME: process.env.EXPO_PUBLIC_R2_BUCKET_NAME,
     }
   }
 };

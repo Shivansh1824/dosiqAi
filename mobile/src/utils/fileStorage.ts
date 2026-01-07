@@ -1,5 +1,7 @@
 import { File, Directory, Paths } from 'expo-file-system';
 import * as Crypto from 'expo-crypto';
+import { uploadFileToR2 } from '../services/storageService';
+import { useAuthStore } from '../store/authStore';
 
 /**
  * Local file storage utility for offline-first document management
@@ -59,176 +61,36 @@ export const generateUniqueFilename = (extension: string): string => {
 };
 
 /**
- * Get or create a user-specific directory
- * @param userName - Name of the user/family member
+ * Log R2 upload status to a debug file
+ * @param success - Whether upload was successful
+ * @param fileName - Name of the file
+ * @param message - Additional details
  */
-export const getUserDirectory = async (userName: string): Promise<string> => {
-    const appDirPath = await getAppDirectory();
-    const sanitizedName = sanitizeFileName(userName);
-
-    // Create Directory object for user folder
-    const userDir = new Directory(appDirPath, sanitizedName);
-
-    // Check if it already exists as a directory
-    if (userDir.exists) {
-        return userDir.uri;
-    }
-
-    // Check if a FILE exists with the same name (conflict)
-    // NOTE: On case-insensitive file systems (macOS), we need to check for
-    // case-insensitive matches that might block directory creation
+export const logR2Status = async (success: boolean, fileName: string, message: string) => {
     try {
-        // Construct full file URI manually (most reliable method)
-        const fileUri = appDirPath.endsWith('/')
-            ? `${appDirPath}${sanitizedName}`
-            : `${appDirPath}/${sanitizedName}`;
+        const docsDirPath = await getDocumentsDirectory();
+        const destinationUri = docsDirPath.endsWith('/') ? `${docsDirPath}r2_debug_log.txt` : `${docsDirPath}/r2_debug_log.txt`;
+        const logFile = new File(destinationUri);
 
-        const conflictingFile = new File(fileUri);
+        const timestamp = new Date().toISOString();
+        const status = success ? 'SUCCESS' : 'FAILURE';
+        const logEntry = `[${timestamp}] ${status} - File: ${fileName} - ${message}\n`;
 
-        console.log('[FileStorage] Checking for conflicting file at:', conflictingFile.uri);
-        console.log('[FileStorage] File exists check:', conflictingFile.exists);
-
-        if (conflictingFile.exists) {
-            console.warn(`[FileStorage] ⚠️  File "${sanitizedName}" exists where directory should be. Size: ${conflictingFile.size} bytes`);
-            console.log('[FileStorage] Deleting conflicting file...');
-            await conflictingFile.delete();
-            console.log('[FileStorage] ✓ Deleted conflicting file successfully');
-        }
-    } catch (error) {
-        console.error('[FileStorage] Error checking/deleting conflicting file:', error);
-    }
-
-    // Now create the directory
-    try {
-        await userDir.create();
-        console.log('[FileStorage] ✓ Created user directory:', userDir.uri);
-    } catch (createError: any) {
-        console.error('[FileStorage] ❌ Error creating user directory:', createError);
-
-        // If create fails due to existing file/directory, try to force delete and retry
-        if (createError.message?.includes('already exists') || createError.message?.includes('same name')) {
-            console.log('[FileStorage] Attempting forced cleanup of existing item...');
-            try {
-                // Construct file URI
-                const fileUri = appDirPath.endsWith('/')
-                    ? `${appDirPath}${sanitizedName}`
-                    : `${appDirPath}/${sanitizedName}`;
-
-                // AGGRESSIVE CLEANUP: Try deleting as File (WITHOUT checking exists first)
-                // The .exists property may be buggy/unreliable for corrupted files
-                try {
-                    const fileToDelete = new File(fileUri);
-                    await fileToDelete.delete();
-                    console.log('[FileStorage] ✓ Deleted as File (forced)');
-                } catch (e: unknown) {
-                    const errorMessage = e instanceof Error ? e.message : String(e);
-                    console.log('[FileStorage] Delete as File failed (might not be a file):', errorMessage);
-                }
-
-                // Try deleting as Directory (WITHOUT checking exists first)
-                try {
-                    const dirToDelete = new Directory(appDirPath, sanitizedName);
-                    await dirToDelete.delete();
-                    console.log('[FileStorage] ✓ Deleted as Directory (forced)');
-                } catch (e: unknown) {
-                    const errorMessage = e instanceof Error ? e.message : String(e);
-                    console.log('[FileStorage] Delete as Directory failed (might not be a directory):', errorMessage);
-                }
-
-                // Give the file system a moment to process deletions
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // Retry creation
-                try {
-                    await userDir.create();
-                    console.log('[FileStorage] ✓ Created user directory after cleanup:', userDir.uri);
-                } catch (finalError) {
-                    // Last resort: The file system item exists but API can't delete it
-                    console.error('[FileStorage] All cleanup attempts failed. The blocking item exists but cannot be deleted via API.');
-                    console.error('[FileStorage] This requires manual intervention or app data reset.');
-                    throw new Error(
-                        `Cannot create directory for ${userName}. ` +
-                        `A file or directory exists at "${sanitizedName}" but cannot be accessed. ` +
-                        `Please clear app data and try again.`
-                    );
-                }
-            } catch (retryError: unknown) {
-                console.error('[FileStorage] Failed to cleanup and retry:', retryError);
-                const errorMessage = retryError instanceof Error ? retryError.message : String(retryError);
-                throw new Error(`Failed to create user directory for ${userName}. Error: ${errorMessage}`);
-            }
+        if (logFile.exists) {
+            const currentContent = await logFile.text();
+            await logFile.write(currentContent + logEntry);
         } else {
-            throw new Error(`Failed to create user directory for ${userName}: ${createError.message}`);
+            await logFile.create();
+            await logFile.write(logEntry);
         }
-    }
 
-    return userDir.uri;
-};
-
-/**
- * Sanitize filename to remove invalid characters
- */
-export const sanitizeFileName = (name: string): string => {
-    return name
-        .replace(/[^a-zA-Z0-9_\-. ]/g, '_') // Replace invalid chars with underscore
-        .replace(/\s+/g, '_') // Replace spaces with underscore
-        .replace(/_+/g, '_') // Replace multiple underscores with single
-        .trim();
-};
-
-/**
- * Save a file to local storage (LEGACY - kept for backward compatibility)
- * @param sourceUri - URI of the file to save (from camera/picker)
- * @param userName - Name of the user/family member
- * @param documentId - Unique document ID
- * @param originalFileName - Original filename
- * @returns Object with absolute path (for immediate use), relative path (for storage), and file size
- * @deprecated Use saveFileLocallyWithUUID for new uploads
- */
-export const saveFileLocally = async (
-    sourceUri: string,
-    userName: string,
-    documentId: string,
-    originalFileName: string
-): Promise<{ absolutePath: string; relativePath: string; fileSize: number }> => {
-    try {
-        const userDirPath = await getUserDirectory(userName);
-
-        // Extract extension from original filename
-        const extension = originalFileName.split('.').pop() || 'jpg';
-        const sanitizedTitle = sanitizeFileName(originalFileName.replace(/\.[^/.]+$/, ''));
-
-        // Create filename: doc_{id}_{title}.{ext}
-        const fileName = `doc_${documentId}_${sanitizedTitle}.${extension}`;
-
-        // Create File objects for source and destination
-        const sourceFile = new File(sourceUri);
-        const userDirectory = new Directory(userDirPath);
-        const destinationFile = new File(userDirectory, fileName);
-
-        // Copy file using new API
-        await sourceFile.copy(destinationFile);
-
-        // Get file size using synchronous property
-        const fileSize = destinationFile.size || 0;
-
-        // Get both absolute and relative paths
-        const absolutePath = destinationFile.uri;
-        const relativePath = getRelativePath(absolutePath);
-
-        console.log(`[FileStorage] Saved file: ${fileName} (${(fileSize / 1024).toFixed(2)} KB)`);
-        console.log(`[FileStorage] Relative path: ${relativePath}`);
-
-        return {
-            absolutePath,
-            relativePath,
-            fileSize
-        };
+        console.log(`[R2Storage] Debug log updated: ${status} - ${fileName}`);
     } catch (error) {
-        console.error('[FileStorage] Error saving file:', error);
-        throw new Error('Failed to save file locally');
+        console.error('[R2Storage] Failed to write debug log:', error);
     }
 };
+
+
 
 /**
  * Save a file to local storage using UUID-based filename in flat documents folder
@@ -249,8 +111,8 @@ export const saveFileLocallyWithUUID = async (
 
         // Create File objects for source and destination
         const sourceFile = new File(sourceUri);
-        const docsDirectory = new Directory(docsDirPath);
-        const destinationFile = new File(docsDirectory, filename);
+        const destinationUri = docsDirPath.endsWith('/') ? docsDirPath + filename : `${docsDirPath}/${filename}`;
+        const destinationFile = new File(destinationUri);
 
         // Copy file using new API
         await sourceFile.copy(destinationFile);
@@ -264,6 +126,28 @@ export const saveFileLocallyWithUUID = async (
 
         console.log(`[FileStorage] Saved file with UUID: ${filename} (${(fileSize / 1024).toFixed(2)} KB)`);
         console.log(`[FileStorage] Relative path: ${relativePath}`);
+
+        // R2 Upload Integration (Fire and forget - don't block UI)
+        (async () => {
+            try {
+                // Get current user ID
+                const user = useAuthStore.getState().user;
+                const userId = user?.id;
+
+                if (userId) {
+                    console.log('[FileStorage] Triggering R2 upload for:', filename);
+                    await uploadFileToR2(absolutePath, filename, userId);
+                    await logR2Status(true, filename, `Uploaded successfully for user ${userId}`);
+                } else {
+                    console.warn('[FileStorage] User not logged in, skipping R2 upload');
+                    await logR2Status(false, filename, 'Skipped - User not logged in');
+                }
+            } catch (error) {
+                console.error('[FileStorage] R2 Background Upload Failed:', error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                await logR2Status(false, filename, `Upload failed: ${errorMessage}`);
+            }
+        })();
 
         return {
             filename,
@@ -388,41 +272,4 @@ export const getAbsolutePath = (relativePath: string): string => {
     return absolutePath;
 };
 
-/**
- * Get local file path for a document
- * @param userName - Name of the user/family member
- * @param documentId - Document ID
- * @param fileName - File name
- */
-export const getLocalFilePath = async (
-    userName: string,
-    documentId: string,
-    fileName: string
-): Promise<string> => {
-    const userDir = await getUserDirectory(userName);
-    const sanitizedTitle = sanitizeFileName(fileName.replace(/\.[^/.]+$/, ''));
-    const extension = fileName.split('.').pop() || 'jpg';
-    return `${userDir}doc_${documentId}_${sanitizedTitle}.${extension}`;
-};
 
-/**
- * List all files in a user's directory
- * @param userName - Name of the user/family member
- */
-export const listUserFiles = async (userName: string): Promise<string[]> => {
-    try {
-        const userDirPath = await getUserDirectory(userName);
-        const userDir = new Directory(userDirPath);
-
-        // List returns File and Directory objects
-        const items = userDir.list();
-
-        // Filter only files (not subdirectories) and return names
-        return items
-            .filter(item => item instanceof File)
-            .map(item => item.name);
-    } catch (error) {
-        console.error('[FileStorage] Error listing files:', error);
-        return [];
-    }
-};
