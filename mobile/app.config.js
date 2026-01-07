@@ -53,7 +53,7 @@ export default {
             }
           },
           android: {
-            minSdkVersion: 34
+            minSdkVersion: 24
           }
         }
       ]
