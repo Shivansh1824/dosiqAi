@@ -152,9 +152,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   // Keep displayTitle for shared PDF viewer
   const displayTitle = titleText;
 
-  // Check if file exists and set image URI
+  // Check if file exists locally; if not, sync from R2
   useEffect(() => {
-    const checkFile = async () => {
+    const checkAndSyncFile = async () => {
       if (document.local_file_path) {
         try {
           console.log('[DocumentDetail] Original relative path:', document.local_file_path);
@@ -165,6 +165,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           console.log('[DocumentDetail] Converted to absolute path:', absolutePath);
           console.log('[DocumentDetail] Path has file:// protocol:', absolutePath.startsWith('file://'));
 
+          // First check if file exists locally
           const exists = await fileExists(absolutePath);
 
           if (exists) {
@@ -172,8 +173,40 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             setFileNotFound(false);
             console.log('[DocumentDetail] File found and URI set successfully');
           } else {
-            setFileNotFound(true);
-            console.error('[DocumentDetail] File not found at path:', absolutePath);
+            // File not found locally - try to sync from R2
+            console.log('[DocumentDetail] File not found locally, attempting R2 sync...');
+
+            if (document.cloud_file_key) {
+              try {
+                setDownloading(true);
+                console.log('[DocumentDetail] Cloud file key available:', document.cloud_file_key);
+
+                // Import and use the file sync utility
+                const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
+                const filename = extractFilename(document.local_file_path);
+
+                console.log('[DocumentDetail] Starting file sync for:', filename);
+                const { localPath, wasDownloaded } = await getFileWithSync(filename, document.cloud_file_key);
+
+                if (wasDownloaded) {
+                  console.log('[DocumentDetail] ✅ File downloaded from R2:', localPath);
+                } else {
+                  console.log('[DocumentDetail] File was already available locally:', localPath);
+                }
+
+                setImageUri(localPath);
+                setFileNotFound(false);
+                setDownloading(false);
+              } catch (syncError) {
+                console.error('[DocumentDetail] R2 sync failed:', syncError);
+                setFileNotFound(true);
+                setDownloading(false);
+              }
+            } else {
+              // No cloud key available
+              setFileNotFound(true);
+              console.error('[DocumentDetail] File not found at path and no cloud_file_key available:', absolutePath);
+            }
           }
         } catch (error) {
           setFileNotFound(true);
@@ -186,8 +219,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       }
     };
 
-    checkFile();
-  }, [document.local_file_path]);
+    checkAndSyncFile();
+  }, [document.local_file_path, document.cloud_file_key]);
+
 
   useEffect(() => {
     const loadDismissedMedications = async () => {

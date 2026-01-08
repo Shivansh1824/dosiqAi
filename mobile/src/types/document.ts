@@ -108,11 +108,13 @@ export interface Document {
   type: DocumentType;
   file_url?: string; // Legacy field, nullable
   local_file_path?: string; // New: local file path
+  cloud_file_key?: string; // R2 storage key for cloud sync
   family_member_id?: string; // New: reference to family member
   is_local?: boolean; // New: flag for local vs cloud storage
   color: string; // Calculated on-the-fly from type, not stored in database
   created_at: string;
   updated_at: string;
+
 
   // AI Analysis fields
   ai_analysis_status?: DocumentAnalysisStatus;
