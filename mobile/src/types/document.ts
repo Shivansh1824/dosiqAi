@@ -155,9 +155,13 @@ export interface DocumentsActions {
   clearAnalysisError: (documentId: string) => Promise<void>;
   retryAnalysis: (documentId: string, localFilePath: string) => Promise<void>;
 
+  // Cloud storage actions
+  updateCloudFileKey: (documentId: string, cloudFileKey: string) => Promise<boolean>;
+
   // Local storage cleanup
   clearAllLocalDocuments: (userId?: string) => Promise<void>;
 }
+
 
 export type DocumentsStore = DocumentsState & DocumentsActions;
 

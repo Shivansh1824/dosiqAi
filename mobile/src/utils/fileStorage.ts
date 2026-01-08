@@ -97,12 +97,18 @@ export const logR2Status = async (success: boolean, fileName: string, message: s
  * This is the PRIMARY function for new document uploads
  * @param sourceUri - URI of the file to save (from camera/picker)
  * @param extension - File extension (e.g., 'pdf', 'jpg')
- * @returns Object with filename (UUID), absolute path, relative path, and file size
+ * @returns Object with filename (UUID), absolute path, relative path, file size, and R2 upload promise
  */
 export const saveFileLocallyWithUUID = async (
     sourceUri: string,
     extension: string
-): Promise<{ filename: string; absolutePath: string; relativePath: string; fileSize: number }> => {
+): Promise<{
+    filename: string;
+    absolutePath: string;
+    relativePath: string;
+    fileSize: number;
+    r2UploadPromise: Promise<string | null>;
+}> => {
     try {
         const docsDirPath = await getDocumentsDirectory();
 
@@ -127,8 +133,8 @@ export const saveFileLocallyWithUUID = async (
         console.log(`[FileStorage] Saved file with UUID: ${filename} (${(fileSize / 1024).toFixed(2)} KB)`);
         console.log(`[FileStorage] Relative path: ${relativePath}`);
 
-        // R2 Upload Integration (Fire and forget - don't block UI)
-        (async () => {
+        // R2 Upload Integration - Returns promise that resolves to cloud_file_key
+        const r2UploadPromise = (async (): Promise<string | null> => {
             try {
                 // Get current user ID
                 const user = useAuthStore.getState().user;
@@ -136,16 +142,20 @@ export const saveFileLocallyWithUUID = async (
 
                 if (userId) {
                     console.log('[FileStorage] Triggering R2 upload for:', filename);
-                    await uploadFileToR2(absolutePath, filename, userId);
+                    const cloudFileKey = await uploadFileToR2(absolutePath, filename, userId);
                     await logR2Status(true, filename, `Uploaded successfully for user ${userId}`);
+                    console.log('[FileStorage] R2 upload complete, cloud key:', cloudFileKey);
+                    return cloudFileKey;
                 } else {
                     console.warn('[FileStorage] User not logged in, skipping R2 upload');
                     await logR2Status(false, filename, 'Skipped - User not logged in');
+                    return null;
                 }
             } catch (error) {
                 console.error('[FileStorage] R2 Background Upload Failed:', error);
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 await logR2Status(false, filename, `Upload failed: ${errorMessage}`);
+                return null;
             }
         })();
 
@@ -153,13 +163,15 @@ export const saveFileLocallyWithUUID = async (
             filename,
             absolutePath,
             relativePath,
-            fileSize
+            fileSize,
+            r2UploadPromise
         };
     } catch (error) {
         console.error('[FileStorage] Error saving file with UUID:', error);
         throw new Error('Failed to save file locally');
     }
 };
+
 
 /**
  * Delete a file from local storage

@@ -206,7 +206,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
 
       // Save file locally with UUID filename to flat documents folder
-      const { filename, relativePath, fileSize, absolutePath } = await saveFileLocallyWithUUID(
+      const { filename, relativePath, fileSize, absolutePath, r2UploadPromise } = await saveFileLocallyWithUUID(
         uri,
         extension
       );
@@ -230,7 +230,35 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const actualDocumentId = savedDocument?.id || filename;
       console.log('[ScanDocument] Document saved with ID:', actualDocumentId);
 
+      // Await R2 upload and save cloud_file_key to database (non-blocking for UI)
+      console.log('[ScanDocument] Setting up R2 upload promise handler...');
+      console.log('[ScanDocument] Document ID for cloud key update:', actualDocumentId);
+
+      r2UploadPromise
+        .then(async (cloudFileKey) => {
+          console.log('[ScanDocument] R2 upload promise resolved with key:', cloudFileKey);
+
+          if (cloudFileKey && actualDocumentId) {
+            // Use DocumentsStore function which has the correct Supabase context
+            const { updateCloudFileKey } = useDocumentsStore.getState();
+            const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
+
+            if (success) {
+              console.log('[ScanDocument] ✅ Cloud file key saved via store!');
+            } else {
+              console.error('[ScanDocument] ❌ Failed to save cloud file key via store');
+            }
+          } else {
+            console.warn('[ScanDocument] Skipping cloud key update - cloudFileKey:', cloudFileKey, 'documentId:', actualDocumentId);
+          }
+        })
+        .catch((error) => {
+          console.error('[ScanDocument] R2 upload promise rejected:', error);
+        });
+
+
       // Increment upload count
+
       await incrementUploadCount(user.id);
 
       // Refresh upload limit

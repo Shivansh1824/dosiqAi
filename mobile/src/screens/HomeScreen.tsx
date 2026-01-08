@@ -256,7 +256,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
 
       // Save file locally with UUID filename to flat documents folder
-      const { filename, relativePath, fileSize, absolutePath } = await saveFileLocallyWithUUID(
+      const { filename, relativePath, fileSize, absolutePath, r2UploadPromise } = await saveFileLocallyWithUUID(
         uri,
         extension
       );
@@ -277,7 +277,37 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       });
 
       const actualDocumentId = savedDocument?.id || filename;
+
+      // Await R2 upload and save cloud_file_key to database (non-blocking for UI)
+      console.log('[HomeScreen] Setting up R2 upload promise handler...');
+      console.log('[HomeScreen] Document ID for cloud key update:', actualDocumentId);
+
+      r2UploadPromise
+        .then(async (cloudFileKey) => {
+          console.log('[HomeScreen] R2 upload promise resolved with key:', cloudFileKey);
+
+          if (cloudFileKey && actualDocumentId) {
+            // Use DocumentsStore function which has the correct Supabase context
+            const { updateCloudFileKey } = useDocumentsStore.getState();
+            const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
+
+            if (success) {
+              console.log('[HomeScreen] ✅ Cloud file key saved via store!');
+            } else {
+              console.error('[HomeScreen] ❌ Failed to save cloud file key via store');
+            }
+          } else {
+            console.warn('[HomeScreen] Skipping cloud key update - cloudFileKey:', cloudFileKey, 'documentId:', actualDocumentId);
+          }
+        })
+        .catch((error) => {
+          console.error('[HomeScreen] R2 upload promise rejected:', error);
+        });
+
+
       await fetchDocuments(user.id);
+
+
 
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 

@@ -162,8 +162,47 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   },
 
   /**
+   * Update the cloud_file_key for a document
+   * Called after R2 upload completes to store the cloud path
+   */
+  updateCloudFileKey: async (documentId: string, cloudFileKey: string): Promise<boolean> => {
+    try {
+      if (!isSupabaseConfigured()) {
+        console.warn('[DocumentsStore] Supabase not configured');
+        return false;
+      }
+
+      console.log('[DocumentsStore] Updating cloud_file_key for document:', documentId);
+      console.log('[DocumentsStore] Cloud key:', cloudFileKey);
+
+      const { data, error } = await supabase
+        .from('documents')
+        .update({ cloud_file_key: cloudFileKey })
+        .eq('id', documentId)
+        .select();
+
+      if (error) {
+        console.error('[DocumentsStore] Error updating cloud_file_key:', error);
+        return false;
+      }
+
+      if (!data || data.length === 0) {
+        console.error('[DocumentsStore] ⚠️ cloud_file_key update returned no rows');
+        return false;
+      }
+
+      console.log('[DocumentsStore] ✅ cloud_file_key updated successfully');
+      return true;
+    } catch (error) {
+      console.error('[DocumentsStore] Exception updating cloud_file_key:', error);
+      return false;
+    }
+  },
+
+  /**
    * Delete a document from Supabase
    */
+
   deleteDocument: async (id: string) => {
     set({ isLoading: true, error: null });
 
@@ -331,42 +370,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       if (document?.user_id) {
 
-        if ((aiGeneratedFilename || aiDocumentType) && isSupabaseConfigured()) {
+        if ((aiDocumentType) && isSupabaseConfigured()) {
           try {
-            const updateFields: { title?: string; type?: string } = {};
+            const updateFields: { type?: string } = {};
 
-            // Handle filename update with duplicate checking
-            if (aiGeneratedFilename) {
-              let finalTitle = aiGeneratedFilename;
-              const existingDocs = get().documents.filter(
-                (doc) => doc.id !== documentId && doc.user_id === document.user_id
-              );
+            // NOTE: Title is NOT updated - we keep the UUID filename permanently
+            // The AI-generated filename is stored in ai_analysis_result.file_name for display purposes
 
-              // Find all documents with the same base filename
-              const duplicates = existingDocs.filter((doc) => {
-                // Check if title matches exactly or has a number suffix
-                return doc.title === aiGeneratedFilename ||
-                  doc.title.match(new RegExp(`^${aiGeneratedFilename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(\\d+\\)$`));
-              });
-
-              if (duplicates.length > 0) {
-                // Find the highest number used
-                let maxNumber = 0;
-                duplicates.forEach((doc) => {
-                  const match = doc.title.match(/\((\d+)\)$/);
-                  if (match) {
-                    maxNumber = Math.max(maxNumber, parseInt(match[1]));
-                  } else if (doc.title === aiGeneratedFilename) {
-                    maxNumber = Math.max(maxNumber, 0);
-                  }
-                });
-
-                // Append next number
-                finalTitle = `${aiGeneratedFilename} (${maxNumber + 1})`;
-              }
-
-              updateFields.title = finalTitle;
-            }
 
             // Map AI document type to DocumentType enum
             if (aiDocumentType) {
@@ -383,20 +393,21 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
               updateFields.type = mappedType;
             }
 
-            // Update document in Supabase
+            // Update document type in Supabase (title remains as UUID)
             if (Object.keys(updateFields).length > 0) {
-              console.log('[DocumentsStore] Updating document with fields:', updateFields);
+              console.log('[DocumentsStore] Updating document type:', updateFields);
               const { error: updateError } = await supabase
                 .from('documents')
                 .update(updateFields)
                 .eq('id', documentId);
 
               if (updateError) {
-                console.error('[DocumentsStore] Error updating document:', updateError);
+                console.error('[DocumentsStore] Error updating document type:', updateError);
               } else {
-                console.log('[DocumentsStore] Successfully updated document title/type');
+                console.log('[DocumentsStore] Successfully updated document type');
               }
             }
+
           } catch (error) {
             console.error('[DocumentsStore] Error updating document:', error);
             // Don't throw - update is not critical
