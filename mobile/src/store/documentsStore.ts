@@ -4,6 +4,7 @@ import { Document, DocumentsStore, getDocumentColor } from '../types/document';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInfo } from '../services/documentAnalysisService';
 import { processLabReport } from '../services/labAnalyticsService';
+import { deleteFileFromR2 } from '../services/storageService';
 
 /**
  * Zustand store for documents state
@@ -211,6 +212,22 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         throw new Error('Supabase not configured');
       }
 
+      // 1. Get the document first to check for R2 key
+      const docToDelete = get().documents.find((d) => d.id === id);
+
+      // 2. Delete from R2 if key exists
+      if (docToDelete?.cloud_file_key) {
+        try {
+          console.log('[DocumentsStore] Deleting R2 file:', docToDelete.cloud_file_key);
+          await deleteFileFromR2(docToDelete.cloud_file_key);
+          console.log('[DocumentsStore] R2 file deleted successfully');
+        } catch (r2Error) {
+          console.error('[DocumentsStore] Failed to delete R2 file (proceeding with DB delete):', r2Error);
+          // We continue with DB delete even if R2 fails prevents "zombie" entries in DB
+        }
+      }
+
+      // 3. Delete from Supabase
       const { error } = await supabase
         .from('documents')
         .delete()

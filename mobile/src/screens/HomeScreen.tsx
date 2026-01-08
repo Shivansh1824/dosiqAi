@@ -17,6 +17,7 @@ import { DocumentType } from '../types/document';
 import { compressImage } from '../utils/imageCompression';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
+import AnalysisLoading from '../components/AnalysisLoading';
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -562,8 +563,17 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                             <Text style={styles.documentDateNew}>{formatDate(doc.created_at)}</Text>
                           </View>
                         </View>
-                        <View style={styles.documentStatusBadge}>
-                          <Feather name="check-circle" size={16} color="#10B981" />
+                        <View
+                          style={[
+                            styles.documentStatusBadge,
+                            (doc.ai_analysis_status === 'processing' || doc.ai_analysis_status === 'pending') && { backgroundColor: 'transparent' }
+                          ]}
+                        >
+                          {doc.ai_analysis_status === 'processing' || doc.ai_analysis_status === 'pending' ? (
+                            <AnalysisLoading size={30} color="#4A90E2" />
+                          ) : (
+                            <Feather name="check-circle" size={16} color="#10B981" />
+                          )}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -612,16 +622,18 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       </SafeAreaView>
 
       {/* Loading Overlay */}
-      {(isUploading || isCompressing) && (
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.uploadingText}>
-              {isCompressing ? 'Optimizing image...' : 'Uploading document...'}
-            </Text>
+      {
+        (isUploading || isCompressing) && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.uploadingText}>
+                {isCompressing ? 'Optimizing image...' : 'Uploading document...'}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )
+      }
 
       {/* Family Member Selection Modal */}
       <Modal
@@ -686,7 +698,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         visible={showAddMemberModal}
         onClose={() => setShowAddMemberModal(false)}
       />
-    </View>
+    </View >
   );
 }
 

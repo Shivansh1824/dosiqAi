@@ -6,7 +6,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Sizes, Typography } from '../constants';
 import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath } from '../utils/fileStorage';
+import { fileExists, getAbsolutePath, deleteLocalFile } from '../utils/fileStorage';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { RootStackParamList } from '../../App';
@@ -30,7 +30,9 @@ import {
 } from '../types/medicalReport';
 import { InfoRow, MetricCard, ExpandableSection } from '../components/medicalReport';
 import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
-import ShareModal from '../components/ShareModal'; // Added ShareModal import
+import ShareModal from '../components/ShareModal';
+import AnalysisLoading from '../components/AnalysisLoading';
+import DocumentOptionsModal from '../components/DocumentOptionsModal';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -42,7 +44,7 @@ interface DocumentDetailScreenProps {
 
 export default function DocumentDetailScreen({ onBack, document: documentProp, navigation }: DocumentDetailScreenProps) {
   const { familyMembers } = useFamilyMembersStore();
-  const { documents, analysisProgress, retryAnalysis } = useDocumentsStore();
+  const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
   const { addMedicationFromAI, getActiveMedications } = useMedicationsStore();
   const { user } = useAuthStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
 
   // Detect document type for share modal
   const documentType = useMemo(() => {
@@ -319,6 +322,53 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       // For images, open full-screen image viewer
       setShowFullScreenImage(true);
       console.log('[DocumentDetail] Opened full-screen image modal');
+    }
+  };
+
+  // Handle delete document
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete Document',
+      'Are you sure you want to delete this document? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: performDelete,
+        },
+      ]
+    );
+  };
+
+  const performDelete = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Delete from Supabase
+      await deleteDocument(document.id);
+
+      // 2. Delete from local storage
+      if (document.local_file_path) {
+        try {
+          const absolutePath = getAbsolutePath(document.local_file_path);
+          await deleteLocalFile(absolutePath);
+          console.log('[DocumentDetail] Deleted local file:', absolutePath);
+        } catch (e) {
+          console.warn('[DocumentDetail] Failed to delete local file:', e);
+        }
+      }
+
+      // 3. Navigate back
+      onBack();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      Alert.alert('Error', 'Failed to delete document');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -991,14 +1041,25 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           ) : null}
         </View>
 
-        <TouchableOpacity
-          style={styles.headerButtonRight}
-          onPress={handleShare}
-          activeOpacity={0.6}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Feather name="share-2" size={22} color={Colors.primary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.headerButtonRight}
+            onPress={handleShare}
+            activeOpacity={0.6}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Feather name="share-2" size={22} color={Colors.primary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerButtonRight}
+            onPress={() => setShowOptionsModal(true)}
+            activeOpacity={0.6}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Feather name="more-horizontal" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Scrollable Content */}
@@ -1205,9 +1266,15 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             </View>
 
             <View style={styles.patientInfoChip}>
-              <View style={styles.patientIconBadge}>
-                <Feather name="check" size={14} color={Colors.success} />
-              </View>
+              {document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending' ? (
+                <View style={[styles.patientIconBadge, { backgroundColor: 'transparent' }]}>
+                  <AnalysisLoading size={24} color={Colors.primary} />
+                </View>
+              ) : (
+                <View style={styles.patientIconBadge}>
+                  <Feather name="check" size={14} color={Colors.success} />
+                </View>
+              )}
               <View>
                 <Text style={styles.patientInfoLabel}>STATUS</Text>
                 {document.ai_analysis_status === 'processing' ? (
@@ -1523,6 +1590,13 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         documentType={documentType}
         onShareDocument={handleShareDocument}
         onShareAnalysis={handleShareAnalysis}
+      />
+
+      {/* Document Options Modal */}
+      <DocumentOptionsModal
+        visible={showOptionsModal}
+        onClose={() => setShowOptionsModal(false)}
+        onDelete={confirmDelete}
       />
 
       {/* Full Screen Image Modal */}
