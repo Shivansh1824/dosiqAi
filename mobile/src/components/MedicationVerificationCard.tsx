@@ -302,8 +302,21 @@ export default function MedicationVerificationCard({
       <View style={styles.divider} />
 
       {/* Medicine Info Table - Scientific Name, Type, Purpose */}
-      {(medication.medicine_type || medication.medicine_purpose) && (
+      {(medication.scientific_name || medication.medicine_type || medication.medicine_purpose) && (
         <View style={styles.medicineInfoTable}>
+          {/* Sci Name Row */}
+          {medication.scientific_name && (
+            <View style={styles.tableRow}>
+              <View style={styles.tableLabelCell}>
+                <Text style={styles.tableHeaderText}>Sci Name</Text>
+              </View>
+              <View style={styles.tableValueCell}>
+                <Text style={styles.tableDataText} numberOfLines={2}>
+                  {medication.scientific_name}
+                </Text>
+              </View>
+            </View>
+          )}
           {/* Med Type Row */}
           {medication.medicine_type && (
             <View style={styles.tableRow}>
@@ -1001,16 +1014,17 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.gray200,
   },
   tableLabelCell: {
-    flex: 0.4,
+    minWidth: 105,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingLeft: 12,
+    paddingRight: 12,
     backgroundColor: Colors.gray50,
     justifyContent: 'center',
     borderRightWidth: 1,
     borderRightColor: Colors.gray200,
   },
   tableValueCell: {
-    flex: 0.6,
+    flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
     justifyContent: 'center',
