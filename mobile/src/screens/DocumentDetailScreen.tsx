@@ -838,7 +838,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           </View>
         )}
 
-        {/* Diagnosis */}
+
+        {/* Diagnosis - Enhanced with source badge */}
         {prescriptionData?.medical_issue_diagnosis && (
           <View style={styles.analysisSection}>
             <View style={styles.criticalHeader}>
@@ -846,6 +847,25 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               <Text style={[styles.analysisSectionTitle, { marginLeft: 8, marginBottom: 0 }]}>
                 Diagnosis
               </Text>
+              {/* Diagnosis Source Badge - NEW */}
+              {prescriptionData.diagnosis_source && (
+                <View style={[
+                  styles.diagnosisSourceBadge,
+                  { backgroundColor: prescriptionData.diagnosis_source === 'explicit' ? Colors.success + '15' : Colors.warning + '15' }
+                ]}>
+                  <Feather
+                    name={prescriptionData.diagnosis_source === 'explicit' ? 'check-circle' : 'help-circle'}
+                    size={10}
+                    color={prescriptionData.diagnosis_source === 'explicit' ? Colors.success : Colors.warning}
+                  />
+                  <Text style={[
+                    styles.diagnosisSourceText,
+                    { color: prescriptionData.diagnosis_source === 'explicit' ? Colors.success : Colors.warning }
+                  ]}>
+                    {prescriptionData.diagnosis_source === 'explicit' ? 'Explicit' : 'AI Inferred'}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.analysisText, { marginTop: 12 }]}>
               {prescriptionData.medical_issue_diagnosis}
@@ -853,39 +873,205 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           </View>
         )}
 
+
         {/* Medications */}
         {prescriptionData?.medicines && prescriptionData.medicines.length > 0 && (
           <View style={styles.analysisSection}>
+            {/* Drug Interaction Warning - NEW */}
+            {prescriptionData.drug_interactions?.potential_interactions_flag && (
+              <View style={styles.drugInteractionWarning}>
+                <Feather name="alert-triangle" size={18} color={Colors.error} />
+                <Text style={styles.drugInteractionText}>
+                  {prescriptionData.drug_interactions.interaction_note || 'Potential drug interaction detected'}
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.analysisSectionTitle}>Medications</Text>
-            {prescriptionData.medicines.map((med, index) => (
-              <View key={index} style={styles.medicationCard}>
-                <View style={styles.medicationHeader}>
-                  <View style={styles.medIconBadge}>
-                    <Feather name="package" size={14} color={Colors.primary} />
+            {prescriptionData.medicines.map((med, index) => {
+              // Helper to get form icon
+              const getFormIcon = (form?: string | null) => {
+                switch (form) {
+                  case 'Syrup': return '🧴';
+                  case 'Tablet': return '💊';
+                  case 'Capsule': return '💊';
+                  case 'Injection': return '💉';
+                  case 'Drops': return '💧';
+                  case 'Cream': return '🧴';
+                  case 'Inhaler': return '🌬️';
+                  default: return '💊';
+                }
+              };
+
+              // Helper to parse time_of_day "1-0-1" format
+              const parseTimeOfDay = (timeStr?: string) => {
+                if (!timeStr) return { morning: false, afternoon: false, night: false };
+                const parts = timeStr.split('-').map(p => p === '1');
+                return {
+                  morning: parts[0] || false,
+                  afternoon: parts[1] || false,
+                  night: parts[2] || false,
+                };
+              };
+
+              // Helper to get meal timing text
+              const getMealText = (relation?: string | null) => {
+                switch (relation) {
+                  case 'before_food': return 'Before food';
+                  case 'after_food': return 'After food';
+                  case 'with_food': return 'With food';
+                  case 'empty_stomach': return 'Empty stomach';
+                  case 'any': return 'Any time';
+                  default: return null;
+                }
+              };
+
+              // Helper to get interval text
+              const getIntervalText = (days?: number) => {
+                switch (days) {
+                  case 0: return 'As needed';
+                  case 1: return 'Daily';
+                  case 2: return 'Alternate days';
+                  case 7: return 'Weekly';
+                  default: return days ? `Every ${days} days` : null;
+                }
+              };
+
+              // Helper for confidence color
+              const getConfidenceColor = (conf?: number) => {
+                if (!conf) return Colors.gray400;
+                if (conf >= 0.9) return Colors.success;
+                if (conf >= 0.7) return Colors.warning;
+                return Colors.error;
+              };
+
+              // Helper for medicine type color
+              const getTypeColor = (type?: string) => {
+                switch (type?.toLowerCase()) {
+                  case 'antibiotic': return '#2563EB';
+                  case 'analgesic': return '#059669';
+                  case 'antacid/ppi': return '#7C3AED';
+                  case 'antihistamine': return '#DB2777';
+                  case 'vitamin/supplement': return '#F59E0B';
+                  default: return Colors.gray500;
+                }
+              };
+
+              const timing = parseTimeOfDay(med.timing?.time_of_day);
+              const confidence = med.assumed_enriched_data?.confidence;
+
+              return (
+                <View key={index} style={styles.medicationCard}>
+                  {/* Header: Name + Form + Confidence */}
+                  <View style={styles.medicationHeader}>
+                    <View style={styles.medIconBadge}>
+                      <Text style={{ fontSize: 16 }}>{getFormIcon(med.form)}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.medicationName} numberOfLines={2}>
+                        {med.exact_written_name}
+                        {med.strength && <Text style={styles.strengthText}> {med.strength}</Text>}
+                      </Text>
+                    </View>
+                    {confidence && (
+                      <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(confidence) + '20' }]}>
+                        <Text style={[styles.confidenceBadgeText, { color: getConfidenceColor(confidence) }]}>
+                          {Math.round(confidence * 100)}%
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                  <Text style={styles.medicationName} numberOfLines={2}>
-                    {med.exact_written_name}
-                  </Text>
-                </View>
-                {med.assumed_enriched_data?.scientific_name && (
-                  <Text style={styles.medicationScientific}>
-                    ({med.assumed_enriched_data.scientific_name})
-                  </Text>
-                )}
-                <View style={styles.medicationDetails}>
-                  {med.dosage_instruction && (
-                    <View style={styles.medicationDetailRow}>
-                      <Feather name="tablet" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
-                      <Text style={styles.medicationDetail}>{med.dosage_instruction}</Text>
+
+                  {/* Scientific Name + Type */}
+                  <View style={styles.medicationSubtitleRow}>
+                    {med.assumed_enriched_data?.scientific_name && (
+                      <Text style={styles.medicationScientific}>
+                        {med.assumed_enriched_data.scientific_name}
+                      </Text>
+                    )}
+                    {med.assumed_enriched_data?.medicine_type && (
+                      <View style={[styles.medicineTypeBadge, { backgroundColor: getTypeColor(med.assumed_enriched_data.medicine_type) + '15' }]}>
+                        <Text style={[styles.medicineTypeText, { color: getTypeColor(med.assumed_enriched_data.medicine_type) }]}>
+                          {med.assumed_enriched_data.medicine_type}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Purpose Banner - NEW */}
+                  {med.assumed_enriched_data?.medicine_purpose && (
+                    <View style={styles.purposeBanner}>
+                      <Feather name="target" size={12} color={Colors.primary} />
+                      <Text style={styles.purposeText}>{med.assumed_enriched_data.medicine_purpose}</Text>
                     </View>
                   )}
-                  {med.frequency && (
+
+                  {/* Details Grid */}
+                  <View style={styles.medicationDetailsGrid}>
+                    {/* Dosage */}
+                    {med.dosage_instruction && (
+                      <View style={styles.detailGridItem}>
+                        <Text style={styles.detailGridLabel}>DOSAGE</Text>
+                        <Text style={styles.detailGridValue}>{med.dosage_instruction}</Text>
+                      </View>
+                    )}
+
+                    {/* Schedule (Time of Day Visual) - NEW */}
+                    {med.timing?.time_of_day && (
+                      <View style={styles.detailGridItem}>
+                        <Text style={styles.detailGridLabel}>SCHEDULE</Text>
+                        <View style={styles.timeDotsContainer}>
+                          <View style={[styles.timeDot, timing.morning && styles.timeDotActive]}>
+                            <Text style={styles.timeDotIcon}>🌅</Text>
+                          </View>
+                          <View style={[styles.timeDot, timing.afternoon && styles.timeDotActive]}>
+                            <Text style={styles.timeDotIcon}>☀️</Text>
+                          </View>
+                          <View style={[styles.timeDot, timing.night && styles.timeDotActive]}>
+                            <Text style={styles.timeDotIcon}>🌙</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Meal Timing - NEW */}
+                    {getMealText(med.timing?.relation_to_meal) && (
+                      <View style={styles.detailGridItem}>
+                        <Text style={styles.detailGridLabel}>MEAL</Text>
+                        <Text style={styles.detailGridValue}>{getMealText(med.timing?.relation_to_meal)}</Text>
+                      </View>
+                    )}
+
+                    {/* Interval - NEW */}
+                    {getIntervalText(med.interval_days) && (
+                      <View style={styles.detailGridItem}>
+                        <Text style={styles.detailGridLabel}>FREQUENCY</Text>
+                        <Text style={styles.detailGridValue}>{getIntervalText(med.interval_days)}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Duration with Progress - NEW */}
+                  {med.duration_days && (
+                    <View style={styles.durationProgressContainer}>
+                      <View style={styles.durationProgressHeader}>
+                        <Feather name="calendar" size={12} color={Colors.textSecondary} />
+                        <Text style={styles.durationText}>{med.duration_days} days</Text>
+                      </View>
+                      <View style={styles.durationProgressBar}>
+                        <View style={[styles.durationProgressFill, { width: '100%' }]} />
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Legacy fallbacks */}
+                  {!med.timing?.time_of_day && med.frequency && (
                     <View style={styles.medicationDetailRow}>
                       <Feather name="clock" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
                       <Text style={styles.medicationDetail}>{med.frequency}</Text>
                     </View>
                   )}
-                  {med.duration && (
+                  {!med.duration_days && med.duration && (
                     <View style={styles.medicationDetailRow}>
                       <Feather name="calendar" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
                       <Text style={styles.medicationDetail}>{med.duration}</Text>
@@ -898,8 +1084,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     </View>
                   )}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -918,6 +1104,58 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* Follow-up Section - NEW */}
+        {prescriptionData?.follow_up?.follow_up_date && (
+          <View style={styles.followUpSection}>
+            <Feather name="calendar" size={20} color={Colors.info} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.followUpText}>
+                Follow-up: {new Date(prescriptionData.follow_up.follow_up_date).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </Text>
+              {prescriptionData.follow_up.follow_up_notes && (
+                <Text style={styles.followUpNotes}>{prescriptionData.follow_up.follow_up_notes}</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Other Information Section - NEW */}
+        {prescriptionData?.other_information && prescriptionData.other_information.length > 0 && (
+          <View style={styles.otherInfoSection}>
+            <Text style={styles.analysisSectionTitle}>Other Information</Text>
+            <View style={styles.otherInfoChipsContainer}>
+              {prescriptionData.other_information.map((info, index) => {
+                // Get category icon
+                const getCategoryIcon = (category: string) => {
+                  switch (category) {
+                    case 'Vitals': return '⚖️';
+                    case 'Lifestyle': return '🏃';
+                    case 'Diet': return '🥗';
+                    case 'Allergy': return '⚠️';
+                    case 'Notes': return '📝';
+                    default: return '📋';
+                  }
+                };
+
+                return (
+                  <View key={index} style={styles.otherInfoChip}>
+                    <Text style={{ fontSize: 14 }}>{getCategoryIcon(info.category)}</Text>
+                    <View>
+                      <Text style={styles.otherInfoCategory}>{info.category}</Text>
+                      <Text style={styles.otherInfoChipText}>{info.value}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </View>
         )}
 
@@ -2420,7 +2658,246 @@ const styles = StyleSheet.create({
     paddingLeft: Sizes.sm,
   },
 
-  // Test Styles
+  // NEW: Drug Interaction Warning
+  drugInteractionWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.error + '10',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.error + '30',
+  },
+  drugInteractionText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.error,
+    fontWeight: '500',
+  },
+
+  // NEW: Strength Text
+  strengthText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: Colors.gray500,
+  },
+
+  // NEW: Confidence Badge
+  confidenceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  confidenceBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // NEW: Medication Subtitle Row
+  medicationSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginLeft: 40,
+    marginBottom: 8,
+  },
+
+  // NEW: Medicine Type Badge
+  medicineTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  medicineTypeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+
+  // NEW: Purpose Banner
+  purposeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary + '08',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  purposeText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '500',
+  },
+
+  // NEW: Details Grid
+  medicationDetailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  detailGridItem: {
+    minWidth: 70,
+    padding: 8,
+    backgroundColor: Colors.gray50,
+    borderRadius: 8,
+  },
+  detailGridLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  detailGridValue: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+
+  // NEW: Time Dots Container
+  timeDotsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  timeDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.gray100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.4,
+  },
+  timeDotActive: {
+    backgroundColor: Colors.primary + '20',
+    opacity: 1,
+  },
+  timeDotIcon: {
+    fontSize: 12,
+  },
+
+  // NEW: Duration Progress
+  durationProgressContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
+  },
+  durationProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  durationText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  durationProgressBar: {
+    height: 4,
+    backgroundColor: Colors.gray100,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  durationProgressFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+  },
+
+  // NEW: Other Information Section
+  otherInfoSection: {
+    marginTop: 16,
+  },
+  otherInfoChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  otherInfoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gray50,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  otherInfoChipText: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+  },
+  otherInfoCategory: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+
+  // NEW: Follow-up Section
+  followUpSection: {
+    backgroundColor: Colors.info + '10',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.info + '30',
+  },
+  followUpText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.info,
+    fontWeight: '500',
+  },
+  followUpNotes: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+
+  // NEW: Diagnosis Source Badge
+  diagnosisSourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+    gap: 4,
+  },
+  diagnosisSourceText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+
+  // NEW: Handwriting Badge
+  handwritingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.warning + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  handwritingText: {
+    fontSize: 11,
+    color: Colors.warning,
+    fontWeight: '500',
+  },
+
   testItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -12,14 +12,33 @@ export type DocumentType =
 
 export type DocumentAnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
+// Medicine form types
+export type MedicineForm = 'Tablet' | 'Capsule' | 'Syrup' | 'Injection' | 'Drops' | 'Cream' | 'Inhaler' | 'Sachet' | null;
+
+// Meal timing relationship
+export type MealRelation = 'before_food' | 'after_food' | 'with_food' | 'empty_stomach' | 'any' | null;
+
 // Medicine structure from prescription
 export interface MedicineInfo {
   exact_written_name: string;
   assumed_enriched_data?: {
     is_identified: boolean;
+    confidence?: number;           // NEW: 0.0-1.0 per medicine
     scientific_name?: string;
+    medicine_purpose?: string;     // NEW: "Bacterial Infection Treatment"
+    medicine_type?: string;        // NEW: "Antibiotic", "Analgesic", etc.
   };
+  strength?: string;               // NEW: "200mg", "500mg"
+  form?: MedicineForm;             // NEW: Tablet, Syrup, etc.
   dosage_instruction?: string;
+  interval_days?: number;          // NEW: 1=daily, 2=alternate, 7=weekly, 0=as needed
+  timing?: {                       // NEW: Structured timing
+    relation_to_meal?: MealRelation;
+    time_of_day?: string;          // "1-0-1" format (morning-afternoon-night)
+  };
+  duration_days?: number;          // NEW: Integer days
+
+  // Legacy fields (kept for backward compatibility)
   frequency?: string;
   duration?: string;
   special_instructions?: string;
@@ -58,6 +77,7 @@ export interface DocumentAnalysisResult {
   analysis_metadata?: {
     confidence_score?: number;
     scan_clarity?: string;
+    handwriting_detected?: boolean;  // NEW: Indicates handwritten prescription
   };
 
   // Error response
@@ -85,8 +105,21 @@ export interface DocumentAnalysisResult {
     doctor_name?: string;
     hospital_name?: string;
     medical_issue_diagnosis?: string;
+    diagnosis_source?: 'explicit' | 'inferred';  // NEW: How diagnosis was determined
+    follow_up?: {                                 // NEW: Follow-up info
+      follow_up_date?: string;
+      follow_up_notes?: string;
+    };
     recommended_tests?: RecommendedTest[];
     medicines?: MedicineInfo[];
+    drug_interactions?: {                         // NEW: Drug interaction warning
+      potential_interactions_flag: boolean;
+      interaction_note?: string;
+    };
+    other_information?: Array<{                   // NEW: Vitals, lifestyle, allergies
+      category: 'Diet' | 'Lifestyle' | 'Vitals' | 'Allergy' | 'Notes';
+      value: string;
+    }>;
   };
 
   // Report/Lab specific data

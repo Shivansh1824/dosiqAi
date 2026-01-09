@@ -19,6 +19,8 @@ export interface ParsedMedication {
   // Core medication data
   name: string;                          // Cleaned up from exact_written_name
   scientific_name?: string;              // From assumed_enriched_data
+  medicine_type?: string;                // From assumed_enriched_data (e.g., "Antibiotic")
+  medicine_purpose?: string;             // From assumed_enriched_data (e.g., "Bacterial Infection Treatment")
   dosage: string;                        // From dosage_instruction
   frequency: MedicationFrequency;        // Parsed from frequency code
   original_frequency_code: string;       // Store original (e.g., "Q6H", "TDS")

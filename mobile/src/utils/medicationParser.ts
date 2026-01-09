@@ -550,6 +550,8 @@ export function parseAIMedication(
   return {
     name: cleanMedicationName(medicine.exact_written_name),
     scientific_name: medicine.assumed_enriched_data?.scientific_name,
+    medicine_type: medicine.assumed_enriched_data?.medicine_type,
+    medicine_purpose: medicine.assumed_enriched_data?.medicine_purpose,
     dosage: medicine.dosage_instruction || '',
     frequency,
     original_frequency_code: medicine.frequency || '',

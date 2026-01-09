@@ -269,7 +269,7 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 
 **Look for:** "Review after [X] days/weeks", "Follow up on [date]", "Next visit: [date]"
 
-**Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_notes: Original text
+**Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_days: Original text
 
 ---
 
@@ -387,7 +387,7 @@ Output ONLY a valid JSON object matching this structure:
     "diagnosis_source": "explicit | inferred",
     "follow_up": {
       "follow_up_date": "YYYY-MM-DD or null",
-      "follow_up_notes": "String or null"
+      "follow_up_days": "Number of days in number format (e.g., for 2 months output: 60) or null"
     },
     "recommended_tests": [
       {"test_name": "String", "reason": "String or null"},
@@ -405,7 +405,7 @@ Output ONLY a valid JSON object matching this structure:
         },
         "strength": "String or null",
         "form": "Tablet|Capsule|Syrup|Injection|Drops|Cream|Inhaler|Sachet|null",
-        "dosage_instruction": "String or null",
+        "dosage_instruction": "SOS For Pain/When fever/etc instructions, when no instruction then: null",
         "interval_days": "Number (1=daily, 2=alternate, 7=weekly, 0=as_needed) or null",
         "timing": {
           "relation_to_meal": "before_food|after_food|with_food|empty_stomach|any|null",

@@ -274,11 +274,6 @@ export default function MedicationVerificationCard({
                   </Text>
                 </View>
               )}
-              {medication.scientific_name && (
-                <Text style={styles.scientificName} numberOfLines={1}>
-                  {medication.scientific_name}
-                </Text>
-              )}
             </View>
           </View>
         </View>
@@ -305,6 +300,42 @@ export default function MedicationVerificationCard({
       </View>
 
       <View style={styles.divider} />
+
+      {/* Medicine Info Table - Scientific Name, Type, Purpose */}
+      {(medication.scientific_name || medication.medicine_type || medication.medicine_purpose) && (
+        <View style={styles.medicineInfoTable}>
+          {/* Table Header */}
+          <View style={styles.tableHeaderRow}>
+            <View style={[styles.tableHeaderCell, styles.tableCell1]}>
+              <Text style={styles.tableHeaderText}>Sci Name</Text>
+            </View>
+            <View style={[styles.tableHeaderCell, styles.tableCell2]}>
+              <Text style={styles.tableHeaderText}>Med Type</Text>
+            </View>
+            <View style={[styles.tableHeaderCell, styles.tableCell3]}>
+              <Text style={styles.tableHeaderText}>Med Purpose</Text>
+            </View>
+          </View>
+          {/* Table Data Row */}
+          <View style={styles.tableDataRow}>
+            <View style={[styles.tableDataCell, styles.tableCell1]}>
+              <Text style={styles.tableDataText} numberOfLines={2}>
+                {medication.scientific_name || '--'}
+              </Text>
+            </View>
+            <View style={[styles.tableDataCell, styles.tableCell2]}>
+              <Text style={styles.tableDataText} numberOfLines={2}>
+                {medication.medicine_type || '--'}
+              </Text>
+            </View>
+            <View style={[styles.tableDataCell, styles.tableCell3]}>
+              <Text style={styles.tableDataText} numberOfLines={2}>
+                {medication.medicine_purpose || '--'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Medication Details Grid */}
       {/* Medication Details Grid - Compact Layout */}
@@ -916,6 +947,67 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.primary,
     paddingVertical: 2,
     minWidth: 150,
+  },
+
+  // --- Medicine Info Table ---
+  medicineInfoTable: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 12,
+    backgroundColor: Colors.gray50,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    overflow: 'hidden',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.gray100,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray200,
+  },
+  tableHeaderCell: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tableHeaderText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.gray500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+  },
+  tableDataCell: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: Colors.gray100,
+  },
+  tableDataText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.gray700,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  tableCell1: {
+    flex: 1,
+  },
+  tableCell2: {
+    flex: 0.8,
+  },
+  tableCell3: {
+    flex: 1.2,
+    borderRightWidth: 0, // No right border for last cell
   },
 
   // --- Compact Details Grid ---
