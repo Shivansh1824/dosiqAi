@@ -62,7 +62,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 1.0, // Use max quality, we'll compress it ourselves
       });
 
@@ -96,7 +96,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 1.0, // Use max quality, we'll compress it ourselves
       });
 

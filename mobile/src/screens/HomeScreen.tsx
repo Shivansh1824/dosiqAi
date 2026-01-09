@@ -129,7 +129,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 1.0,
       });
 
@@ -158,7 +158,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 1.0,
       });
 
