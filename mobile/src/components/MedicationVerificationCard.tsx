@@ -302,38 +302,34 @@ export default function MedicationVerificationCard({
       <View style={styles.divider} />
 
       {/* Medicine Info Table - Scientific Name, Type, Purpose */}
-      {(medication.scientific_name || medication.medicine_type || medication.medicine_purpose) && (
+      {(medication.medicine_type || medication.medicine_purpose) && (
         <View style={styles.medicineInfoTable}>
-          {/* Table Header */}
-          <View style={styles.tableHeaderRow}>
-            <View style={[styles.tableHeaderCell, styles.tableCell1]}>
-              <Text style={styles.tableHeaderText}>Sci Name</Text>
+          {/* Med Type Row */}
+          {medication.medicine_type && (
+            <View style={styles.tableRow}>
+              <View style={styles.tableLabelCell}>
+                <Text style={styles.tableHeaderText}>Med Type</Text>
+              </View>
+              <View style={styles.tableValueCell}>
+                <Text style={styles.tableDataText} numberOfLines={2}>
+                  {medication.medicine_type}
+                </Text>
+              </View>
             </View>
-            <View style={[styles.tableHeaderCell, styles.tableCell2]}>
-              <Text style={styles.tableHeaderText}>Med Type</Text>
+          )}
+          {/* Med Purpose Row */}
+          {medication.medicine_purpose && (
+            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.tableLabelCell}>
+                <Text style={styles.tableHeaderText}>Med Purpose</Text>
+              </View>
+              <View style={styles.tableValueCell}>
+                <Text style={styles.tableDataText} numberOfLines={2}>
+                  {medication.medicine_purpose}
+                </Text>
+              </View>
             </View>
-            <View style={[styles.tableHeaderCell, styles.tableCell3]}>
-              <Text style={styles.tableHeaderText}>Med Purpose</Text>
-            </View>
-          </View>
-          {/* Table Data Row */}
-          <View style={styles.tableDataRow}>
-            <View style={[styles.tableDataCell, styles.tableCell1]}>
-              <Text style={styles.tableDataText} numberOfLines={2}>
-                {medication.scientific_name || '--'}
-              </Text>
-            </View>
-            <View style={[styles.tableDataCell, styles.tableCell2]}>
-              <Text style={styles.tableDataText} numberOfLines={2}>
-                {medication.medicine_type || '--'}
-              </Text>
-            </View>
-            <View style={[styles.tableDataCell, styles.tableCell3]}>
-              <Text style={styles.tableDataText} numberOfLines={2}>
-                {medication.medicine_purpose || '--'}
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
       )}
 
@@ -978,7 +974,7 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   tableDataRow: {
     flexDirection: 'row',
@@ -996,18 +992,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: Colors.gray700,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 16,
   },
-  tableCell1: {
-    flex: 1,
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray200,
   },
-  tableCell2: {
-    flex: 0.8,
+  tableLabelCell: {
+    flex: 0.4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.gray50,
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: Colors.gray200,
   },
-  tableCell3: {
-    flex: 1.2,
-    borderRightWidth: 0, // No right border for last cell
+  tableValueCell: {
+    flex: 0.6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
   },
 
   // --- Compact Details Grid ---
