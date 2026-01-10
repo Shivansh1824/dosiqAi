@@ -92,8 +92,8 @@ const FREQUENCY_CODE_MAP: Record<string, MedicationFrequency> = {
  * 
  * Logic:
  * - If total_times_per_day <= 3: Parse dosage "1-0-1" → "Morning-Night"
- * - Else: "{total_times_per_day} times"
- * - Append: "every {interval_days} day(s)"
+ * - Else: "{total_times_per_day} Times"
+ * - Append with comma: ", Everyday" or ", Every X Days"
  * 
  * @param dosage - Timing pattern like "1-0-1" (morning-afternoon-night)
  * @param totalTimesPerDay - Number of times per day
@@ -101,9 +101,9 @@ const FREQUENCY_CODE_MAP: Record<string, MedicationFrequency> = {
  * @returns User-friendly frequency string
  * 
  * @example
- * formatFrequencyDisplay("1-0-1", 2, 1) // "Morning-Night every day"
- * formatFrequencyDisplay("1-1-1", 3, 2) // "Morning-Afternoon-Night every 2 days"
- * formatFrequencyDisplay(null, 4, 1)    // "4 times every day"
+ * formatFrequencyDisplay("1-0-1", 2, 1) // "Morning-Night, Everyday"
+ * formatFrequencyDisplay("1-1-1", 3, 2) // "Morning-Afternoon-Night, Every 2 Days"
+ * formatFrequencyDisplay(null, 4, 1)    // "4 Times, Everyday"
  */
 export function formatFrequencyDisplay(
   dosage: string | null | undefined,
@@ -121,27 +121,28 @@ export function formatFrequencyDisplay(
       if (parts[0] > 0) timeLabels.push('Morning');
       if (parts[1] > 0) timeLabels.push('Afternoon');
       if (parts[2] > 0) timeLabels.push('Night');
-      frequencyPart = timeLabels.join('-') || 'As needed';
+      frequencyPart = timeLabels.join('-') || 'As Needed';
     } else {
-      frequencyPart = 'As needed';
+      frequencyPart = 'As Needed';
     }
   } else if (totalTimesPerDay && totalTimesPerDay > 3) {
-    frequencyPart = `${totalTimesPerDay} times`;
+    frequencyPart = `${totalTimesPerDay} Times`;
   } else {
-    frequencyPart = 'As needed';
+    frequencyPart = 'As Needed';
   }
 
-  // Determine interval text
+  // Determine interval text with proper capitalization
   let intervalPart = '';
   if (intervalDays === 0 || intervalDays === null || intervalDays === undefined) {
     intervalPart = ''; // As needed or no interval specified
   } else if (intervalDays === 1) {
-    intervalPart = 'every day';
+    intervalPart = 'Everyday';
   } else if (intervalDays > 1) {
-    intervalPart = `every ${intervalDays} days`;
+    intervalPart = `Every ${intervalDays} Days`;
   }
 
-  return intervalPart ? `${frequencyPart} ${intervalPart}` : frequencyPart;
+  // Join with comma
+  return intervalPart ? `${frequencyPart}, ${intervalPart}` : frequencyPart;
 }
 
 /**
