@@ -565,4 +565,61 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       throw error;
     }
   },
+
+  /**
+   * Clear all cloud documents for a user
+   * THIS IS A DESTRUCTIVE ACTION
+   */
+  clearAllCloudDocuments: async (userId: string) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+      }
+
+      console.log('[DocumentsStore] Clearing ALL cloud documents for user:', userId);
+
+      // 1. Fetch all documents for this user to get R2 keys
+      const { data: userDocs, error: fetchError } = await supabase
+        .from('documents')
+        .select('id, cloud_file_key')
+        .eq('user_id', userId);
+
+      if (fetchError) throw fetchError;
+
+      // 2. Delete from R2 (best effort)
+      if (userDocs && userDocs.length > 0) {
+        console.log(`[DocumentsStore] Found ${userDocs.length} documents to delete`);
+        const deletionPromises = userDocs
+          .filter(doc => doc.cloud_file_key)
+          .map(doc => deleteFileFromR2(doc.cloud_file_key!));
+
+        // Wait for all R2 deletions (parallel)
+        await Promise.allSettled(deletionPromises);
+        console.log('[DocumentsStore] R2 cleanup completed');
+      }
+
+      // 3. Delete from Supabase
+      const { error: deleteError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('user_id', userId);
+
+      if (deleteError) throw deleteError;
+
+      // 4. Clear local state and cache to prevent ghost data on reload
+      set({ documents: [], isLoading: false });
+      await saveToCache(CacheKeys.documents(userId), []);
+
+      console.log('[DocumentsStore] ✅ All cloud documents cleared successfully');
+    } catch (error) {
+      console.error('[DocumentsStore] Error clearing cloud documents:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to clear cloud documents',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
 }));

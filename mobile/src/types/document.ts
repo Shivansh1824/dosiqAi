@@ -196,6 +196,9 @@ export interface DocumentsActions {
 
   // Local storage cleanup
   clearAllLocalDocuments: (userId?: string) => Promise<void>;
+
+  // Cloud storage cleanup
+  clearAllCloudDocuments: (userId: string) => Promise<void>;
 }
 
 

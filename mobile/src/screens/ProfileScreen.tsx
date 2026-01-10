@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
@@ -10,8 +10,9 @@ import { useDocumentsStore } from '../store/documentsStore';
 export default function ProfileScreen() {
     const navigation = useNavigation();
     const { user, logout } = useAuthStore();
-    const { clearAllLocalDocuments } = useDocumentsStore();
+    const { clearAllLocalDocuments, clearAllCloudDocuments } = useDocumentsStore();
     const [isClearing, setIsClearing] = useState(false);
+    const [showClearOptions, setShowClearOptions] = useState(false);
 
     const menuItems = [
         { icon: 'user', label: 'Personal Information' },
@@ -19,54 +20,81 @@ export default function ProfileScreen() {
         { icon: 'settings', label: 'Settings' },
         { icon: 'help-circle', label: 'Help & Support' },
         { icon: 'shield', label: 'Privacy & Security' },
+        { icon: 'trash-2', label: 'Clear Documents', isDestructive: true },
     ];
 
     const handleLogout = () => {
         logout();
-        // Navigation will be handled by the auth listener or manual navigation if needed
-        // But since we are in a stack, we might need to reset navigation
-        // For now, the App.tsx logic might handle it if it listens to auth state
-        // Or we can manually navigate to Welcome
         navigation.reset({
             index: 0,
             routes: [{ name: 'Welcome' as never }],
         });
     };
 
+    const handleMenuPress = (label: string) => {
+        if (label === 'Clear Documents') {
+            setShowClearOptions(true);
+        } else {
+            // Placeholder for other menu items
+            console.log(`Pressed ${label}`);
+        }
+    };
+
     const handleClearLocalDocuments = () => {
-        Alert.alert(
-            'Clear Local Documents',
-            'This will delete all locally stored documents and files from this device.\n\nNote: Database records remain unchanged and will need to be cleaned manually.',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Clear',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            setIsClearing(true);
-                            await clearAllLocalDocuments(user?.id);
-                            Alert.alert(
-                                'Success',
-                                'All local documents have been cleared successfully.',
-                                [{ text: 'OK' }]
-                            );
-                        } catch (error) {
-                            Alert.alert(
-                                'Error',
-                                'Failed to clear local documents: ' + (error instanceof Error ? error.message : 'Unknown error'),
-                                [{ text: 'OK' }]
-                            );
-                        } finally {
-                            setIsClearing(false);
-                        }
+        setShowClearOptions(false);
+        setTimeout(() => {
+            Alert.alert(
+                'Clear Local Documents',
+                'This will delete all locally stored documents and files from this device.\n\nNote: Database records remain unchanged and will need to be cleaned manually.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Clear Local',
+                        style: 'destructive',
+                        onPress: async () => {
+                            try {
+                                setIsClearing(true);
+                                await clearAllLocalDocuments(user?.id);
+                                Alert.alert('Success', 'All local documents have been cleared successfully.', [{ text: 'OK' }]);
+                            } catch (error) {
+                                Alert.alert('Error', 'Failed to clear local documents: ' + (error instanceof Error ? error.message : 'Unknown error'), [{ text: 'OK' }]);
+                            } finally {
+                                setIsClearing(false);
+                            }
+                        },
                     },
-                },
-            ]
-        );
+                ]
+            );
+        }, 300);
+    };
+
+    const handleClearCloudDocuments = () => {
+        setShowClearOptions(false);
+        setTimeout(() => {
+            Alert.alert(
+                '⚠️ Clear Cloud Documents',
+                'WARNING: This action is destructive and CANNOT be undone.\n\nIt will permanently delete ALL your documents from the server and cloud storage.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete Everything',
+                        style: 'destructive',
+                        onPress: async () => {
+                            if (!user?.id) return;
+                            try {
+                                setIsClearing(true);
+                                await clearAllCloudDocuments(user.id);
+                                Alert.alert('Deleted', 'All cloud documents have been permanently deleted.', [{ text: 'OK' }]);
+                            } catch (error) {
+                                Alert.alert('Error', 'Failed to clear cloud documents: ' + (error instanceof Error ? error.message : 'Unknown error'), [{ text: 'OK' }]);
+                            } finally {
+                                setIsClearing(false);
+                            }
+                        },
+                    },
+                ]
+            );
+        }, 300);
     };
 
     return (
@@ -90,33 +118,85 @@ export default function ProfileScreen() {
 
                 <View style={styles.menuContainer}>
                     {menuItems.map((item, index) => (
-                        <TouchableOpacity key={index} style={styles.menuItem} activeOpacity={0.7}>
+                        <TouchableOpacity
+                            key={index}
+                            style={styles.menuItem}
+                            activeOpacity={0.7}
+                            onPress={() => handleMenuPress(item.label)}
+                        >
                             <View style={styles.menuIcon}>
-                                <Feather name={item.icon as any} size={20} color={Colors.textSecondary} />
+                                <Feather
+                                    name={item.icon as any}
+                                    size={20}
+                                    color={item.isDestructive ? Colors.orange : Colors.textSecondary}
+                                />
                             </View>
-                            <Text style={styles.menuLabel}>{item.label}</Text>
+                            <Text style={[styles.menuLabel, item.isDestructive && { color: Colors.orange }]}>
+                                {item.label}
+                            </Text>
                             <Feather name="chevron-right" size={20} color={Colors.gray400} />
                         </TouchableOpacity>
                     ))}
                 </View>
 
-                <TouchableOpacity
-                    style={styles.clearDocumentsButton}
-                    onPress={handleClearLocalDocuments}
-                    activeOpacity={0.8}
-                    disabled={isClearing}
-                >
-                    <Feather name="trash-2" size={20} color={Colors.orange} />
-                    <Text style={styles.clearDocumentsText}>
-                        {isClearing ? 'Clearing...' : 'Clear Local Documents'}
-                    </Text>
-                </TouchableOpacity>
+                {isClearing && (
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Processing...</Text>
+                    </View>
+                )}
 
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
                     <Feather name="log-out" size={20} color={Colors.error} />
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            {/* Clear Documents Modal */}
+            <Modal
+                transparent={true}
+                visible={showClearOptions}
+                animationType="fade"
+                onRequestClose={() => setShowClearOptions(false)}
+            >
+                <Pressable style={styles.modalOverlay} onPress={() => setShowClearOptions(false)}>
+                    <Pressable style={styles.modalContent} onPress={e => e.stopPropagation()}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Clear Documents</Text>
+                            <TouchableOpacity onPress={() => setShowClearOptions(false)}>
+                                <Feather name="x" size={24} color={Colors.gray500} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.modalSubtitle}>Choose which documents to clear:</Text>
+
+                        <View style={styles.optionsContainer}>
+                            {/* Option 1: Local Documents */}
+                            <TouchableOpacity style={styles.optionButton} onPress={handleClearLocalDocuments}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.orange + '15' }]}>
+                                    <Feather name="smartphone" size={24} color={Colors.orange} />
+                                </View>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={styles.optionTitle}>Clear Local Documents</Text>
+                                    <Text style={styles.optionDescription}>Remove files from this device only</Text>
+                                </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
+                            </TouchableOpacity>
+
+                            {/* Option 2: Cloud Documents */}
+                            <TouchableOpacity style={styles.optionButton} onPress={handleClearCloudDocuments}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.error + '15' }]}>
+                                    <Feather name="cloud-off" size={24} color={Colors.error} />
+                                </View>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={[styles.optionTitle, { color: Colors.error }]}>Clear Cloud Documents</Text>
+                                    <Text style={styles.optionDescription}>Permanently delete from server</Text>
+                                </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -201,20 +281,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: Colors.textPrimary,
     },
-    clearDocumentsButton: {
-        flexDirection: 'row',
+    loadingContainer: {
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: Sizes.md,
-        backgroundColor: Colors.orange + '10',
-        borderRadius: 12,
-        gap: Sizes.sm,
         marginBottom: Sizes.md,
     },
-    clearDocumentsText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.orange,
+    loadingText: {
+        color: Colors.textSecondary,
+        fontSize: 14,
     },
     logoutButton: {
         flexDirection: 'row',
@@ -229,5 +302,65 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: Colors.error,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: Colors.white,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: Sizes.xl,
+        paddingBottom: Sizes.xl + 20, // Extra padding for bottom safe area visual
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Sizes.md,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        color: Colors.textSecondary,
+        marginBottom: Sizes.lg,
+    },
+    optionsContainer: {
+        gap: Sizes.md,
+    },
+    optionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: Sizes.md,
+        backgroundColor: Colors.bgSecondary,
+        borderRadius: 16,
+        gap: Sizes.md,
+    },
+    optionIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    optionTextContainer: {
+        flex: 1,
+    },
+    optionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginBottom: 2,
+    },
+    optionDescription: {
+        fontSize: 12,
+        color: Colors.textSecondary,
     },
 });
