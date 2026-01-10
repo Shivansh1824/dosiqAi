@@ -202,7 +202,7 @@ Number = Days gap between doses
 - 0 = As needed (SOS/PRN)
 - null = Not specified
 
-**C) time_of_day - Which times in a day (binary "X-X-X"):**
+**C) dosage - Which times in a day (binary "X-X-X"):**
 Format: "morning-afternoon-night" where 1=take, 0=skip
 - "1-0-0" = Morning only
 - "0-0-1" = Night only
@@ -211,15 +211,15 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 - null = Not specified
 
 **How they work together:**
-- `interval_days: 1` + `time_of_day: "1-0-1"` = Every day, take in morning and night
-- `interval_days: 7` + `time_of_day: "1-0-0"` = Every 7 days, take in morning
-- `interval_days: 15` + `time_of_day: "1-0-0"` = Every 15 days, take in morning
+- `interval_days: 1` + `dosage: "1-0-1"` = Every day, take in morning and night
+- `interval_days: 7` + `dosage: "1-0-0"` = Every 7 days, take in morning
+- `interval_days: 15` + `dosage: "1-0-0"` = Every 15 days, take in morning
 - `duration: "30 days"` = Total treatment period
 
 **Conversion from prescription:**
-- OD → interval_days: 1, time_of_day: "1-0-0"
-- BD → interval_days: 1, time_of_day: "1-0-1"
-- TDS → interval_days: 1, time_of_day: "1-1-1"
+- OD → interval_days: 1, dosage: "1-0-0"
+- BD → interval_days: 1, dosage: "1-0-1"
+- TDS → interval_days: 1, dosage: "1-1-1"
 - Weekly → interval_days: 7
 - Alternate days → interval_days: 2
 - SOS → interval_days: 0
@@ -409,7 +409,8 @@ Output ONLY a valid JSON object matching this structure:
         "interval_days": "Number (1=daily, 2=alternate, 7=weekly, 0=as_needed) or null",
         "timing": {
           "relation_to_meal": "before_food|after_food|with_food|empty_stomach|any|null",
-          "time_of_day": "1-0-1 format (morning-afternoon-night) or null"
+          "dosage": "1-1-1 format (morning-afternoon-night), if more than 3 times a day then: null, if nothing mentioned: null",
+          "total_times_per_day": "Number of times per day (if 1 times a day then: 1, if 2 times a day then: 2, if 3 times a day then: 3, if 4 times a day then: 4, and so on) or null"
         },
         "duration_days": "Number (total days of treatment) or null"
       },
