@@ -340,12 +340,27 @@ export default function MedicationVerificationCard({
             <View style={styles.subtitleRow}>
               {/* Confidence Badge moved here to prevent title squeezing */}
               {!isEditing && (
-                <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                  <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
-                  <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
-                    {confidenceStyle.text}
-                  </Text>
-                </View>
+                <>
+                  <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
+                    <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
+                    <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
+                      {confidenceStyle.text}
+                    </Text>
+                  </View>
+
+                  {/* Strength & Form Display */}
+                  {(medication.strength || medication.form) && (
+                    <Text style={[styles.tableHeaderText, { textTransform: 'lowercase' }]}>
+                      {medication.strength}
+                      {medication.strength && medication.form ? ' ' : ''}
+                      {medication.form && (
+                        <Text style={{ textTransform: 'capitalize' }}>
+                          {medication.form}
+                        </Text>
+                      )}
+                    </Text>
+                  )}
+                </>
               )}
             </View>
           </View>

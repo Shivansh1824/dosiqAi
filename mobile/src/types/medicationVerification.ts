@@ -18,6 +18,8 @@ export type VerificationConfidence = 'high' | 'medium' | 'low';
 export interface ParsedMedication {
   // Core medication data
   name: string;                          // Cleaned up from exact_written_name
+  strength?: string;                     // Medication strength (e.g. "200mg")
+  form?: string;                         // Medication form (e.g. "Tablet")
   scientific_name?: string;              // From assumed_enriched_data
   medicine_type?: string;                // From assumed_enriched_data (e.g., "Antibiotic")
   medicine_purpose?: string;             // From assumed_enriched_data (e.g., "Bacterial Infection Treatment")

@@ -1,0 +1,147 @@
+{
+    "file_name": "Nippun Rana - Gout Prescription - 08 Feb 2024",
+    "reasoning": "After analyzing the document, I identified the patient name as 'Nippun Rana' (normalized from Mrs. Nippun Rana, though the gender is marked as Male on the printed UHID section). The doctor is identified as 'Dr Sanjiv Kapoor' based on the stamp and signature. The diagnosis is explicitly written as 'Gout'. Medicine identification: 'Zyloric' is identified as Allopurinol (confidence 1.0), used for Uric Acid Control, classified as Antigout. 'Rosovas' is identified as Rosuvastatin (confidence 1.0), used for Cholesterol Control, classified as Statin. 'Denny D3' is identified as Cholecalciferol (confidence 0.95), used for Vitamin D Supplementation. 'ETOSHINE' is identified as Etoricoxib (confidence 0.95), an Analgesic for pain relief. 'Cinnate' is likely a topical or specific brand for pain. Dosage instructions are captured, including 'After Dinner daily' for Zyloric and Rosovas, and 'SOS for Pain' for Etoshine. The visit date is 2024-02-08. Overall confidence score is 0.95 due to clear handwriting and explicit diagnosis.",
+    "common_data": {
+        "summary": "Nippun Rana was diagnosed with Gout by Dr Sanjiv Kapoor on 2024-02-08. Prescribed medications include Zyloric (Allopurinol) for Uric Acid Control and Rosovas (Rosuvastatin) for Cholesterol Control. Investigations advised: CBC, ESR, Serum Uric Acid, and Lipid Profile.",
+        "visit_date": "2024-02-08"
+    },
+    "patient_info": {
+        "age": "33",
+        "name": "Nippun Rana",
+        "gender": "Male"
+    },
+    "document_type": "prescription",
+    "error_response": {
+        "is_error": false,
+        "technical_reason": null
+    },
+    "analysis_metadata": {
+        "scan_clarity": "clear",
+        "confidence_score": 0.95,
+        "handwriting_detected": true
+    },
+    "prescription_data": {
+        "follow_up": {
+            "follow_up_date": "2024-04-08",
+            "follow_up_days": 60
+        },
+        "medicines": [
+            {
+                "form": "Tablet",
+                "timing": {
+                    "dosage": "0-0-1",
+                    "relation_to_meal": "after_food",
+                    "total_times_per_day": 1
+                },
+                "strength": "200mg",
+                "duration_days": 60,
+                "interval_days": 1,
+                "dosage_instruction": "After Dinner daily",
+                "exact_written_name": "Zyloric 200mg",
+                "assumed_enriched_data": {
+                    "confidence": 1,
+                    "is_identified": true,
+                    "medicine_type": "Antigout",
+                    "scientific_name": "Allopurinol",
+                    "medicine_purpose": "Uric Acid Control"
+                }
+            },
+            {
+                "form": "Tablet",
+                "timing": {
+                    "dosage": "0-0-1",
+                    "relation_to_meal": "after_food",
+                    "total_times_per_day": 1
+                },
+                "strength": "20mg",
+                "duration_days": 60,
+                "interval_days": 1,
+                "dosage_instruction": "After Dinner daily",
+                "exact_written_name": "Rosovas 20mg",
+                "assumed_enriched_data": {
+                    "confidence": 1,
+                    "is_identified": true,
+                    "medicine_type": "Statin",
+                    "scientific_name": "Rosuvastatin",
+                    "medicine_purpose": "Cholesterol Control"
+                }
+            },
+            {
+                "form": "Sachet",
+                "timing": {
+                    "dosage": "1-0-0",
+                    "relation_to_meal": null,
+                    "total_times_per_day": 1
+                },
+                "strength": null,
+                "duration_days": 60,
+                "interval_days": 15,
+                "dosage_instruction": "Once in 15 days",
+                "exact_written_name": "Denny D3",
+                "assumed_enriched_data": {
+                    "confidence": 0.95,
+                    "is_identified": true,
+                    "medicine_type": "Vitamin/Supplement",
+                    "scientific_name": "Cholecalciferol",
+                    "medicine_purpose": "Vitamin D Supplementation"
+                }
+            },
+            {
+                "form": "Tablet",
+                "timing": {
+                    "dosage": null,
+                    "relation_to_meal": "any",
+                    "total_times_per_day": null
+                },
+                "strength": null,
+                "duration_days": null,
+                "interval_days": 0,
+                "dosage_instruction": "SOS for Pain",
+                "exact_written_name": "ETOSHINE",
+                "assumed_enriched_data": {
+                    "confidence": 0.95,
+                    "is_identified": true,
+                    "medicine_type": "Analgesic",
+                    "scientific_name": "Etoricoxib",
+                    "medicine_purpose": "Pain and Inflammation Relief"
+                }
+            }
+        ],
+        "doctor_name": "Dr Sanjiv Kapoor",
+        "hospital_name": "Indian Spinal Injuries Centre",
+        "diagnosis_source": "explicit",
+        "drug_interactions": {
+            "interaction_note": null,
+            "potential_interactions_flag": false
+        },
+        "other_information": [
+            {
+                "value": "Two months course prescribed",
+                "category": "Notes"
+            },
+            {
+                "value": "Pain Screening: No Pain (marked on scale)",
+                "category": "Vitals"
+            }
+        ],
+        "recommended_tests": [
+            {
+                "reason": null,
+                "test_name": "CBC"
+            },
+            {
+                "reason": null,
+                "test_name": "ESR"
+            },
+            {
+                "reason": "Monitor gout levels",
+                "test_name": "S. Uric Acid"
+            },
+            {
+                "reason": null,
+                "test_name": "Lipid Profile"
+            }
+        ],
+        "medical_issue_diagnosis": "Gout"
+    }
+}

@@ -568,8 +568,8 @@ export function cleanMedicationName(exactWrittenName: string): string {
   // Remove common prescription prefixes
   const prefixes = [
     'SYP ', 'SYRUP ', 'SYR ',
-    'TAB ', 'TABLET ', 'TABS ',
-    'CAP ', 'CAPSULE ', 'CAPS ',
+    'TAB ', 'TABLET ', 'TABS ', 'TAB. ', 'T. ', 'T ',
+    'CAP ', 'CAPSULE ', 'CAPS ', 'CAP. ', 'C. ', 'C ',
     'INJ ', 'INJECTION ',
     'SGP ', // Soft gel capsule
     'CR ', 'CREAM ',
@@ -586,7 +586,25 @@ export function cleanMedicationName(exactWrittenName: string): string {
     }
   }
 
-  return cleaned.trim();
+  // Remove strength information (Number + Unit)
+  // Matches: 200mg, 200 mg, 0.5%, 10ml, etc.
+  // We strictly require a unit to be present to avoid removing brand numbers like "XYZ 1000"
+  // Also handles patterns inside parentheses like (200mg) or 200mg inside parens
+  // Regex Explanation:
+  // (\s*)               -> Optional leading whitespace
+  // \(?                 -> Optional opening parenthesis
+  // (\d+(\.\d+)?)       -> The number (integer or decimal)
+  // \s*                 -> Optional space between number and unit
+  // (mg|g|mcg|...)      -> The unit
+  // \)?                 -> Optional closing parenthesis
+  // (\s*|$)             -> Trailing whitespace or end of string
+  const strengthPattern = /(\s*)\(?(\d+(\.\d+)?)\s*(mg|g|mcg|ml|iu|%|u|units?)\)?(\s*|$)/gi;
+  cleaned = cleaned.replace(strengthPattern, ' ').trim();
+
+  // Clean up any double spaces or empty parentheses left behind
+  cleaned = cleaned.replace(/\s+/g, ' ').replace(/\(\s*\)/g, '').trim();
+
+  return cleaned;
 }
 
 /**
@@ -644,6 +662,8 @@ export function parseAIMedication(
 
   return {
     name: cleanMedicationName(medicine.exact_written_name),
+    strength: medicine.strength,
+    form: medicine.form ?? undefined,
     scientific_name: medicine.assumed_enriched_data?.scientific_name,
     medicine_type: medicine.assumed_enriched_data?.medicine_type,
     medicine_purpose: medicine.assumed_enriched_data?.medicine_purpose,
