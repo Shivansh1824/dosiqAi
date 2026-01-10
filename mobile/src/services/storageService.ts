@@ -5,7 +5,7 @@
  * Uses the AWS SDK v3 for S3 operations.
  */
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
@@ -168,6 +168,65 @@ export const deleteFileFromR2 = async (fileKey: string): Promise<void> => {
     } catch (error) {
         console.error('[R2Storage] Delete error:', error);
         throw new Error('Failed to delete file from R2 storage');
+    }
+};
+
+/**
+ * Delete all files for a user from R2 using prefix Listing
+ * This ensures even orphaned files are removed.
+ * 
+ * @param userId - The user ID whose folder users/{userId}/ should be wiped
+ */
+export const deleteUserFilesFromR2 = async (userId: string): Promise<void> => {
+    if (!isR2Configured()) {
+        throw new Error('R2 storage is not configured');
+    }
+
+    try {
+        const userPrefix = `users/${userId}/`;
+        console.log('[R2Storage] Deleting all files with prefix:', userPrefix);
+
+        // 1. List all objects with this prefix
+        const listCommand = new ListObjectsV2Command({
+            Bucket: R2_CONFIG.bucketName,
+            Prefix: userPrefix,
+        });
+
+        const listResult = await s3Client.send(listCommand);
+
+        if (!listResult.Contents || listResult.Contents.length === 0) {
+            console.log('[R2Storage] No files found for user in R2.');
+            return;
+        }
+
+        console.log(`[R2Storage] Found ${listResult.Contents.length} files to delete.`);
+
+        // 2. Prepare delete objects command
+        const objectsToDelete = listResult.Contents.map(obj => ({ Key: obj.Key }));
+
+        const deleteCommand = new DeleteObjectsCommand({
+            Bucket: R2_CONFIG.bucketName,
+            Delete: {
+                Objects: objectsToDelete,
+                Quiet: false,
+            },
+        });
+
+        const deleteResult = await s3Client.send(deleteCommand);
+        console.log(`[R2Storage] Successfully deleted ${deleteResult.Deleted?.length || 0} files.`);
+
+        // Check for truncation (if > 1000 files, we need to loop)
+        // For individual users, >1000 files is rare, but good to note.
+        if (listResult.IsTruncated) {
+            console.log('[R2Storage] Warning: More files exist. Recursive deletion recommended for production scaling.');
+            // In a robust production environment, you would recursively call this until IsTruncated is false.
+            // For now, doing one pass is significantly better than DB-only deletion.
+            await deleteUserFilesFromR2(userId);
+        }
+
+    } catch (error) {
+        console.error('[R2Storage] Bulk delete error:', error);
+        throw new Error('Failed to delete user files from R2 storage');
     }
 };
 

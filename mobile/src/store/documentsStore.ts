@@ -4,7 +4,7 @@ import { Document, DocumentsStore, getDocumentColor } from '../types/document';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInfo } from '../services/documentAnalysisService';
 import { processLabReport } from '../services/labAnalyticsService';
-import { deleteFileFromR2 } from '../services/storageService';
+import { deleteFileFromR2, deleteUserFilesFromR2 } from '../services/storageService';
 
 /**
  * Zustand store for documents state
@@ -589,15 +589,12 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       if (fetchError) throw fetchError;
 
       // 2. Delete from R2 (best effort)
-      if (userDocs && userDocs.length > 0) {
-        console.log(`[DocumentsStore] Found ${userDocs.length} documents to delete`);
-        const deletionPromises = userDocs
-          .filter(doc => doc.cloud_file_key)
-          .map(doc => deleteFileFromR2(doc.cloud_file_key!));
-
-        // Wait for all R2 deletions (parallel)
-        await Promise.allSettled(deletionPromises);
+      // 2. Delete ALL files from R2 (Prefix-based, robust against orphans)
+      try {
+        await deleteUserFilesFromR2(userId);
         console.log('[DocumentsStore] R2 cleanup completed');
+      } catch (r2Error) {
+        console.error('[DocumentsStore] R2 cleanup failed (continuing with DB):', r2Error);
       }
 
       // 3. Delete from Supabase - Order matters for Foreign Keys
