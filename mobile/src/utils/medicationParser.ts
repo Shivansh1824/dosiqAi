@@ -345,22 +345,49 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency): string
 export function generateTimeSlotsFromFrequencyCode(code: string | undefined, frequency: MedicationFrequency): string[] {
   if (!code) return generateDefaultTimeSlots(frequency);
 
-  const normalized = code.trim().replace(/\s+/g, '');
+  const normalized = code.toUpperCase();
+  const slots: string[] = [];
 
-  // X-X-X pattern (Morning-Afternoon-Night)
-  // e.g. 1-0-1 -> Morning (08:00) and Night (20:00)
+  // Keywords logic: Check strictly for specific time-of-day mentions
+  // Sequence enforced by check order: Morning -> Afternoon -> Evening -> Night
+
+  // Morning (08:00)
+  if (normalized.includes('MORNING')) {
+    slots.push('08:00');
+  }
+
+  // Afternoon (14:00 - 2 PM)
+  if (normalized.includes('AFTERNOON')) {
+    slots.push('14:00');
+  }
+
+  // Evening (16:00 - 4 PM)
+  if (normalized.includes('EVENING')) {
+    slots.push('16:00'); // 4 PM standard for evening
+  }
+
+  // Night (21:00 - 9 PM)
+  if (normalized.includes('NIGHT')) {
+    slots.push('21:00'); // 9 PM as requested
+  }
+
+  // If we found valid keyword-based slots, return them
+  if (slots.length > 0) {
+    return slots;
+  }
+
+  // X-X-X pattern (Morning-Afternoon-Night) fallback
+  // e.g. 1-0-1 -> Morning (08:00) and Night (21:00)
   const tripleMatch = normalized.match(/^(\d+)-(\d+)-(\d+)$/);
   if (tripleMatch) {
     const morning = parseInt(tripleMatch[1]);
     const afternoon = parseInt(tripleMatch[2]);
     const night = parseInt(tripleMatch[3]);
 
-    const slots: string[] = [];
     if (morning > 0) slots.push('08:00');
     if (afternoon > 0) slots.push('14:00');
-    if (night > 0) slots.push('20:00');
+    if (night > 0) slots.push('21:00'); // Use 9 PM for 1-0-1 night slot too
 
-    // If we found valid slots, return them
     if (slots.length > 0) return slots;
   }
 
@@ -590,7 +617,9 @@ export function parseAIMedication(
   const frequency = parseMedicalFrequency(medicine.frequency);
   const durationDays = parseDuration(medicine.duration);
   // Use code-aware time slot generation to capture 1-0-1 specific times
-  const timeSlots = generateTimeSlotsFromFrequencyCode(medicine.frequency, frequency);
+  // Fallback to timing.dosage if frequency code is missing (e.g. "0-0-1")
+  const processingCode = medicine.frequency || medicine.timing?.dosage;
+  const timeSlots = generateTimeSlotsFromFrequencyCode(processingCode, frequency);
   const confidence = determineConfidence(medicine.assumed_enriched_data?.is_identified);
 
   // Build notes from special instructions
@@ -602,8 +631,15 @@ export function parseAIMedication(
     notes = notes ? `${notes}\n\nFrom: ${documentTitle}` : `From: ${documentTitle}`;
   }
 
-  // Parse food relationship from special instructions
-  const foodRelationship = parseFoodRelationship(medicine.special_instructions);
+  // Parse food relationship: prioritize direct value from timing, fallback to special_instructions
+  let foodRelationship: import('../types/medication').FoodRelationship = 'anytime';
+  if (medicine.timing?.relation_to_meal) {
+    // Direct value from AI analysis (e.g., 'after_food', 'before_food', 'any')
+    foodRelationship = medicine.timing.relation_to_meal as import('../types/medication').FoodRelationship;
+  } else {
+    // Fallback: parse from special_instructions
+    foodRelationship = parseFoodRelationship(medicine.special_instructions);
+  }
 
   return {
     name: cleanMedicationName(medicine.exact_written_name),
