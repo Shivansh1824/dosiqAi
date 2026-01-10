@@ -600,7 +600,29 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         console.log('[DocumentsStore] R2 cleanup completed');
       }
 
-      // 3. Delete from Supabase
+      // 3. Delete from Supabase - Order matters for Foreign Keys
+      // Delete test_results first (child of lab_reports)
+      const { error: testResultsError } = await supabase
+        .from('test_results')
+        .delete()
+        .eq('user_id', userId);
+
+      if (testResultsError) {
+        console.error('[DocumentsStore] Error deleting test_results:', testResultsError);
+        // Continue to try deleting other data
+      }
+
+      // Delete lab_reports (child of documents)
+      const { error: labReportsError } = await supabase
+        .from('lab_reports')
+        .delete()
+        .eq('user_id', userId);
+
+      if (labReportsError) {
+        console.error('[DocumentsStore] Error deleting lab_reports:', labReportsError);
+      }
+
+      // Delete documents (parent)
       const { error: deleteError } = await supabase
         .from('documents')
         .delete()
