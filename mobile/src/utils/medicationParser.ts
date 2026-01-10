@@ -88,6 +88,63 @@ const FREQUENCY_CODE_MAP: Record<string, MedicationFrequency> = {
 };
 
 /**
+ * Format frequency display text based on timing data
+ * 
+ * Logic:
+ * - If total_times_per_day <= 3: Parse dosage "1-0-1" → "Morning-Night"
+ * - Else: "{total_times_per_day} times"
+ * - Append: "every {interval_days} day(s)"
+ * 
+ * @param dosage - Timing pattern like "1-0-1" (morning-afternoon-night)
+ * @param totalTimesPerDay - Number of times per day
+ * @param intervalDays - Days between doses (1=daily, 2=alternate, 7=weekly, 0=as_needed)
+ * @returns User-friendly frequency string
+ * 
+ * @example
+ * formatFrequencyDisplay("1-0-1", 2, 1) // "Morning-Night every day"
+ * formatFrequencyDisplay("1-1-1", 3, 2) // "Morning-Afternoon-Night every 2 days"
+ * formatFrequencyDisplay(null, 4, 1)    // "4 times every day"
+ */
+export function formatFrequencyDisplay(
+  dosage: string | null | undefined,
+  totalTimesPerDay: number | null | undefined,
+  intervalDays: number | null | undefined
+): string {
+  let frequencyPart = '';
+
+  // Determine frequency text
+  if (totalTimesPerDay && totalTimesPerDay <= 3 && dosage) {
+    // Parse "1-0-1" format
+    const parts = dosage.split('-').map(Number);
+    if (parts.length === 3 && parts.every(p => !isNaN(p))) {
+      const timeLabels: string[] = [];
+      if (parts[0] > 0) timeLabels.push('Morning');
+      if (parts[1] > 0) timeLabels.push('Afternoon');
+      if (parts[2] > 0) timeLabels.push('Night');
+      frequencyPart = timeLabels.join('-') || 'As needed';
+    } else {
+      frequencyPart = 'As needed';
+    }
+  } else if (totalTimesPerDay && totalTimesPerDay > 3) {
+    frequencyPart = `${totalTimesPerDay} times`;
+  } else {
+    frequencyPart = 'As needed';
+  }
+
+  // Determine interval text
+  let intervalPart = '';
+  if (intervalDays === 0 || intervalDays === null || intervalDays === undefined) {
+    intervalPart = ''; // As needed or no interval specified
+  } else if (intervalDays === 1) {
+    intervalPart = 'every day';
+  } else if (intervalDays > 1) {
+    intervalPart = `every ${intervalDays} days`;
+  }
+
+  return intervalPart ? `${frequencyPart} ${intervalPart}` : frequencyPart;
+}
+
+/**
  * Parse medical frequency code to app enum
  * Handles various formats and abbreviations used in prescriptions
  *
@@ -555,7 +612,10 @@ export function parseAIMedication(
     dosage: medicine.dosage_instruction || '',
     frequency,
     original_frequency_code: medicine.frequency || '',
-    duration_days: durationDays,
+    duration_days: medicine.duration_days ?? durationDays,
+    interval_days: medicine.interval_days ?? null,
+    timing_dosage: medicine.timing?.dosage,
+    total_times_per_day: medicine.timing?.total_times_per_day,
     time_of_day: timeSlots,
     food_relationship: foodRelationship,
     notes,

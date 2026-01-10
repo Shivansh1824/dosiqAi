@@ -7,6 +7,7 @@ import { ParsedMedication, VerificationConfidence } from '../types/medicationVer
 import { getFrequencyText, getFoodRelationshipText, FoodRelationship } from '../types/medication';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
+import { formatFrequencyDisplay } from '../utils/medicationParser';
 
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
@@ -339,6 +340,41 @@ export default function MedicationVerificationCard({
               <View style={styles.tableValueCell}>
                 <Text style={styles.tableDataText} numberOfLines={2}>
                   {medication.medicine_purpose}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Frequency & Duration Table */}
+      {(medication.source_raw?.timing || medication.timing_dosage || medication.total_times_per_day || medication.interval_days !== undefined || medication.duration_days || medication.source_raw?.duration_days) && (
+        <View style={styles.medicineInfoTable}>
+          {/* Frequency Row */}
+          <View style={styles.tableRow}>
+            <View style={styles.tableLabelCell}>
+              <Text style={styles.tableHeaderText}>Frequency</Text>
+            </View>
+            <View style={styles.tableValueCell}>
+              <Text style={styles.tableDataText} numberOfLines={2}>
+                {formatFrequencyDisplay(
+                  medication.timing_dosage ?? medication.source_raw?.timing?.dosage,
+                  medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day,
+                  medication.interval_days ?? medication.source_raw?.interval_days
+                )}
+              </Text>
+            </View>
+          </View>
+
+          {/* Duration Row */}
+          {(medication.duration_days || medication.source_raw?.duration_days) && (
+            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.tableLabelCell}>
+                <Text style={styles.tableHeaderText}>Duration</Text>
+              </View>
+              <View style={styles.tableValueCell}>
+                <Text style={styles.tableDataText}>
+                  {medication.duration_days ?? medication.source_raw?.duration_days} Days
                 </Text>
               </View>
             </View>

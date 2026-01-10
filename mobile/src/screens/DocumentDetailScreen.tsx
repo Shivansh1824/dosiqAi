@@ -957,7 +957,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 }
               };
 
-              const timing = parseTimeOfDay(med.timing?.time_of_day);
+              const timing = parseTimeOfDay(med.timing?.dosage);
               const confidence = med.assumed_enriched_data?.confidence;
 
               return (
@@ -1017,7 +1017,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     )}
 
                     {/* Schedule (Time of Day Visual) - NEW */}
-                    {med.timing?.time_of_day && (
+                    {med.timing?.dosage && (
                       <View style={styles.detailGridItem}>
                         <Text style={styles.detailGridLabel}>SCHEDULE</Text>
                         <View style={styles.timeDotsContainer}>
@@ -1065,7 +1065,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                   )}
 
                   {/* Legacy fallbacks */}
-                  {!med.timing?.time_of_day && med.frequency && (
+                  {!med.timing?.dosage && med.frequency && (
                     <View style={styles.medicationDetailRow}>
                       <Feather name="clock" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
                       <Text style={styles.medicationDetail}>{med.frequency}</Text>

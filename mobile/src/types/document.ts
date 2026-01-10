@@ -34,7 +34,8 @@ export interface MedicineInfo {
   interval_days?: number;          // NEW: 1=daily, 2=alternate, 7=weekly, 0=as needed
   timing?: {                       // NEW: Structured timing
     relation_to_meal?: MealRelation;
-    time_of_day?: string;          // "1-0-1" format (morning-afternoon-night)
+    dosage?: string;               // "1-0-1" format (morning-afternoon-night)
+    total_times_per_day?: number;  // 1, 2, 3, 4, etc.
   };
   duration_days?: number;          // NEW: Integer days
 

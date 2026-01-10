@@ -25,6 +25,9 @@ export interface ParsedMedication {
   frequency: MedicationFrequency;        // Parsed from frequency code
   original_frequency_code: string;       // Store original (e.g., "Q6H", "TDS")
   duration_days: number | null;          // Parsed from duration string
+  interval_days: number | null;          // 1=daily, 2=alternate, 7=weekly, 0=as_needed
+  timing_dosage?: string;                // Original "1-0-1" format from AI
+  total_times_per_day?: number;          // For display logic (1, 2, 3, 4, etc.)
   time_of_day: string[];                 // Auto-generated based on frequency
   notes: string;                         // Combined from special_instructions
   food_relationship?: import('./medication').FoodRelationship; // Meal timing requirement
