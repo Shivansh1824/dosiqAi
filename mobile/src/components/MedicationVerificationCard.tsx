@@ -56,6 +56,49 @@ export default function MedicationVerificationCard({
   const [tempTime, setTempTime] = useState(new Date());
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
 
+  // Auto-generate reminder times based on total_times_per_day
+  const generateAutoReminderTimes = (timesPerDay: number): string[] => {
+    const defaultTimes: Record<number, string[]> = {
+      1: ['09:00'],
+      2: ['09:00', '21:00'],
+      3: ['08:00', '14:00', '21:00'],
+      4: ['08:00', '12:00', '18:00', '22:00'],
+      5: ['07:00', '11:00', '15:00', '19:00', '22:00'],
+      6: ['06:00', '10:00', '14:00', '18:00', '21:00', '23:00'],
+    };
+    return defaultTimes[timesPerDay] || defaultTimes[3];
+  };
+
+  // Get reminder times (from medication or auto-generated)
+  const getReminderTimes = (): string[] => {
+    const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
+    if (medication.time_of_day?.length > 0) {
+      return medication.time_of_day;
+    }
+    if (timesPerDay > 0) {
+      return generateAutoReminderTimes(timesPerDay);
+    }
+    return [];
+  };
+
+  // Format time for display (24h -> 12h with AM/PM)
+  const formatTimeDisplay = (time24: string): string => {
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  // Get interval display text
+  const getIntervalText = (): string => {
+    const intervalDays = medication.interval_days ?? medication.source_raw?.interval_days;
+    if (intervalDays === undefined || intervalDays === null) return '';
+    if (intervalDays === 1) return 'Daily';
+    if (intervalDays === 2) return 'Alternate Days';
+    if (intervalDays === 7) return 'Weekly';
+    return `Every ${intervalDays} Days`;
+  };
+
   // Duration Options (Medical Research based: Acute 1-14, Cycles 21-30, Chronic 60-90)
   const DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 28, 30, 45, 60, 90];
 
@@ -379,6 +422,59 @@ export default function MedicationVerificationCard({
               </View>
             </View>
           )}
+        </View>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          REMINDER TIME BARS SECTION
+          Shows dynamic time bars based on total_times_per_day
+      ═══════════════════════════════════════════════════════════════════ */}
+      {getReminderTimes().length > 0 && (
+        <View style={styles.reminderBarsContainer}>
+          {/* Section Header */}
+          <View style={styles.reminderHeader}>
+            <View style={styles.reminderHeaderLeft}>
+              <Feather name="bell" size={16} color={Colors.primary} />
+              <Text style={styles.reminderTitle}>REMINDER TIMES</Text>
+              {getIntervalText() && (
+                <View style={styles.intervalBadge}>
+                  <Text style={styles.intervalText}>{getIntervalText()}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Time Bars - Minimal Flat Design */}
+          <View style={styles.timeBarsWrapper}>
+            {getReminderTimes().map((time, index) => (
+              <TouchableOpacity
+                key={`time-bar-${index}`}
+                style={styles.timeBarFlat}
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (isEditing) {
+                    setEditingTimeIndex(index);
+                    const [h, m] = time.split(':').map(Number);
+                    const d = new Date();
+                    d.setHours(h, m, 0, 0);
+                    setTempTime(d);
+                    setShowTimeSlotEditor(true);
+                  }
+                }}
+              >
+                <View style={styles.timeBarFlatLeft}>
+                  <View style={styles.timeBarDot} />
+                  <Text style={styles.timeBarLabelFlat}>Dose {index + 1}</Text>
+                </View>
+                <View style={styles.timeBarFlatRight}>
+                  <Text style={styles.timeBarTimeFlat}>{formatTimeDisplay(time)}</Text>
+                  {isEditing && (
+                    <Feather name="chevron-right" size={16} color={Colors.gray400} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       )}
 
@@ -1454,5 +1550,89 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: Colors.primary,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // REMINDER TIME BARS STYLES
+  // ═══════════════════════════════════════════════════════════════════
+
+  reminderBarsContainer: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  reminderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reminderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  reminderTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.gray500,
+    letterSpacing: 0.5,
+  },
+  intervalBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  intervalText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#059669',
+  },
+
+  timeBarsWrapper: {
+    gap: 10,
+  },
+
+  // ══════ DESIGN B: Minimal Flat ══════
+  timeBarFlat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+  },
+  timeBarFlatLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  timeBarDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primary,
+  },
+  timeBarLabelFlat: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.gray600,
+  },
+  timeBarFlatRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeBarTimeFlat: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.gray900,
   },
 });
