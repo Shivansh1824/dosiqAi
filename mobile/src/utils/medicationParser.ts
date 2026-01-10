@@ -616,10 +616,11 @@ export function parseAIMedication(
 ): ParsedMedication {
   const frequency = parseMedicalFrequency(medicine.frequency);
   const durationDays = parseDuration(medicine.duration);
+
   // Use code-aware time slot generation to capture 1-0-1 specific times
-  // Fallback to timing.dosage if frequency code is missing (e.g. "0-0-1")
-  const processingCode = medicine.frequency || medicine.timing?.dosage;
-  const timeSlots = generateTimeSlotsFromFrequencyCode(processingCode, frequency);
+  // Priority: timing.dosage (e.g. "0-0-1") > frequency (e.g. "Night daily")
+  const originalCode = medicine.timing?.dosage || medicine.frequency;
+  const timeSlots = generateTimeSlotsFromFrequencyCode(originalCode, frequency);
   const confidence = determineConfidence(medicine.assumed_enriched_data?.is_identified);
 
   // Build notes from special instructions
