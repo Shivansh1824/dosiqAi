@@ -253,38 +253,33 @@ export default function MedicationVerificationCard({
       />
 
 
-      {/* Instructions Section */}
+      {/* Notes Section (Compact) */}
       <View style={styles.detailsGrid}>
         {(medication.notes || isEditing) && (
           <View style={styles.notesCompactContainer}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setIsNotesExpanded(!isNotesExpanded)}
-              style={styles.notesCompactHeader}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Feather name="info" size={14} color={Colors.textSecondary} />
-                <Text style={[styles.detailLabel, { marginBottom: 0 }]}>INSTRUCTIONS</Text>
-              </View>
-              <Feather name={isNotesExpanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
-            </TouchableOpacity>
-
-            {isEditing ? (
-              <TextInput
-                style={styles.notesInput}
-                value={editedNotes}
-                onChangeText={setEditedNotes}
-                placeholder="Add special instructions..."
-                multiline
-              />
-            ) : (
-              <View>
-                <Text
-                  style={styles.notesText}
-                  numberOfLines={isNotesExpanded ? undefined : 2}
-                >
+            {!isEditing ? (
+              <View style={styles.notesRow}>
+                <View style={styles.notesHeaderGroup}>
+                  <Feather name="info" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.notesLabel}>Note :</Text>
+                </View>
+                <Text style={styles.notesValue}>
                   {medication.notes}
                 </Text>
+              </View>
+            ) : (
+              <View style={styles.notesEditContainer}>
+                <View style={styles.notesHeaderGroup}>
+                  <Feather name="info" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.notesLabel}>Note :</Text>
+                </View>
+                <TextInput
+                  style={styles.notesInput}
+                  value={editedNotes}
+                  onChangeText={setEditedNotes}
+                  placeholder="Add note..."
+                  multiline
+                />
               </View>
             )}
           </View>
@@ -375,30 +370,43 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.gray200,
-    borderStyle: 'dashed',
     borderRadius: 12,
-    overflow: 'hidden',
+    padding: 12,
+    // Removed dashed style for a cleaner look
   },
-  notesCompactHeader: {
+  notesRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: Colors.gray50,
+    alignItems: 'flex-start',
+    gap: 8,
   },
-  notesText: {
+  notesEditContainer: {
+    gap: 8,
+  },
+  notesHeaderGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 1, // Visual alignment
+  },
+  notesLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.gray500,
+  },
+  notesValue: {
+    flex: 1,
     fontSize: 13,
-    lineHeight: 20,
-    color: Colors.gray700,
-    padding: 12,
-    paddingTop: 8,
+    lineHeight: 18,
+    color: Colors.gray800,
   },
   notesInput: {
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 18,
     color: Colors.gray900,
-    padding: 12,
-    minHeight: 60,
+    backgroundColor: Colors.gray50,
+    borderRadius: 8,
+    padding: 8,
+    minHeight: 40,
   },
   duplicateWarning: {
     flexDirection: 'row',
