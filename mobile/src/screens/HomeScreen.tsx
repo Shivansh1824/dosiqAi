@@ -18,6 +18,7 @@ import { compressImage } from '../utils/imageCompression';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 import AnalysisLoading from '../components/AnalysisLoading';
+import FilePreviewModal from '../components/FilePreviewModal';
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -52,6 +53,10 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const [refreshing, setRefreshing] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+
+  // New State for Preview Modal
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
 
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
@@ -134,17 +139,15 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       });
 
       if (!result.canceled && result.assets[0]) {
-        setIsCompressing(true);
-        const compressedUri = await compressImage(result.assets[0].uri);
-        setIsCompressing(false);
-
-        if (compressedUri) {
-          await uploadFile(compressedUri, 'image');
-        }
+        setSelectedFile({
+          uri: result.assets[0].uri,
+          type: 'image',
+          name: result.assets[0].fileName || 'Selected Image',
+        });
+        setPreviewModalVisible(true);
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      setIsCompressing(false);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
@@ -163,17 +166,15 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       });
 
       if (!result.canceled && result.assets[0]) {
-        setIsCompressing(true);
-        const compressedUri = await compressImage(result.assets[0].uri);
-        setIsCompressing(false);
-
-        if (compressedUri) {
-          await uploadFile(compressedUri, 'image');
-        }
+        setSelectedFile({
+          uri: result.assets[0].uri,
+          type: 'image',
+          name: 'Captured Photo',
+        });
+        setPreviewModalVisible(true);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      setIsCompressing(false);
       Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
   };
@@ -190,22 +191,44 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         const fileName = result.assets[0].name;
         const isImage = fileName?.toLowerCase().match(/\.(jpg|jpeg|png|heic|webp)$/i);
 
-        if (isImage) {
-          setIsCompressing(true);
-          const compressedUri = await compressImage(uri);
-          setIsCompressing(false);
-
-          if (compressedUri) {
-            await uploadFile(compressedUri, 'document', fileName);
-          }
-        } else {
-          await uploadFile(uri, 'document', fileName);
-        }
+        setSelectedFile({
+          uri: uri,
+          type: isImage ? 'image' : 'document',
+          name: fileName,
+        });
+        setPreviewModalVisible(true);
       }
     } catch (error) {
       console.error('Error picking document:', error);
-      setIsCompressing(false);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
+    }
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!selectedFile) return;
+
+    const { uri, type, name } = selectedFile;
+    const isImage = type === 'image';
+
+    try {
+      if (isImage) {
+        setIsCompressing(true);
+        const compressedUri = await compressImage(uri);
+        setIsCompressing(false);
+
+        if (compressedUri) {
+          await uploadFile(compressedUri, 'image', name);
+        }
+      } else {
+        await uploadFile(uri, 'document', name);
+      }
+    } catch (error) {
+      console.error('Error in confirm upload:', error);
+      setIsCompressing(false);
+      Alert.alert('Error', 'Failed to upload document. Please try again.');
+    } finally {
+      setPreviewModalVisible(false);
+      setSelectedFile(null);
     }
   };
 
@@ -634,6 +657,20 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           </View>
         )
       }
+
+      {/* Preview Modal */}
+      <FilePreviewModal
+        visible={previewModalVisible}
+        fileUri={selectedFile?.uri || null}
+        fileType={selectedFile?.type || 'image'}
+        fileName={selectedFile?.name || ''}
+        onConfirm={handleConfirmUpload}
+        onCancel={() => {
+          setPreviewModalVisible(false);
+          setSelectedFile(null);
+        }}
+        isUploading={isUploading || isCompressing}
+      />
 
       {/* Family Member Selection Modal */}
       <Modal
