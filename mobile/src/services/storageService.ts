@@ -182,6 +182,10 @@ export const deleteUserFilesFromR2 = async (userId: string): Promise<void> => {
         throw new Error('R2 storage is not configured');
     }
 
+    if (!userId || userId.trim() === '') {
+        throw new Error('User ID is required for deletion safety.');
+    }
+
     try {
         const userPrefix = `users/${userId}/`;
         console.log('[R2Storage] Deleting all files with prefix:', userPrefix);
