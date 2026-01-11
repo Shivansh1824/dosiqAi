@@ -199,54 +199,41 @@ export default function ProfileScreen() {
 
                         <Text style={styles.modalSubtitle}>Choose which documents to clear:</Text>
 
-                        <View style={styles.clearOptionsContainer}>
+                        <View style={styles.optionsContainer}>
                             {/* Option 1: Local Documents */}
-                            <TouchableOpacity
-                                style={styles.clearOptionItem}
-                                onPress={handleClearLocalDocuments}
-                                activeOpacity={0.7}
-                            >
-                                <View style={styles.clearOptionIcon}>
-                                    <Feather name="smartphone" size={20} color={Colors.textPrimary} />
+                            <TouchableOpacity style={styles.optionButton} onPress={handleClearLocalDocuments}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.gray50 }]}>
+                                    <Feather name="smartphone" size={24} color={Colors.textPrimary} />
                                 </View>
-                                <View style={styles.clearOptionText}>
-                                    <Text style={styles.clearOptionTitle}>Clear Local Documents</Text>
-                                    <Text style={styles.clearOptionDesc}>Remove files from this device only</Text>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={styles.optionTitle}>Clear Local Documents</Text>
+                                    <Text style={styles.optionDescription}>Remove files from this device only</Text>
                                 </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
-
-                            <View style={styles.clearOptionDivider} />
 
                             {/* Option 2: Cloud Documents */}
-                            <TouchableOpacity
-                                style={styles.clearOptionItem}
-                                onPress={handleClearCloudDocuments}
-                                activeOpacity={0.7}
-                            >
-                                <View style={styles.clearOptionIcon}>
-                                    <Feather name="cloud-off" size={20} color={Colors.textPrimary} />
+                            <TouchableOpacity style={styles.optionButton} onPress={handleClearCloudDocuments}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.gray50 }]}>
+                                    <Feather name="cloud-off" size={24} color={Colors.textPrimary} />
                                 </View>
-                                <View style={styles.clearOptionText}>
-                                    <Text style={styles.clearOptionTitle}>Clear Cloud Documents</Text>
-                                    <Text style={styles.clearOptionDesc}>Delete files & reports only</Text>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={styles.optionTitle}>Clear Cloud Documents</Text>
+                                    <Text style={styles.optionDescription}>Delete files & reports only</Text>
                                 </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
 
-                            <View style={styles.clearOptionDivider} />
-
-                            {/* Option 3: Account Data (Destructive) */}
-                            <TouchableOpacity
-                                style={styles.clearOptionItem}
-                                onPress={handleClearAccountData}
-                                activeOpacity={0.7}
-                            >
-                                <View style={styles.clearOptionIcon}>
-                                    <Feather name="database" size={20} color={Colors.error} />
+                            {/* Option 3: Account Data */}
+                            <TouchableOpacity style={styles.optionButton} onPress={handleClearAccountData}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.gray50 }]}>
+                                    <Feather name="database" size={24} color={Colors.error} />
                                 </View>
-                                <View style={styles.clearOptionText}>
-                                    <Text style={[styles.clearOptionTitle, { color: Colors.error }]}>Clear Account Data</Text>
-                                    <Text style={styles.clearOptionDesc}>Delete Charts, Meds, Vitals & Docs</Text>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={[styles.optionTitle, { color: Colors.error }]}>Clear Account Data</Text>
+                                    <Text style={styles.optionDescription}>Delete Charts, Meds, Vitals & Docs</Text>
                                 </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
                         </View>
                     </Pressable>
@@ -387,38 +374,35 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         marginBottom: Sizes.lg,
     },
-    clearOptionsContainer: {
-        backgroundColor: Colors.gray50,
-        borderRadius: 16,
-        overflow: 'hidden',
+    optionsContainer: {
+        gap: Sizes.md,
     },
-    clearOptionItem: {
+    optionButton: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: Sizes.md,
-        backgroundColor: Colors.gray50,
+        backgroundColor: Colors.bgSecondary,
+        borderRadius: 16,
+        gap: Sizes.md,
     },
-    clearOptionIcon: {
-        width: 32,
+    optionIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginRight: Sizes.sm,
     },
-    clearOptionText: {
+    optionTextContainer: {
         flex: 1,
     },
-    clearOptionTitle: {
+    optionTitle: {
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.textPrimary,
         marginBottom: 2,
     },
-    clearOptionDesc: {
+    optionDescription: {
         fontSize: 12,
         color: Colors.textSecondary,
-    },
-    clearOptionDivider: {
-        height: 1,
-        backgroundColor: Colors.gray200,
-        marginLeft: 48, // Indent divider to align with text
     },
 });
