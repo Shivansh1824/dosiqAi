@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Modal, ScrollView, ActivityIndicator, Switch } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
 import { ParsedMedication, VerificationConfidence } from '../types/medicationVerification';
-import { getFrequencyText, getFoodRelationshipText, FoodRelationship } from '../types/medication';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
 import { formatFrequencyDisplay, calculateEndDate } from '../utils/medicationParser';
@@ -43,20 +41,7 @@ export default function MedicationVerificationCard({
 
   // Editable fields state
   const [editedName, setEditedName] = useState(medication.name);
-  const [editedDosage, setEditedDosage] = useState(medication.dosage);
   const [editedNotes, setEditedNotes] = useState(medication.notes);
-  const [editedFrequency, setEditedFrequency] = useState(medication.frequency);
-  const [editedTimeSlots, setEditedTimeSlots] = useState(medication.time_of_day);
-  const [editedFoodRelationship, setEditedFoodRelationship] = useState<FoodRelationship | undefined>(medication.food_relationship || 'anytime');
-  const [editedDuration, setEditedDuration] = useState<number>(medication.duration_days || 5);
-
-  // Modal state for frequency, food relationship, and time slots
-  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
-  const [showDurationPicker, setShowDurationPicker] = useState(false);
-  const [showFoodRelationshipPicker, setShowFoodRelationshipPicker] = useState(false);
-  const [showTimeSlotEditor, setShowTimeSlotEditor] = useState(false);
-  const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null);
-  const [tempTime, setTempTime] = useState(new Date());
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
 
   // Reminder toggle states (OFF by default for each time slot)
@@ -202,66 +187,6 @@ export default function MedicationVerificationCard({
     return null;
   };
 
-  // Duration Options (Medical Research based: Acute 1-14, Cycles 21-30, Chronic 60-90)
-  const DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 28, 30, 45, 60, 90];
-
-  // Frequency options
-  const FREQUENCY_OPTIONS = [
-    { value: 'once_daily', label: 'Once Daily', icon: '1×' },
-    { value: 'twice_daily', label: 'Twice Daily', icon: '2×' },
-    { value: 'three_times_daily', label: '3 Times Daily', icon: '3×' },
-    { value: 'four_times_daily', label: '4 Times Daily', icon: '4×' },
-
-    { value: 'weekly', label: 'Weekly', icon: '1/wk' },
-    { value: 'as_needed', label: 'As Needed', icon: 'PRN' },
-  ];
-
-  const FOOD_RELATIONSHIP_OPTIONS = [
-    { value: 'empty_stomach', label: 'Empty Stomach', icon: '⏰', description: '30-60 min before food' },
-    { value: 'before_food', label: 'Before Food', icon: '🍽️', description: '5-15 min before meals' },
-    { value: 'with_food', label: 'With Food', icon: '🍴', description: 'During or immediately after' },
-    { value: 'after_food', label: 'After Food', icon: '✅', description: '1-2 hours after meals' },
-    { value: 'anytime', label: 'Anytime', icon: '🔄', description: 'No restriction' },
-  ];
-
-  // Helper to generate default time slots based on frequency
-  const generateDefaultTimeSlots = (frequency: string): string[] => {
-    switch (frequency) {
-      case 'once_daily':
-        return ['09:00'];
-      case 'twice_daily':
-        return ['09:00', '21:00'];
-      case 'three_times_daily':
-        return ['09:00', '14:00', '21:00'];
-      case 'four_times_daily':
-        return ['09:00', '13:00', '17:00', '21:00'];
-      default:
-        return [];
-    }
-  };
-
-  // Helper to get max time slots allowed for a frequency
-  const getMaxTimeSlotsForFrequency = (frequency: string): number | null => {
-    switch (frequency) {
-      case 'once_daily':
-        return 1;
-      case 'twice_daily':
-        return 2;
-      case 'three_times_daily':
-        return 3;
-      case 'four_times_daily':
-        return 4;
-      case 'every_other_day':
-        return 1;
-      case 'weekly':
-        return 1;
-      case 'as_needed':
-        return null; // No limit
-      default:
-        return null;
-    }
-  };
-
   // Get confidence indicator styling
   const getConfidenceStyles = (confidence: VerificationConfidence) => {
     switch (confidence) {
@@ -299,12 +224,7 @@ export default function MedicationVerificationCard({
     setMedication({
       ...medication,
       name: editedName,
-      dosage: editedDosage,
       notes: editedNotes,
-      frequency: editedFrequency,
-      time_of_day: editedTimeSlots,
-      food_relationship: editedFoodRelationship,
-      duration_days: editedDuration, // Save the edited duration
       verified_by_user: true, // Mark as user-verified after editing
     });
     setIsEditing(false);
@@ -313,12 +233,7 @@ export default function MedicationVerificationCard({
   // Handle cancel edits
   const handleCancelEdits = () => {
     setEditedName(medication.name);
-    setEditedDosage(medication.dosage);
     setEditedNotes(medication.notes);
-    setEditedFrequency(medication.frequency);
-    setEditedTimeSlots(medication.time_of_day);
-    setEditedFoodRelationship(medication.food_relationship);
-    setEditedDuration(medication.duration_days || 5); // Reset duration
     setIsEditing(false);
   };
 
@@ -334,12 +249,7 @@ export default function MedicationVerificationCard({
           style: "destructive",
           onPress: () => {
             setEditedName(initialMedication.name);
-            setEditedDosage(initialMedication.dosage);
             setEditedNotes(initialMedication.notes);
-            setEditedFrequency(initialMedication.frequency);
-            setEditedTimeSlots(initialMedication.time_of_day);
-            setEditedFoodRelationship(initialMedication.food_relationship);
-            setEditedDuration(initialMedication.duration_days || 5);
           }
         }
       ]
@@ -636,16 +546,6 @@ export default function MedicationVerificationCard({
                 key={`time-bar-${index}`}
                 style={styles.timeBarModern}
                 activeOpacity={0.9}
-                onPress={() => {
-                  if (isEditing) {
-                    setEditingTimeIndex(index);
-                    const [h, m] = time.split(':').map(Number);
-                    const d = new Date();
-                    d.setHours(h, m, 0, 0);
-                    setTempTime(d);
-                    setShowTimeSlotEditor(true);
-                  }
-                }}
               >
                 {/* LEFT: Time Display - Stylish */}
                 <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
@@ -688,186 +588,6 @@ export default function MedicationVerificationCard({
       {/* Medication Details Grid */}
       {/* Medication Details Grid - Compact Layout */}
       <View style={styles.detailsGrid}>
-
-        {/* Vitals Row: Dosage | Frequency | Food */}
-        <View style={styles.vitalsContainer}>
-          {/* Dosage */}
-          <View style={styles.vitalItem}>
-            <View style={styles.vitalIconBadge}>
-              <Feather name="layers" size={14} color={Colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.vitalLabel}>DOSAGE</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.vitalInput}
-                  value={editedDosage}
-                  onChangeText={setEditedDosage}
-                  placeholder="e.g. 500mg"
-                />
-              ) : (
-                <Text style={styles.vitalValue}>{medication.dosage || '--'}</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.verticalDivider} />
-
-          {/* Frequency */}
-          <View style={styles.vitalItem}>
-            <View style={styles.vitalIconBadge}>
-              <Feather name="clock" size={14} color={Colors.secondary} />
-            </View>
-            <View>
-              <Text style={styles.vitalLabel}>FREQ</Text>
-              {isEditing ? (
-                <TouchableOpacity onPress={() => setShowFrequencyPicker(true)}>
-                  <Text style={styles.vitalValueLink}>
-                    {getFrequencyText(editedFrequency).replace(/ daily/i, '\ndaily').replace('As needed', 'As\nneeded')}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.vitalValue}>
-                  {getFrequencyText(medication.frequency).replace(/ daily/i, '\ndaily').replace('As needed', 'As\nneeded')}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.verticalDivider} />
-
-          {/* Food */}
-          <View style={styles.vitalItem}>
-            <View style={styles.vitalIconBadge}>
-              <Feather name="coffee" size={14} color={Colors.warning} />
-            </View>
-            <View>
-              <Text style={styles.vitalLabel}>TAKE</Text>
-              {isEditing ? (
-                <TouchableOpacity onPress={() => setShowFoodRelationshipPicker(true)}>
-                  <Text style={styles.vitalValueLink}>
-                    {getFoodRelationshipText(editedFoodRelationship).replace(' ', '\n')}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.vitalValue}>
-                  {getFoodRelationshipText(medication.food_relationship).replace(' ', '\n')}
-                </Text>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Time Slots - Horizontal Scroll (The "Potato" Fix) */}
-        {(medication.time_of_day.length > 0 || isEditing) && (
-          <View style={styles.sectionItem}>
-            <View style={styles.compactHeaderRow}>
-              <Text style={styles.detailLabel}>SCHEDULE</Text>
-              {isEditing && (
-                <TouchableOpacity
-                  style={styles.addTimeTinyButton}
-                  onPress={() => {
-                    const maxSlots = getMaxTimeSlotsForFrequency(editedFrequency);
-                    if (maxSlots === null || editedTimeSlots.length < maxSlots) {
-                      setEditingTimeIndex(null);
-                      setTempTime(new Date());
-                      setShowTimeSlotEditor(true);
-                    } else {
-                      Alert.alert('Limit Reached', 'Change frequency to add more.');
-                    }
-                  }}
-                >
-                  <Feather name="plus" size={12} color={Colors.primary} />
-                  <Text style={styles.addTimeTinyText}>Add</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeScrollContainer}>
-              {(isEditing ? editedTimeSlots : medication.time_of_day).map((time, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.timeChipCompact}
-                  activeOpacity={isEditing ? 0.7 : 1}
-                  onPress={() => {
-                    if (isEditing) {
-                      setEditingTimeIndex(index);
-                      // Robust Parsing
-                      try {
-                        const [h, m] = time.split(':').map(Number);
-                        if (!isNaN(h) && !isNaN(m)) {
-                          const d = new Date();
-                          d.setHours(h);
-                          d.setMinutes(m);
-                          d.setSeconds(0);
-                          d.setMilliseconds(0);
-                          setTempTime(d);
-                        } else {
-                          setTempTime(new Date()); // Fallback to now
-                        }
-                      } catch (e) {
-                        setTempTime(new Date());
-                      }
-                      setShowTimeSlotEditor(true);
-                    }
-                  }}
-                >
-                  <Feather name="watch" size={10} color={Colors.primary} />
-                  <Text style={styles.timeChipTextCompact}>{time}</Text>
-                  {isEditing && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        const updated = editedTimeSlots.filter((_, i) => i !== index);
-                        setEditedTimeSlots(updated);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Easier to hit
-                    >
-                      <Feather name="x" size={10} color={Colors.primary} style={{ marginLeft: 4 }} />
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-              ))}
-              {(!isEditing && medication.time_of_day.length === 0) && (
-                <Text style={styles.emptyStateText}>No specific times</Text>
-              )}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Duration / Start Date */}
-        <View style={styles.sectionItem}>
-          <Text style={styles.detailLabel}>DURATION & START</Text>
-          <View style={styles.durationRow}>
-            <TouchableOpacity
-              style={styles.dateCompactSelector}
-              onPress={() => setShowDatePicker(true)}
-              disabled={!isEditing && startDate === suggestedStartDate}
-            >
-              <Feather name="calendar" size={14} color={Colors.textSecondary} />
-              <Text style={styles.dateCompactText}>
-                Starts {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </Text>
-              {isEditing && <Feather name="edit-2" size={10} color={Colors.primary} />}
-            </TouchableOpacity>
-
-            {isEditing ? (
-              <TouchableOpacity
-                style={styles.durationBadge}
-                onPress={() => setShowDurationPicker(true)}
-              >
-                <Text style={styles.durationTextLink}>{editedDuration} Days</Text>
-                <Feather name="chevron-down" size={12} color={Colors.primary} />
-              </TouchableOpacity>
-            ) : (
-              medication.duration_days && (
-                <View style={styles.durationBadge}>
-                  <Text style={styles.durationText}>{medication.duration_days} Days</Text>
-                </View>
-              )
-            )}
-          </View>
-        </View>
-
         {/* Notes / Special Instructions (Collapsible) */}
         {(medication.notes || isEditing) && (
           <View style={styles.notesCompactContainer}>
@@ -976,235 +696,6 @@ export default function MedicationVerificationCard({
         minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
       />
       {/* ... Other modals (Frequency, Food, Time) would follow here ... */}
-
-      {/* Frequency Picker Modal */}
-      {
-        showFrequencyPicker && (
-          <Modal
-            visible={showFrequencyPicker}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowFrequencyPicker(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.frequencyPickerContainer}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Select Frequency</Text>
-                  <TouchableOpacity onPress={() => setShowFrequencyPicker(false)}>
-                    <Feather name="x" size={24} color={Colors.gray600} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.frequencyOptions}>
-                  {FREQUENCY_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.frequencyOption,
-                        editedFrequency === option.value && styles.frequencyOptionSelected
-                      ]}
-                      onPress={() => {
-                        setEditedFrequency(option.value as any);
-                        setShowFrequencyPicker(false);
-
-                        // Auto-adjust time slots based on new frequency
-                        const newTimeSlots = generateDefaultTimeSlots(option.value);
-                        const maxSlots = getMaxTimeSlotsForFrequency(option.value);
-
-                        if (newTimeSlots.length > 0) {
-                          // Use default time slots for the new frequency
-                          setEditedTimeSlots(newTimeSlots);
-                        } else if (maxSlots !== null && editedTimeSlots.length > maxSlots) {
-                          // Trim existing slots to fit new frequency limit
-                          setEditedTimeSlots(editedTimeSlots.slice(0, maxSlots));
-                        }
-                      }}
-                    >
-                      <View style={styles.frequencyIconBadge}>
-                        <Text style={styles.frequencyIconText}>{option.icon}</Text>
-                      </View>
-                      <Text style={styles.frequencyOptionText}>{option.label}</Text>
-                      {editedFrequency === option.value && (
-                        <Feather name="check" size={20} color={Colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
-        )
-      }
-
-      {/* Food Relationship Picker Modal */}
-      {
-        showFoodRelationshipPicker && (
-          <Modal
-            visible={showFoodRelationshipPicker}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowFoodRelationshipPicker(false)}
-          >
-            {/* ... existing food picker content ... reuse similarly structured component or update manually if needed */}
-            <View style={styles.modalOverlay}>
-              <View style={styles.frequencyPickerContainer}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Food Relationship</Text>
-                  <TouchableOpacity onPress={() => setShowFoodRelationshipPicker(false)}>
-                    <Feather name="x" size={24} color={Colors.gray600} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.frequencyOptions}>
-                  {FOOD_RELATIONSHIP_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.frequencyOption,
-                        editedFoodRelationship === option.value && styles.frequencyOptionSelected
-                      ]}
-                      onPress={() => {
-                        setEditedFoodRelationship(option.value as any);
-                        setShowFoodRelationshipPicker(false);
-                      }}
-                    >
-                      <View style={styles.frequencyIconBadge}>
-                        <Text style={styles.frequencyIconText}>{option.icon}</Text>
-                      </View>
-                      <Text style={styles.frequencyOptionText}>{option.label}</Text>
-                      {editedFoodRelationship === option.value && (
-                        <Feather name="check" size={20} color={Colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
-        )
-      }
-
-      {/* Duration Picker Modal */}
-      {
-        showDurationPicker && (
-          <Modal
-            visible={showDurationPicker}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowDurationPicker(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.frequencyPickerContainer}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Select Duration</Text>
-                  <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
-                    <Feather name="x" size={24} color={Colors.gray600} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.frequencyOptions}>
-                  {DURATION_OPTIONS.map((days) => (
-                    <TouchableOpacity
-                      key={days}
-                      style={[
-                        styles.frequencyOption,
-                        editedDuration === days && styles.frequencyOptionSelected
-                      ]}
-                      onPress={() => {
-                        setEditedDuration(days);
-                        setShowDurationPicker(false);
-                      }}
-                    >
-                      <View style={styles.frequencyIconBadge}>
-                        <Feather name="calendar" size={16} color={Colors.gray600} />
-                      </View>
-                      <Text style={styles.frequencyOptionText}>{days} Days</Text>
-                      {editedDuration === days && (
-                        <Feather name="check" size={20} color={Colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
-        )
-      }
-
-      {/* Time Slot Editor Modal */}
-      {
-        showTimeSlotEditor && (
-          <Modal
-            visible={showTimeSlotEditor}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowTimeSlotEditor(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.timePickerContainer}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {editingTimeIndex !== null ? 'Edit Time' : 'Add Time'}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowTimeSlotEditor(false)}>
-                    <Feather name="x" size={24} color={Colors.gray600} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ height: 200, width: '100%', justifyContent: 'center' }}>
-                  <DateTimePicker
-                    value={tempTime}
-                    mode="time"
-                    display="spinner"
-                    is24Hour={false}
-                    locale="en-US"
-                    themeVariant="light"
-                    textColor="black"
-                    minimumDate={new Date(2000, 0, 1)}
-                    maximumDate={new Date(2100, 0, 1)}
-                    onChange={(event, selectedTime) => {
-                      if (selectedTime) {
-                        setTempTime(selectedTime);
-                      }
-                    }}
-                    style={{ height: 200, width: '100%' }}
-                  />
-                </View>
-
-                <View style={styles.timePickerActions}>
-                  <TouchableOpacity
-                    style={styles.timePickerCancelButton}
-                    onPress={() => setShowTimeSlotEditor(false)}
-                  >
-                    <Text style={styles.timePickerCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.timePickerSaveButton}
-                    onPress={() => {
-                      const hours = tempTime.getHours().toString().padStart(2, '0');
-                      const minutes = tempTime.getMinutes().toString().padStart(2, '0');
-                      const timeString = `${hours}:${minutes}`;
-
-                      if (editingTimeIndex !== null) {
-                        const updated = [...editedTimeSlots];
-                        updated[editingTimeIndex] = timeString;
-                        setEditedTimeSlots(updated);
-                      } else {
-                        setEditedTimeSlots([...editedTimeSlots, timeString]);
-                      }
-
-                      setShowTimeSlotEditor(false);
-                    }}
-                  >
-                    <Text style={styles.timePickerSaveText}>Save</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
-        )
-      }
     </View >
   );
 }
