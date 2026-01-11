@@ -157,10 +157,11 @@ export default function ProfileScreen() {
                                 <Feather
                                     name={item.icon as any}
                                     size={20}
-                                    color={item.isDestructive ? Colors.orange : Colors.textSecondary}
+                                    // Professional Red/Error color instead of Orange/Yellow
+                                    color={item.isDestructive ? Colors.error : Colors.textSecondary}
                                 />
                             </View>
-                            <Text style={styles.menuLabel}>
+                            <Text style={[styles.menuLabel, { color: Colors.textPrimary }]}>
                                 {item.label}
                             </Text>
                             <Feather name="chevron-right" size={20} color={Colors.gray400} />
