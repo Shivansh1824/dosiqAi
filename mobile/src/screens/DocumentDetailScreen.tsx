@@ -1431,89 +1431,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           )}
         </View>
 
-        {/* Details Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Details</Text>
-          <View style={styles.patientInfoContainer}>
-            {/* Row 1: Date & Diagnosis */}
-            <View style={styles.patientInfoChip}>
-              <View style={styles.patientIconBadge}>
-                <Feather name="calendar" size={14} color={Colors.secondary} />
-              </View>
-              <View>
-                <Text style={styles.patientInfoLabel}>VISIT DATE</Text>
-                <Text style={styles.patientInfoValue} numberOfLines={1}>
-                  {document.ai_analysis_result?.common_data?.visit_date || formatDate(document.created_at)}
-                </Text>
-              </View>
-            </View>
 
-            {document.ai_analysis_result?.prescription_data?.medical_issue_diagnosis && (
-              <View style={styles.patientInfoChip}>
-                <View style={styles.patientIconBadge}>
-                  <Feather name="activity" size={14} color={Colors.error} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.patientInfoLabel}>DIAGNOSIS</Text>
-                  <Text style={styles.patientInfoValue}>
-                    {document.ai_analysis_result.prescription_data.medical_issue_diagnosis}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-
-            {document.ai_analysis_result?.prescription_data?.doctor_name && (
-              <View style={styles.patientInfoChip}>
-                <View style={styles.patientIconBadge}>
-                  <Feather name="user-plus" size={14} color={Colors.success} />
-                </View>
-                <View>
-                  <Text style={styles.patientInfoLabel}>DOCTOR</Text>
-                  <Text style={styles.patientInfoValue} numberOfLines={1}>
-                    {(() => {
-                      const rawName = document.ai_analysis_result.prescription_data.doctor_name;
-                      // Remove 'Dr.' or 'Dr ' prefix to get just the person's name
-                      const personName = rawName.replace(/^Dr\.?\s*/i, '').trim();
-                      const nameParts = personName.split(' ');
-                      const firstName = nameParts[0] || '';
-                      // Count only person's name characters (excluding Dr.)
-                      // If person name > 14 chars, use only first name; else use full name
-                      return personName.length > 14
-                        ? `Dr. ${firstName}`
-                        : `Dr. ${personName}`;
-                    })()}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-
-            <View style={styles.patientInfoChip}>
-              {document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending' ? (
-                <View style={[styles.patientIconBadge, { backgroundColor: 'transparent' }]}>
-                  <AnalysisLoading size={24} color={Colors.primary} />
-                </View>
-              ) : (
-                <View style={styles.patientIconBadge}>
-                  <Feather name="check" size={14} color={Colors.success} />
-                </View>
-              )}
-              <View>
-                <Text style={styles.patientInfoLabel}>STATUS</Text>
-                {document.ai_analysis_status === 'processing' ? (
-                  <Text style={[styles.patientInfoValue, { color: Colors.primary }]}>Processing</Text>
-                ) : document.ai_analysis_status === 'completed' ? (
-                  <Text style={[styles.patientInfoValue, { color: Colors.success }]}>Analyzed</Text>
-                ) : document.ai_analysis_status === 'failed' ? (
-                  <Text style={[styles.patientInfoValue, { color: Colors.error }]}>Failed</Text>
-                ) : (
-                  <Text style={styles.patientInfoValue}>Pending</Text>
-                )}
-              </View>
-            </View>
-          </View>
-        </View>
 
         {/* Detailed Medical Report Analysis - Always show for medical reports */}
         {document.ai_analysis_status === 'completed' &&
@@ -1719,15 +1637,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           document.ai_analysis_result &&
           document.ai_analysis_result.document_type !== 'medical_report' &&
           getSummary(document.ai_analysis_result) && (
-            <View style={styles.aiSummaryCard}>
-              <View style={styles.aiSummaryHeader}>
-                <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
-                <Text style={styles.aiSummaryTitle}>AI Summary</Text>
-              </View>
-              <Text style={styles.aiSummaryText}>
-                {getSummary(document.ai_analysis_result)}
-              </Text>
-            </View>
+            <PrescriptionSummary summary={getSummary(document.ai_analysis_result)!} />
           )}
 
         {/* Medications Section - Only for prescriptions with medicines */}
@@ -1901,15 +1811,15 @@ const styles = StyleSheet.create({
   previewCard: {
     backgroundColor: Colors.white,
     borderRadius: 0, // No border radius for edge-to-edge design
-    marginBottom: 8, // Minimal spacing - reduced from 12
+    marginBottom: 0, // Minimal spacing - reduced from 12
     // Deep Premium Shadow
     shadowColor: Colors.primaryDark,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
     shadowRadius: 24,
     elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.08)',
+    width: '100%',
+    marginHorizontal: 0,
     overflow: 'hidden', // Essential for hero image
   },
   heroImage: {
@@ -1917,14 +1827,7 @@ const styles = StyleSheet.create({
     height: 208, // Reduced from 260 (20% reduction for more vertical space)
     backgroundColor: Colors.gray50,
   },
-  pdfPreviewContainer: {
-    width: '100%',
-    height: 208, // Reduced from 260 (20% reduction)
-    backgroundColor: Colors.gray50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
+
   pdfIconWrapper: {
     width: 80,
     height: 80,
@@ -3243,9 +3146,9 @@ const styles = StyleSheet.create({
   // AI Summary Card Styles
   // AI Summary Card Styles
   aiSummaryCard: {
-    backgroundColor: Colors.white, // Consistency fix
-    // Removed: shadow*, elevation, border*
-    marginBottom: 12, // Reduced from Sizes.lg for tighter layout
+    backgroundColor: 'rgba(59, 130, 246, 0.05)', // Subtle Blue Tint
+    borderRadius: 16,
+    marginBottom: 12,
     padding: 16,
   },
   aiSummaryHeader: {
@@ -3255,15 +3158,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   aiSummaryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   aiSummaryText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: Colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.gray700,
     fontWeight: '400',
   },
   expandButton: {
