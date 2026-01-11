@@ -7,7 +7,7 @@ import { ParsedMedication, VerificationConfidence } from '../types/medicationVer
 import { getFrequencyText, getFoodRelationshipText, FoodRelationship } from '../types/medication';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
-import { formatFrequencyDisplay } from '../utils/medicationParser';
+import { formatFrequencyDisplay, calculateEndDate } from '../utils/medicationParser';
 import { getTimeOfDayCategory } from '../types/medicationSchedule';
 
 interface MedicationVerificationCardProps {
@@ -38,6 +38,8 @@ export default function MedicationVerificationCard({
   const [isVerifying, setIsVerifying] = useState(false);
   const [startDate, setStartDate] = useState(suggestedStartDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [endDate, setEndDate] = useState<string | null>(null); // null means auto-calculated
 
   // Editable fields state
   const [editedName, setEditedName] = useState(medication.name);
@@ -59,6 +61,24 @@ export default function MedicationVerificationCard({
 
   // Reminder toggle states (OFF by default for each time slot)
   const [reminderToggles, setReminderToggles] = useState<boolean[]>([]);
+
+  // Calculate end date from duration days (default 5 if not specified)
+  // If user manually set end date, use that; otherwise calculate from duration
+  const durationDays = medication.duration_days ?? 5;
+  const computedEndDate = endDate ?? calculateEndDate(startDate, durationDays);
+
+  // Format date for display (e.g., "Jan 12, 2026")
+  const formatDateDisplay = (isoDate: string) => {
+    return new Date(isoDate).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  };
+
+  // Handle start date change - recalculate end date if not manually set
+  const handleStartDateChange = (newStartDate: string) => {
+    setStartDate(newStartDate);
+    // If end date was manually set, keep it; otherwise it auto-recalculates
+  };
 
   // Auto-generate reminder times based on total_times_per_day
   const generateAutoReminderTimes = (timesPerDay: number): string[] => {
@@ -522,6 +542,73 @@ export default function MedicationVerificationCard({
           )}
         </View>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          COURSE PERIOD SECTION
+          Shows Start Date and End Date cards side-by-side (editable)
+      ═══════════════════════════════════════════════════════════════════ */}
+      <View style={styles.coursePeriodContainer}>
+        <View style={styles.coursePeriodHeader}>
+          <Feather name="calendar" size={16} color={Colors.primary} />
+          <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
+        </View>
+        <View style={styles.coursePeriodCards}>
+          {/* Start Date Card - Clickable */}
+          <TouchableOpacity
+            style={styles.dateCard}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.dateCardContent}>
+              <Text style={styles.dateCardLabel}>START DATE</Text>
+              <Text style={styles.dateCardValue}>{formatDateDisplay(startDate)}</Text>
+            </View>
+            <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
+          </TouchableOpacity>
+
+          {/* Arrow */}
+          <Feather name="arrow-right" size={14} color={Colors.gray400} />
+
+          {/* End Date Card - Clickable */}
+          <TouchableOpacity
+            style={styles.dateCard}
+            onPress={() => setShowEndDatePicker(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.dateCardContent}>
+              <Text style={styles.dateCardLabel}>END DATE</Text>
+              <Text style={styles.dateCardValue}>{formatDateDisplay(computedEndDate)}</Text>
+            </View>
+            <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Start Date Picker Modal */}
+      <DatePickerModal
+        visible={showDatePicker}
+        date={startDate}
+        onConfirm={(date) => {
+          handleStartDateChange(date);
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
+        maximumDate={new Date().toISOString().split('T')[0]}
+        minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+      />
+
+      {/* End Date Picker Modal */}
+      <DatePickerModal
+        visible={showEndDatePicker}
+        date={computedEndDate}
+        onConfirm={(date) => {
+          setEndDate(date);
+          setShowEndDatePicker(false);
+        }}
+        onCancel={() => setShowEndDatePicker(false)}
+        minimumDate={startDate}
+        maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+      />
 
       {/* ═══════════════════════════════════════════════════════════════════
           REMINDER TIME BARS SECTION
@@ -1799,5 +1886,58 @@ const styles = StyleSheet.create({
     fontSize: 9, // Same as medicine name
     fontWeight: '700', // Same as medicine name
     color: Colors.gray600, // Same as medicine name
+  },
+
+  // ══════ COURSE PERIOD SECTION ══════
+  coursePeriodContainer: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  coursePeriodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  coursePeriodTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.gray500,
+    letterSpacing: 0.5,
+  },
+  coursePeriodCards: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateCard: {
+    flex: 1,
+    backgroundColor: '#EFF6FF', // Light blue matching app theme
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateCardContent: {
+    flex: 1,
+  },
+  dateCardEditIcon: {
+    marginLeft: 8,
+    marginRight: 4,
+  },
+  dateCardLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.gray500,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  dateCardValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.gray800,
   },
 });

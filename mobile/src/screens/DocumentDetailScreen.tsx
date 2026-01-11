@@ -1440,7 +1440,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 <Feather name="calendar" size={14} color={Colors.secondary} />
               </View>
               <View>
-                <Text style={styles.patientInfoLabel}>DATE</Text>
+                <Text style={styles.patientInfoLabel}>VISIT DATE</Text>
                 <Text style={styles.patientInfoValue} numberOfLines={1}>
                   {document.ai_analysis_result?.common_data?.visit_date || formatDate(document.created_at)}
                 </Text>
@@ -1482,7 +1482,18 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                 <View>
                   <Text style={styles.patientInfoLabel}>DOCTOR</Text>
                   <Text style={styles.patientInfoValue} numberOfLines={1}>
-                    {document.ai_analysis_result.prescription_data.doctor_name.replace('Dr ', 'Dr. ').split(' ').slice(0, 2).join(' ')}
+                    {(() => {
+                      const rawName = document.ai_analysis_result.prescription_data.doctor_name;
+                      // Remove 'Dr.' or 'Dr ' prefix to get just the person's name
+                      const personName = rawName.replace(/^Dr\.?\s*/i, '').trim();
+                      const nameParts = personName.split(' ');
+                      const firstName = nameParts[0] || '';
+                      // Count only person's name characters (excluding Dr.)
+                      // If person name > 14 chars, use only first name; else use full name
+                      return personName.length > 14
+                        ? `Dr. ${firstName}`
+                        : `Dr. ${personName}`;
+                    })()}
                   </Text>
                 </View>
               </View>
@@ -1774,9 +1785,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     document.id,
                     displayTitle
                   );
-                  const suggestedStartDate =
-                    document.ai_analysis_result?.common_data?.visit_date ||
-                    document.created_at.split('T')[0];
+                  const suggestedStartDate = document.created_at.split('T')[0]; // Use upload date only
                   const activeMeds = getActiveMedications();
                   const duplicateOf = detectDuplicateMedication(
                     parsedMed.name,
