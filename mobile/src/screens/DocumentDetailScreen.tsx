@@ -33,6 +33,7 @@ import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
+import { PrescriptionDetails, PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 

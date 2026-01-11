@@ -1,26 +1,31 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes } from '../constants';
-import { ParsedMedication, VerificationConfidence } from '../types/medicationVerification';
+import { Colors } from '../constants';
+import { ParsedMedication } from '../types/medicationVerification';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
-import { formatFrequencyDisplay, calculateEndDate } from '../utils/medicationParser';
-import { getTimeOfDayCategory } from '../types/medicationSchedule';
+import { calculateEndDate } from '../utils/medicationParser';
+import { MedicationHeader } from './medication/MedicationHeader';
+import { MedicineInfoTable } from './medication/MedicineInfoTable';
+import { CoursePeriodSection } from './medication/CoursePeriodSection';
+import { ReminderTimesSection } from './medication/ReminderTimesSection';
 
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
   documentId: string;
   documentTitle: string;
-  suggestedStartDate: string; // YYYY-MM-DD format (AI-extracted or upload date)
+  suggestedStartDate: string;
   onVerifyAndAdd: (medication: ParsedMedication, startDate: string) => Promise<void>;
   duplicateOf?: Medication;
-
-  // Dismiss functionality
   onDismiss?: () => void;
   medicineIndex?: number;
 }
 
+/**
+ * MedicationVerificationCard - Card for reviewing and adding AI-extracted medications
+ * Refactored to use extracted sub-components
+ */
 export default function MedicationVerificationCard({
   medication: initialMedication,
   documentId,
@@ -37,35 +42,21 @@ export default function MedicationVerificationCard({
   const [startDate, setStartDate] = useState(suggestedStartDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [endDate, setEndDate] = useState<string | null>(null); // null means auto-calculated
+  const [endDate, setEndDate] = useState<string | null>(null);
 
   // Editable fields state
   const [editedName, setEditedName] = useState(medication.name);
   const [editedNotes, setEditedNotes] = useState(medication.notes);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
 
-  // Reminder toggle states (OFF by default for each time slot)
+  // Reminder toggle states
   const [reminderToggles, setReminderToggles] = useState<boolean[]>([]);
 
-  // Calculate end date from duration days (default 5 if not specified)
-  // If user manually set end date, use that; otherwise calculate from duration
+  // Calculate end date
   const durationDays = medication.duration_days ?? 5;
   const computedEndDate = endDate ?? calculateEndDate(startDate, durationDays);
 
-  // Format date for display (e.g., "Jan 12, 2026")
-  const formatDateDisplay = (isoDate: string) => {
-    return new Date(isoDate).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
-    });
-  };
-
-  // Handle start date change - recalculate end date if not manually set
-  const handleStartDateChange = (newStartDate: string) => {
-    setStartDate(newStartDate);
-    // If end date was manually set, keep it; otherwise it auto-recalculates
-  };
-
-  // Auto-generate reminder times based on total_times_per_day
+  // Auto-generate reminder times
   const generateAutoReminderTimes = (timesPerDay: number): string[] => {
     const defaultTimes: Record<number, string[]> = {
       1: ['09:00'],
@@ -78,7 +69,7 @@ export default function MedicationVerificationCard({
     return defaultTimes[timesPerDay] || defaultTimes[3];
   };
 
-  // Get reminder times (from medication or auto-generated)
+  // Get reminder times
   const getReminderTimes = (): string[] => {
     const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
     if (medication.time_of_day?.length > 0) {
@@ -88,14 +79,6 @@ export default function MedicationVerificationCard({
       return generateAutoReminderTimes(timesPerDay);
     }
     return [];
-  };
-
-  // Format time for display (24h -> 12h with AM/PM)
-  const formatTimeDisplay = (time24: string): string => {
-    const [hours, minutes] = time24.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12;
-    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   // Get interval display text
@@ -108,124 +91,13 @@ export default function MedicationVerificationCard({
     return `Every ${intervalDays} Days`;
   };
 
-  // Get clean medicine name for display (without strength, Title Case)
-  const getCleanMedicineName = (): string => {
-    let name = medication.name || '';
-    // Remove strength patterns like "200mg", "500 mg", "10ml", etc.
-    name = name.replace(/\s*\d+\s*(mg|ml|mcg|g|iu|%)/gi, '').trim();
-    // Remove bracketed numbers like "(200)", "(500)", "(250/5)", etc.
-    name = name.replace(/\s*\(\s*[\d\/\.]+\s*(mg|ml|mcg|g)?\s*\)/gi, '').trim();
-    // Convert to Title Case (first letter of each word capitalized)
-    return name
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Get food relation display text (null for 'any' to hide it)
-  const getFoodRelation = (): string | null => {
-    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
-    if (!relation || relation === 'any' || relation === 'anytime') return null;
-    if (relation === 'after_food') return 'After Meal';
-    if (relation === 'before_food') return 'Before Meal';
-    if (relation === 'with_food') return 'With Meal';
-    if (relation === 'empty_stomach') return 'Empty Stomach';
-    return null;
-  };
-
-  // Get dynamic meal label based on time, dosage pattern, and total_times_per_day
-  const getMealLabel = (time: string, index: number): string | null => {
-    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
-
-    // If no meal relationship or it's 'any'/'anytime', return null
-    if (!relation || relation === 'any' || relation === 'anytime') return null;
-
-    // Determine prefix based on meal relationship
-    const prefix = relation === 'before_food' ? 'Before' :
-      relation === 'after_food' ? 'After' :
-        relation === 'with_food' ? 'With' : null;
-
-    if (!prefix) return null;
-
-    // Get total times per day from AI analysis
-    const totalTimesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day;
-
-    // If total_times_per_day > 3, show generic meal label
-    if (totalTimesPerDay && totalTimesPerDay > 3) {
-      return `${prefix} Meal`;
-    }
-
-    // If total_times_per_day <= 3, show specific meal based on time of day
-    if (totalTimesPerDay && totalTimesPerDay <= 3) {
-      // Get dosage pattern (e.g., "1-0-1" or "1-1-1")
-      const dosagePattern = medication.timing_dosage ?? medication.source_raw?.timing?.dosage;
-
-      // Determine time category for this specific time slot
-      const timeCategory = getTimeOfDayCategory(time);
-
-      // Map time category to meal name
-      const mealMap: Record<string, string> = {
-        'morning': 'Breakfast',
-        'afternoon': 'Lunch',
-        'night': 'Dinner'
-      };
-
-      const mealName = mealMap[timeCategory];
-
-      if (mealName) {
-        return `${prefix} ${mealName}`;
-      }
-    }
-
-    // Fallback: show generic meal label if we have data but couldn't determine specific meal
-    if (totalTimesPerDay || medication.timing_dosage || medication.source_raw?.timing?.dosage) {
-      return `${prefix} Meal`;
-    }
-
-    // No data available, return null
-    return null;
-  };
-
-  // Get confidence indicator styling
-  const getConfidenceStyles = (confidence: VerificationConfidence) => {
-    switch (confidence) {
-      case 'high':
-        return {
-          badgeColor: '#E6F4EA', // Soft green background
-          badgeTextColor: '#1E4620', // Dark green text
-          iconColor: '#137333', // Medium green icon
-          icon: 'check-circle' as const,
-          text: 'AI Confident',
-        };
-      case 'medium':
-        return {
-          badgeColor: '#FEF7E0', // Soft yellow background
-          badgeTextColor: '#5F370E', // Dark yellow/brown text
-          iconColor: '#F9AB00', // Medium yellow icon
-          icon: 'alert-circle' as const,
-          text: 'AI Uncertain',
-        };
-      case 'low':
-        return {
-          badgeColor: '#FCE8E6', // Soft red background
-          badgeTextColor: '#8C1D18', // Dark red text
-          iconColor: '#C5221F', // Medium red icon
-          icon: 'alert-triangle' as const,
-          text: 'AI Assumed',
-        };
-    }
-  };
-
-  const confidenceStyle = getConfidenceStyles(medication.confidence);
-
   // Handle save edits
   const handleSaveEdits = () => {
     setMedication({
       ...medication,
       name: editedName,
       notes: editedNotes,
-      verified_by_user: true, // Mark as user-verified after editing
+      verified_by_user: true,
     });
     setIsEditing(false);
   };
@@ -237,7 +109,7 @@ export default function MedicationVerificationCard({
     setIsEditing(false);
   };
 
-  // Handle Reset to AI (Original Values)
+  // Handle Reset to AI
   const handleResetToAI = () => {
     Alert.alert(
       "Reset to AI Defaults?",
@@ -273,233 +145,67 @@ export default function MedicationVerificationCard({
     }
   };
 
-  // Handle delete/dismiss medication
+  // Handle delete/dismiss
   const handleDelete = () => {
     Alert.alert(
       'Remove Medication?',
       `${medication.name} will be hidden from this verification list. You can always re-scan the document to see it again.`,
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
-            if (onDismiss) {
-              onDismiss();
-            }
-          },
+          onPress: () => onDismiss?.(),
         },
       ],
       { cancelable: true }
     );
   };
 
+  // Handle reminder toggle change
+  const handleReminderToggleChange = (index: number, value: boolean) => {
+    const newToggles = [...reminderToggles];
+    while (newToggles.length <= index) {
+      newToggles.push(false);
+    }
+    newToggles[index] = value;
+    setReminderToggles(newToggles);
+  };
+
   return (
     <View style={styles.card}>
-      {/* Header Row: Name & Confidence Badge */}
-      <View style={styles.cardHeader}>
-        <View style={styles.headerLeft}>
-          <View style={styles.iconContainer}>
-            <Feather name="package" size={20} color={Colors.primary} />
-          </View>
-          <View style={styles.headerTitleContainer}>
-            {isEditing ? (
-              <TextInput
-                style={styles.nameInput}
-                value={editedName}
-                onChangeText={setEditedName}
-                placeholder="Medication name"
-                autoFocus
-                multiline
-              />
-            ) : (
-              <Text style={styles.medicationName} numberOfLines={2} adjustsFontSizeToFit>
-                {medication.name}
-              </Text>
-            )}
-
-            <View style={styles.subtitleRow}>
-              {/* Confidence Badge moved here to prevent title squeezing */}
-              {!isEditing && (
-                <>
-                  <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                    <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
-                    <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
-                      {confidenceStyle.text}
-                    </Text>
-                  </View>
-
-                  {/* Strength & Form Display */}
-                  {(medication.strength || medication.form) && (
-                    <Text style={[styles.tableHeaderText, { textTransform: 'lowercase' }]}>
-                      {medication.strength}
-                      {medication.strength && medication.form ? ' ' : ''}
-                      {medication.form && (
-                        <Text style={{ textTransform: 'capitalize' }}>
-                          {medication.form}
-                        </Text>
-                      )}
-                    </Text>
-                  )}
-                </>
-              )}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.headerActions}>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setIsEditing(!isEditing)}
-              activeOpacity={0.7}
-            >
-              <Feather name={isEditing ? 'x' : 'edit-3'} size={18} color={Colors.gray500} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleDelete}
-              activeOpacity={0.7}
-            >
-              <Feather name="trash-2" size={18} color={Colors.gray500} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+      {/* Header */}
+      <MedicationHeader
+        name={medication.name}
+        strength={medication.strength}
+        form={medication.form}
+        confidence={medication.confidence}
+        isEditing={isEditing}
+        editedName={editedName}
+        onEditedNameChange={setEditedName}
+        onToggleEdit={() => setIsEditing(!isEditing)}
+        onDelete={handleDelete}
+      />
 
       <View style={styles.divider} />
 
-      {/* Medicine Info Table - Scientific Name, Type, Purpose */}
-      {(medication.scientific_name || medication.medicine_type || medication.medicine_purpose) && (
-        <View style={styles.medicineInfoTable}>
-          {/* Sci Name Row */}
-          {medication.scientific_name && (
-            <View style={styles.tableRow}>
-              <View style={styles.tableLabelCell}>
-                <Text style={styles.tableHeaderText}>Sci Name</Text>
-              </View>
-              <View style={styles.tableValueCell}>
-                <Text style={styles.tableDataText} numberOfLines={2}>
-                  {medication.scientific_name}
-                </Text>
-              </View>
-            </View>
-          )}
-          {/* Med Type Row */}
-          {medication.medicine_type && (
-            <View style={styles.tableRow}>
-              <View style={styles.tableLabelCell}>
-                <Text style={styles.tableHeaderText}>Med Type</Text>
-              </View>
-              <View style={styles.tableValueCell}>
-                <Text style={styles.tableDataText} numberOfLines={2}>
-                  {medication.medicine_type}
-                </Text>
-              </View>
-            </View>
-          )}
-          {/* Med Purpose Row */}
-          {medication.medicine_purpose && (
-            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-              <View style={styles.tableLabelCell}>
-                <Text style={styles.tableHeaderText}>Med Purpose</Text>
-              </View>
-              <View style={styles.tableValueCell}>
-                <Text style={styles.tableDataText} numberOfLines={2}>
-                  {medication.medicine_purpose}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
+      {/* Medicine Info Table */}
+      <MedicineInfoTable medication={medication} />
 
-      {/* Frequency & Duration Table */}
-      {(medication.source_raw?.timing || medication.timing_dosage || medication.total_times_per_day || medication.interval_days !== undefined || medication.duration_days || medication.source_raw?.duration_days) && (
-        <View style={styles.medicineInfoTable}>
-          {/* Frequency Row */}
-          <View style={styles.tableRow}>
-            <View style={styles.tableLabelCell}>
-              <Text style={styles.tableHeaderText}>Frequency</Text>
-            </View>
-            <View style={styles.tableValueCell}>
-              <Text style={styles.tableDataText} numberOfLines={2}>
-                {formatFrequencyDisplay(
-                  medication.timing_dosage ?? medication.source_raw?.timing?.dosage,
-                  medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day,
-                  medication.interval_days ?? medication.source_raw?.interval_days
-                )}
-              </Text>
-            </View>
-          </View>
-
-          {/* Duration Row */}
-          {(medication.duration_days || medication.source_raw?.duration_days) && (
-            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-              <View style={styles.tableLabelCell}>
-                <Text style={styles.tableHeaderText}>Duration</Text>
-              </View>
-              <View style={styles.tableValueCell}>
-                <Text style={styles.tableDataText}>
-                  {medication.duration_days ?? medication.source_raw?.duration_days} Days
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          COURSE PERIOD SECTION
-          Shows Start Date and End Date cards side-by-side (editable)
-      ═══════════════════════════════════════════════════════════════════ */}
-      <View style={styles.coursePeriodContainer}>
-        <View style={styles.coursePeriodHeader}>
-          <Feather name="calendar" size={16} color={Colors.primary} />
-          <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
-        </View>
-        <View style={styles.coursePeriodCards}>
-          {/* Start Date Card - Clickable */}
-          <TouchableOpacity
-            style={styles.dateCard}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.dateCardContent}>
-              <Text style={styles.dateCardLabel}>START DATE</Text>
-              <Text style={styles.dateCardValue}>{formatDateDisplay(startDate)}</Text>
-            </View>
-            <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
-          </TouchableOpacity>
-
-          {/* Arrow */}
-          <Feather name="arrow-right" size={14} color={Colors.gray400} />
-
-          {/* End Date Card - Clickable */}
-          <TouchableOpacity
-            style={styles.dateCard}
-            onPress={() => setShowEndDatePicker(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.dateCardContent}>
-              <Text style={styles.dateCardLabel}>END DATE</Text>
-              <Text style={styles.dateCardValue}>{formatDateDisplay(computedEndDate)}</Text>
-            </View>
-            <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Course Period Section */}
+      <CoursePeriodSection
+        startDate={startDate}
+        endDate={computedEndDate}
+        onStartDatePress={() => setShowDatePicker(true)}
+        onEndDatePress={() => setShowEndDatePicker(true)}
+      />
 
       {/* Start Date Picker Modal */}
       <DatePickerModal
         visible={showDatePicker}
         date={startDate}
         onConfirm={(date) => {
-          handleStartDateChange(date);
+          setStartDate(date);
           setShowDatePicker(false);
         }}
         onCancel={() => setShowDatePicker(false)}
@@ -520,75 +226,20 @@ export default function MedicationVerificationCard({
         maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
       />
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          REMINDER TIME BARS SECTION
-          Time on LEFT, Dose label CENTER, Toggle switch RIGHT (OFF default)
-      ═══════════════════════════════════════════════════════════════════ */}
-      {getReminderTimes().length > 0 && (
-        <View style={styles.reminderBarsContainer}>
-          {/* Section Header */}
-          <View style={styles.reminderHeader}>
-            <View style={styles.reminderHeaderLeft}>
-              <Feather name="bell" size={16} color={Colors.primary} />
-              <Text style={styles.reminderTitle}>REMINDER TIMES</Text>
-              {getIntervalText() && (
-                <View style={styles.intervalBadge}>
-                  <Text style={styles.intervalText}>{getIntervalText()}</Text>
-                </View>
-              )}
-            </View>
-          </View>
+      {/* Reminder Times Section */}
+      <ReminderTimesSection
+        reminderTimes={getReminderTimes()}
+        intervalText={getIntervalText()}
+        medicineName={medication.name}
+        reminderToggles={reminderToggles}
+        totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
+        timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
+        foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
+        onToggleChange={handleReminderToggleChange}
+      />
 
-          {/* Time Bars - Modern Design: Time | Label + Toggle */}
-          <View style={styles.timeBarsWrapper}>
-            {getReminderTimes().map((time, index) => (
-              <TouchableOpacity
-                key={`time-bar-${index}`}
-                style={styles.timeBarModern}
-                activeOpacity={0.9}
-              >
-                {/* LEFT: Time Display - Stylish */}
-                <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
-
-                {/* CENTER: Dynamic Meal Label (specific to time and dosage) */}
-                {getMealLabel(time, index) && (
-                  <Text style={styles.timeBarFoodRelation}>{getMealLabel(time, index)}</Text>
-                )}
-
-                {/* RIGHT GROUP: Label + Toggle (closer together) */}
-                <View style={styles.timeBarRightGroup}>
-                  <Text style={styles.timeBarDoseLabel} numberOfLines={1}>
-                    {getCleanMedicineName()}
-                  </Text>
-                  <Switch
-                    value={reminderToggles[index] || false}
-                    onValueChange={(value) => {
-                      const newToggles = [...reminderToggles];
-                      while (newToggles.length <= index) {
-                        newToggles.push(false);
-                      }
-                      newToggles[index] = value;
-                      setReminderToggles(newToggles);
-                    }}
-                    trackColor={{
-                      false: Colors.gray300,
-                      true: Colors.primary
-                    }}
-                    thumbColor={Colors.white}
-                    ios_backgroundColor={Colors.gray300}
-                    style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
-                  />
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Medication Details Grid */}
-      {/* Medication Details Grid - Compact Layout */}
+      {/* Instructions Section */}
       <View style={styles.detailsGrid}>
-        {/* Notes / Special Instructions (Collapsible) */}
         {(medication.notes || isEditing) && (
           <View style={styles.notesCompactContainer}>
             <TouchableOpacity
@@ -626,16 +277,14 @@ export default function MedicationVerificationCard({
       </View>
 
       {/* Duplicate Warning */}
-      {
-        duplicateOf && (
-          <View style={styles.duplicateWarning}>
-            <Feather name="alert-triangle" size={16} color={Colors.warning} />
-            <Text style={styles.duplicateText}>
-              Previously prescribed: {duplicateOf.name}
-            </Text>
-          </View>
-        )
-      }
+      {duplicateOf && (
+        <View style={styles.duplicateWarning}>
+          <Feather name="alert-triangle" size={16} color={Colors.warning} />
+          <Text style={styles.duplicateText}>
+            Previously prescribed: {duplicateOf.name}
+          </Text>
+        </View>
+      )}
 
       {/* Action Buttons */}
       <View style={styles.actionRow}>
@@ -682,266 +331,24 @@ export default function MedicationVerificationCard({
           </TouchableOpacity>
         )}
       </View>
-
-      {/* Re-including modals (DatePicker, FrequencyPicker, etc.) - same logic as before, just kept for context */}
-      <DatePickerModal
-        visible={showDatePicker}
-        date={startDate}
-        onConfirm={(date) => {
-          setStartDate(date);
-          setShowDatePicker(false);
-        }}
-        onCancel={() => setShowDatePicker(false)}
-        maximumDate={new Date().toISOString().split('T')[0]}
-        minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-      />
-      {/* ... Other modals (Frequency, Food, Time) would follow here ... */}
-    </View >
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    // Removed: backgroundColor, borderRadius, shadowColor, shadowOffset, shadowOpacity, shadowRadius, elevation, borderWidth, borderColor
-    marginBottom: 12, // Reduced from 20
-    paddingTop: 12,   // Reduced from 20
+    marginBottom: 12,
+    paddingTop: 12,
     overflow: 'hidden',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 16, // Reduced from 20
-    paddingBottom: 10, // Reduced from 12
-  },
-  headerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#EFF6FF', // Blue-50
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    paddingRight: 8,
-    justifyContent: 'center',
-  },
-  subtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
-    flexWrap: 'wrap',
-  },
-  headerActions: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.gray50,
-    borderRadius: 10,
-  },
   divider: {
-    height: 0, // Hidden - removed divider line after medication name
+    height: 0,
     backgroundColor: Colors.gray100,
     marginHorizontal: 20,
   },
-  confidenceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    gap: 4,
-    alignSelf: 'flex-start', // Important for wrapping
-  },
-  confidenceText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  medicationName: {
-    fontSize: 20, // Slightly reduced from 22 to fit better
-    fontWeight: '800',
-    color: Colors.gray900,
-    fontFamily: 'System',
-    letterSpacing: -0.5,
-    marginBottom: 2,
-  },
-  scientificName: {
-    fontSize: 13,
-    color: Colors.gray500,
-    fontWeight: '500',
-  },
-  nameInput: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.gray900,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.primary,
-    paddingVertical: 2,
-    minWidth: 150,
-  },
-
-  // --- Medicine Info Table ---
-  medicineInfoTable: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    borderRadius: 12,
-    backgroundColor: Colors.gray50,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-    overflow: 'hidden',
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.gray100,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
-  },
-  tableHeaderCell: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tableHeaderText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.gray500,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'left',
-  },
-  tableDataRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-  },
-  tableDataCell: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: Colors.gray100,
-  },
-  tableDataText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.gray700,
-    textAlign: 'left',
-    lineHeight: 16,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
-  },
-  tableLabelCell: {
-    minWidth: 105,
-    paddingVertical: 10,
-    paddingLeft: 12,
-    paddingRight: 12,
-    backgroundColor: Colors.gray50,
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: Colors.gray200,
-  },
-  tableValueCell: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-  },
-
-  // --- Compact Details Grid ---
   detailsGrid: {
-    padding: 16, // Reduced from 20
-    gap: 16, // Reduced from 20
-  },
-  vitalsContainer: {
-    flexDirection: 'row',
-    backgroundColor: Colors.gray100, // Darker gray for better visibility
-    borderRadius: 16,
-    padding: 12, // Reduced from 16
-    gap: 12, // Reduced from 16
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  vitalItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  verticalDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.gray200,
-  },
-  vitalIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  vitalLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.gray400,
-    textAlign: 'center',
-    marginBottom: 2,
-    letterSpacing: 0.5,
-  },
-  vitalValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.gray800,
-    textAlign: 'center',
-    lineHeight: 16, // Tighter leading for multiline
-  },
-  vitalValueLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.primary,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  vitalInput: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.gray900,
-    textAlign: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.primary,
-    minWidth: 40,
-  },
-
-  // --- Sections ---
-  sectionItem: {
-    gap: 8,
+    padding: 16,
+    gap: 16,
   },
   detailLabel: {
     fontSize: 11,
@@ -949,86 +356,11 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
     letterSpacing: 0.5,
   },
-  compactHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-
-  // --- Time Scroll ---
-  timeScrollContainer: {
-    gap: 8,
-    paddingRight: 20,
-  },
-  timeChipCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.1)',
-  },
-  timeChipTextCompact: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primaryDark,
-  },
-  emptyStateText: {
-    fontSize: 13,
-    color: Colors.gray400,
-    fontStyle: 'italic',
-  },
-
-  // --- Start / Duration ---
-  durationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  dateCompactSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  dateCompactText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.gray700,
-  },
-  durationBadge: {
-    backgroundColor: Colors.gray100,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  durationText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.gray600,
-  },
-  durationTextLink: {
-    fontSize: 12,
-    fontWeight: '700', // Bolder to indicate interaction
-    color: Colors.primary,
-    textDecorationLine: 'underline',
-  },
-
-  // --- Notes ---
   notesCompactContainer: {
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.gray200,
-    borderStyle: 'dashed', // Keep dashed reference
+    borderStyle: 'dashed',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1053,8 +385,6 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 60,
   },
-
-  // --- Footer ---
   duplicateWarning: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1088,7 +418,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
     gap: 8,
-    // Removed shadow properties for flat design
   },
   verifyButtonText: {
     color: Colors.white,
@@ -1117,12 +446,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   resetButton: {
-    width: 44, // Square touch target
+    width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.gray100,
-    borderRadius: 12, // Slightly rounded square
+    borderRadius: 12,
     marginRight: 8,
   },
   saveButton: {
@@ -1144,291 +473,5 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: '700',
     fontSize: 16,
-  },
-
-  // --- Modals (Keep/Update) ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  frequencyPickerContainer: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    maxHeight: '80%',
-    ...Sizes.shadows.xl,
-  },
-  timePickerContainer: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    ...Sizes.shadows.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.gray900,
-  },
-  frequencyOptions: {
-    marginBottom: 20,
-  },
-  frequencyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray100,
-    gap: 16,
-  },
-  frequencyOptionSelected: {
-    backgroundColor: '#EFF6FF',
-    borderBottomColor: 'transparent',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-  },
-  frequencyIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.gray100,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  frequencyIconText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.gray600,
-  },
-  frequencyOptionText: {
-    flex: 1,
-    fontSize: 16,
-    color: Colors.gray800,
-    fontWeight: '500',
-  },
-  timePickerActions: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 24,
-  },
-  timePickerCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: Colors.gray100,
-    borderRadius: 14,
-  },
-  timePickerCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.gray600,
-  },
-  timePickerSaveButton: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-  },
-  timePickerSaveText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-
-  // Helpers
-  addTimeTinyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
-  },
-  addTimeTinyText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-
-  // ═══════════════════════════════════════════════════════════════════
-  // REMINDER TIME BARS STYLES
-  // ═══════════════════════════════════════════════════════════════════
-
-  reminderBarsContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  reminderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  reminderHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  reminderTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.gray500,
-    letterSpacing: 0.5,
-  },
-  intervalBadge: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  intervalText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#059669',
-  },
-
-  timeBarsWrapper: {
-    gap: 10,
-  },
-
-  // ══════ DESIGN B: Minimal Flat ══════
-  timeBarFlat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-  },
-  timeBarFlatLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  timeBarDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.primary,
-  },
-  timeBarLabelFlat: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.gray600,
-  },
-  timeBarFlatRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  timeBarTimeFlat: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.gray900,
-  },
-
-  // ══════ MODERN DESIGN: Time | Label | Toggle ══════
-  timeBarModern: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#EFF6FF', // Light blue matching app theme (blue-50)
-    borderRadius: 12, // Matches table border radius
-    paddingVertical: 10,
-    paddingLeft: 14,
-    paddingRight: 8, // Reduced right padding to align toggle more right
-  },
-  timeBarTimeLeft: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.gray900,
-    letterSpacing: -0.3,
-    minWidth: 75,
-  },
-  timeBarRightGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4, // Tighter spacing between name and toggle
-  },
-  timeBarDoseLabel: {
-    fontSize: 9, // Reduced size
-    fontWeight: '700', // More bold
-    color: Colors.gray600,
-    maxWidth: 90,
-  },
-  timeBarFoodRelation: {
-    fontSize: 9, // Same as medicine name
-    fontWeight: '700', // Same as medicine name
-    color: Colors.gray600, // Same as medicine name
-  },
-
-  // ══════ COURSE PERIOD SECTION ══════
-  coursePeriodContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  coursePeriodHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  coursePeriodTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.gray500,
-    letterSpacing: 0.5,
-  },
-  coursePeriodCards: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dateCard: {
-    flex: 1,
-    backgroundColor: '#EFF6FF', // Light blue matching app theme
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dateCardContent: {
-    flex: 1,
-  },
-  dateCardEditIcon: {
-    marginLeft: 8,
-    marginRight: 4,
-  },
-  dateCardLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: Colors.gray500,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  dateCardValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.gray800,
   },
 });
