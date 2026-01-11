@@ -642,12 +642,25 @@ export function parseAIMedication(
   const confidence = determineConfidence(medicine.assumed_enriched_data?.is_identified);
 
   // Build notes from special instructions
+  // User Request: Prioritize dosage_instruction. If empty, fallback to special_instructions + "From: Title"
   let notes = '';
-  if (medicine.special_instructions) {
-    notes = medicine.special_instructions;
-  }
-  if (documentTitle) {
-    notes = notes ? `${notes}\n\nFrom: ${documentTitle}` : `From: ${documentTitle}`;
+
+  if (medicine.dosage_instruction) {
+    const instruction = medicine.dosage_instruction.trim();
+    notes = instruction.charAt(0).toUpperCase() + instruction.slice(1);
+
+    // Append special instructions if they exist and aren't contained in dosage_instruction
+    if (medicine.special_instructions && !notes.includes(medicine.special_instructions)) {
+      notes = `${notes}\n${medicine.special_instructions}`;
+    }
+  } else {
+    // Fallback: Original logic
+    if (medicine.special_instructions) {
+      notes = medicine.special_instructions;
+    }
+    if (documentTitle) {
+      notes = notes ? `${notes}\n\nFrom: ${documentTitle}` : `From: ${documentTitle}`;
+    }
   }
 
   // Parse food relationship: prioritize direct value from timing, fallback to special_instructions

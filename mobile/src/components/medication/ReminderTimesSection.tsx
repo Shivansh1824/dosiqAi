@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput } from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 
@@ -13,6 +13,10 @@ interface ReminderTimesSectionProps {
     timingDosage?: string;
     foodRelationship?: string;
     onToggleChange: (index: number, value: boolean) => void;
+
+    // Note-related props (prepared for future functionality)
+    defaultNotes?: Record<string, string>;  // { "08:00": "Take with water", ... }
+    onDefaultNoteChange?: (time: string, note: string) => void;
 }
 
 /**
@@ -90,7 +94,7 @@ const getCleanMedicineName = (name: string): string => {
 };
 
 /**
- * ReminderTimesSection - Reminder time bars with toggle switches
+ * ReminderTimesSection - Reminder time bars with toggle switches and expandable notes
  * Extracted from MedicationVerificationCard.tsx
  */
 export function ReminderTimesSection({
@@ -102,10 +106,22 @@ export function ReminderTimesSection({
     timingDosage,
     foodRelationship,
     onToggleChange,
+    defaultNotes = {},
+    onDefaultNoteChange,
 }: ReminderTimesSectionProps) {
+    // Track which notes are expanded
+    const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
+
     if (reminderTimes.length === 0) return null;
 
     const cleanName = getCleanMedicineName(medicineName);
+
+    const toggleNoteExpansion = (index: number) => {
+        setExpandedNotes(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
 
     return (
         <View style={styles.reminderBarsContainer}>
@@ -126,39 +142,76 @@ export function ReminderTimesSection({
             <View style={styles.timeBarsWrapper}>
                 {reminderTimes.map((time, index) => {
                     const mealLabel = getMealLabel(time, index, foodRelationship, totalTimesPerDay, timingDosage);
+                    const hasNote = !!defaultNotes[time];
+                    const isExpanded = expandedNotes[index];
 
                     return (
-                        <TouchableOpacity
-                            key={`time-bar-${index}`}
-                            style={styles.timeBarModern}
-                            activeOpacity={0.9}
-                        >
-                            {/* LEFT: Time Display */}
-                            <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
+                        <View key={`time-bar-${index}`} style={styles.barWithNoteContainer}>
+                            {/* Main Reminder Bar */}
+                            <View style={styles.timeBarModern}>
+                                {/* LEFT: Time Display */}
+                                <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
 
-                            {/* CENTER: Dynamic Meal Label */}
-                            {mealLabel && (
-                                <Text style={styles.timeBarFoodRelation}>{mealLabel}</Text>
-                            )}
+                                {/* CENTER: Dynamic Meal Label */}
+                                {mealLabel && (
+                                    <Text style={styles.timeBarFoodRelation}>{mealLabel}</Text>
+                                )}
 
-                            {/* RIGHT GROUP: Label + Toggle */}
-                            <View style={styles.timeBarRightGroup}>
-                                <Text style={styles.timeBarDoseLabel} numberOfLines={1}>
-                                    {cleanName}
-                                </Text>
-                                <Switch
-                                    value={reminderToggles[index] || false}
-                                    onValueChange={(value) => onToggleChange(index, value)}
-                                    trackColor={{
-                                        false: Colors.gray300,
-                                        true: Colors.primary
-                                    }}
-                                    thumbColor={Colors.white}
-                                    ios_backgroundColor={Colors.gray300}
-                                    style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
-                                />
+                                {/* RIGHT GROUP: Label + Toggle + Note Icon */}
+                                <View style={styles.timeBarRightGroup}>
+                                    <Text style={styles.timeBarDoseLabel} numberOfLines={1}>
+                                        {cleanName}
+                                    </Text>
+                                    <Switch
+                                        value={reminderToggles[index] || false}
+                                        onValueChange={(value) => onToggleChange(index, value)}
+                                        trackColor={{
+                                            false: Colors.gray300,
+                                            true: Colors.primary
+                                        }}
+                                        thumbColor={Colors.white}
+                                        ios_backgroundColor={Colors.gray300}
+                                        style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+                                    />
+
+                                    {/* Note Icon */}
+                                    <TouchableOpacity
+                                        onPress={() => toggleNoteExpansion(index)}
+                                        style={styles.noteIconButton}
+                                        activeOpacity={0.7}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={hasNote ? "clipboard-edit-outline" : "clipboard-edit-outline"}
+                                            size={18}
+                                            color={hasNote ? '#F59E0B' : Colors.gray400}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                        </TouchableOpacity>
+
+                            {/* Expandable Note Section */}
+                            {isExpanded && (
+                                <View style={styles.noteSection}>
+                                    <View style={styles.noteInputContainer}>
+                                        <MaterialCommunityIcons name="comment-text-outline" size={16} color="#D97706" style={styles.noteInputIcon} />
+                                        <TextInput
+                                            style={styles.noteInput}
+                                            value={defaultNotes[time] || ''}
+                                            onChangeText={(text) => onDefaultNoteChange?.(time, text)}
+                                            placeholder="Add reminder note (e.g., 'Take with water')..."
+                                            placeholderTextColor={Colors.gray400}
+                                            multiline
+                                            maxLength={150}
+                                        />
+                                    </View>
+                                    {defaultNotes[time] && (
+                                        <Text style={styles.noteCharCount}>
+                                            {defaultNotes[time].length}/150
+                                        </Text>
+                                    )}
+                                </View>
+                            )}
+                        </View>
                     );
                 })}
             </View>
@@ -238,5 +291,49 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '700',
         color: Colors.gray600,
+    },
+
+    // Note-related styles
+    barWithNoteContainer: {
+        marginBottom: 0,
+    },
+    noteIconButton: {
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 4,
+    },
+    noteSection: {
+        backgroundColor: '#FEF3C7',
+        borderWidth: 1,
+        borderColor: '#FCD34D',
+        borderRadius: 10,
+        marginTop: 8,
+        padding: 12,
+    },
+    noteInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+    },
+    noteInputIcon: {
+        marginTop: 2,
+    },
+    noteInput: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 20,
+        color: '#78716C',
+        minHeight: 40,
+        maxHeight: 80,
+        padding: 0,
+    },
+    noteCharCount: {
+        fontSize: 10,
+        color: '#D97706',
+        textAlign: 'right',
+        marginTop: 6,
+        fontWeight: '500',
     },
 });

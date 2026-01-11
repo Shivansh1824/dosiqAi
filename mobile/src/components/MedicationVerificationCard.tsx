@@ -52,6 +52,9 @@ export default function MedicationVerificationCard({
   // Reminder toggle states
   const [reminderToggles, setReminderToggles] = useState<boolean[]>([]);
 
+  // Reminder default notes state (for note feature)
+  const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
+
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
   const computedEndDate = endDate ?? calculateEndDate(startDate, durationDays);
@@ -172,6 +175,15 @@ export default function MedicationVerificationCard({
     setReminderToggles(newToggles);
   };
 
+  // Handle default note change
+  const handleDefaultNoteChange = (time: string, note: string) => {
+    setReminderDefaultNotes(prev => ({
+      ...prev,
+      [time]: note
+    }));
+  };
+
+
   return (
     <View style={styles.card}>
       {/* Header */}
@@ -236,7 +248,10 @@ export default function MedicationVerificationCard({
         timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
         foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
         onToggleChange={handleReminderToggleChange}
+        defaultNotes={reminderDefaultNotes}
+        onDefaultNoteChange={handleDefaultNoteChange}
       />
+
 
       {/* Instructions Section */}
       <View style={styles.detailsGrid}>
