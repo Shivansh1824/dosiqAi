@@ -160,7 +160,7 @@ export default function ProfileScreen() {
                                     color={item.isDestructive ? Colors.orange : Colors.textSecondary}
                                 />
                             </View>
-                            <Text style={[styles.menuLabel, item.isDestructive && { color: Colors.orange }]}>
+                            <Text style={styles.menuLabel}>
                                 {item.label}
                             </Text>
                             <Feather name="chevron-right" size={20} color={Colors.gray400} />
@@ -201,8 +201,8 @@ export default function ProfileScreen() {
                         <View style={styles.optionsContainer}>
                             {/* Option 1: Local Documents */}
                             <TouchableOpacity style={styles.optionButton} onPress={handleClearLocalDocuments}>
-                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.orange + '15' }]}>
-                                    <Feather name="smartphone" size={24} color={Colors.orange} />
+                                <View style={styles.optionIconContainer}>
+                                    <Feather name="smartphone" size={24} color={Colors.textPrimary} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
                                     <Text style={styles.optionTitle}>Clear Local Documents</Text>
@@ -213,23 +213,23 @@ export default function ProfileScreen() {
 
                             {/* Option 2: Cloud Documents (Middle Tier) */}
                             <TouchableOpacity style={styles.optionButton} onPress={handleClearCloudDocuments}>
-                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.error + '15' }]}>
-                                    <Feather name="cloud-off" size={24} color={Colors.error} />
+                                <View style={styles.optionIconContainer}>
+                                    <Feather name="cloud-off" size={24} color={Colors.textPrimary} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
-                                    <Text style={[styles.optionTitle, { color: Colors.error }]}>Clear Cloud Documents</Text>
+                                    <Text style={styles.optionTitle}>Clear Cloud Documents</Text>
                                     <Text style={styles.optionDescription}>Delete files & reports only</Text>
                                 </View>
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
 
                             {/* Option 3: Account Data (Highest Tier) */}
-                            <TouchableOpacity style={[styles.optionButton, { backgroundColor: '#FEF2F2' }]} onPress={handleClearAccountData}>
-                                <View style={[styles.optionIconContainer, { backgroundColor: '#FEE2E2' }]}>
-                                    <Feather name="database" size={24} color="#DC2626" />
+                            <TouchableOpacity style={styles.optionButton} onPress={handleClearAccountData}>
+                                <View style={styles.optionIconContainer}>
+                                    <Feather name="database" size={24} color={Colors.error} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
-                                    <Text style={[styles.optionTitle, { color: '#DC2626', fontWeight: '700' }]}>Clear Account Data</Text>
+                                    <Text style={[styles.optionTitle, { color: Colors.error }]}>Clear Account Data</Text>
                                     <Text style={styles.optionDescription}>Delete Charts, Meds, Vitals & Docs</Text>
                                 </View>
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
@@ -380,14 +380,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: Sizes.md,
-        backgroundColor: Colors.bgSecondary,
-        borderRadius: 16,
+        backgroundColor: Colors.white,
+        borderRadius: 12,
         gap: Sizes.md,
+        borderWidth: 1,
+        borderColor: Colors.gray100,
     },
     optionIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: Colors.gray50,
         justifyContent: 'center',
         alignItems: 'center',
     },
