@@ -201,7 +201,7 @@ export default function ProfileScreen() {
                         <View style={styles.optionsContainer}>
                             {/* Option 1: Local Documents */}
                             <TouchableOpacity style={styles.optionButton} onPress={handleClearLocalDocuments}>
-                                <View style={styles.optionIconContainer}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.gray50 }]}>
                                     <Feather name="smartphone" size={24} color={Colors.textPrimary} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
@@ -211,9 +211,9 @@ export default function ProfileScreen() {
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
 
-                            {/* Option 2: Cloud Documents (Middle Tier) */}
+                            {/* Option 2: Cloud Documents */}
                             <TouchableOpacity style={styles.optionButton} onPress={handleClearCloudDocuments}>
-                                <View style={styles.optionIconContainer}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.gray50 }]}>
                                     <Feather name="cloud-off" size={24} color={Colors.textPrimary} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
@@ -223,13 +223,13 @@ export default function ProfileScreen() {
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
 
-                            {/* Option 3: Account Data (Highest Tier) */}
+                            {/* Option 3: Account Data */}
                             <TouchableOpacity style={styles.optionButton} onPress={handleClearAccountData}>
-                                <View style={styles.optionIconContainer}>
-                                    <Feather name="database" size={24} color={Colors.error} />
+                                <View style={[styles.optionIconContainer, { backgroundColor: Colors.gray50 }]}>
+                                    <Feather name="database" size={24} color={Colors.textPrimary} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
-                                    <Text style={[styles.optionTitle, { color: Colors.error }]}>Clear Account Data</Text>
+                                    <Text style={styles.optionTitle}>Clear Account Data</Text>
                                     <Text style={styles.optionDescription}>Delete Charts, Meds, Vitals & Docs</Text>
                                 </View>
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
@@ -380,17 +380,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: Sizes.md,
-        backgroundColor: Colors.white,
-        borderRadius: 12,
+        backgroundColor: Colors.bgSecondary,
+        borderRadius: 16,
         gap: Sizes.md,
-        borderWidth: 1,
-        borderColor: Colors.gray100,
     },
     optionIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Colors.gray50,
+        width: 48,
+        height: 48,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
     },
