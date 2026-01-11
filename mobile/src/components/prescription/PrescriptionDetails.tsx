@@ -9,9 +9,7 @@ import AnalysisLoading from '../AnalysisLoading';
 interface PrescriptionDetailsProps {
     analysisResult?: DocumentAnalysisResult;
     analysisStatus?: 'pending' | 'processing' | 'completed' | 'failed';
-    patientName: string;
     documentCreatedAt: string;
-    documentType: string;
 }
 
 /**
@@ -21,9 +19,7 @@ interface PrescriptionDetailsProps {
 export function PrescriptionDetails({
     analysisResult,
     analysisStatus,
-    patientName,
     documentCreatedAt,
-    documentType,
 }: PrescriptionDetailsProps) {
     const prescriptionData = analysisResult?.prescription_data;
     const patientInfo = analysisResult?.patient_info;
@@ -60,18 +56,6 @@ export function PrescriptionDetails({
                     </View>
                 )}
 
-                {/* Row 2: Patient & Doctor */}
-                <View style={styles.patientInfoChip}>
-                    <View style={styles.patientIconBadge}>
-                        <Feather name="user" size={14} color={Colors.primary} />
-                    </View>
-                    <View>
-                        <Text style={styles.patientInfoLabel}>PATIENT</Text>
-                        <Text style={styles.patientInfoValue} numberOfLines={1}>
-                            {(patientInfo?.name || patientName || '').split(' ')[0]}
-                        </Text>
-                    </View>
-                </View>
 
                 {prescriptionData?.doctor_name && (
                     <View style={styles.patientInfoChip}>
@@ -87,20 +71,6 @@ export function PrescriptionDetails({
                     </View>
                 )}
 
-                {/* Row 3: Type & Analysis */}
-                <View style={styles.patientInfoChip}>
-                    <View style={styles.patientIconBadge}>
-                        <Feather name="file" size={14} color={Colors.info} />
-                    </View>
-                    <View>
-                        <Text style={styles.patientInfoLabel}>TYPE</Text>
-                        <Text style={styles.patientInfoValue} numberOfLines={1}>
-                            {analysisResult?.document_type
-                                ? formatDocumentType(analysisResult.document_type)
-                                : documentType}
-                        </Text>
-                    </View>
-                </View>
 
                 <View style={styles.patientInfoChip}>
                     {analysisStatus === 'processing' || analysisStatus === 'pending' ? (
@@ -134,13 +104,13 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: Colors.white,
         padding: 16,
-        marginBottom: 8,
+        marginBottom: 12,
     },
     cardTitle: {
         fontSize: 18,
         fontWeight: '700',
         color: Colors.textPrimary,
-        marginBottom: 4,
+        marginBottom: 8,
         letterSpacing: -0.5,
     },
     patientInfoContainer: {

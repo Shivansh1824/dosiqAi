@@ -33,7 +33,7 @@ import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { PrescriptionDetails, PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -113,7 +113,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
   // Get family member name
   const familyMember = familyMembers.find(m => m.id === document.family_member_id);
-  const patientName = familyMember?.name || 'Unknown';
+
 
   // Get display title - prefer AI-generated filename from analysis result, fallback to document title
   // Smart Header Logic
@@ -1462,18 +1462,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               </View>
             )}
 
-            {/* Row 2: Patient & Doctor */}
-            <View style={styles.patientInfoChip}>
-              <View style={styles.patientIconBadge}>
-                <Feather name="user" size={14} color={Colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.patientInfoLabel}>PATIENT</Text>
-                <Text style={styles.patientInfoValue} numberOfLines={1}>
-                  {(document.ai_analysis_result?.patient_info?.name || patientName || '').split(' ')[0]}
-                </Text>
-              </View>
-            </View>
 
             {document.ai_analysis_result?.prescription_data?.doctor_name && (
               <View style={styles.patientInfoChip}>
@@ -1500,20 +1488,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               </View>
             )}
 
-            {/* Row 3: Type & Analysis */}
-            <View style={styles.patientInfoChip}>
-              <View style={styles.patientIconBadge}>
-                <Feather name="file" size={14} color={Colors.info} />
-              </View>
-              <View>
-                <Text style={styles.patientInfoLabel}>TYPE</Text>
-                <Text style={styles.patientInfoValue} numberOfLines={1}>
-                  {document.ai_analysis_result?.document_type
-                    ? formatDocumentType(document.ai_analysis_result.document_type)
-                    : document.type}
-                </Text>
-              </View>
-            </View>
 
             <View style={styles.patientInfoChip}>
               {document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending' ? (
@@ -1761,7 +1735,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           document.ai_analysis_result?.prescription_data?.medicines &&
           document.ai_analysis_result.prescription_data.medicines.length > 0 && (
             <View style={styles.card}>
-              <View style={styles.cardHeader}>
+              <View style={[styles.cardHeader, { marginBottom: 8 }]}>
                 <Text style={styles.cardTitle}>Medications</Text>
                 <View style={styles.cardBadge}>
                   <Text style={styles.cardBadgeText}>
@@ -2154,14 +2128,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     // Removed: borderRadius, shadow*, elevation
     padding: 16, // MD3: Reduced from 20
-    marginBottom: 8, // Minimal spacing
+    marginBottom: 12, // Minimal spacing
     // Flat design - no shadows
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 4, // Tighter spacing (was 10)
+    marginBottom: 8, // Tighter spacing (was 10)
     letterSpacing: -0.5,
   },
   summaryCard: {
@@ -3067,7 +3041,7 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 12, // Reduced from Sizes.lg (24) for tighter layout
+    marginBottom: 8, // Reduced from Sizes.lg (24) for tighter layout
   },
   medicationsContainer: {
     gap: Sizes.md,
@@ -3278,18 +3252,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   aiSummaryTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: Colors.gray900,
+    fontWeight: '700',
+    color: Colors.textPrimary,
     letterSpacing: -0.5,
   },
   aiSummaryText: {
-    fontSize: 16,
-    lineHeight: 26,
-    color: Colors.gray700,
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.textPrimary,
     fontWeight: '400',
   },
   expandButton: {
