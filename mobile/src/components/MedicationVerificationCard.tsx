@@ -8,6 +8,7 @@ import { getFrequencyText, getFoodRelationshipText, FoodRelationship } from '../
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
 import { formatFrequencyDisplay } from '../utils/medicationParser';
+import { getTimeOfDayCategory } from '../types/medicationSchedule';
 
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
@@ -125,6 +126,59 @@ export default function MedicationVerificationCard({
     if (relation === 'before_food') return 'Before Meal';
     if (relation === 'with_food') return 'With Meal';
     if (relation === 'empty_stomach') return 'Empty Stomach';
+    return null;
+  };
+
+  // Get dynamic meal label based on time, dosage pattern, and total_times_per_day
+  const getMealLabel = (time: string, index: number): string | null => {
+    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
+
+    // If no meal relationship or it's 'any'/'anytime', return null
+    if (!relation || relation === 'any' || relation === 'anytime') return null;
+
+    // Determine prefix based on meal relationship
+    const prefix = relation === 'before_food' ? 'Before' :
+      relation === 'after_food' ? 'After' :
+        relation === 'with_food' ? 'With' : null;
+
+    if (!prefix) return null;
+
+    // Get total times per day from AI analysis
+    const totalTimesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day;
+
+    // If total_times_per_day > 3, show generic meal label
+    if (totalTimesPerDay && totalTimesPerDay > 3) {
+      return `${prefix} Meal`;
+    }
+
+    // If total_times_per_day <= 3, show specific meal based on time of day
+    if (totalTimesPerDay && totalTimesPerDay <= 3) {
+      // Get dosage pattern (e.g., "1-0-1" or "1-1-1")
+      const dosagePattern = medication.timing_dosage ?? medication.source_raw?.timing?.dosage;
+
+      // Determine time category for this specific time slot
+      const timeCategory = getTimeOfDayCategory(time);
+
+      // Map time category to meal name
+      const mealMap: Record<string, string> = {
+        'morning': 'Breakfast',
+        'afternoon': 'Lunch',
+        'night': 'Dinner'
+      };
+
+      const mealName = mealMap[timeCategory];
+
+      if (mealName) {
+        return `${prefix} ${mealName}`;
+      }
+    }
+
+    // Fallback: show generic meal label if we have data but couldn't determine specific meal
+    if (totalTimesPerDay || medication.timing_dosage || medication.source_raw?.timing?.dosage) {
+      return `${prefix} Meal`;
+    }
+
+    // No data available, return null
     return null;
   };
 
@@ -509,9 +563,9 @@ export default function MedicationVerificationCard({
                 {/* LEFT: Time Display - Stylish */}
                 <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
 
-                {/* CENTER: Food Relation (hidden for 'any') */}
-                {getFoodRelation() && (
-                  <Text style={styles.timeBarFoodRelation}>{getFoodRelation()}</Text>
+                {/* CENTER: Dynamic Meal Label (specific to time and dosage) */}
+                {getMealLabel(time, index) && (
+                  <Text style={styles.timeBarFoodRelation}>{getMealLabel(time, index)}</Text>
                 )}
 
                 {/* RIGHT GROUP: Label + Toggle (closer together) */}

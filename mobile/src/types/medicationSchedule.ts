@@ -19,8 +19,8 @@ export type MedicineType =
 // Medication status for daily tracking
 export type MedicationStatus = 'pending' | 'taken' | 'missed' | 'skipped';
 
-// Time of day categories
-export type TimeOfDayCategory = 'morning' | 'afternoon' | 'evening' | 'night';
+// Time of day categories (aligned with 1-1-1 dosage format: morning-afternoon-night)
+export type TimeOfDayCategory = 'morning' | 'afternoon' | 'night';
 
 // Instruction types
 export type MedicationInstruction =
@@ -191,16 +191,14 @@ export const getInstructionText = (instruction: MedicationInstruction): string =
     }
 };
 
-// Helper function to categorize time into time of day
+// Helper function to categorize time into time of day (3 categories to match 1-1-1 dosage format)
 export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
     const hour = parseInt(time.split(':')[0]);
 
     if (hour >= 5 && hour < 12) {
         return 'morning';
-    } else if (hour >= 12 && hour < 17) {
+    } else if (hour >= 12 && hour < 18) {
         return 'afternoon';
-    } else if (hour >= 17 && hour < 21) {
-        return 'evening';
     } else {
         return 'night';
     }
@@ -213,8 +211,6 @@ export const getTimeOfDayText = (category: TimeOfDayCategory): string => {
             return 'Morning';
         case 'afternoon':
             return 'Afternoon';
-        case 'evening':
-            return 'Evening';
         case 'night':
             return 'Night';
     }
@@ -227,8 +223,6 @@ export const getTimeOfDayIcon = (category: TimeOfDayCategory): string => {
             return 'sunrise';
         case 'afternoon':
             return 'sun';
-        case 'evening':
-            return 'sunset';
         case 'night':
             return 'moon';
     }
