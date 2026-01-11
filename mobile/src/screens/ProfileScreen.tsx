@@ -10,7 +10,7 @@ import { useDocumentsStore } from '../store/documentsStore';
 export default function ProfileScreen() {
     const navigation = useNavigation();
     const { user, logout } = useAuthStore();
-    const { clearAllLocalDocuments, clearAllCloudDocuments } = useDocumentsStore();
+    const { clearAllLocalDocuments, clearAllCloudDocuments, clearAllAccountData } = useDocumentsStore();
     const [isClearing, setIsClearing] = useState(false);
     const [showClearOptions, setShowClearOptions] = useState(false);
 
@@ -72,21 +72,50 @@ export default function ProfileScreen() {
         setShowClearOptions(false);
         setTimeout(() => {
             Alert.alert(
-                '⚠️ Clear Cloud Documents',
-                'WARNING: This action is destructive and CANNOT be undone.\n\nIt will permanently delete ALL your documents from the server and cloud storage.',
+                'Clear Cloud Documents',
+                'This will permanently delete all your Documents and Files from the server.\n\n(Medications, Vitals, and Appointments will be preserved)',
                 [
                     { text: 'Cancel', style: 'cancel' },
                     {
-                        text: 'Delete Everything',
+                        text: 'Delete Docs',
                         style: 'destructive',
                         onPress: async () => {
                             if (!user?.id) return;
                             try {
                                 setIsClearing(true);
                                 await clearAllCloudDocuments(user.id);
-                                Alert.alert('Deleted', 'All cloud documents have been permanently deleted.', [{ text: 'OK' }]);
+                                Alert.alert('Deleted', 'All cloud documents and files deleted.', [{ text: 'OK' }]);
                             } catch (error) {
                                 Alert.alert('Error', 'Failed to clear cloud documents: ' + (error instanceof Error ? error.message : 'Unknown error'), [{ text: 'OK' }]);
+                            } finally {
+                                setIsClearing(false);
+                            }
+                        },
+                    },
+                ]
+            );
+        }, 300);
+    };
+
+    const handleClearAccountData = () => {
+        setShowClearOptions(false);
+        setTimeout(() => {
+            Alert.alert(
+                '⚠️ Clear Account Data',
+                'WARNING: This will delete EVERYTHING:\n\n• Documents & Files\n• Medications\n• Vitals & Charts\n• Appointments\n\nOnly Family Profiles will be preserved. This cannot be undone.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete EVERYTHING',
+                        style: 'destructive',
+                        onPress: async () => {
+                            if (!user?.id) return;
+                            try {
+                                setIsClearing(true);
+                                await clearAllAccountData(user.id);
+                                Alert.alert('Account Reset', 'All account data has been wiped successfully.', [{ text: 'OK' }]);
+                            } catch (error) {
+                                Alert.alert('Error', 'Failed to clear account data: ' + (error instanceof Error ? error.message : 'Unknown error'), [{ text: 'OK' }]);
                             } finally {
                                 setIsClearing(false);
                             }
@@ -182,14 +211,26 @@ export default function ProfileScreen() {
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>
 
-                            {/* Option 2: Cloud Documents */}
+                            {/* Option 2: Cloud Documents (Middle Tier) */}
                             <TouchableOpacity style={styles.optionButton} onPress={handleClearCloudDocuments}>
                                 <View style={[styles.optionIconContainer, { backgroundColor: Colors.error + '15' }]}>
                                     <Feather name="cloud-off" size={24} color={Colors.error} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
                                     <Text style={[styles.optionTitle, { color: Colors.error }]}>Clear Cloud Documents</Text>
-                                    <Text style={styles.optionDescription}>Permanently delete from server</Text>
+                                    <Text style={styles.optionDescription}>Delete files & reports only</Text>
+                                </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
+                            </TouchableOpacity>
+
+                            {/* Option 3: Account Data (Highest Tier) */}
+                            <TouchableOpacity style={[styles.optionButton, { backgroundColor: '#FEF2F2' }]} onPress={handleClearAccountData}>
+                                <View style={[styles.optionIconContainer, { backgroundColor: '#FEE2E2' }]}>
+                                    <Feather name="database" size={24} color="#DC2626" />
+                                </View>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={[styles.optionTitle, { color: '#DC2626', fontWeight: '700' }]}>Clear Account Data</Text>
+                                    <Text style={styles.optionDescription}>Delete Charts, Meds, Vitals & Docs</Text>
                                 </View>
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
                             </TouchableOpacity>

@@ -641,4 +641,53 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       throw error;
     }
   },
+
+  /**
+   * Clear ALL Account Data (Meds, Vitals, Docs, etc.)
+   * Preserving ONLY Family Members and Upload Limits
+   */
+  clearAllAccountData: async (userId: string) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+      }
+
+      console.log('[DocumentsStore] 🚨 STARTING COMPREHENSIVE ACCOUNT DATA WIPE for:', userId);
+
+      // 1. Clear Documents & Files first (Reusing existing logic)
+      // This handles R2, Documents, Lab Reports, Test Results
+      await get().clearAllCloudDocuments(userId);
+
+      // 2. Clear Medications & Logs
+      console.log('[DocumentsStore] Clearing Medications...');
+      await supabase.from('medication_logs').delete().eq('user_id', userId);
+      await supabase.from('medications').delete().eq('user_id', userId);
+
+      // 3. Clear Vitals & metrics
+      console.log('[DocumentsStore] Clearing Vitals & Charts...');
+      await supabase.from('health_vitals').delete().eq('user_id', userId);
+      await supabase.from('metric_annotations').delete().eq('user_id', userId);
+      await supabase.from('chart_preferences').delete().eq('user_id', userId);
+
+      // 4. Clear Appointments
+      console.log('[DocumentsStore] Clearing Appointments...');
+      await supabase.from('appointments').delete().eq('user_id', userId);
+
+      // NOTE: We explicitly DO NOT delete:
+      // - family_members (Profiles preserved)
+      // - upload_limits (Quotas preserved)
+
+      console.log('[DocumentsStore] ✅ All account data wiped successfully');
+      set({ isLoading: false });
+    } catch (error) {
+      console.error('[DocumentsStore] Error clearing account data:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to clear account data',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
 }));
