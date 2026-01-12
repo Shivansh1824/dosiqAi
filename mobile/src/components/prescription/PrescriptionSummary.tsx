@@ -5,13 +5,15 @@ import { Colors } from '../../constants';
 
 interface PrescriptionSummaryProps {
     summary: string;
+    otherInformation?: Array<{ value: string; category?: string }>;
+    recommendedTests?: Array<{ test_name: string; reason?: string }>;
 }
 
 /**
  * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
  * Extracted from DocumentDetailScreen.tsx
  */
-export function PrescriptionSummary({ summary }: PrescriptionSummaryProps) {
+export function PrescriptionSummary({ summary, otherInformation, recommendedTests }: PrescriptionSummaryProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Truncate text to 80 characters without cutting off words
@@ -28,7 +30,9 @@ export function PrescriptionSummary({ summary }: PrescriptionSummaryProps) {
         return lastSpaceIndex > 0 ? text.slice(0, lastSpaceIndex) : truncated;
     };
 
-    const shouldShowReadMore = summary.length > 80;
+    const hasExtraInfo = (otherInformation && otherInformation.length > 0) || (recommendedTests && recommendedTests.length > 0);
+    const shouldShowReadMore = summary.length > 80 || (!!hasExtraInfo);
+
     const displayText = shouldShowReadMore && !isExpanded
         ? truncateText(summary, 80)
         : summary;
@@ -39,18 +43,61 @@ export function PrescriptionSummary({ summary }: PrescriptionSummaryProps) {
                 <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
                 <Text style={styles.aiSummaryTitle}>AI Summary</Text>
             </View>
-            <Text style={styles.aiSummaryText}>
-                {displayText}
-                {shouldShowReadMore && !isExpanded && '... '}
-                {shouldShowReadMore && (
-                    <Text
-                        style={styles.readMoreText}
-                        onPress={() => setIsExpanded(!isExpanded)}
-                    >
-                        {isExpanded ? 'read less' : 'read more'}
-                    </Text>
+            <View>
+                <Text style={styles.aiSummaryText}>
+                    {displayText}
+                    {shouldShowReadMore && !isExpanded && (
+                        <>
+                            {'... '}
+                            <Text
+                                style={styles.readMoreText}
+                                onPress={() => setIsExpanded(!isExpanded)}
+                            >
+                                read more
+                            </Text>
+                        </>
+                    )}
+                </Text>
+
+                {isExpanded && (
+                    <>
+                        {hasExtraInfo && (
+                            <View style={styles.extraInfoContainer}>
+                                {/* Recommended Tests Section */}
+                                {recommendedTests && recommendedTests.length > 0 && (
+                                    <View style={styles.sectionContainer}>
+                                        <Text style={styles.sectionTitle}>Recommended Investigations:</Text>
+                                        <Text style={styles.aiSummaryText}>
+                                            {recommendedTests.map(t => t.test_name).join(', ')}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Other Information Section */}
+                                {otherInformation && otherInformation.length > 0 && (
+                                    <View style={styles.sectionContainer}>
+                                        {otherInformation.map((info, index) => (
+                                            <View key={index} style={styles.infoRow}>
+                                                <Text style={styles.aiSummaryText}>
+                                                    <Text style={styles.boldText}>{info.category ? `${info.category}: ` : 'Note: '}</Text>
+                                                    {info.value}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
+                        <Text
+                            style={[styles.readMoreText, styles.readMoreExpanded]}
+                            onPress={() => setIsExpanded(!isExpanded)}
+                        >
+                            read less
+                        </Text>
+                    </>
                 )}
-            </Text>
+            </View>
         </View>
     );
 }
@@ -87,5 +134,28 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 0.2,
     },
+    readMoreExpanded: {
+        marginTop: 8,
+    },
+    extraInfoContainer: {
+        marginTop: 12,
+        gap: 8,
+    },
+    sectionContainer: {
+        marginTop: 4,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginBottom: 2,
+    },
+    infoRow: {
+        marginBottom: 2,
+    },
+    boldText: {
+        fontWeight: '600',
+        color: Colors.gray800,
+    }
 });
 

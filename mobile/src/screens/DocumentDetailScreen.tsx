@@ -739,13 +739,11 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       <View style={styles.analysisContent}>
         {/* Summary - Primary display */}
         {summary && (
-          <View style={styles.aiSummaryCard}>
-            <View style={styles.aiSummaryHeader}>
-              <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
-              <Text style={styles.aiSummaryTitle}>AI Summary</Text>
-            </View>
-            <Text style={styles.aiSummaryText}>{summary}</Text>
-          </View>
+          <PrescriptionSummary
+            summary={summary}
+            otherInformation={prescriptionData?.other_information}
+            recommendedTests={prescriptionData?.recommended_tests}
+          />
         )}
 
         {/* Document Type & Visit Date */}
@@ -1637,7 +1635,11 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           document.ai_analysis_result &&
           document.ai_analysis_result.document_type !== 'medical_report' &&
           getSummary(document.ai_analysis_result) && (
-            <PrescriptionSummary summary={getSummary(document.ai_analysis_result)!} />
+            <PrescriptionSummary
+              summary={getSummary(document.ai_analysis_result)!}
+              otherInformation={document.ai_analysis_result.prescription_data?.other_information}
+              recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
+            />
           )}
 
         {/* Medications Section - Only for prescriptions with medicines */}
