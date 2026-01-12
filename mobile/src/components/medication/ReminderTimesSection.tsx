@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, Modal } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 
@@ -13,6 +14,7 @@ interface ReminderTimesSectionProps {
     timingDosage?: string;
     foodRelationship?: string;
     onToggleChange: (index: number, value: boolean) => void;
+    onTimeChange?: (index: number, newTime: string) => void;  // NEW: Callback for time changes
 
     // Note-related props (prepared for future functionality)
     defaultNotes?: Record<string, string>;  // { "08:00": "Take with water", ... }
@@ -106,11 +108,16 @@ export function ReminderTimesSection({
     timingDosage,
     foodRelationship,
     onToggleChange,
+    onTimeChange,
     defaultNotes = {},
     onDefaultNoteChange,
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
+
+    // Time picker state
+    const [showTimePicker, setShowTimePicker] = useState<number | null>(null);  // Track which time picker is shown
+    const [tempTime, setTempTime] = useState<Date>(new Date());  // Temporary time for the picker
 
     if (reminderTimes.length === 0) return null;
 
@@ -121,6 +128,71 @@ export function ReminderTimesSection({
             ...prev,
             [index]: !prev[index]
         }));
+    };
+
+    /**
+     * Convert 24h time string to Date object for picker
+     */
+    const timeStringToDate = (timeString: string): Date => {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+    };
+
+    /**
+     * Convert Date object to 24h time string
+     */
+    const dateToTimeString = (date: Date): string => {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    /**
+     * Handle time click - open the time picker
+     */
+    const handleTimeClick = (index: number, currentTime: string) => {
+        setTempTime(timeStringToDate(currentTime));
+        setShowTimePicker(index);
+    };
+
+    /**
+     * Handle time picker change (called when user adjusts the picker)
+     */
+    const handleTimePickerChange = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            // Android: Dismiss picker immediately
+            setShowTimePicker(null);
+
+            if (event.type === 'set' && selectedDate && showTimePicker !== null) {
+                const newTimeString = dateToTimeString(selectedDate);
+                onTimeChange?.(showTimePicker, newTimeString);
+            }
+        } else {
+            // iOS: Keep picker open, update temp time
+            if (selectedDate) {
+                setTempTime(selectedDate);
+            }
+        }
+    };
+
+    /**
+     * Handle iOS time picker confirm
+     */
+    const handleIOSConfirm = () => {
+        if (showTimePicker !== null) {
+            const newTimeString = dateToTimeString(tempTime);
+            onTimeChange?.(showTimePicker, newTimeString);
+        }
+        setShowTimePicker(null);
+    };
+
+    /**
+     * Handle cancel
+     */
+    const handleCancel = () => {
+        setShowTimePicker(null);
     };
 
     return (
@@ -149,8 +221,14 @@ export function ReminderTimesSection({
                         <View key={`time-bar-${index}`} style={styles.barWithNoteContainer}>
                             {/* Main Reminder Bar */}
                             <View style={styles.timeBarModern}>
-                                {/* LEFT: Time Display */}
-                                <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
+                                {/* LEFT: Time Display - Now Clickable */}
+                                <TouchableOpacity
+                                    onPress={() => handleTimeClick(index, time)}
+                                    activeOpacity={0.7}
+                                    style={styles.timeButton}
+                                >
+                                    <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
+                                </TouchableOpacity>
 
                                 {/* CENTER: Dynamic Meal Label */}
                                 {mealLabel && (
@@ -215,6 +293,52 @@ export function ReminderTimesSection({
                     );
                 })}
             </View>
+
+            {/* Time Picker Modal for iOS */}
+            {Platform.OS === 'ios' && showTimePicker !== null && (
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={true}
+                    onRequestClose={handleCancel}
+                >
+                    <View style={styles.centeredView}>
+                        <View style={styles.modalView}>
+                            <DateTimePicker
+                                value={tempTime}
+                                mode="time"
+                                display="spinner"
+                                onChange={handleTimePickerChange}
+                                textColor={Colors.gray900}
+                            />
+                            <View style={styles.modalButtonContainer}>
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.buttonCancel]}
+                                    onPress={handleCancel}
+                                >
+                                    <Text style={styles.textStyle}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.buttonConfirm]}
+                                    onPress={handleIOSConfirm}
+                                >
+                                    <Text style={styles.textStyle}>Confirm</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            )}
+
+            {/* Time Picker for Android */}
+            {Platform.OS === 'android' && showTimePicker !== null && (
+                <DateTimePicker
+                    value={tempTime}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleTimePickerChange}
+                />
+            )}
         </View>
     );
 }
@@ -335,5 +459,68 @@ const styles = StyleSheet.create({
         textAlign: 'right',
         marginTop: 6,
         fontWeight: '500',
+    },
+
+    // Time Picker Styles
+    timeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+        borderRadius: 8,
+        backgroundColor: 'transparent',
+    },
+    clockIcon: {
+        marginRight: 4,
+    },
+
+    // iOS Modal Styles
+    centeredView: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalView: {
+        width: '100%',
+        backgroundColor: 'white',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingTop: 20,
+        paddingBottom: 40,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: -2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalButtonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        gap: 12,
+    },
+    modalButton: {
+        flex: 1,
+        borderRadius: 12,
+        padding: 14,
+        elevation: 2,
+        alignItems: 'center',
+    },
+    buttonCancel: {
+        backgroundColor: Colors.gray300,
+    },
+    buttonConfirm: {
+        backgroundColor: Colors.primary,
+    },
+    textStyle: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 16,
     },
 });

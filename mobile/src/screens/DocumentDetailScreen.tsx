@@ -1645,7 +1645,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           document.ai_analysis_result?.prescription_data?.medicines &&
           document.ai_analysis_result.prescription_data.medicines.length > 0 && (
             <View style={styles.card}>
-              <View style={[styles.cardHeader, { marginBottom: 8 }]}>
+              <View style={[styles.cardHeader, { marginBottom: 4 }]}>
                 <Text style={styles.cardTitle}>Medications</Text>
                 <View style={styles.cardBadge}>
                   <Text style={styles.cardBadgeText}>
@@ -2038,7 +2038,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 8, // Tighter spacing (was 10)
+    marginBottom: 12, // Improved spacing for better hierarchy
     letterSpacing: -0.5,
   },
   summaryCard: {
@@ -2944,7 +2944,7 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 8, // Reduced from Sizes.lg (24) for tighter layout
+    marginBottom: 16, // Adequate spacing before medication cards
   },
   medicationsContainer: {
     gap: Sizes.md,

@@ -5,7 +5,7 @@ import { Colors } from '../constants';
 import { ParsedMedication } from '../types/medicationVerification';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
-import { calculateEndDate } from '../utils/medicationParser';
+import { calculateEndDate, isAsNeededFrequency } from '../utils/medicationParser';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { MedicineInfoTable } from './medication/MedicineInfoTable';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
@@ -55,9 +55,18 @@ export default function MedicationVerificationCard({
   // Reminder default notes state (for note feature)
   const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
 
+  // Custom reminder times state (for time picker changes)
+  const [customReminderTimes, setCustomReminderTimes] = useState<string[]>([]);
+
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
   const computedEndDate = endDate ?? calculateEndDate(startDate, durationDays);
+
+  // Check if frequency is "As Needed"
+  const isAsNeeded = isAsNeededFrequency(
+    medication.timing_dosage ?? medication.source_raw?.timing?.dosage,
+    medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day
+  );
 
   // Auto-generate reminder times
   const generateAutoReminderTimes = (timesPerDay: number): string[] => {
@@ -74,6 +83,11 @@ export default function MedicationVerificationCard({
 
   // Get reminder times
   const getReminderTimes = (): string[] => {
+    // Use custom times if set
+    if (customReminderTimes.length > 0) {
+      return customReminderTimes;
+    }
+
     const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
     if (medication.time_of_day?.length > 0) {
       return medication.time_of_day;
@@ -183,6 +197,14 @@ export default function MedicationVerificationCard({
     }));
   };
 
+  // Handle time change from time picker
+  const handleTimeChange = (index: number, newTime: string) => {
+    const currentTimes = getReminderTimes();
+    const updatedTimes = [...currentTimes];
+    updatedTimes[index] = newTime;
+    setCustomReminderTimes(updatedTimes);
+  };
+
 
   return (
     <View style={styles.card}>
@@ -205,12 +227,14 @@ export default function MedicationVerificationCard({
       <MedicineInfoTable medication={medication} />
 
       {/* Course Period Section */}
-      <CoursePeriodSection
-        startDate={startDate}
-        endDate={computedEndDate}
-        onStartDatePress={() => setShowDatePicker(true)}
-        onEndDatePress={() => setShowEndDatePicker(true)}
-      />
+      {!isAsNeeded && (
+        <CoursePeriodSection
+          startDate={startDate}
+          endDate={computedEndDate}
+          onStartDatePress={() => setShowDatePicker(true)}
+          onEndDatePress={() => setShowEndDatePicker(true)}
+        />
+      )}
 
       {/* Start Date Picker Modal */}
       <DatePickerModal
@@ -248,6 +272,7 @@ export default function MedicationVerificationCard({
         timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
         foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
         onToggleChange={handleReminderToggleChange}
+        onTimeChange={handleTimeChange}
         defaultNotes={reminderDefaultNotes}
         onDefaultNoteChange={handleDefaultNoteChange}
       />

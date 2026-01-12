@@ -146,6 +146,30 @@ export function formatFrequencyDisplay(
 }
 
 /**
+ * Determine if the frequency logic results in "As Needed"
+ * Used to conditionally hide UI sections like Course Period
+ * 
+ * @param dosage - Timing pattern like "1-0-1"
+ * @param totalTimesPerDay - Number of times per day
+ * @returns true if frequency is "As Needed"
+ */
+export function isAsNeededFrequency(
+  dosage: string | null | undefined,
+  totalTimesPerDay: number | null | undefined
+): boolean {
+  if (totalTimesPerDay && totalTimesPerDay <= 3 && dosage) {
+    const parts = dosage.split('-').map(Number);
+    if (parts.length === 3 && parts.every(p => !isNaN(p))) {
+      return false;
+    }
+    return true;
+  } else if (totalTimesPerDay && totalTimesPerDay > 3) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Parse medical frequency code to app enum
  * Handles various formats and abbreviations used in prescriptions
  *
