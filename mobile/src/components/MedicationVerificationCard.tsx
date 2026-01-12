@@ -277,6 +277,12 @@ export default function MedicationVerificationCard({
     setReminderToggles(new Array(updatedTimes.length).fill(true));
   };
 
+  // Handle bulk update of reminder times (fix for race conditions in auto-sync)
+  const handleUpdateReminderTimes = (newTimes: string[]) => {
+    setCustomReminderTimes(newTimes);
+    onLiveUpdate?.({ current_reminder_times: newTimes });
+  };
+
 
   return (
     <View style={styles.card}>
@@ -353,6 +359,7 @@ export default function MedicationVerificationCard({
             customMealLabels={customMealLabels}
 
             onBatchToggle={handleBatchToggle}
+            onUpdateReminderTimes={handleUpdateReminderTimes}
           />
 
           <AddReminderModal

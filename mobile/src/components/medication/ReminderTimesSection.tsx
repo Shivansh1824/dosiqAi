@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, Modal } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -24,6 +24,7 @@ interface ReminderTimesSectionProps {
 
     // NEW: Configuration Mode
     onBatchToggle?: (batchId: string, isEnabled: boolean, defaultTime: string) => void;
+    onUpdateReminderTimes?: (times: string[]) => void;
 }
 
 /**
@@ -127,7 +128,8 @@ export function ReminderTimesSection({
     onDefaultNoteChange,
     onAddPress,
     customMealLabels,
-    onBatchToggle
+    onBatchToggle,
+    onUpdateReminderTimes
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
@@ -280,7 +282,69 @@ export function ReminderTimesSection({
             });
         }
 
-        return (
+        return rowsToRender;
+    };
+
+    // Effect: Auto-select visible batches if not already selected
+    // This ensures that "1-0-1" or "4 doses" (dynamic) are ON by default
+    useEffect(() => {
+        const rows = renderGroupedView();
+        const rowTimes = rows.map(r => r.defaultTime);
+
+        // Check if we need to sync:
+        // If current reminderTimes doesn't include all our dynamic rows, needed update
+        const missingTimes = rowTimes.filter(t => !reminderTimes.includes(t));
+
+        if (missingTimes.length > 0) {
+            // We need to ADD the missing times to the current active list
+            // Solution: Use onUpdateReminderTimes for ATOMIC update to prevent race conditions
+
+            if (onUpdateReminderTimes) {
+                // 1. Combine unique times
+                const newTimes = Array.from(new Set([...reminderTimes, ...rowTimes]));
+
+                // 2. Sort them chronologically
+                newTimes.sort((a, b) => {
+                    const ta = parseInt(a.replace(':', ''));
+                    const tb = parseInt(b.replace(':', ''));
+                    return ta - tb;
+                });
+
+                // 3. Single atomic update
+                onUpdateReminderTimes(newTimes);
+            } else {
+                // Fallback (might have race conditions, but kept for safety)
+                missingTimes.forEach(time => {
+                    const row = rows.find(r => r.defaultTime === time);
+                    if (row) {
+                        onBatchToggle?.(row.id, true, time);
+                    }
+                });
+            }
+        }
+    }, [totalTimesPerDay, timingDosage, reminderTimes]); // Re-run when definition changes or props update
+
+    const rowsToRender = renderGroupedView();
+
+
+
+    return (
+        <View style={styles.reminderBarsContainer}>
+            {/* Section Header */}
+            <View style={styles.reminderHeader}>
+                <View style={styles.reminderHeaderLeft}>
+                    <Feather name="bell" size={16} color={Colors.primary} />
+                    <Text style={styles.reminderTitle}>REMINDER SCHEDULE</Text>
+                </View>
+            </View>
+
+            <Text style={styles.explanatoryText}>
+                {totalTimesPerDay
+                    ? `Our system detected that ${cleanName} is to be taken ${totalTimesPerDay} times daily. Please verify and adjust the reminders below.`
+                    : `Please verify and adjust the reminders below.`}
+            </Text>
+
+            {/* Content Body */}
             <View style={styles.batchesContainer}>
                 {rowsToRender.map((batch) => {
                     const isOn = reminderTimes.includes(batch.defaultTime);
@@ -313,8 +377,6 @@ export function ReminderTimesSection({
                     );
                 })}
 
-
-
                 {/* Always show Add Custom Time Button in Grouped View */}
                 {onAddPress && (
                     <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
@@ -323,27 +385,6 @@ export function ReminderTimesSection({
                     </TouchableOpacity>
                 )}
             </View>
-        );
-    };
-
-    return (
-        <View style={styles.reminderBarsContainer}>
-            {/* Section Header */}
-            <View style={styles.reminderHeader}>
-                <View style={styles.reminderHeaderLeft}>
-                    <Feather name="bell" size={16} color={Colors.primary} />
-                    <Text style={styles.reminderTitle}>REMINDER SCHEDULE</Text>
-                </View>
-            </View>
-
-            <Text style={styles.explanatoryText}>
-                {totalTimesPerDay
-                    ? `Our system detected that ${cleanName} is to be taken ${totalTimesPerDay} times daily. Please verify and adjust the reminders below.`
-                    : `Please verify and adjust the reminders below.`}
-            </Text>
-
-            {/* Content Body */}
-            {renderGroupedView()}
 
             {/* Time Picker Modal for iOS and Android... (Existing) */}
             {/* Time Picker Modal for iOS */}

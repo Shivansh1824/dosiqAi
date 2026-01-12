@@ -8,4 +8,4 @@ export { PrescriptionSummary } from './PrescriptionSummary';
 export { MedicationsSection } from './MedicationsSection';
 export { DocumentPreview } from './DocumentPreview';
 export { GroupedTestsCard } from './GroupedTestsCard';
-export { GroupedBatchReminders } from './GroupedBatchReminders';
+
