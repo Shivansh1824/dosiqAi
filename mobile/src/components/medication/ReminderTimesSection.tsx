@@ -311,7 +311,8 @@ export function ReminderTimesSection({
                 });
             }
         }
-    }, [totalTimesPerDay, timingDosage, reminderTimes]);
+        // Removing reminderTimes from dependency array to prevent auto-re-enabling when user toggles off
+    }, [totalTimesPerDay, timingDosage]);
 
     const rowsToRender = renderGroupedView();
     let activeCounter = 0; // Tracking active reminders for dynamic numbering
@@ -729,27 +730,36 @@ const styles = StyleSheet.create({
     // Numbering Styles
     numberedRowContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-start', // Align number with top of bar
+        alignItems: 'center', // Align number with center of bar
+        marginBottom: 8, // Moved spacing here from barWithNoteContainer to ensure vertical centering includes margin space
     },
     numberColumn: {
-        width: 24, // Fixed width for number
-        paddingTop: 12, // Align visually with text in bar
+        width: 32, // Increased width to accommodate larger font size
         marginRight: 4,
     },
     numberText: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 22,
+        fontWeight: '800',
         color: Colors.gray500,
-        textAlign: 'right',
+        textAlign: 'left',
     },
     // Batches Styles
     batchesContainer: {
-        gap: 8,
+        gap: 8, // This provides gap between items if not using marginBottom, but we used marginBottom on container.
+        // Actually, batchesContainer has gap: 8. So we might double up spacing if we also have marginBottom.
+        // Let's rely on gap from batchesContainer and REMOVE marginBottom from children if possible, 
+        // OR rely on marginBottom and remove gap. 
+        // Previous code had gap: 8 AND marginBottom: 8 on barWithNoteContainer. 
+        // Let's keep marginBottom on numberedRowContainer as requested for vertical centering logic context, 
+        // but strictly speaking, if we move it to numberedRowContainer, the centering logic (alignItems: center) works on the row's children (number + bar).
+        // If bar has NO margin, it is centered to number.
+        // The Row itself has margin bottom to separate from next row. 
+        // This is correct.
     },
     // Updated container to flex: 1 to fill remaining space next to number
     barWithNoteContainer: {
         flex: 1,
-        marginBottom: 8, // Moved spacing here
+        // marginBottom: 8, // REMOVED to fix vertical centering
     },
     batchRow: {
         flexDirection: 'row',
