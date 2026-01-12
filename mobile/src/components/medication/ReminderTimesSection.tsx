@@ -19,6 +19,8 @@ interface ReminderTimesSectionProps {
     // Note-related props (prepared for future functionality)
     defaultNotes?: Record<string, string>;  // { "08:00": "Take with water", ... }
     onDefaultNoteChange?: (time: string, note: string) => void;
+    onAddPress?: () => void;
+    customMealLabels?: Record<string, string>;
 }
 
 /**
@@ -39,8 +41,15 @@ const getMealLabel = (
     index: number,
     foodRelationship?: string,
     totalTimesPerDay?: number,
-    timingDosage?: string
+    timingDosage?: string,
+    customLabel?: string // NEW: Optional custom override
 ): string | null => {
+    // 1. Priority: Custom Label
+    // If it is explicitly an empty string, we return null (Not Specified)
+    if (customLabel !== undefined) {
+        return customLabel === "" ? null : customLabel;
+    }
+
     // If no meal relationship or it's 'any'/'anytime', return null
     if (!foodRelationship || foodRelationship === 'any' || foodRelationship === 'anytime') return null;
 
@@ -111,6 +120,8 @@ export function ReminderTimesSection({
     onTimeChange,
     defaultNotes = {},
     onDefaultNoteChange,
+    onAddPress,
+    customMealLabels,
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
@@ -208,12 +219,30 @@ export function ReminderTimesSection({
                         </View>
                     )}
                 </View>
+
+                {/* NEW: Add Button */}
+                {onAddPress && (
+                    <TouchableOpacity
+                        style={styles.addTimeButton}
+                        onPress={onAddPress}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name="plus" size={16} color={Colors.primary} />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Time Bars */}
             <View style={styles.timeBarsWrapper}>
                 {reminderTimes.map((time, index) => {
-                    const mealLabel = getMealLabel(time, index, foodRelationship, totalTimesPerDay, timingDosage);
+                    const mealLabel = getMealLabel(
+                        time,
+                        index,
+                        foodRelationship,
+                        totalTimesPerDay,
+                        timingDosage,
+                        customMealLabels?.[time]
+                    );
                     const hasNote = !!defaultNotes[time];
                     const isExpanded = expandedNotes[index];
 
@@ -522,5 +551,10 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: '700',
         fontSize: 16,
+    },
+    addTimeButton: {
+        padding: 4,
+        backgroundColor: '#EFF6FF',
+        borderRadius: 8,
     },
 });

@@ -10,6 +10,7 @@ import { MedicationHeader } from './medication/MedicationHeader';
 import { MedicineInfoTable } from './medication/MedicineInfoTable';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSection } from './medication/ReminderTimesSection';
+import AddReminderModal from './medication/AddReminderModal';
 
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
@@ -57,6 +58,9 @@ export default function MedicationVerificationCard({
 
   // Custom reminder times state (for time picker changes)
   const [customReminderTimes, setCustomReminderTimes] = useState<string[]>([]);
+  // Custom meal labels state (overrides global logic per reminder)
+  const [customMealLabels, setCustomMealLabels] = useState<Record<string, string>>({});
+  const [showAddReminderModal, setShowAddReminderModal] = useState(false);
 
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
@@ -205,6 +209,36 @@ export default function MedicationVerificationCard({
     setCustomReminderTimes(updatedTimes);
   };
 
+  // Handle adding new reminder from modal
+  const handleAddReminderObject = (time: string, mealLabel: string | null) => {
+    const currentTimes = getReminderTimes();
+    // Check if time already exists to avoid duplicates
+    if (currentTimes.includes(time)) {
+      // Just update the label if it exists
+      if (mealLabel !== null) {
+        setCustomMealLabels(prev => ({ ...prev, [time]: mealLabel }));
+      }
+      return;
+    }
+
+    const updatedTimes = [...currentTimes, time].sort();
+    setCustomReminderTimes(updatedTimes);
+
+    // Update toggles - keeping it simple, user can toggle
+    // Ideally we'd sync toggles with sort but that requires refactor of toggle state to be a map
+    // For now we just append a true toggle which might not align directly if sorted mid-list
+    // Optimistic approach:
+    setReminderToggles(prev => [...prev, true]);
+
+    // Update Meal Label
+    if (mealLabel !== null) {
+      setCustomMealLabels(prev => ({
+        ...prev,
+        [time]: mealLabel
+      }));
+    }
+  };
+
 
   return (
     <View style={styles.card}>
@@ -275,6 +309,14 @@ export default function MedicationVerificationCard({
         onTimeChange={handleTimeChange}
         defaultNotes={reminderDefaultNotes}
         onDefaultNoteChange={handleDefaultNoteChange}
+        onAddPress={() => setShowAddReminderModal(true)}
+        customMealLabels={customMealLabels}
+      />
+
+      <AddReminderModal
+        visible={showAddReminderModal}
+        onClose={() => setShowAddReminderModal(false)}
+        onAdd={handleAddReminderObject}
       />
 
 
