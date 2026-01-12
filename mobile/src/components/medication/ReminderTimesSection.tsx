@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, Modal, Dimensions } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 
@@ -135,6 +136,61 @@ export function ReminderTimesSection({
     // Time picker state - using time string as ID instead of index
     const [editingTime, setEditingTime] = useState<string | null>(null);
     const [tempTime, setTempTime] = useState<Date>(new Date());
+
+    // NEW: Swipe to delete state
+    const [deletedBatchIds, setDeletedBatchIds] = useState<string[]>([]);
+    const firstSwipeableRef = React.useRef<Swipeable>(null);
+    const firstItemRef = React.useRef<View>(null);
+    const [hasAnimated, setHasAnimated] = useState(false);
+
+    // Initial Onboarding Animation - Trigger when visible
+    useEffect(() => {
+        if (hasAnimated) return;
+
+        const screenHeight = Dimensions.get('window').height;
+
+        // Poll for visibility
+        const interval = setInterval(() => {
+            if (firstItemRef.current) {
+                firstItemRef.current.measureInWindow((x, y, width, height) => {
+                    // Check if item is roughly in the viewport (with some buffer)
+                    // y > 0 means top is visible
+                    // y < screenHeight means it's within screen bounds
+                    const isVisible = y > 0 && y < (screenHeight - 100);
+
+                    if (isVisible) {
+                        // Trigger Animation
+                        if (firstSwipeableRef.current) {
+                            firstSwipeableRef.current.openRight();
+                            setTimeout(() => {
+                                firstSwipeableRef.current?.close();
+                            }, 1200); // Keep open for 1.2s then close
+
+                            setHasAnimated(true);
+                            clearInterval(interval);
+                        }
+                    }
+                });
+            }
+        }, 500); // Check every 500ms
+
+        return () => clearInterval(interval);
+    }, [hasAnimated]);
+
+    const handleDelete = (id: string, time: string) => {
+        // If it's a preset (morning/afternoon/night/extra), we "hide" it by adding to deleted list
+        // and ensuring it is toggled OFF.
+        if (id === 'morning' || id === 'afternoon' || id === 'night' || id.startsWith('extra-')) {
+            setDeletedBatchIds(prev => [...prev, id]);
+            onBatchToggle?.(id, false, time);
+        } else {
+            // It's a custom time (custom-X-TIME), we actually remove it from the array
+            if (onUpdateReminderTimes) {
+                const newTimes = reminderTimes.filter(t => t !== time);
+                onUpdateReminderTimes(newTimes);
+            }
+        }
+    };
 
     if (reminderTimes.length === 0) return null;
 
@@ -339,6 +395,9 @@ export function ReminderTimesSection({
             <View style={styles.batchesContainer}>
                 {rowsToRender.map((batch, index) => {
                     const isOn = reminderTimes.includes(batch.defaultTime);
+                    // Skip if hidden/deleted
+                    if (deletedBatchIds.includes(batch.id)) return null;
+
                     const isCustomReminder = batch.label === 'Reminder' || batch.id.startsWith('extra-');
 
                     // Calculate number to show
@@ -348,10 +407,108 @@ export function ReminderTimesSection({
                         numberToShow = activeCounter;
                     }
 
-                    if (isCustomReminder) {
-                        // Modern Layout for Custom Reminders
+                    // Onboarding animation ref for the first item
+                    const swipeableRef = index === 0 ? firstSwipeableRef : null;
+
+                    const renderRightActions = (progress: any, dragX: any) => {
                         return (
-                            <View key={batch.id} style={styles.numberedRowContainer}>
+                            <TouchableOpacity
+                                style={styles.deleteAction}
+                                onPress={() => handleDelete(batch.id, batch.defaultTime)}
+                            >
+                                <View style={styles.deleteActionContent}>
+                                    <Feather name="trash-2" size={20} color={Colors.white} />
+                                    <Text style={styles.deleteActionText}>Delete</Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    };
+
+                    // Wrapper to keep styling clean
+                    const renderRowContent = () => {
+                        if (isCustomReminder) {
+                            // Modern Layout for Custom Reminders
+                            return (
+                                <View style={styles.numberedRowContainer}>
+                                    {/* Dynamic Numbering Column */}
+                                    <View style={styles.numberColumn}>
+                                        <Text style={styles.numberText}>
+                                            {numberToShow ? `${numberToShow}.` : ''}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.barWithNoteContainer}>
+                                        <View style={styles.timeBarModern}>
+                                            {/* Left: Clickable Time */}
+                                            <TouchableOpacity
+                                                onPress={() => handleTimeClick(batch.defaultTime)}
+                                                style={styles.timeButton}
+                                            >
+                                                <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                <View style={[styles.intervalBadge, { backgroundColor: Colors.primary + '15', borderColor: Colors.primary + '30' }]}>
+                                                    <Feather name="clock" size={10} color={Colors.primary} />
+                                                </View>
+                                            </TouchableOpacity>
+
+                                            {/* Right Group */}
+                                            <View style={styles.timeBarRightGroup}>
+                                                <Text style={styles.timeBarDoseLabel} numberOfLines={1}>{cleanName}</Text>
+
+                                                <Switch
+                                                    value={isOn}
+                                                    onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                    trackColor={{ false: Colors.gray200, true: Colors.primary }}
+                                                    thumbColor={Colors.white}
+                                                    style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                />
+
+                                                <TouchableOpacity
+                                                    style={styles.noteIconButton}
+                                                    onPress={() => toggleNoteExpansion(batch.id)}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
+                                                        size={20}
+                                                        color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : Colors.gray400}
+                                                    />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+
+                                        {/* Creating Note Input */}
+                                        {expandedNotes[batch.id] && (
+                                            <View style={styles.noteSection}>
+                                                <View style={styles.noteInputContainer}>
+                                                    <TouchableOpacity style={styles.noteInputIcon}>
+                                                        <Feather name="edit-3" size={14} color={Colors.gray400} />
+                                                    </TouchableOpacity>
+                                                    <TextInput
+                                                        style={styles.noteInput}
+                                                        value={defaultNotes[batch.defaultTime] || ''}
+                                                        onChangeText={(text) => {
+                                                            if (text.length <= 150) {
+                                                                onDefaultNoteChange?.(batch.defaultTime, text);
+                                                            }
+                                                        }}
+                                                        placeholder="Add instructions (e.g. Take with warm water)"
+                                                        placeholderTextColor={Colors.gray400}
+                                                        multiline
+                                                        maxLength={150}
+                                                    />
+                                                </View>
+                                                <Text style={styles.noteCharCount}>
+                                                    {(defaultNotes[batch.defaultTime] || '').length}/150
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            );
+                        }
+
+                        // Standard Layout for Morning/Afternoon/Night
+                        return (
+                            <View style={styles.numberedRowContainer}>
                                 {/* Dynamic Numbering Column */}
                                 <View style={styles.numberColumn}>
                                     <Text style={styles.numberText}>
@@ -360,28 +517,32 @@ export function ReminderTimesSection({
                                 </View>
 
                                 <View style={styles.barWithNoteContainer}>
-                                    <View style={styles.timeBarModern}>
-                                        {/* Left: Clickable Time */}
-                                        <TouchableOpacity
-                                            onPress={() => handleTimeClick(batch.defaultTime)} // Note: using time value now
-                                            style={styles.timeButton}
-                                        >
-                                            <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
-                                            <View style={[styles.intervalBadge, { backgroundColor: Colors.primary + '15', borderColor: Colors.primary + '30' }]}>
-                                                <Feather name="clock" size={10} color={Colors.primary} />
+                                    <View style={styles.batchRow}>
+                                        <View style={styles.batchInfo}>
+                                            <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
+                                                <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
                                             </View>
-                                        </TouchableOpacity>
+                                            <View>
+                                                <View style={styles.batchLabelContainer}>
+                                                    <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
+                                                    <TouchableOpacity
+                                                        onPress={() => setActiveTooltip({ id: batch.id, label: batch.label, time: batch.defaultTime })}
+                                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                    >
+                                                        <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
+                                                    </TouchableOpacity>
+                                                </View>
+                                                <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                            </View>
+                                        </View>
 
-                                        {/* Right Group */}
                                         <View style={styles.timeBarRightGroup}>
-                                            <Text style={styles.timeBarDoseLabel} numberOfLines={1}>{cleanName}</Text>
-
                                             <Switch
                                                 value={isOn}
                                                 onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
                                                 trackColor={{ false: Colors.gray200, true: Colors.primary }}
                                                 thumbColor={Colors.white}
-                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }} // Approx 45x26.5
+                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
                                             />
 
                                             <TouchableOpacity
@@ -426,87 +587,22 @@ export function ReminderTimesSection({
                                 </View>
                             </View>
                         );
-                    }
+                    };
 
-                    // Standard Layout for Morning/Afternoon/Night
                     return (
-                        <View key={batch.id} style={styles.numberedRowContainer}>
-                            {/* Dynamic Numbering Column */}
-                            <View style={styles.numberColumn}>
-                                <Text style={styles.numberText}>
-                                    {numberToShow ? `${numberToShow}.` : ''}
-                                </Text>
-                            </View>
-
-                            <View style={styles.barWithNoteContainer}>
-                                <View style={styles.batchRow}>
-                                    <View style={styles.batchInfo}>
-                                        <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
-                                            <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
-                                        </View>
-                                        <View>
-                                            <View style={styles.batchLabelContainer}>
-                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
-                                                <TouchableOpacity
-                                                    onPress={() => setActiveTooltip({ id: batch.id, label: batch.label, time: batch.defaultTime })}
-                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                >
-                                                    <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
-                                                </TouchableOpacity>
-                                            </View>
-                                            <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={styles.timeBarRightGroup}>
-                                        <Switch
-                                            value={isOn}
-                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                            trackColor={{ false: Colors.gray200, true: Colors.primary }}
-                                            thumbColor={Colors.white}
-                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }} // Approx 45x26.5
-                                        />
-
-                                        <TouchableOpacity
-                                            style={styles.noteIconButton}
-                                            onPress={() => toggleNoteExpansion(batch.id)}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                                size={20}
-                                                color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : Colors.gray400}
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-
-                                {/* Creating Note Input */}
-                                {expandedNotes[batch.id] && (
-                                    <View style={styles.noteSection}>
-                                        <View style={styles.noteInputContainer}>
-                                            <TouchableOpacity style={styles.noteInputIcon}>
-                                                <Feather name="edit-3" size={14} color={Colors.gray400} />
-                                            </TouchableOpacity>
-                                            <TextInput
-                                                style={styles.noteInput}
-                                                value={defaultNotes[batch.defaultTime] || ''}
-                                                onChangeText={(text) => {
-                                                    if (text.length <= 150) {
-                                                        onDefaultNoteChange?.(batch.defaultTime, text);
-                                                    }
-                                                }}
-                                                placeholder="Add instructions (e.g. Take with warm water)"
-                                                placeholderTextColor={Colors.gray400}
-                                                multiline
-                                                maxLength={150}
-                                            />
-                                        </View>
-                                        <Text style={styles.noteCharCount}>
-                                            {(defaultNotes[batch.defaultTime] || '').length}/150
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
+                        <View
+                            key={batch.id}
+                            ref={index === 0 ? firstItemRef : null}
+                            collapsable={false} // Ensure measurement works on Android
+                        >
+                            <Swipeable
+                                ref={swipeableRef}
+                                renderRightActions={renderRightActions}
+                                containerStyle={{ marginBottom: 8 }} // Margin moved here to exclude from swipe height
+                                childrenContainerStyle={{}}
+                            >
+                                {renderRowContent()}
+                            </Swipeable>
                         </View>
                     );
                 })}
@@ -731,7 +827,7 @@ const styles = StyleSheet.create({
     numberedRowContainer: {
         flexDirection: 'row',
         alignItems: 'center', // Align number with center of bar
-        marginBottom: 8, // Moved spacing here from barWithNoteContainer to ensure vertical centering includes margin space
+        // marginBottom: 8, // REMOVED: Moved to Swipeable container to fix Delete button height
     },
     numberColumn: {
         width: 32, // Increased width to accommodate larger font size
@@ -797,6 +893,29 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: Colors.gray400,
         marginTop: 1,
+    },
+    // DELETE ACTION STYLES
+    deleteAction: {
+        backgroundColor: Colors.error,
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 80,
+        // Match the height/style of the row essentially.
+        // But since we are inside Swipeable, we usually match height of children.
+        // We will make it fill height.
+        height: '100%',
+        borderTopRightRadius: 12,
+        borderBottomRightRadius: 12, // match row radius if possible
+    },
+    deleteActionContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 4,
+    },
+    deleteActionText: {
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: '600',
     },
     intervalBadge: {
         backgroundColor: '#ECFDF5',
