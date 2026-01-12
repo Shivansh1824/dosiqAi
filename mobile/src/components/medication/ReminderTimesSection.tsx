@@ -30,7 +30,9 @@ interface ReminderTimesSectionProps {
  * Format time for display (24h -> 12h with AM/PM)
  */
 const formatTimeDisplay = (time24: string): string => {
+    if (!time24) return '';
     const [hours, minutes] = time24.split(':').map(Number);
+    if (isNaN(minutes)) return ''; // Handle invalid format
     const period = hours >= 12 ? 'PM' : 'AM';
     const hours12 = hours % 12 || 12;
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
@@ -214,6 +216,9 @@ export function ReminderTimesSection({
 
 
 
+    // Tooltip State
+    const [activeTooltip, setActiveTooltip] = useState<{ id: string, label: string, time: string } | null>(null);
+
     // Helper to render Grouped Batches
     const renderGroupedView = () => {
         // Define Batches
@@ -223,8 +228,57 @@ export function ReminderTimesSection({
             { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: '21:00' },
         ];
 
-        // User Request: Show ALL batches (Morning, Afternoon, Night) regardless of active state
-        const rowsToRender = batches;
+        // Dynamic Filtering based on dosage (e.g. "1-0-1")
+        let rowsToRender = batches;
+
+        if (totalTimesPerDay && totalTimesPerDay <= 3 && timingDosage) {
+            const parts = timingDosage.split('-').map(Number);
+            // Ensure we have exactly 3 parts for M-A-N
+            if (parts.length === 3) {
+                rowsToRender = batches.filter((_, index) => parts[index] > 0);
+            }
+        } else if (totalTimesPerDay && totalTimesPerDay > 3) {
+            // Advanced Logic for > 3 doses
+            // 1. Start with base 3
+            rowsToRender = [...batches];
+
+            // 2. Calculate how many extras needed
+            const extrasNeeded = totalTimesPerDay - 3;
+
+            // 3. Cycle and add
+            // Sequence: Morning -> Afternoon -> Night
+            const baseIds = ['morning', 'afternoon', 'night'];
+
+            for (let i = 0; i < extrasNeeded; i++) {
+                const cycleIndex = i % 3; // 0, 1, 2
+                const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
+
+                const baseBatch = batches[cycleIndex];
+
+                // Calculate new time
+                // Format "HH:mm"
+                const [h, m] = baseBatch.defaultTime.split(':').map(Number);
+                let newHour = h + offsetPass;
+                // Simple wrap for 24h, though realistic doses shouldn't wrap wildly
+                if (newHour >= 24) newHour -= 24;
+
+                const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+                rowsToRender.push({
+                    id: `extra-${i}`,
+                    label: 'Reminder', // Placeholder label
+                    icon: 'clock',
+                    defaultTime: newTime
+                });
+            }
+
+            // 4. Sort chronologically
+            rowsToRender.sort((a, b) => {
+                const ta = parseInt(a.defaultTime.replace(':', ''));
+                const tb = parseInt(b.defaultTime.replace(':', ''));
+                return ta - tb;
+            });
+        }
 
         return (
             <View style={styles.batchesContainer}>
@@ -237,7 +291,15 @@ export function ReminderTimesSection({
                                     <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
                                 </View>
                                 <View>
-                                    <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
+                                    <View style={styles.batchLabelContainer}>
+                                        <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setActiveTooltip({ id: batch.id, label: batch.label, time: batch.defaultTime })}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
+                                        </TouchableOpacity>
+                                    </View>
                                     <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
                                 </View>
                             </View>
@@ -329,11 +391,98 @@ export function ReminderTimesSection({
                     onChange={handleTimePickerChange}
                 />
             )}
+            {/* Tooltip Modal */}
+            <Modal
+                transparent={true}
+                visible={!!activeTooltip}
+                animationType="fade"
+                onRequestClose={() => setActiveTooltip(null)}
+            >
+                <TouchableOpacity
+                    style={styles.tooltipOverlay}
+                    activeOpacity={1}
+                    onPress={() => setActiveTooltip(null)}
+                >
+                    <View style={styles.tooltipCard}>
+                        <View style={styles.tooltipHeader}>
+                            <Feather name="info" size={20} color={Colors.primary} />
+                            <Text style={styles.tooltipTitle}>About {activeTooltip?.label}</Text>
+                        </View>
+                        <Text style={styles.tooltipBody}>
+                            Your {activeTooltip?.label} ({formatTimeDisplay(activeTooltip?.time || '')}) currently includes <Text style={{ color: Colors.gray800 }}>2 medicines</Text>. This update adds <Text style={{ color: Colors.gray800 }}>{cleanName}</Text> to this schedule.
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.tooltipCloseButton}
+                            onPress={() => setActiveTooltip(null)}
+                        >
+                            <Text style={styles.tooltipCloseText}>Got it</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
+    tooltipOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    tooltipCard: {
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        padding: 24,
+        width: '100%',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    tooltipHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 16,
+    },
+    tooltipTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: Colors.gray900,
+    },
+    tooltipBody: {
+        fontSize: 15,
+        lineHeight: 24,
+        color: Colors.gray600,
+        marginBottom: 24,
+    },
+    tooltipCloseButton: {
+        backgroundColor: Colors.primary,
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    tooltipCloseText: {
+        color: Colors.white,
+        fontWeight: '600',
+        fontSize: 16,
+    },
+    batchLabelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 2,
+    },
+    infoIcon: {
+        opacity: 0.6,
+    },
     reminderBarsContainer: {
         marginHorizontal: 16,
         marginTop: 16,
