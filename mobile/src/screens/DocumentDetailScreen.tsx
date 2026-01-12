@@ -34,6 +34,7 @@ import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
 import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -1088,21 +1089,13 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           </View>
         )}
 
-        {/* Recommended Tests */}
+        {/* Advised Tests */}
         {prescriptionData?.recommended_tests && prescriptionData.recommended_tests.length > 0 && (
           <View style={styles.analysisSection}>
-            <Text style={styles.analysisSectionTitle}>Recommended Tests</Text>
-            {prescriptionData.recommended_tests.map((test, index) => (
-              <View key={index} style={styles.testItem}>
-                <Feather name="clipboard" size={14} color={Colors.primary} />
-                <View style={styles.testContent}>
-                  <Text style={styles.testName}>{test.test_name}</Text>
-                  {test.reason && (
-                    <Text style={styles.testReason}>{test.reason}</Text>
-                  )}
-                </View>
-              </View>
-            ))}
+            <Text style={styles.analysisSectionTitle}>Advised Tests</Text>
+            <GroupedTestsCard
+              tests={prescriptionData.recommended_tests}
+            />
           </View>
         )}
 
@@ -1710,6 +1703,27 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     </View>
                   );
                 })}
+            </View>
+          )}
+
+        {/* Advised Tests Section */}
+        {document.ai_analysis_status === 'completed' &&
+          document.ai_analysis_result?.prescription_data?.recommended_tests &&
+          document.ai_analysis_result.prescription_data.recommended_tests.length > 0 && (
+            <View style={styles.card}>
+              <View style={[styles.cardHeader, { marginBottom: 4 }]}>
+                <Text style={styles.cardTitle}>Advised Tests</Text>
+              </View>
+              <Text style={styles.cardSubtitle}>
+                Recommended lab tests and investigations
+              </Text>
+
+              <View style={{ gap: 12, marginTop: 12 }}>
+
+                <GroupedTestsCard
+                  tests={document.ai_analysis_result.prescription_data.recommended_tests}
+                />
+              </View>
             </View>
           )}
 
