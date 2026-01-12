@@ -615,14 +615,13 @@ export function cleanMedicationName(exactWrittenName: string): string {
   // We strictly require a unit to be present to avoid removing brand numbers like "XYZ 1000"
   // Also handles patterns inside parentheses like (200mg) or 200mg inside parens
   // Regex Explanation:
-  // (\s*)               -> Optional leading whitespace
-  // \(?                 -> Optional opening parenthesis
   // (\d+(\.\d+)?)       -> The number (integer or decimal)
   // \s*                 -> Optional space between number and unit
   // (mg|g|mcg|...)      -> The unit
   // \)?                 -> Optional closing parenthesis
   // (\s*|$)             -> Trailing whitespace or end of string
-  const strengthPattern = /(\s*)\(?(\d+(\.\d+)?)\s*(mg|g|mcg|ml|iu|%|u|units?)\)?(\s*|$)/gi;
+  // Also matches simple numbers in parentheses like (200) often used for strength
+  const strengthPattern = /(\s*)\(?(\d+(\.\d+)?)\s*(mg|g|mcg|ml|iu|%|u|units?)?\)?(\s*|$)/gi;
   cleaned = cleaned.replace(strengthPattern, ' ').trim();
 
   // Clean up any double spaces or empty parentheses left behind

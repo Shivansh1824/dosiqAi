@@ -21,6 +21,9 @@ interface ReminderTimesSectionProps {
     onDefaultNoteChange?: (time: string, note: string) => void;
     onAddPress?: () => void;
     customMealLabels?: Record<string, string>;
+
+    // NEW: Configuration Mode
+    onBatchToggle?: (batchId: string, isEnabled: boolean, defaultTime: string) => void;
 }
 
 /**
@@ -122,6 +125,7 @@ export function ReminderTimesSection({
     onDefaultNoteChange,
     onAddPress,
     customMealLabels,
+    onBatchToggle
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
@@ -206,123 +210,80 @@ export function ReminderTimesSection({
         setShowTimePicker(null);
     };
 
+    // ... existing state ...
+
+
+
+    // Helper to render Grouped Batches
+    const renderGroupedView = () => {
+        // Define Batches
+        const batches = [
+            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: '08:00' },
+            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: '14:00' },
+            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: '21:00' },
+        ];
+
+        // User Request: Show ALL batches (Morning, Afternoon, Night) regardless of active state
+        const rowsToRender = batches;
+
+        return (
+            <View style={styles.batchesContainer}>
+                {rowsToRender.map((batch) => {
+                    const isOn = reminderTimes.includes(batch.defaultTime);
+                    return (
+                        <View key={batch.id} style={styles.batchRow}>
+                            <View style={styles.batchInfo}>
+                                <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
+                                    <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
+                                    <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={isOn}
+                                onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                trackColor={{ false: Colors.gray200, true: Colors.primary }}
+                                thumbColor={Colors.white}
+                            />
+                        </View>
+                    );
+                })}
+
+
+
+                {/* Always show Add Custom Time Button in Grouped View */}
+                {onAddPress && (
+                    <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
+                        <Feather name="plus-circle" size={18} color={Colors.primary} />
+                        <Text style={styles.addTimeCleanText}>Add Reminder</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    };
+
     return (
         <View style={styles.reminderBarsContainer}>
             {/* Section Header */}
             <View style={styles.reminderHeader}>
                 <View style={styles.reminderHeaderLeft}>
                     <Feather name="bell" size={16} color={Colors.primary} />
-                    <Text style={styles.reminderTitle}>REMINDER TIMES</Text>
-                    {intervalText && (
-                        <View style={styles.intervalBadge}>
-                            <Text style={styles.intervalText}>{intervalText}</Text>
-                        </View>
-                    )}
+                    <Text style={styles.reminderTitle}>REMINDER SCHEDULE</Text>
                 </View>
-
-                {/* NEW: Add Button */}
-                {onAddPress && (
-                    <TouchableOpacity
-                        style={styles.addTimeButton}
-                        onPress={onAddPress}
-                        activeOpacity={0.7}
-                    >
-                        <Feather name="plus" size={16} color={Colors.primary} />
-                    </TouchableOpacity>
-                )}
             </View>
 
-            {/* Time Bars */}
-            <View style={styles.timeBarsWrapper}>
-                {reminderTimes.map((time, index) => {
-                    const mealLabel = getMealLabel(
-                        time,
-                        index,
-                        foodRelationship,
-                        totalTimesPerDay,
-                        timingDosage,
-                        customMealLabels?.[time]
-                    );
-                    const hasNote = !!defaultNotes[time];
-                    const isExpanded = expandedNotes[index];
+            <Text style={styles.explanatoryText}>
+                {totalTimesPerDay
+                    ? `Our system detected that ${cleanName} is to be taken ${totalTimesPerDay} times daily. Please verify and adjust the reminders below.`
+                    : `Please verify and adjust the reminders below.`}
+            </Text>
 
-                    return (
-                        <View key={`time-bar-${index}`} style={styles.barWithNoteContainer}>
-                            {/* Main Reminder Bar */}
-                            <View style={styles.timeBarModern}>
-                                {/* LEFT: Time Display - Now Clickable */}
-                                <TouchableOpacity
-                                    onPress={() => handleTimeClick(index, time)}
-                                    activeOpacity={0.7}
-                                    style={styles.timeButton}
-                                >
-                                    <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(time)}</Text>
-                                </TouchableOpacity>
+            {/* Content Body */}
+            {renderGroupedView()}
 
-                                {/* CENTER: Dynamic Meal Label */}
-                                {mealLabel && (
-                                    <Text style={styles.timeBarFoodRelation}>{mealLabel}</Text>
-                                )}
-
-                                {/* RIGHT GROUP: Label + Toggle + Note Icon */}
-                                <View style={styles.timeBarRightGroup}>
-                                    <Text style={styles.timeBarDoseLabel} numberOfLines={1}>
-                                        {cleanName}
-                                    </Text>
-                                    <Switch
-                                        value={reminderToggles[index] || false}
-                                        onValueChange={(value) => onToggleChange(index, value)}
-                                        trackColor={{
-                                            false: Colors.gray300,
-                                            true: Colors.primary
-                                        }}
-                                        thumbColor={Colors.white}
-                                        ios_backgroundColor={Colors.gray300}
-                                        style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
-                                    />
-
-                                    {/* Note Icon */}
-                                    <TouchableOpacity
-                                        onPress={() => toggleNoteExpansion(index)}
-                                        style={styles.noteIconButton}
-                                        activeOpacity={0.7}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={hasNote ? "clipboard-edit-outline" : "clipboard-edit-outline"}
-                                            size={18}
-                                            color={hasNote ? '#F59E0B' : Colors.gray400}
-                                        />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            {/* Expandable Note Section */}
-                            {isExpanded && (
-                                <View style={styles.noteSection}>
-                                    <View style={styles.noteInputContainer}>
-                                        <MaterialCommunityIcons name="comment-text-outline" size={16} color="#D97706" style={styles.noteInputIcon} />
-                                        <TextInput
-                                            style={styles.noteInput}
-                                            value={defaultNotes[time] || ''}
-                                            onChangeText={(text) => onDefaultNoteChange?.(time, text)}
-                                            placeholder="Add reminder note (e.g., 'Take with water')..."
-                                            placeholderTextColor={Colors.gray400}
-                                            multiline
-                                            maxLength={150}
-                                        />
-                                    </View>
-                                    {defaultNotes[time] && (
-                                        <Text style={styles.noteCharCount}>
-                                            {defaultNotes[time].length}/150
-                                        </Text>
-                                    )}
-                                </View>
-                            )}
-                        </View>
-                    );
-                })}
-            </View>
-
+            {/* Time Picker Modal for iOS and Android... (Existing) */}
             {/* Time Picker Modal for iOS */}
             {Platform.OS === 'ios' && showTimePicker !== null && (
                 <Modal
@@ -396,6 +357,89 @@ const styles = StyleSheet.create({
         color: Colors.gray500,
         letterSpacing: 0.5,
     },
+    explanatoryText: {
+        fontSize: 12,
+        color: Colors.gray500,
+        marginTop: -8, // Pull closer to header (offsetting the header's marginBottom)
+        marginBottom: 12,
+        lineHeight: 18,
+    },
+    boldText: {
+        fontWeight: '700',
+        color: Colors.gray700,
+    },
+    // Mode Selector Styles
+    modeSelectorContainer: {
+        flexDirection: 'row',
+        backgroundColor: Colors.gray100,
+        borderRadius: 10,
+        padding: 4,
+        marginBottom: 12,
+    },
+    modeButton: {
+        flex: 1,
+        paddingVertical: 6,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    modeButtonActive: {
+        backgroundColor: Colors.white,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+        elevation: 1,
+    },
+    modeButtonText: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: Colors.gray500,
+    },
+    modeButtonTextActive: {
+        color: Colors.primary,
+        fontWeight: '700',
+    },
+    // Batches Styles
+    batchesContainer: {
+        gap: 8,
+    },
+    batchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.white,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+    },
+    batchInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    batchIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    batchLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.gray800,
+    },
+    batchLabelActive: {
+        color: Colors.primary,
+    },
+    batchTimeHint: {
+        fontSize: 11,
+        color: Colors.gray400,
+        marginTop: 1,
+    },
+    // Existing Styles...
     intervalBadge: {
         backgroundColor: '#ECFDF5',
         paddingHorizontal: 8,
@@ -445,8 +489,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: Colors.gray600,
     },
-
-    // Note-related styles
     barWithNoteContainer: {
         marginBottom: 0,
     },
@@ -489,8 +531,6 @@ const styles = StyleSheet.create({
         marginTop: 6,
         fontWeight: '500',
     },
-
-    // Time Picker Styles
     timeButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -500,10 +540,23 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: 'transparent',
     },
-    clockIcon: {
-        marginRight: 4,
+    addTimeCleanButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        borderStyle: 'dashed',
+        backgroundColor: Colors.primary + '05',
     },
-
+    addTimeCleanText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.primary,
+    },
     // iOS Modal Styles
     centeredView: {
         flex: 1,
@@ -551,10 +604,5 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: '700',
         fontSize: 16,
-    },
-    addTimeButton: {
-        padding: 4,
-        backgroundColor: '#EFF6FF',
-        borderRadius: 8,
     },
 });

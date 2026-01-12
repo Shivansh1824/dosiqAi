@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { ParsedMedication } from '../types/medicationVerification';
@@ -21,6 +21,7 @@ interface MedicationVerificationCardProps {
   duplicateOf?: Medication;
   onDismiss?: () => void;
   medicineIndex?: number;
+  onLiveUpdate?: (updates: { current_reminder_times: string[] }) => void;
 }
 
 /**
@@ -36,6 +37,7 @@ export default function MedicationVerificationCard({
   duplicateOf,
   onDismiss,
   medicineIndex,
+  onLiveUpdate,
 }: MedicationVerificationCardProps) {
   const [medication, setMedication] = useState<ParsedMedication>(initialMedication);
   const [isEditing, setIsEditing] = useState(false);
@@ -206,7 +208,10 @@ export default function MedicationVerificationCard({
     const currentTimes = getReminderTimes();
     const updatedTimes = [...currentTimes];
     updatedTimes[index] = newTime;
+    updatedTimes[index] = newTime;
     setCustomReminderTimes(updatedTimes);
+    // Broadcast live update
+    onLiveUpdate?.({ current_reminder_times: updatedTimes });
   };
 
   // Handle adding new reminder from modal
@@ -223,6 +228,8 @@ export default function MedicationVerificationCard({
 
     const updatedTimes = [...currentTimes, time].sort();
     setCustomReminderTimes(updatedTimes);
+    // Broadcast live update
+    onLiveUpdate?.({ current_reminder_times: updatedTimes });
 
     // Update toggles - keeping it simple, user can toggle
     // Ideally we'd sync toggles with sort but that requires refactor of toggle state to be a map
@@ -237,6 +244,37 @@ export default function MedicationVerificationCard({
         [time]: mealLabel
       }));
     }
+  };
+
+
+
+
+  // Handle batch toggle (Morning/Afternoon/Evening/Night)
+  const handleBatchToggle = (batchId: string, isEnabled: boolean, defaultTime: string) => {
+    const currentTimes = getReminderTimes();
+    let updatedTimes = [...currentTimes];
+
+    if (isEnabled) {
+      // Add the default time if not present
+      if (!updatedTimes.includes(defaultTime)) {
+        updatedTimes.push(defaultTime);
+        updatedTimes.sort(); // Keep sorted
+      }
+    } else {
+      // Remove the specific default time
+      // Improvement: Could also remove any time *within* that batch's range, but for now strict default time is safer/simpler
+      updatedTimes = updatedTimes.filter(t => t !== defaultTime);
+    }
+
+    setCustomReminderTimes(updatedTimes);
+    // Broadcast live update
+    onLiveUpdate?.({ current_reminder_times: updatedTimes });
+
+    // Sync toggles state (optimistic)
+    // In grouped mode, we don't strictly use reminderToggles index mapping like Separate mode
+    // But we need to keep the state valid for the backend.
+    // Re-generating toggles array to match new times length
+    setReminderToggles(new Array(updatedTimes.length).fill(true));
   };
 
 
@@ -297,27 +335,33 @@ export default function MedicationVerificationCard({
       />
 
       {/* Reminder Times Section */}
-      <ReminderTimesSection
-        reminderTimes={getReminderTimes()}
-        intervalText={getIntervalText()}
-        medicineName={medication.name}
-        reminderToggles={reminderToggles}
-        totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
-        timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
-        foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
-        onToggleChange={handleReminderToggleChange}
-        onTimeChange={handleTimeChange}
-        defaultNotes={reminderDefaultNotes}
-        onDefaultNoteChange={handleDefaultNoteChange}
-        onAddPress={() => setShowAddReminderModal(true)}
-        customMealLabels={customMealLabels}
-      />
+      {!isAsNeeded && (
+        <>
+          <ReminderTimesSection
+            reminderTimes={getReminderTimes()}
+            intervalText={getIntervalText()}
+            medicineName={medication.name}
+            reminderToggles={reminderToggles}
+            totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
+            timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
+            foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
+            onToggleChange={handleReminderToggleChange}
+            onTimeChange={handleTimeChange}
+            defaultNotes={reminderDefaultNotes}
+            onDefaultNoteChange={handleDefaultNoteChange}
+            onAddPress={() => setShowAddReminderModal(true)}
+            customMealLabels={customMealLabels}
 
-      <AddReminderModal
-        visible={showAddReminderModal}
-        onClose={() => setShowAddReminderModal(false)}
-        onAdd={handleAddReminderObject}
-      />
+            onBatchToggle={handleBatchToggle}
+          />
+
+          <AddReminderModal
+            visible={showAddReminderModal}
+            onClose={() => setShowAddReminderModal(false)}
+            onAdd={handleAddReminderObject}
+          />
+        </>
+      )}
 
 
       {/* Notes Section (Compact) */}
@@ -363,51 +407,6 @@ export default function MedicationVerificationCard({
         </View>
       )}
 
-      {/* Action Buttons */}
-      <View style={styles.actionRow}>
-        {isEditing ? (
-          <>
-            <TouchableOpacity
-              style={styles.resetButton}
-              onPress={handleResetToAI}
-              activeOpacity={0.7}
-            >
-              <Feather name="rotate-ccw" size={16} color={Colors.gray500} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancelEdits}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSaveEdits}
-              activeOpacity={0.7}
-            >
-              <Feather name="check" size={18} color={Colors.white} />
-              <Text style={styles.saveButtonText}>Done</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={[styles.verifyButton, isVerifying && styles.verifyButtonDisabled]}
-            onPress={handleVerifyAndAdd}
-            disabled={isVerifying}
-            activeOpacity={0.7}
-          >
-            {isVerifying ? (
-              <ActivityIndicator color={Colors.white} size="small" />
-            ) : (
-              <>
-                <Feather name="check" size={18} color={Colors.white} />
-                <Text style={styles.verifyButtonText}>Verify & Add</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
     </View>
   );
 }
@@ -493,75 +492,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '500',
   },
-  actionRow: {
-    padding: 20,
-    paddingTop: 0,
-    flexDirection: 'row',
-    gap: 12,
-  },
-  verifyButton: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 8,
-  },
-  verifyButtonText: {
-    color: Colors.white,
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0.3,
-  },
-  verifyButtonDisabled: {
-    backgroundColor: Colors.gray300,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  cancelButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-  },
-  cancelButtonText: {
-    color: Colors.gray600,
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  resetButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.gray100,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: Colors.success,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: Colors.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  saveButtonText: {
-    color: Colors.white,
-    fontWeight: '700',
-    fontSize: 16,
-  },
+
 });

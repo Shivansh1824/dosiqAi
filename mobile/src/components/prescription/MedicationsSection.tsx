@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../../constants';
 import { MedicineInfo } from '../../types/document';
@@ -36,6 +36,47 @@ export function MedicationsSection({
     onDismiss,
 }: MedicationsSectionProps) {
     const visibleMedicationsCount = medicines.length - dismissedMedicationIds.size;
+    const [isVerifyingAll, setIsVerifyingAll] = useState(false);
+
+    // Get all unverified medications for the "Verify & Add All" action
+    const getUnverifiedMedications = () => {
+        return medicines
+            .map((medicine, index) => ({ medicine, index }))
+            .filter(({ index }) => {
+                const dismissId = `${documentId}_${index}`;
+                return !dismissedMedicationIds.has(dismissId);
+            })
+            .filter(({ medicine }) => {
+                const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
+                return !verifiedMedications.has(parsedMed.name);
+            })
+            .map(({ medicine }) => parseAIMedication(medicine, documentId, documentTitle));
+    };
+
+    // Handle verify all medications
+    const handleVerifyAll = async () => {
+        const unverifiedMeds = getUnverifiedMedications();
+        if (unverifiedMeds.length === 0) return;
+
+        setIsVerifyingAll(true);
+        try {
+            const suggestedStartDate = documentCreatedAt.split('T')[0];
+            for (const medication of unverifiedMeds) {
+                const finalMedication = {
+                    ...medication,
+                    verified_by_user: true,
+                };
+                await onVerifyAndAdd(finalMedication, suggestedStartDate);
+            }
+        } catch (error) {
+            console.error('[MedicationsSection] Error adding medications:', error);
+        } finally {
+            setIsVerifyingAll(false);
+        }
+    };
+
+    const unverifiedCount = getUnverifiedMedications().length;
+    const hasUnverifiedMedications = unverifiedCount > 0;
 
     return (
         <View style={styles.card}>
@@ -95,6 +136,27 @@ export function MedicationsSection({
                         </View>
                     );
                 })}
+
+            {/* Single Verify & Add All Button at the end */}
+            {hasUnverifiedMedications && (
+                <TouchableOpacity
+                    style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
+                    onPress={handleVerifyAll}
+                    disabled={isVerifyingAll}
+                    activeOpacity={0.7}
+                >
+                    {isVerifyingAll ? (
+                        <ActivityIndicator color={Colors.white} size="small" />
+                    ) : (
+                        <>
+                            <Feather name="check" size={18} color={Colors.white} />
+                            <Text style={styles.verifyAllButtonText}>
+                                Verify & Add {unverifiedCount > 1 ? `All (${unverifiedCount})` : ''}
+                            </Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+            )}
         </View>
     );
 }
@@ -157,4 +219,25 @@ const styles = StyleSheet.create({
         marginVertical: 0,
         marginHorizontal: 16,
     },
+    verifyAllButton: {
+        backgroundColor: Colors.primary,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderRadius: 16,
+        gap: 8,
+        marginTop: 16,
+        marginHorizontal: 4,
+    },
+    verifyAllButtonText: {
+        color: Colors.white,
+        fontWeight: '700',
+        fontSize: 16,
+        letterSpacing: 0.3,
+    },
+    verifyAllButtonDisabled: {
+        backgroundColor: Colors.gray300,
+    },
 });
+

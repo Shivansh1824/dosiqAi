@@ -33,7 +33,7 @@ import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, GroupedBatchReminders } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
@@ -59,6 +59,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const generationPromise = React.useRef<Promise<string | undefined> | null>(null);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
+  // Live updates for medication reminders (index -> updates)
+  const [medicationLiveUpdates, setMedicationLiveUpdates] = useState<Record<number, { current_reminder_times?: string[] }>>({});
+  const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
   const [labReportId, setLabReportId] = useState<string | null>(null);
@@ -1697,12 +1700,75 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                         onVerifyAndAdd={handleVerifyAndAddMedication}
                         duplicateOf={duplicateOf || undefined}
                         medicineIndex={index}
+                        onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                          setMedicationLiveUpdates(prev => ({
+                            ...prev,
+                            [index]: { ...prev[index], ...updates }
+                          }));
+                        }}
                         onDismiss={() => handleDismissMedication(index)}
                       />
                       {!isLastItem && <View style={styles.medicationDivider} />}
                     </View>
                   );
                 })}
+
+              {/* Daily Routines - Grouped Batch Reminders */}
+              <GroupedBatchReminders
+                medicines={(document.ai_analysis_result?.prescription_data?.medicines || []).map((med, idx) => ({
+                  ...med,
+                  ...medicationLiveUpdates[idx]
+                }))}
+              />
+
+              {/* Verify & Add All Button */}
+              {(() => {
+                const medicines = document.ai_analysis_result?.prescription_data?.medicines || [];
+                const unverifiedMeds = medicines
+                  .map((medicine, index) => ({ medicine, index }))
+                  .filter(({ index }) => !dismissedMedicationIds.has(`${document.id}_${index}`))
+                  .filter(({ medicine }) => {
+                    const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+                    return !verifiedMedications.has(parsedMed.name);
+                  });
+
+                if (unverifiedMeds.length === 0) return null;
+
+                const handleVerifyAll = async () => {
+                  setIsVerifyingAll(true);
+                  try {
+                    for (const { medicine } of unverifiedMeds) {
+                      const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+                      const suggestedStartDate = document.created_at.split('T')[0];
+                      await handleVerifyAndAddMedication(parsedMed, suggestedStartDate);
+                    }
+                  } catch (error) {
+                    console.error('[DocumentDetail] Error verifying all medications:', error);
+                  } finally {
+                    setIsVerifyingAll(false);
+                  }
+                };
+
+                return (
+                  <TouchableOpacity
+                    style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
+                    onPress={handleVerifyAll}
+                    disabled={isVerifyingAll}
+                    activeOpacity={0.7}
+                  >
+                    {isVerifyingAll ? (
+                      <ActivityIndicator color={Colors.white} size="small" />
+                    ) : (
+                      <>
+                        <Feather name="check" size={18} color={Colors.white} />
+                        <Text style={styles.verifyAllButtonText}>
+                          Verify & Add {unverifiedMeds.length > 1 ? `All (${unverifiedMeds.length})` : ''}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
           )}
 
@@ -3196,5 +3262,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.primary,
+  },
+  verifyAllButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+    marginTop: 16,
+    marginHorizontal: 4,
+  },
+  verifyAllButtonText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0.3,
+  },
+  verifyAllButtonDisabled: {
+    backgroundColor: Colors.gray300,
   },
 });

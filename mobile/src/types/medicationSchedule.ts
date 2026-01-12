@@ -205,14 +205,15 @@ export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
 };
 
 // Helper function to get time of day display text
+// Helper function to get time of day display text
 export const getTimeOfDayText = (category: TimeOfDayCategory): string => {
     switch (category) {
         case 'morning':
-            return 'Morning';
+            return 'Morning Dose';
         case 'afternoon':
-            return 'Afternoon';
+            return 'Afternoon Dose';
         case 'night':
-            return 'Night';
+            return 'Night Dose';
     }
 };
 
