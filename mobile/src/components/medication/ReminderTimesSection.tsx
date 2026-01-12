@@ -234,16 +234,23 @@ export function ReminderTimesSection({
             rows = [...batches];
             const extrasNeeded = totalTimesPerDay - 3;
             for (let i = 0; i < extrasNeeded; i++) {
-                const cycleIndex = i % 3;
-                const offsetPass = Math.floor(i / 3) + 1;
+                // Cyclical Logic: 
+                // i=0 -> Morning + 1h
+                // i=1 -> Afternoon + 1h
+                // i=2 -> Night + 1h
+                // i=3 -> Morning + 2h
+                const cycleIndex = i % 3; // 0, 1, 2
+                const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
                 const baseBatch = batches[cycleIndex];
+
                 const [h, m] = baseBatch.defaultTime.split(':').map(Number);
                 let newHour = h + offsetPass;
-                if (newHour >= 24) newHour -= 24;
+                if (newHour >= 24) newHour -= 24; // Simple wrap-around, though unlikely for usual doses
+
                 const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
                 rows.push({
                     id: `extra-${i}`,
-                    label: 'Reminder',
+                    label: 'Reminder', // Label is always Reminder for extras
                     icon: 'clock',
                     defaultTime: newTime
                 });
@@ -307,6 +314,7 @@ export function ReminderTimesSection({
     }, [totalTimesPerDay, timingDosage, reminderTimes]);
 
     const rowsToRender = renderGroupedView();
+    let activeCounter = 0; // Tracking active reminders for dynamic numbering
 
 
 
@@ -332,26 +340,124 @@ export function ReminderTimesSection({
                     const isOn = reminderTimes.includes(batch.defaultTime);
                     const isCustomReminder = batch.label === 'Reminder' || batch.id.startsWith('extra-');
 
+                    // Calculate number to show
+                    let numberToShow = null;
+                    if (isOn) {
+                        activeCounter++;
+                        numberToShow = activeCounter;
+                    }
+
                     if (isCustomReminder) {
                         // Modern Layout for Custom Reminders
                         return (
-                            <View key={batch.id} style={styles.barWithNoteContainer}>
-                                <View style={styles.timeBarModern}>
-                                    {/* Left: Clickable Time */}
-                                    <TouchableOpacity
-                                        onPress={() => handleTimeClick(batch.defaultTime)} // Note: using time value now
-                                        style={styles.timeButton}
-                                    >
-                                        <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
-                                        <View style={[styles.intervalBadge, { backgroundColor: Colors.primary + '15', borderColor: Colors.primary + '30' }]}>
-                                            <Feather name="clock" size={10} color={Colors.primary} />
+                            <View key={batch.id} style={styles.numberedRowContainer}>
+                                {/* Dynamic Numbering Column */}
+                                <View style={styles.numberColumn}>
+                                    <Text style={styles.numberText}>
+                                        {numberToShow ? `${numberToShow}.` : ''}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.barWithNoteContainer}>
+                                    <View style={styles.timeBarModern}>
+                                        {/* Left: Clickable Time */}
+                                        <TouchableOpacity
+                                            onPress={() => handleTimeClick(batch.defaultTime)} // Note: using time value now
+                                            style={styles.timeButton}
+                                        >
+                                            <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                            <View style={[styles.intervalBadge, { backgroundColor: Colors.primary + '15', borderColor: Colors.primary + '30' }]}>
+                                                <Feather name="clock" size={10} color={Colors.primary} />
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        {/* Right Group */}
+                                        <View style={styles.timeBarRightGroup}>
+                                            <Text style={styles.timeBarDoseLabel} numberOfLines={1}>{cleanName}</Text>
+
+                                            <Switch
+                                                value={isOn}
+                                                onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                trackColor={{ false: Colors.gray200, true: Colors.primary }}
+                                                thumbColor={Colors.white}
+                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }} // Approx 45x26.5
+                                            />
+
+                                            <TouchableOpacity
+                                                style={styles.noteIconButton}
+                                                onPress={() => toggleNoteExpansion(batch.id)}
+                                            >
+                                                <MaterialCommunityIcons
+                                                    name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
+                                                    size={20}
+                                                    color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : Colors.gray400}
+                                                />
+                                            </TouchableOpacity>
                                         </View>
-                                    </TouchableOpacity>
+                                    </View>
 
-                                    {/* Right Group */}
+                                    {/* Creating Note Input */}
+                                    {expandedNotes[batch.id] && (
+                                        <View style={styles.noteSection}>
+                                            <View style={styles.noteInputContainer}>
+                                                <TouchableOpacity style={styles.noteInputIcon}>
+                                                    <Feather name="edit-3" size={14} color={Colors.gray400} />
+                                                </TouchableOpacity>
+                                                <TextInput
+                                                    style={styles.noteInput}
+                                                    value={defaultNotes[batch.defaultTime] || ''}
+                                                    onChangeText={(text) => {
+                                                        if (text.length <= 150) {
+                                                            onDefaultNoteChange?.(batch.defaultTime, text);
+                                                        }
+                                                    }}
+                                                    placeholder="Add instructions (e.g. Take with warm water)"
+                                                    placeholderTextColor={Colors.gray400}
+                                                    multiline
+                                                    maxLength={150}
+                                                />
+                                            </View>
+                                            <Text style={styles.noteCharCount}>
+                                                {(defaultNotes[batch.defaultTime] || '').length}/150
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                        );
+                    }
+
+                    // Standard Layout for Morning/Afternoon/Night
+                    return (
+                        <View key={batch.id} style={styles.numberedRowContainer}>
+                            {/* Dynamic Numbering Column */}
+                            <View style={styles.numberColumn}>
+                                <Text style={styles.numberText}>
+                                    {numberToShow ? `${numberToShow}.` : ''}
+                                </Text>
+                            </View>
+
+                            <View style={styles.barWithNoteContainer}>
+                                <View style={styles.batchRow}>
+                                    <View style={styles.batchInfo}>
+                                        <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
+                                            <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
+                                        </View>
+                                        <View>
+                                            <View style={styles.batchLabelContainer}>
+                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
+                                                <TouchableOpacity
+                                                    onPress={() => setActiveTooltip({ id: batch.id, label: batch.label, time: batch.defaultTime })}
+                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                >
+                                                    <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
+                                                </TouchableOpacity>
+                                            </View>
+                                            <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                        </View>
+                                    </View>
+
                                     <View style={styles.timeBarRightGroup}>
-                                        <Text style={styles.timeBarDoseLabel} numberOfLines={1}>{cleanName}</Text>
-
                                         <Switch
                                             value={isOn}
                                             onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
@@ -400,79 +506,6 @@ export function ReminderTimesSection({
                                     </View>
                                 )}
                             </View>
-                        );
-                    }
-
-                    // Standard Layout for Morning/Afternoon/Night
-                    return (
-                        <View key={batch.id} style={styles.barWithNoteContainer}>
-                            <View style={styles.batchRow}>
-                                <View style={styles.batchInfo}>
-                                    <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
-                                        <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
-                                    </View>
-                                    <View>
-                                        <View style={styles.batchLabelContainer}>
-                                            <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
-                                            <TouchableOpacity
-                                                onPress={() => setActiveTooltip({ id: batch.id, label: batch.label, time: batch.defaultTime })}
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                            >
-                                                <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
-                                            </TouchableOpacity>
-                                        </View>
-                                        <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.timeBarRightGroup}>
-                                    <Switch
-                                        value={isOn}
-                                        onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                        trackColor={{ false: Colors.gray200, true: Colors.primary }}
-                                        thumbColor={Colors.white}
-                                        style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }} // Approx 45x26.5
-                                    />
-
-                                    <TouchableOpacity
-                                        style={styles.noteIconButton}
-                                        onPress={() => toggleNoteExpansion(batch.id)}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                            size={20}
-                                            color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : Colors.gray400}
-                                        />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            {/* Creating Note Input */}
-                            {expandedNotes[batch.id] && (
-                                <View style={styles.noteSection}>
-                                    <View style={styles.noteInputContainer}>
-                                        <TouchableOpacity style={styles.noteInputIcon}>
-                                            <Feather name="edit-3" size={14} color={Colors.gray400} />
-                                        </TouchableOpacity>
-                                        <TextInput
-                                            style={styles.noteInput}
-                                            value={defaultNotes[batch.defaultTime] || ''}
-                                            onChangeText={(text) => {
-                                                if (text.length <= 150) {
-                                                    onDefaultNoteChange?.(batch.defaultTime, text);
-                                                }
-                                            }}
-                                            placeholder="Add instructions (e.g. Take with warm water)"
-                                            placeholderTextColor={Colors.gray400}
-                                            multiline
-                                            maxLength={150}
-                                        />
-                                    </View>
-                                    <Text style={styles.noteCharCount}>
-                                        {(defaultNotes[batch.defaultTime] || '').length}/150
-                                    </Text>
-                                </View>
-                            )}
                         </View>
                     );
                 })}
@@ -488,50 +521,54 @@ export function ReminderTimesSection({
 
             {/* Time Picker Modal for iOS and Android... (Existing) */}
             {/* Time Picker Modal for iOS */}
-            {Platform.OS === 'ios' && editingTime !== null && (
-                <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={true}
-                    onRequestClose={handleCancel}
-                >
-                    <View style={styles.centeredView}>
-                        <View style={styles.modalView}>
-                            <DateTimePicker
-                                value={tempTime}
-                                mode="time"
-                                display="spinner"
-                                onChange={handleTimePickerChange}
-                                textColor={Colors.gray900}
-                            />
-                            <View style={styles.modalButtonContainer}>
-                                <TouchableOpacity
-                                    style={[styles.modalButton, styles.buttonCancel]}
-                                    onPress={handleCancel}
-                                >
-                                    <Text style={styles.textStyle}>Cancel</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.modalButton, styles.buttonConfirm]}
-                                    onPress={handleIOSConfirm}
-                                >
-                                    <Text style={styles.textStyle}>Confirm</Text>
-                                </TouchableOpacity>
+            {
+                Platform.OS === 'ios' && editingTime !== null && (
+                    <Modal
+                        animationType="slide"
+                        transparent={true}
+                        visible={true}
+                        onRequestClose={handleCancel}
+                    >
+                        <View style={styles.centeredView}>
+                            <View style={styles.modalView}>
+                                <DateTimePicker
+                                    value={tempTime}
+                                    mode="time"
+                                    display="spinner"
+                                    onChange={handleTimePickerChange}
+                                    textColor={Colors.gray900}
+                                />
+                                <View style={styles.modalButtonContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.buttonCancel]}
+                                        onPress={handleCancel}
+                                    >
+                                        <Text style={styles.textStyle}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.buttonConfirm]}
+                                        onPress={handleIOSConfirm}
+                                    >
+                                        <Text style={styles.textStyle}>Confirm</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
-                    </View>
-                </Modal>
-            )}
+                    </Modal>
+                )
+            }
 
             {/* Time Picker for Android */}
-            {Platform.OS === 'android' && editingTime !== null && (
-                <DateTimePicker
-                    value={tempTime}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleTimePickerChange}
-                />
-            )}
+            {
+                Platform.OS === 'android' && editingTime !== null && (
+                    <DateTimePicker
+                        value={tempTime}
+                        mode="time"
+                        display="spinner"
+                        onChange={handleTimePickerChange}
+                    />
+                )
+            }
             {/* Tooltip Modal */}
             <Modal
                 transparent={true}
@@ -689,9 +726,30 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         fontWeight: '700',
     },
+    // Numbering Styles
+    numberedRowContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start', // Align number with top of bar
+    },
+    numberColumn: {
+        width: 24, // Fixed width for number
+        paddingTop: 12, // Align visually with text in bar
+        marginRight: 4,
+    },
+    numberText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.gray500,
+        textAlign: 'right',
+    },
     // Batches Styles
     batchesContainer: {
         gap: 8,
+    },
+    // Updated container to flex: 1 to fill remaining space next to number
+    barWithNoteContainer: {
+        flex: 1,
+        marginBottom: 8, // Moved spacing here
     },
     batchRow: {
         flexDirection: 'row',
@@ -730,7 +788,6 @@ const styles = StyleSheet.create({
         color: Colors.gray400,
         marginTop: 1,
     },
-    // Existing Styles...
     intervalBadge: {
         backgroundColor: '#ECFDF5',
         paddingHorizontal: 8,
@@ -779,9 +836,6 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '700',
         color: Colors.gray600,
-    },
-    barWithNoteContainer: {
-        marginBottom: 0,
     },
     noteIconButton: {
         width: 22, // Tighter width

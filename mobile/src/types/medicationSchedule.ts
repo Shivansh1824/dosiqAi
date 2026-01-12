@@ -228,3 +228,47 @@ export const getTimeOfDayIcon = (category: TimeOfDayCategory): string => {
             return 'moon';
     }
 };
+
+/**
+ * Generates reminder times based on a cyclical logic for frequencies > 3.
+ * Always includes Morning (08:00), Afternoon (14:00), Night (21:00).
+ * Extras are added by cycling through Morning->Afternoon->Night and adding offsets.
+ * 
+ * Logic ensures compatibility with ReminderTimesSection to prevent duplicate bars.
+ */
+export const generateCyclicReminderTimes = (totalTimesPerDay: number): string[] => {
+    // Base times are Morning, Afternoon, Night
+    // These match the default times in ReminderTimesSection
+    const morning = '08:00';
+    const afternoon = '14:00';
+    const night = '21:00';
+
+    if (totalTimesPerDay <= 0) return [];
+
+    // For 1-3 times, we pick from the standard set to align with UI defaults
+    if (totalTimesPerDay === 1) return [morning];
+    if (totalTimesPerDay === 2) return [morning, night];
+    if (totalTimesPerDay === 3) return [morning, afternoon, night];
+
+    // For > 3
+    const baseTimes = [morning, afternoon, night];
+    const result = [...baseTimes];
+    const extrasNeeded = totalTimesPerDay - 3;
+
+    for (let i = 0; i < extrasNeeded; i++) {
+        const cycleIndex = i % 3; // 0, 1, 2
+        const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1...
+
+        const baseTime = baseTimes[cycleIndex];
+        const [h, m] = baseTime.split(':').map(Number);
+
+        let newHour = h + offsetPass;
+        // Handle wrap around 24h
+        if (newHour >= 24) newHour -= 24;
+
+        const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        result.push(newTime);
+    }
+
+    return result.sort();
+};

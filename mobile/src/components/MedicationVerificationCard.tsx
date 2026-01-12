@@ -6,6 +6,7 @@ import { ParsedMedication } from '../types/medicationVerification';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
 import { calculateEndDate, isAsNeededFrequency } from '../utils/medicationParser';
+import { generateCyclicReminderTimes } from '../types/medicationSchedule';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { MedicineInfoTable } from './medication/MedicineInfoTable';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
@@ -74,18 +75,8 @@ export default function MedicationVerificationCard({
     medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day
   );
 
-  // Auto-generate reminder times
-  const generateAutoReminderTimes = (timesPerDay: number): string[] => {
-    const defaultTimes: Record<number, string[]> = {
-      1: ['09:00'],
-      2: ['09:00', '21:00'],
-      3: ['08:00', '14:00', '21:00'],
-      4: ['08:00', '12:00', '18:00', '22:00'],
-      5: ['07:00', '11:00', '15:00', '19:00', '22:00'],
-      6: ['06:00', '10:00', '14:00', '18:00', '21:00', '23:00'],
-    };
-    return defaultTimes[timesPerDay] || defaultTimes[3];
-  };
+  // Auto-generate reminder times is now handled by shared utility
+
 
   // Get reminder times
   const getReminderTimes = (): string[] => {
@@ -99,7 +90,7 @@ export default function MedicationVerificationCard({
       return medication.time_of_day;
     }
     if (timesPerDay > 0) {
-      return generateAutoReminderTimes(timesPerDay);
+      return generateCyclicReminderTimes(timesPerDay);
     }
     return [];
   };
