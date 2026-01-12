@@ -204,11 +204,22 @@ export default function MedicationVerificationCard({
   };
 
   // Handle time change from time picker
-  const handleTimeChange = (index: number, newTime: string) => {
+  const handleTimeChange = (oldTime: string, newTime: string) => {
     const currentTimes = getReminderTimes();
     const updatedTimes = [...currentTimes];
-    updatedTimes[index] = newTime;
-    updatedTimes[index] = newTime;
+
+    // Find the time to replace
+    const index = updatedTimes.indexOf(oldTime);
+
+    if (index !== -1) {
+      updatedTimes[index] = newTime;
+    } else {
+      // If not found (edge case: maybe it was an implied time?), we add it?
+      // For now, let's append it to be safe, ensuring it gets saved.
+      updatedTimes.push(newTime);
+    }
+
+    updatedTimes.sort(); // Keep sorted
     setCustomReminderTimes(updatedTimes);
     // Broadcast live update
     onLiveUpdate?.({ current_reminder_times: updatedTimes });
