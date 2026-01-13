@@ -33,7 +33,7 @@ import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { MedicationsSection, DocumentPreview } from '../components/prescription';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
@@ -1619,22 +1619,63 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
 
 
+        {/* Prescription Summary - AI Summary for prescriptions */}
+        {document.ai_analysis_status === 'completed' &&
+          document.ai_analysis_result &&
+          document.ai_analysis_result.document_type !== 'medical_report' &&
+          getSummary(document.ai_analysis_result) && (
+            <PrescriptionSummary
+              summary={getSummary(document.ai_analysis_result)!}
+              otherInformation={document.ai_analysis_result.prescription_data?.other_information}
+              recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
+            />
+          )}
+
+
         {/* Medications Section - Only for prescriptions with medicines */}
         {document.ai_analysis_status === 'completed' &&
           document.ai_analysis_result?.prescription_data?.medicines &&
           document.ai_analysis_result.prescription_data.medicines.length > 0 && (
             <View style={styles.card}>
-              <View style={[styles.cardHeader, { marginBottom: 4 }]}>
-                <Text style={styles.cardTitle}>Medications</Text>
-                <View style={styles.cardBadge}>
-                  <Text style={styles.cardBadgeText}>
+              <View style={[styles.cardHeader, {
+                backgroundColor: Colors.gray50,
+                marginHorizontal: -16,
+                marginTop: -16,
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: Colors.gray100,
+                alignItems: 'flex-start',
+                marginBottom: 20
+              }]}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={{
+                    fontSize: 20,
+                    fontWeight: '800',
+                    color: Colors.gray900,
+                    letterSpacing: 0.6,
+                  }}>MED DETECTED</Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: Colors.gray500,
+                    fontWeight: '400',
+                    lineHeight: 18,
+                  }}>Successfully identified medications from your health document.</Text>
+                </View>
+                <View style={[styles.cardBadge, {
+                  backgroundColor: Colors.primary,
+                  minWidth: 32,
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 4
+                }]}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.white }}>
                     {document.ai_analysis_result.prescription_data.medicines.length - dismissedMedicationIds.size}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.cardSubtitle}>
-                Review and add medications to your tracker
-              </Text>
 
               {/* Medication Verification Cards - Single Column */}
               {document.ai_analysis_result.prescription_data.medicines
@@ -2998,10 +3039,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardSubtitle: {
     fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 16, // Adequate spacing before medication cards
+    marginBottom: 16,
   },
   medicationsContainer: {
     gap: Sizes.md,
@@ -3028,7 +3074,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E5E7EB',
     marginVertical: 0,
-    marginHorizontal: 16, // Match the padding of detailsGrid
+    marginHorizontal: 16,
   },
 
   // Error UI styles (errorContainer and errorMessage already defined above)
@@ -3057,7 +3103,7 @@ const styles = StyleSheet.create({
 
   // Detailed Medical Report Inline Styles
   detailedReportContainer: {
-    marginTop: 0, // Removed top margin (was Sizes.md)
+    marginTop: 0,
     marginBottom: Sizes.lg,
   },
   reportAnalysisSectionHeader: {
@@ -3077,8 +3123,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   medicalReportPatientCard: {
-    // Removed: backgroundColor, shadow*, elevation
-    marginBottom: 12, // Reduced from Sizes.lg (24)
+    marginBottom: 12,
     paddingHorizontal: Sizes.md,
     paddingVertical: Sizes.md,
   },
@@ -3120,8 +3165,7 @@ const styles = StyleSheet.create({
     marginVertical: Sizes.lg,
   },
   medicalReportStatusCard: {
-    // Removed: backgroundColor, shadow*, elevation
-    marginBottom: 12, // Reduced from Sizes.lg
+    marginBottom: 12,
     paddingHorizontal: Sizes.md,
     paddingVertical: Sizes.md,
   },
@@ -3201,9 +3245,8 @@ const styles = StyleSheet.create({
   },
 
   // AI Summary Card Styles
-  // AI Summary Card Styles
   aiSummaryCard: {
-    backgroundColor: 'rgba(59, 130, 246, 0.05)', // Subtle Blue Tint
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
     borderRadius: 16,
     marginBottom: 12,
     padding: 16,
@@ -3259,3 +3302,4 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray300,
   },
 });
+

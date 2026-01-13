@@ -405,21 +405,21 @@ export function ReminderTimesSection({
 
                     // Case 1: 1 time everyday
                     if (days === 1 && times === 1) {
-                        return `Based on the prescription, Dosiq AI identified that ${name} is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
+                        return `Based on the prescription, dosiq AI identified that ${name} is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
                     }
 
-                    // Case 2: x times everyday (corrected comment numbering)
+                    // Case 3: x times everyday
                     if (days === 1 && times > 1) {
-                        return `Based on the prescription, Dosiq AI identified that ${name} is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
+                        return `Based on the prescription, dosiq AI identified that ${name} is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
                     }
 
-                    // Case 3: 1 time, every y days
+                    // Case 4: 1 time, every y days
                     if (days > 1 && times === 1) {
-                        return `Based on the prescription, Dosiq AI identified that ${name} is to be taken 1 time, after every ${days} days. Please verify and adjust the schedule below.`;
+                        return `Based on the prescription, dosiq AI identified that ${name} is to be taken 1 time, every ${days} days. Please verify and adjust the schedule below.`;
                     }
 
-                    // Case 4: x times a day, after every y days
-                    return `Based on the prescription, Dosiq AI identified that ${name} is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
+                    // Case 2: x times a day, every y days (and fallback)
+                    return `Based on the prescription, dosiq AI identified that ${name} is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
                 })()}
             </Text>
 

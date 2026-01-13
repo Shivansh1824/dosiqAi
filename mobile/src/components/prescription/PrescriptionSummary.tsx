@@ -31,10 +31,10 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
     };
 
     const hasExtraInfo = (otherInformation && otherInformation.length > 0) || (recommendedTests && recommendedTests.length > 0);
-    const shouldShowReadMore = summary.length > 80 || (!!hasExtraInfo);
+    const shouldShowReadMore = summary.length > 85 || (!!hasExtraInfo);
 
     const displayText = shouldShowReadMore && !isExpanded
-        ? truncateText(summary, 80)
+        ? truncateText(summary, 85)
         : summary;
 
     return (

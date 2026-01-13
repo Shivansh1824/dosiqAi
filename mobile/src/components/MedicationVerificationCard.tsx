@@ -11,6 +11,7 @@ import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSection } from './medication/ReminderTimesSection';
 import AddReminderModal from './medication/AddReminderModal';
+import { AnimatedTooltip } from './AnimatedTooltip';
 
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
@@ -41,6 +42,7 @@ export default function MedicationVerificationCard({
 }: MedicationVerificationCardProps) {
   const [medication, setMedication] = useState<ParsedMedication>(initialMedication);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [startDate, setStartDate] = useState(suggestedStartDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -63,6 +65,10 @@ export default function MedicationVerificationCard({
   // Custom meal labels state (overrides global logic per reminder)
   const [customMealLabels, setCustomMealLabels] = useState<Record<string, string>>({});
   const [showAddReminderModal, setShowAddReminderModal] = useState(false);
+
+  // Tooltip State
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
@@ -248,8 +254,6 @@ export default function MedicationVerificationCard({
   };
 
 
-
-
   // Handle batch toggle (Morning/Afternoon/Evening/Night)
   const handleBatchToggle = (batchId: string, isEnabled: boolean, defaultTime: string) => {
     const currentTimes = getReminderTimes();
@@ -292,6 +296,13 @@ export default function MedicationVerificationCard({
     }));
   };
 
+  // Handle Tooltip Press
+  const handleTypePress = (event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setTooltipPosition({ x: pageX, y: pageY });
+    setTooltipVisible(true);
+  };
+
 
   return (
     <View style={styles.card}>
@@ -306,6 +317,40 @@ export default function MedicationVerificationCard({
         onToggleEdit={() => setIsEditing(!isEditing)}
         onDelete={handleDelete}
       />
+
+      {/* AI Summary & Dosage Instruction */}
+      <View style={styles.summaryContainer}>
+        <Text style={styles.summaryText}>
+          dosiq Ai Analysis: This{' '}
+          <Text
+            suppressHighlighting={false}
+            onPress={handleTypePress}
+            style={styles.interactiveText}
+          >
+            {medication.medicine_type || 'Medicine'}
+          </Text>
+          {' '}medicine helps with {medication.medicine_purpose || 'Treatment'}.
+          {medication.dosage ? (
+            !isSummaryExpanded ? (
+              <>
+                ...{' '}
+                <Text style={styles.readMoreText} onPress={() => setIsSummaryExpanded(true)}>
+                  read more
+                </Text>
+              </>
+            ) : (
+              <>
+                {'\n'}
+                Note: {medication.dosage}
+                {'\n'}
+                <Text style={styles.readMoreText} onPress={() => setIsSummaryExpanded(false)}>
+                  read less
+                </Text>
+              </>
+            )
+          ) : null}
+        </Text>
+      </View>
 
       <View style={styles.divider} />
 
@@ -382,9 +427,9 @@ export default function MedicationVerificationCard({
       )}
 
 
-      {/* Notes Section (Compact) */}
+      {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
       <View style={styles.detailsGrid}>
-        {(medication.notes || isEditing) && (
+        {((medication.notes && isAsNeeded) || isEditing) && (
           <View style={styles.notesCompactContainer}>
             {!isEditing ? (
               <View style={styles.notesRow}>
@@ -424,6 +469,14 @@ export default function MedicationVerificationCard({
           </Text>
         </View>
       )}
+
+      {/* Animated Tooltip */}
+      <AnimatedTooltip
+        visible={tooltipVisible}
+        content="Medication Type"
+        targetPosition={tooltipPosition}
+        onClose={() => setTooltipVisible(false)}
+      />
 
     </View>
   );
@@ -511,5 +564,25 @@ const styles = StyleSheet.create({
     color: Colors.warningDark,
     flex: 1,
     fontWeight: '500',
+  },
+  summaryContainer: {
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  summaryText: {
+    fontSize: 13,
+    color: Colors.gray600,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  interactiveText: {
+    fontWeight: '700',
+    color: Colors.gray600,
+    textDecorationLine: 'underline',
+  },
+  readMoreText: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
 });

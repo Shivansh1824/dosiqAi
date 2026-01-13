@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Sizes } from '../../constants';
 import { MedicineInfo } from '../../types/document';
 import { ParsedMedication } from '../../types/medicationVerification';
@@ -81,14 +81,16 @@ export function MedicationsSection({
     return (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Medications</Text>
+                <View style={styles.titleColumn}>
+                    <Text style={styles.cardTitle}>MED DETECTED</Text>
+                    <Text style={styles.cardSubtitle}>
+                        Successfully identified medications from your health document.
+                    </Text>
+                </View>
                 <View style={styles.cardBadge}>
                     <Text style={styles.cardBadgeText}>{visibleMedicationsCount}</Text>
                 </View>
             </View>
-            <Text style={styles.cardSubtitle}>
-                Review and add medications to your tracker
-            </Text>
 
             {/* Medication Verification Cards */}
             {medicines
@@ -170,31 +172,45 @@ const styles = StyleSheet.create({
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: Sizes.md,
+        alignItems: 'flex-start',
+        marginBottom: 20,
+        backgroundColor: Colors.gray50,
+        padding: 16,
+        marginHorizontal: -16,
+        marginTop: -16,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.gray100,
+    },
+    titleColumn: {
+        flex: 1,
+        gap: 4,
     },
     cardTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-        marginBottom: 4,
-        letterSpacing: -0.5,
+        fontSize: 20,
+        fontWeight: '800',
+        color: Colors.gray900,
+        letterSpacing: 0.6,
     },
     cardBadge: {
-        backgroundColor: Colors.primary + '20',
-        paddingHorizontal: Sizes.sm,
-        paddingVertical: Sizes.xs,
-        borderRadius: 12,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 20,
+        minWidth: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 4,
     },
     cardBadgeText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.primary,
+        fontSize: 13,
+        fontWeight: '800',
+        color: Colors.white,
     },
     cardSubtitle: {
         fontSize: 13,
-        color: Colors.textSecondary,
-        marginBottom: 12,
+        color: Colors.gray500,
+        fontWeight: '400',
+        lineHeight: 18,
     },
     verifiedBanner: {
         flexDirection: 'row',
@@ -240,4 +256,3 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.gray300,
     },
 });
-
