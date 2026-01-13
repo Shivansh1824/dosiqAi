@@ -13,6 +13,17 @@ import { ReminderTimesSection } from './medication/ReminderTimesSection';
 import AddReminderModal from './medication/AddReminderModal';
 import { AnimatedTooltip } from './AnimatedTooltip';
 
+const getMealTimingLabel = (relation: string): string => {
+  switch (relation) {
+    case 'before_food': return 'Before Meal';
+    case 'after_food': return 'After Meal';
+    case 'with_food': return 'With Meal';
+    case 'empty_stomach': return 'Empty Stomach';
+    case 'anytime': return 'Anytime';
+    default: return 'Anytime';
+  }
+};
+
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
   documentId: string;
@@ -329,26 +340,98 @@ export default function MedicationVerificationCard({
             {medication.medicine_type || 'Medicine'}
           </Text>
           {' '}medicine helps with {medication.medicine_purpose || 'Treatment'}.
-          {medication.dosage ? (
-            !isSummaryExpanded ? (
-              <>
-                ...{' '}
-                <Text style={styles.readMoreText} onPress={() => setIsSummaryExpanded(true)}>
-                  read more
-                </Text>
-              </>
-            ) : (
-              <>
-                {'\n'}
-                Note: {medication.dosage}
-                {'\n'}
-                <Text style={styles.readMoreText} onPress={() => setIsSummaryExpanded(false)}>
-                  read less
-                </Text>
-              </>
-            )
-          ) : null}
+          {/* Inline Read More */}
+          {!isSummaryExpanded && medication.dosage && (
+            <Text
+              style={styles.readMoreText}
+              onPress={() => setIsSummaryExpanded(true)}
+              suppressHighlighting={true}
+            >
+              {' '}... read more <Feather name="chevron-down" size={12} color={Colors.primary} />
+            </Text>
+          )}
         </Text>
+
+        {/* Expanded Rich Details View */}
+        {isSummaryExpanded && medication.dosage && (
+          <View style={styles.expandedContent}>
+            <View style={styles.tableBorderContainer}>
+              {/* Note Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableHeaderCell}>
+                  <Text style={styles.tableHeaderText}>Note</Text>
+                </View>
+                <View style={styles.tableValueCell}>
+                  <Text style={styles.tableValueText}>{medication.dosage}</Text>
+                </View>
+              </View>
+
+              {/* Attributes Rows */}
+              {medication.duration_days && (
+                <View style={styles.tableRow}>
+                  <View style={styles.tableHeaderCell}>
+                    <Text style={styles.tableHeaderText}>Duration</Text>
+                  </View>
+                  <View style={styles.tableValueCell}>
+                    <Text style={styles.tableValueText}>{medication.duration_days} days</Text>
+                  </View>
+                </View>
+              )}
+
+              {medication.strength && (
+                <View style={styles.tableRow}>
+                  <View style={styles.tableHeaderCell}>
+                    <Text style={styles.tableHeaderText}>Strength</Text>
+                  </View>
+                  <View style={styles.tableValueCell}>
+                    <Text style={styles.tableValueText}>{medication.strength}</Text>
+                  </View>
+                </View>
+              )}
+
+              {medication.form && (
+                <View style={styles.tableRow}>
+                  <View style={styles.tableHeaderCell}>
+                    <Text style={styles.tableHeaderText}>Form</Text>
+                  </View>
+                  <View style={styles.tableValueCell}>
+                    <Text style={styles.tableValueText}>{medication.form}</Text>
+                  </View>
+                </View>
+              )}
+
+              {medication.scientific_name && (
+                <View style={styles.tableRow}>
+                  <View style={styles.tableHeaderCell}>
+                    <Text style={styles.tableHeaderText}>Sci Name</Text>
+                  </View>
+                  <View style={styles.tableValueCell}>
+                    <Text style={styles.tableValueText}>{medication.scientific_name}</Text>
+                  </View>
+                </View>
+              )}
+
+              {medication.food_relationship && (
+                <View style={styles.tableRow}>
+                  <View style={styles.tableHeaderCell}>
+                    <Text style={styles.tableHeaderText}>Directions</Text>
+                  </View>
+                  <View style={styles.tableValueCell}>
+                    <Text style={styles.tableValueText}>{getMealTimingLabel(medication.food_relationship)}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.readLessContainer}
+              onPress={() => setIsSummaryExpanded(false)}
+            >
+              <Text style={styles.readMoreText}>read less</Text>
+              <Feather name="chevron-up" size={12} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.divider} />
@@ -581,8 +664,69 @@ const styles = StyleSheet.create({
     color: Colors.gray600,
     textDecorationLine: 'underline',
   },
+
+
+  // Table Layout Styles
+  expandedContent: {
+    marginTop: 12,
+  },
+  tableBorderContainer: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    overflow: 'hidden', // Ensures inner items don't overflow corners
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: Colors.white,
+  },
+  // Last row trick: The container has a border, but we can't easily target "last child" in RN styles without logic.
+  // Instead, we can rely on the container border and make row borders separating.
+  // Actually, standard RN way is marginBottom: -1 or just verify Logic.
+  // Simplified: All rows have bottom border. The last one will double up with container bottom border unless we handle it.
+  // We'll leave it simple for now, or we could add a `style={{borderBottomWidth: 0}}` to the last item rendered.
+  // Given dynamic rendering, let's keep it consistent. The overflow hidden handles the radius.
+
+  tableHeaderCell: {
+    width: '30%', // Fixed width for "TH" column - Reduced to 30%
+    paddingVertical: 8, // Reduced from 12
+    paddingHorizontal: 10, // Reduced from 14
+    backgroundColor: '#F9FAFB', // Light gray background for headers
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+    justifyContent: 'center',
+  },
+  tableValueCell: {
+    flex: 1, // "TD" column takes remaining space
+    paddingVertical: 8, // Reduced from 12
+    paddingHorizontal: 10, // Reduced from 14
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+  },
+  tableHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.gray500, // Matches Course Period
+    letterSpacing: 0.5, // Matches Course Period
+    textTransform: 'uppercase', // Matches Course Period
+  },
+  tableValueText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.gray600, // Matches analysis text
+    lineHeight: 18,
+  },
+  readLessContainer: {
+    marginTop: 8,
+    alignItems: 'flex-start', // Left aligned
+    flexDirection: 'row', // For icon
+    gap: 4,
+  },
   readMoreText: {
     color: Colors.primary,
     fontWeight: '700',
+    fontSize: 12, // Smaller size
   },
 });

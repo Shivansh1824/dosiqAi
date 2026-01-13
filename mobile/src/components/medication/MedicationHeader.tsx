@@ -198,9 +198,8 @@ const styles = StyleSheet.create({
     },
     medicationName: {
         fontSize: 20,
-        fontWeight: '800',
-        color: Colors.gray900,
-        fontFamily: 'System',
+        fontWeight: '900',
+        color: Colors.gray500,
         letterSpacing: -0.5,
         marginBottom: 0,
     },
