@@ -32,8 +32,13 @@ export function CoursePeriodSection({
     return (
         <View style={styles.coursePeriodContainer}>
             <View style={styles.coursePeriodHeader}>
-                <Feather name="calendar" size={16} color={Colors.primary} />
-                <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
+                <View style={styles.headerLeft}>
+                    <Feather name="calendar" size={16} color={Colors.primary} />
+                    <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
+                </View>
+                <TouchableOpacity>
+                    <Text style={styles.placeholderButton}>Every 2 Days</Text>
+                </TouchableOpacity>
             </View>
             <View style={styles.coursePeriodCards}>
                 {/* Start Date Card - Clickable */}
@@ -78,8 +83,13 @@ const styles = StyleSheet.create({
     coursePeriodHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        justifyContent: 'space-between',
         marginBottom: 12,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     coursePeriodTitle: {
         fontSize: 11,
@@ -120,5 +130,12 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
         color: Colors.gray800,
+    },
+    placeholderButton: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: Colors.primary,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
     },
 });
