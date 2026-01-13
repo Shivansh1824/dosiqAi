@@ -33,7 +33,7 @@ import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { MedicationsSection, DocumentPreview } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
@@ -741,15 +741,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
     return (
       <View style={styles.analysisContent}>
-        {/* Summary - Primary display */}
-        {summary && (
-          <PrescriptionSummary
-            summary={summary}
-            otherInformation={prescriptionData?.other_information}
-            recommendedTests={prescriptionData?.recommended_tests}
-          />
-        )}
-
         {/* Document Type & Visit Date */}
         {(result.document_type || commonData?.visit_date) && (
           <View style={styles.analysisGrid}>
@@ -1626,17 +1617,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             );
           })()}
 
-        {/* AI Summary Card - Prescriptions */}
-        {document.ai_analysis_status === 'completed' &&
-          document.ai_analysis_result &&
-          document.ai_analysis_result.document_type !== 'medical_report' &&
-          getSummary(document.ai_analysis_result) && (
-            <PrescriptionSummary
-              summary={getSummary(document.ai_analysis_result)!}
-              otherInformation={document.ai_analysis_result.prescription_data?.other_information}
-              recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
-            />
-          )}
+
 
         {/* Medications Section - Only for prescriptions with medicines */}
         {document.ai_analysis_status === 'completed' &&

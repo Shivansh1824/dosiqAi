@@ -8,7 +8,6 @@ import DatePickerModal from './DatePickerModal';
 import { calculateEndDate, isAsNeededFrequency } from '../utils/medicationParser';
 import { generateCyclicReminderTimes } from '../types/medicationSchedule';
 import { MedicationHeader } from './medication/MedicationHeader';
-import { MedicineInfoTable } from './medication/MedicineInfoTable';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSection } from './medication/ReminderTimesSection';
 import AddReminderModal from './medication/AddReminderModal';
@@ -285,13 +284,20 @@ export default function MedicationVerificationCard({
     onLiveUpdate?.({ current_reminder_times: newTimes });
   };
 
+  const handleIntervalChange = (days: number) => {
+    setMedication(prev => ({
+      ...prev,
+      interval_days: days,
+      verified_by_user: true
+    }));
+  };
+
 
   return (
     <View style={styles.card}>
       {/* Header */}
       <MedicationHeader
-        name={medication.name}
-        strength={medication.strength}
+        name={medication.source_raw?.exact_written_name || medication.name}
         form={medication.form}
         confidence={medication.confidence}
         isEditing={isEditing}
@@ -303,16 +309,15 @@ export default function MedicationVerificationCard({
 
       <View style={styles.divider} />
 
-      {/* Medicine Info Table */}
-      <MedicineInfoTable medication={medication} />
-
       {/* Course Period Section */}
       {!isAsNeeded && (
         <CoursePeriodSection
           startDate={startDate}
           endDate={computedEndDate}
+          interval={medication.interval_days ?? medication.source_raw?.interval_days}
           onStartDatePress={() => setShowDatePicker(true)}
           onEndDatePress={() => setShowEndDatePicker(true)}
+          onIntervalChange={handleIntervalChange}
         />
       )}
 
@@ -362,6 +367,10 @@ export default function MedicationVerificationCard({
 
             onBatchToggle={handleBatchToggle}
             onUpdateReminderTimes={handleUpdateReminderTimes}
+            interval={medication.interval_days ?? medication.source_raw?.interval_days}
+            sourceName={medication.source_raw?.exact_written_name}
+            originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
+            originalInterval={medication.source_raw?.interval_days}
           />
 
           <AddReminderModal
@@ -427,9 +436,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   divider: {
-    height: 0,
-    backgroundColor: Colors.gray100,
-    marginHorizontal: 20,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 12,
   },
   detailsGrid: {
     padding: 16,
@@ -501,5 +512,4 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '500',
   },
-
 });

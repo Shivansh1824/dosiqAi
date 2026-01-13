@@ -6,7 +6,7 @@ import { VerificationConfidence } from '../../types/medicationVerification';
 
 interface MedicationHeaderProps {
     name: string;
-    strength?: string;
+    // Strength is now part of the name string
     form?: string;
     confidence: VerificationConfidence;
     isEditing: boolean;
@@ -54,7 +54,6 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
  */
 export function MedicationHeader({
     name,
-    strength,
     form,
     confidence,
     isEditing,
@@ -64,6 +63,38 @@ export function MedicationHeader({
     onDelete,
 }: MedicationHeaderProps) {
     const confidenceStyle = getConfidenceStyles(confidence);
+
+    // Prefix cleaning (Always applied)
+    const cleanPrefix = (text: string) => {
+        return text.replace(/^(Tab\.|Tab|Cap\.|Cap|Syp\.|Syp|Inj\.|Inj)(\s+|$)/i, '').trim();
+    };
+
+    // Bracket removal (Applied if wrapping)
+    const removeBrackets = (text: string) => {
+        return text.replace(/\s*\(.*?\)/g, '').replace(/\s*\[.*?\]/g, '').trim();
+    };
+
+    const initialName = cleanPrefix(name);
+    const [displayName, setDisplayName] = React.useState(initialName);
+    const [isCompacted, setIsCompacted] = React.useState(false);
+
+    // Reset if name prop changes
+    React.useEffect(() => {
+        setDisplayName(cleanPrefix(name));
+        setIsCompacted(false);
+    }, [name]);
+
+    const handleTextLayout = (e: any) => {
+        // If it wraps to more than 1 line AND we haven't compacted yet
+        if (e.nativeEvent.lines.length > 1 && !isCompacted) {
+            const compactedName = removeBrackets(displayName);
+            // Only update if compaction actually shortens the string
+            if (compactedName !== displayName) {
+                setDisplayName(compactedName);
+                setIsCompacted(true);
+            }
+        }
+    };
 
     return (
         <View style={styles.cardHeader}>
@@ -82,8 +113,13 @@ export function MedicationHeader({
                             multiline
                         />
                     ) : (
-                        <Text style={styles.medicationName} numberOfLines={2} adjustsFontSizeToFit>
-                            {name}
+                        <Text
+                            style={styles.medicationName}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit={false} // Strict single line
+                            onTextLayout={handleTextLayout}
+                        >
+                            {displayName}
                         </Text>
                     )}
 
@@ -97,17 +133,15 @@ export function MedicationHeader({
                                     </Text>
                                 </View>
 
-                                {(strength || form) && (
-                                    <Text style={[styles.strengthFormText, { textTransform: 'lowercase' }]}>
-                                        {strength}
-                                        {strength && form ? ' ' : ''}
-                                        {form && (
-                                            <Text style={{ textTransform: 'capitalize' }}>
-                                                {form}
-                                            </Text>
-                                        )}
+                                {form ? (
+                                    <Text
+                                        style={[styles.strengthFormText, { textTransform: 'capitalize', flexShrink: 1 }]}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {form}
                                     </Text>
-                                )}
+                                ) : null}
                             </>
                         )}
                     </View>
@@ -163,12 +197,14 @@ const styles = StyleSheet.create({
         paddingRight: 8,
         justifyContent: 'center',
     },
+    // titleRow removed
     subtitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginTop: 2,
-        flexWrap: 'wrap',
+        gap: 6,
+        marginTop: 0,
+        width: '100%',
+        paddingRight: 4,
     },
     headerActions: {
         alignItems: 'flex-end',
@@ -207,7 +243,7 @@ const styles = StyleSheet.create({
         color: Colors.gray900,
         fontFamily: 'System',
         letterSpacing: -0.5,
-        marginBottom: 2,
+        marginBottom: 0,
     },
     nameInput: {
         fontSize: 18,

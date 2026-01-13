@@ -25,6 +25,10 @@ interface ReminderTimesSectionProps {
     // NEW: Configuration Mode
     onBatchToggle?: (batchId: string, isEnabled: boolean, defaultTime: string) => void;
     onUpdateReminderTimes?: (times: string[]) => void;
+    interval?: number;
+    sourceName?: string;
+    originalTotalTimes?: number;
+    originalInterval?: number;
 }
 
 /**
@@ -128,7 +132,11 @@ export function ReminderTimesSection({
     onAddPress,
     customMealLabels,
     onBatchToggle,
-    onUpdateReminderTimes
+    onUpdateReminderTimes,
+    interval,
+    sourceName,
+    originalTotalTimes,
+    originalInterval
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -386,9 +394,33 @@ export function ReminderTimesSection({
             </View>
 
             <Text style={styles.explanatoryText}>
-                {totalTimesPerDay
-                    ? `Our system detected that ${cleanName} is to be taken ${totalTimesPerDay} times daily. Please verify and adjust the reminders below.`
-                    : `Please verify and adjust the reminders below.`}
+                {(() => {
+                    // Use original values from JSON for this text, falling back to current if not provided (safety)
+                    // But explicitly prioritizing the 'original' props as requested.
+                    const times = originalTotalTimes ?? totalTimesPerDay;
+                    const days = originalInterval ?? interval ?? 1;
+                    const name = sourceName || cleanName;
+
+                    if (!times) return "Please verify and adjust the reminders below.";
+
+                    // Case 1: 1 time everyday
+                    if (days === 1 && times === 1) {
+                        return `Based on the prescription, Dosiq AI identified that ${name} is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
+                    }
+
+                    // Case 2: x times everyday (corrected comment numbering)
+                    if (days === 1 && times > 1) {
+                        return `Based on the prescription, Dosiq AI identified that ${name} is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
+                    }
+
+                    // Case 3: 1 time, every y days
+                    if (days > 1 && times === 1) {
+                        return `Based on the prescription, Dosiq AI identified that ${name} is to be taken 1 time, after every ${days} days. Please verify and adjust the schedule below.`;
+                    }
+
+                    // Case 4: x times a day, after every y days
+                    return `Based on the prescription, Dosiq AI identified that ${name} is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
+                })()}
             </Text>
 
             {/* Content Body */}
@@ -609,10 +641,17 @@ export function ReminderTimesSection({
 
                 {/* Always show Add Custom Time Button in Grouped View */}
                 {onAddPress && (
-                    <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
-                        <Feather name="plus-circle" size={18} color={Colors.primary} />
-                        <Text style={styles.addTimeCleanText}>Add Reminder</Text>
-                    </TouchableOpacity>
+                    <View style={styles.numberedRowContainer}>
+                        {/* Empty Number Column for alignment */}
+                        <View style={styles.numberColumn} />
+
+                        <View style={styles.barWithNoteContainer}>
+                            <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
+                                <Feather name="plus-circle" size={18} color={Colors.primary} />
+                                <Text style={styles.addTimeCleanText}>Add Reminder</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 )}
             </View>
 
@@ -760,7 +799,7 @@ const styles = StyleSheet.create({
     },
     reminderBarsContainer: {
         marginHorizontal: 16,
-        marginTop: 16,
+        marginTop: 8,
         marginBottom: 8,
     },
     reminderHeader: {
@@ -784,8 +823,8 @@ const styles = StyleSheet.create({
     explanatoryText: {
         fontSize: 12,
         color: Colors.gray500,
-        marginTop: -8, // Pull closer to header (offsetting the header's marginBottom)
-        marginBottom: 12,
+        // marginTop: -8, // REMOVED to match Course Period spacing (12px)
+        marginBottom: 16,
         lineHeight: 18,
     },
     boldText: {

@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants';
+import NumberPickerModal from '../NumberPickerModal';
 
 interface CoursePeriodSectionProps {
     startDate: string;
     endDate: string;
+    interval?: number;
     onStartDatePress: () => void;
     onEndDatePress: () => void;
+    onIntervalChange?: (days: number) => void;
 }
 
 /**
@@ -26,9 +29,18 @@ const formatDateDisplay = (isoDate: string) => {
 export function CoursePeriodSection({
     startDate,
     endDate,
+    interval = 1,
     onStartDatePress,
     onEndDatePress,
+    onIntervalChange,
 }: CoursePeriodSectionProps) {
+    const [showIntervalPicker, setShowIntervalPicker] = useState(false);
+
+    const getIntervalLabel = () => {
+        if (!interval || interval === 1) return 'EVERYDAY';
+        return `EVERY ${interval} DAYS`;
+    };
+
     return (
         <View style={styles.coursePeriodContainer}>
             <View style={styles.coursePeriodHeader}>
@@ -36,9 +48,11 @@ export function CoursePeriodSection({
                     <Feather name="calendar" size={16} color={Colors.primary} />
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
                 </View>
-                <TouchableOpacity>
-                    <Text style={styles.placeholderButton}>Every 2 Days</Text>
-                </TouchableOpacity>
+                {onIntervalChange && (
+                    <TouchableOpacity onPress={() => setShowIntervalPicker(true)}>
+                        <Text style={styles.placeholderButton}>{getIntervalLabel()}</Text>
+                    </TouchableOpacity>
+                )}
             </View>
             <View style={styles.coursePeriodCards}>
                 {/* Start Date Card - Clickable */}
@@ -70,6 +84,17 @@ export function CoursePeriodSection({
                     <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
                 </TouchableOpacity>
             </View>
+
+            <NumberPickerModal
+                visible={showIntervalPicker}
+                initialValue={interval}
+                onConfirm={(val) => {
+                    onIntervalChange?.(val);
+                    setShowIntervalPicker(false);
+                }}
+                onCancel={() => setShowIntervalPicker(false)}
+                title="Select Frequency"
+            />
         </View>
     );
 }
@@ -77,7 +102,7 @@ export function CoursePeriodSection({
 const styles = StyleSheet.create({
     coursePeriodContainer: {
         marginHorizontal: 16,
-        marginTop: 16,
+        marginTop: 12,
         marginBottom: 8,
     },
     coursePeriodHeader: {

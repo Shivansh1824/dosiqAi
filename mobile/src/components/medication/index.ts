@@ -4,6 +4,5 @@
  */
 
 export { MedicationHeader } from './MedicationHeader';
-export { MedicineInfoTable } from './MedicineInfoTable';
 export { CoursePeriodSection } from './CoursePeriodSection';
 export { ReminderTimesSection } from './ReminderTimesSection';
