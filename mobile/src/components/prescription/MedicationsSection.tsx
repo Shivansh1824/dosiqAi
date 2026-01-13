@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient'; // Added LinearGradient import
 import { Colors, Sizes } from '../../constants';
 import { MedicineInfo } from '../../types/document';
 import { ParsedMedication } from '../../types/medicationVerification';
@@ -80,17 +81,22 @@ export function MedicationsSection({
 
     return (
         <View style={styles.card}>
-            <View style={styles.cardHeader}>
+            <LinearGradient
+                colors={['rgba(59, 130, 246, 0.12)', 'rgba(59, 130, 246, 0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.cardHeader}
+            >
                 <View style={styles.titleColumn}>
-                    <Text style={styles.cardTitle}>MED DETECTED</Text>
+                    <Text style={styles.cardTitle}>MEDS DETECTED</Text>
                     <Text style={styles.cardSubtitle}>
-                        Successfully identified medications from your health document.
+                        {medicines.length} {medicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription
                     </Text>
                 </View>
                 <View style={styles.cardBadge}>
                     <Text style={styles.cardBadgeText}>{visibleMedicationsCount}</Text>
                 </View>
-            </View>
+            </LinearGradient>
 
             {/* Medication Verification Cards */}
             {medicines
@@ -112,7 +118,7 @@ export function MedicationsSection({
 
                     if (isVerified) {
                         return (
-                            <View key={index}>
+                            <View key={index} style={{ marginHorizontal: 16 }}>
                                 <View style={styles.verifiedBanner}>
                                     <Feather name="check-circle" size={16} color={Colors.success} />
                                     <Text style={styles.verifiedText}>Added to tracker</Text>
@@ -134,7 +140,7 @@ export function MedicationsSection({
                                 medicineIndex={index}
                                 onDismiss={() => onDismiss(index)}
                             />
-                            {!isLastItem && <View style={styles.medicationDivider} />}
+                            {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                         </View>
                     );
                 })}
@@ -145,18 +151,25 @@ export function MedicationsSection({
                     style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                     onPress={handleVerifyAll}
                     disabled={isVerifyingAll}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                 >
-                    {isVerifyingAll ? (
-                        <ActivityIndicator color={Colors.white} size="small" />
-                    ) : (
-                        <>
-                            <Feather name="check" size={18} color={Colors.white} />
-                            <Text style={styles.verifyAllButtonText}>
-                                Verify & Add {unverifiedCount > 1 ? `All (${unverifiedCount})` : ''}
-                            </Text>
-                        </>
-                    )}
+                    <LinearGradient
+                        colors={['#4F46E5', '#3B82F6']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.verifyAllGradient}
+                    >
+                        {isVerifyingAll ? (
+                            <ActivityIndicator color={Colors.white} size="small" />
+                        ) : (
+                            <>
+                                <Feather name="check-circle" size={18} color={Colors.white} />
+                                <Text style={styles.verifyAllButtonText}>
+                                    Confirm & Add {unverifiedCount > 1 ? `All (${unverifiedCount})` : ''}
+                                </Text>
+                            </>
+                        )}
+                    </LinearGradient>
                 </TouchableOpacity>
             )}
         </View>
@@ -166,51 +179,67 @@ export function MedicationsSection({
 const styles = StyleSheet.create({
     card: {
         backgroundColor: Colors.white,
-        padding: 16,
-        marginBottom: 12,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingHorizontal: 0,
+        marginBottom: 0,
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 20,
-        backgroundColor: Colors.gray50,
-        padding: 16,
-        marginHorizontal: -16,
-        marginTop: -16,
+        paddingHorizontal: 16,
+        paddingVertical: 20,
+        borderRadius: 0,
+        marginBottom: 0,
+        borderTopWidth: 1,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.gray100,
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
+        borderColor: 'rgba(59, 130, 246, 0.08)',
+        // Subtle shadow for depth
+        shadowColor: '#3B82F6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 2,
     },
     titleColumn: {
         flex: 1,
-        gap: 4,
+        gap: 2,
     },
     cardTitle: {
-        fontSize: 20,
-        fontWeight: '800',
+        fontSize: 18,
+        fontWeight: '900',
         color: Colors.gray900,
-        letterSpacing: 0.6,
+        letterSpacing: 0.8,
+        marginBottom: 2,
     },
     cardBadge: {
         backgroundColor: Colors.primary,
         paddingHorizontal: 12,
-        paddingVertical: 4,
+        paddingVertical: 5,
         borderRadius: 20,
-        minWidth: 32,
+        minWidth: 34,
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 4,
+        marginTop: 2,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
     },
     cardBadgeText: {
         fontSize: 13,
-        fontWeight: '800',
+        fontWeight: '900',
         color: Colors.white,
     },
     cardSubtitle: {
-        fontSize: 13,
+        fontSize: 12,
         color: Colors.gray500,
-        fontWeight: '400',
-        lineHeight: 18,
+        fontWeight: '500',
+        lineHeight: 16,
+        opacity: 0.8,
     },
     verifiedBanner: {
         flexDirection: 'row',
@@ -233,26 +262,37 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: '#E5E7EB',
         marginVertical: 0,
-        marginHorizontal: 16,
+        marginHorizontal: 0,
     },
     verifyAllButton: {
-        backgroundColor: Colors.primary,
+        width: 300,
+        alignSelf: 'center',
+        marginTop: 24,
+        marginBottom: 16,
+        borderRadius: 16,
+        // Shadow for iOS
+        shadowColor: '#3B82F6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        // Elevation for Android
+        elevation: 4,
+        overflow: 'hidden',
+    },
+    verifyAllGradient: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 14,
-        borderRadius: 16,
-        gap: 8,
-        marginTop: 16,
-        marginHorizontal: 4,
+        paddingVertical: 16,
+        gap: 10,
     },
     verifyAllButtonText: {
         color: Colors.white,
-        fontWeight: '700',
+        fontWeight: '800',
         fontSize: 16,
-        letterSpacing: 0.3,
+        letterSpacing: 0.5,
     },
     verifyAllButtonDisabled: {
-        backgroundColor: Colors.gray300,
+        opacity: 0.6,
     },
 });

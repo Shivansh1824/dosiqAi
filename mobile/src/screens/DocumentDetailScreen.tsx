@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -9,14 +9,6 @@ import { Document, DocumentAnalysisResult } from '../types/document';
 import { fileExists, getAbsolutePath, deleteLocalFile } from '../utils/fileStorage';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { useDocumentsStore } from '../store/documentsStore';
-import { RootStackParamList } from '../../App';
-import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf-jsi';
-import * as FileSystem from 'expo-file-system';
-import { File, Paths } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
-import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
@@ -33,8 +25,17 @@ import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
+import { LinearGradient } from 'expo-linear-gradient';
+import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
+import { RootStackParamList } from '../../App';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
+import Pdf from 'react-native-pdf-jsi';
+import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
+import FullScreenImageModal from '../components/FullScreenImageModal';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
 
@@ -110,7 +111,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const document = documents.find(d => d.id === documentProp.id) || documentProp;
 
   // AsyncStorage key for dismissed medications (NOW SAFE)
-  const DISMISSED_MEDS_STORAGE_KEY = `dismissed_medications_${document.id}`;
+  const DISMISSED_MEDS_STORAGE_KEY = `dismissed_medications_${document.id} `;
 
   // Get analysis progress for this document
   const documentProgress = analysisProgress[document.id] || 0;
@@ -589,7 +590,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
   // Handle dismissing a medication from verification list
   const handleDismissMedication = (medicineIndex: number) => {
-    const dismissId = `${document.id}_${medicineIndex}`;
+    const dismissId = `${document.id}_${medicineIndex} `;
 
     console.log('[DocumentDetail] Dismissing medication at index:', medicineIndex);
 
@@ -622,7 +623,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         return new Promise<void>((resolve, reject) => {
           Alert.alert(
             'Duplicate Medication Detected',
-            `"${parsedMed.name}" is similar to "${duplicate.name}" which is already in your tracker.\n\nWhat would you like to do?`,
+            `"${parsedMed.name}" is similar to "${duplicate.name}" which is already in your tracker.\n\nWhat would you like to do? `,
             [
               {
                 text: 'Cancel',
@@ -1607,7 +1608,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                         onToggle={() => toggleCategory(category.category_name)}
                       >
                         {category.metrics.map((metric, index) => (
-                          <MetricCard key={`${metric.test_name}-${index}`} metric={metric} />
+                          <MetricCard key={`${metric.test_name} -${index} `} metric={metric} />
                         ))}
                       </ExpandableSection>
                     );
@@ -1626,8 +1627,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           getSummary(document.ai_analysis_result) && (
             <PrescriptionSummary
               summary={getSummary(document.ai_analysis_result)!}
-              otherInformation={document.ai_analysis_result.prescription_data?.other_information}
               recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
+              style={{ marginBottom: 0 }}
             />
           )}
 
@@ -1636,46 +1637,80 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         {document.ai_analysis_status === 'completed' &&
           document.ai_analysis_result?.prescription_data?.medicines &&
           document.ai_analysis_result.prescription_data.medicines.length > 0 && (
-            <View style={styles.card}>
-              <View style={[styles.cardHeader, {
-                backgroundColor: Colors.gray50,
-                marginHorizontal: -16,
-                marginTop: -16,
-                padding: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: Colors.gray100,
-                alignItems: 'flex-start',
-                marginBottom: 20
-              }]}>
-                <View style={{ flex: 1, gap: 4 }}>
+            <View style={styles.medicationsCard}>
+              <LinearGradient
+                colors={['rgba(59, 130, 246, 0.12)', 'rgba(59, 130, 246, 0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  paddingHorizontal: 16,
+                  paddingVertical: 20,
+                  borderRadius: 0,
+                  marginBottom: 0,
+                  borderTopWidth: 1,
+                  borderBottomWidth: 1,
+                  borderLeftWidth: 0,
+                  borderRightWidth: 0,
+                  borderColor: 'rgba(59, 130, 246, 0.08)',
+                  // Subtle shadow for depth
+                  ...Platform.select({
+                    ios: {
+                      shadowColor: '#3B82F6',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.06,
+                      shadowRadius: 12,
+                    },
+                    android: {
+                      elevation: 2,
+                    },
+                  }),
+                }}
+              >
+                <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{
-                    fontSize: 20,
-                    fontWeight: '800',
+                    fontSize: 18,
+                    fontWeight: '900',
                     color: Colors.gray900,
-                    letterSpacing: 0.6,
-                  }}>MED DETECTED</Text>
+                    letterSpacing: 0.8,
+                    marginBottom: 2,
+                  }}>MEDS DETECTED</Text>
                   <Text style={{
-                    fontSize: 13,
+                    fontSize: 12,
                     color: Colors.gray500,
-                    fontWeight: '400',
-                    lineHeight: 18,
-                  }}>Successfully identified medications from your health document.</Text>
+                    fontWeight: '500',
+                    lineHeight: 16,
+                    opacity: 0.8,
+                  }}>{document.ai_analysis_result.prescription_data.medicines.length} {document.ai_analysis_result.prescription_data.medicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription</Text>
                 </View>
-                <View style={[styles.cardBadge, {
+                <View style={{
                   backgroundColor: Colors.primary,
-                  minWidth: 32,
+                  minWidth: 34,
                   paddingHorizontal: 12,
-                  paddingVertical: 4,
+                  paddingVertical: 5,
                   borderRadius: 20,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginTop: 4
-                }]}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.white }}>
+                  marginTop: 2,
+                  ...Platform.select({
+                    ios: {
+                      shadowColor: Colors.primary,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 4,
+                    },
+                    android: {
+                      elevation: 2,
+                    },
+                  }),
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '900', color: Colors.white }}>
                     {document.ai_analysis_result.prescription_data.medicines.length - dismissedMedicationIds.size}
                   </Text>
                 </View>
-              </View>
+              </LinearGradient>
 
               {/* Medication Verification Cards - Single Column */}
               {document.ai_analysis_result.prescription_data.medicines
@@ -1702,7 +1737,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
                   if (isVerified) {
                     return (
-                      <View key={index}>
+                      <View key={index} style={{ marginHorizontal: 16 }}>
                         <View style={styles.verifiedBanner}>
                           <Feather name="check-circle" size={16} color={Colors.success} />
                           <Text style={styles.verifiedText}>Added to tracker</Text>
@@ -1730,7 +1765,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                         }}
                         onDismiss={() => handleDismissMedication(index)}
                       />
-                      {!isLastItem && <View style={styles.medicationDivider} />}
+                      {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                     </View>
                   );
                 })}
@@ -1770,18 +1805,25 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                     onPress={handleVerifyAll}
                     disabled={isVerifyingAll}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
-                    {isVerifyingAll ? (
-                      <ActivityIndicator color={Colors.white} size="small" />
-                    ) : (
-                      <>
-                        <Feather name="check" size={18} color={Colors.white} />
-                        <Text style={styles.verifyAllButtonText}>
-                          Verify & Add {unverifiedMeds.length > 1 ? `All (${unverifiedMeds.length})` : ''}
-                        </Text>
-                      </>
-                    )}
+                    <LinearGradient
+                      colors={['#4F46E5', '#3B82F6']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.verifyAllGradient}
+                    >
+                      {isVerifyingAll ? (
+                        <ActivityIndicator color={Colors.white} size="small" />
+                      ) : (
+                        <>
+                          <Feather name="check-circle" size={18} color={Colors.white} />
+                          <Text style={styles.verifyAllButtonText}>
+                            Confirm & Add {unverifiedMeds.length > 1 ? `All (${unverifiedMeds.length})` : ''}
+                          </Text>
+                        </>
+                      )}
+                    </LinearGradient>
                   </TouchableOpacity>
                 );
               })()}
@@ -1809,8 +1851,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
             </View>
           )}
 
-        {/* Extra padding */}
-        <View style={{ height: 20 }} />
       </ScrollView>
 
       {/* Share Modal */}
@@ -1902,7 +1942,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 0, // Full width cards - no horizontal padding
     paddingTop: 0, // No top padding - image starts right after header
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
 
   // Hero Preview Card (2026 Style)
@@ -2131,6 +2171,13 @@ const styles = StyleSheet.create({
     padding: 16, // MD3: Reduced from 20
     marginBottom: 12, // Minimal spacing
     // Flat design - no shadows
+  },
+  medicationsCard: {
+    backgroundColor: Colors.white,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    marginBottom: 0,
   },
   cardTitle: {
     fontSize: 18,
@@ -3074,7 +3121,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E5E7EB',
     marginVertical: 0,
-    marginHorizontal: 16,
+    marginHorizontal: 0,
   },
 
   // Error UI styles (errorContainer and errorMessage already defined above)
@@ -3248,7 +3295,7 @@ const styles = StyleSheet.create({
   aiSummaryCard: {
     backgroundColor: 'rgba(59, 130, 246, 0.05)',
     borderRadius: 16,
-    marginBottom: 12,
+    marginBottom: 0,
     padding: 16,
   },
   aiSummaryHeader: {
@@ -3282,24 +3329,35 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   verifyAllButton: {
-    backgroundColor: Colors.primary,
+    width: 300,
+    alignSelf: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    borderRadius: 16,
+    // Shadow for iOS
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    // Elevation for Android
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  verifyAllGradient: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 8,
-    marginTop: 16,
-    marginHorizontal: 4,
+    paddingVertical: 16,
+    gap: 10,
   },
   verifyAllButtonText: {
     color: Colors.white,
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 16,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   verifyAllButtonDisabled: {
-    backgroundColor: Colors.gray300,
+    opacity: 0.6,
   },
 });
 

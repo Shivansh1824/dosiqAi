@@ -308,8 +308,7 @@ export default function MedicationVerificationCard({
     <View style={styles.card}>
       {/* Header */}
       <MedicationHeader
-        name={medication.source_raw?.exact_written_name || medication.name}
-        form={medication.form}
+        name={medication.name}
         confidence={medication.confidence}
         isEditing={isEditing}
         editedName={editedName}
@@ -428,8 +427,8 @@ export default function MedicationVerificationCard({
 
 
       {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
-      <View style={styles.detailsGrid}>
-        {((medication.notes && isAsNeeded) || isEditing) && (
+      {((medication.notes && isAsNeeded) || isEditing) && (
+        <View style={styles.detailsGrid}>
           <View style={styles.notesCompactContainer}>
             {!isEditing ? (
               <View style={styles.notesRow}>
@@ -457,8 +456,8 @@ export default function MedicationVerificationCard({
               </View>
             )}
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Duplicate Warning */}
       {duplicateOf && (
@@ -484,8 +483,9 @@ export default function MedicationVerificationCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    paddingTop: 12,
+    marginBottom: 0,
+    paddingTop: 0, // Header has its own padding
+    paddingBottom: 20, // Symmetrical 20px bottom padding
     overflow: 'hidden',
   },
   divider: {

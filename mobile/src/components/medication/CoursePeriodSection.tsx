@@ -101,7 +101,7 @@ export function CoursePeriodSection({
 
 const styles = StyleSheet.create({
     coursePeriodContainer: {
-        marginHorizontal: 16,
+        paddingHorizontal: 16,
         marginTop: 12,
         marginBottom: 8,
     },

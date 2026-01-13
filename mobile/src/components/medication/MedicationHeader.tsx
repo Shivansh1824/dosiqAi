@@ -7,7 +7,6 @@ import { VerificationConfidence } from '../../types/medicationVerification';
 interface MedicationHeaderProps {
     name: string;
     // Strength is now part of the name string
-    form?: string;
     confidence: VerificationConfidence;
     isEditing: boolean;
     editedName: string;
@@ -54,7 +53,6 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
  */
 export function MedicationHeader({
     name,
-    form,
     confidence,
     isEditing,
     editedName,
@@ -64,37 +62,6 @@ export function MedicationHeader({
 }: MedicationHeaderProps) {
     const confidenceStyle = getConfidenceStyles(confidence);
 
-    // Prefix cleaning (Always applied)
-    const cleanPrefix = (text: string) => {
-        return text.replace(/^(Tab\.|Tab|Cap\.|Cap|Syp\.|Syp|Inj\.|Inj)(\s+|$)/i, '').trim();
-    };
-
-    // Bracket removal (Applied if wrapping)
-    const removeBrackets = (text: string) => {
-        return text.replace(/\s*\(.*?\)/g, '').replace(/\s*\[.*?\]/g, '').trim();
-    };
-
-    const initialName = cleanPrefix(name);
-    const [displayName, setDisplayName] = React.useState(initialName);
-    const [isCompacted, setIsCompacted] = React.useState(false);
-
-    // Reset if name prop changes
-    React.useEffect(() => {
-        setDisplayName(cleanPrefix(name));
-        setIsCompacted(false);
-    }, [name]);
-
-    const handleTextLayout = (e: any) => {
-        // If it wraps to more than 1 line AND we haven't compacted yet
-        if (e.nativeEvent.lines.length > 1 && !isCompacted) {
-            const compactedName = removeBrackets(displayName);
-            // Only update if compaction actually shortens the string
-            if (compactedName !== displayName) {
-                setDisplayName(compactedName);
-                setIsCompacted(true);
-            }
-        }
-    };
 
     return (
         <View style={styles.cardHeader}>
@@ -117,9 +84,8 @@ export function MedicationHeader({
                             style={styles.medicationName}
                             numberOfLines={1}
                             adjustsFontSizeToFit={false} // Strict single line
-                            onTextLayout={handleTextLayout}
                         >
-                            {displayName}
+                            {name}
                         </Text>
                     )}
 
@@ -133,15 +99,7 @@ export function MedicationHeader({
                                     </Text>
                                 </View>
 
-                                {form ? (
-                                    <Text
-                                        style={[styles.strengthFormText, { textTransform: 'capitalize', flexShrink: 1 }]}
-                                        numberOfLines={1}
-                                        ellipsizeMode="tail"
-                                    >
-                                        {form}
-                                    </Text>
-                                ) : null}
+
                             </>
                         )}
                     </View>
@@ -176,7 +134,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingTop: 20,
         paddingBottom: 10,
     },
     headerLeft: {

@@ -587,45 +587,52 @@ export function determineConfidence(isIdentified?: boolean): VerificationConfide
  * cleanMedicationName("TAB PARACETAMOL") // returns "PARACETAMOL"
  */
 export function cleanMedicationName(exactWrittenName: string): string {
-  let cleaned = exactWrittenName.trim();
+  if (!exactWrittenName) return '';
+  const original = exactWrittenName.trim();
+  let cleaned = original;
 
-  // Remove common prescription prefixes
+  // 1. Remove common prescription prefixes (case insensitive)
   const prefixes = [
-    'SYP ', 'SYRUP ', 'SYR ',
-    'TAB ', 'TABLET ', 'TABS ', 'TAB. ', 'T. ', 'T ',
-    'CAP ', 'CAPSULE ', 'CAPS ', 'CAP. ', 'C. ', 'C ',
-    'INJ ', 'INJECTION ',
-    'SGP ', // Soft gel capsule
-    'CR ', 'CREAM ',
-    'OIN ', 'OINTMENT ',
-    'DROP ', 'DROPS ',
-    'SUSP ', 'SUSPENSION ',
-    'SOL ', 'SOLUTION ',
+    'SYP', 'SYRUP', 'SYR',
+    'TAB', 'TABLET', 'TABS',
+    'CAP', 'CAPSULE', 'CAPS',
+    'INJ', 'INJECTION',
+    'SGP', 'CR', 'CREAM', 'OIN', 'OINTMENT',
+    'DROP', 'DROPS', 'SUSP', 'SUSPENSION', 'SOL', 'SOLUTION'
   ];
 
-  for (const prefix of prefixes) {
-    if (cleaned.toUpperCase().startsWith(prefix)) {
-      cleaned = cleaned.substring(prefix.length);
-      break;
-    }
+  // Create a regex for prefixes followed by a dot and/or space
+  // e.g., "SYP ", "SYP. ", "TAB.", "TAB "
+  const prefixRegex = new RegExp(`^(${prefixes.join('|')})[\\s\\.]+\\s*`, 'i');
+  cleaned = cleaned.replace(prefixRegex, '');
+
+  // 2. Remove strengths in parentheses or brackets (e.g., "(200mg)", "[500]", "(100/5)")
+  // This matches anything inside () or [] that contains a number
+  cleaned = cleaned.replace(/\s*[([][^)\]]*?\d+[^)\]]*?[)\]]/g, '').trim();
+
+  // 3. Remove standalone strength units (e.g., "500mg", "10ml", "0.5%", "60K", "10 units")
+  // Matches Number + optional space + unit
+  const units = ['mg', 'g', 'mcg', 'ml', 'iu', '%', 'u', 'units', 'k'];
+  const unitRegex = new RegExp(`\\s*\\d+(\\.\\d+)?\\s*(${units.join('|')})\\b`, 'gi');
+  cleaned = cleaned.replace(unitRegex, '').trim();
+
+  // 4. Remove trailing numbers preceded by a space (e.g., "Paracetamol 500" -> "Paracetamol")
+  // But ONLY if it's not the ONLY thing left (to preserve brands that are just numbers)
+  // And ONLY if it's a "clean" number (not like 6-MP)
+  const trailingNumberMatch = cleaned.match(/(.+)\s+\d+(\.\d+)?$/);
+  if (trailingNumberMatch && trailingNumberMatch[1].trim().length > 0) {
+    cleaned = trailingNumberMatch[1].trim();
   }
 
-  // Remove strength information (Number + Unit)
-  // Matches: 200mg, 200 mg, 0.5%, 10ml, etc.
-  // We strictly require a unit to be present to avoid removing brand numbers like "XYZ 1000"
-  // Also handles patterns inside parentheses like (200mg) or 200mg inside parens
-  // Regex Explanation:
-  // (\d+(\.\d+)?)       -> The number (integer or decimal)
-  // \s*                 -> Optional space between number and unit
-  // (mg|g|mcg|...)      -> The unit
-  // \)?                 -> Optional closing parenthesis
-  // (\s*|$)             -> Trailing whitespace or end of string
-  // Also matches simple numbers in parentheses like (200) often used for strength
-  const strengthPattern = /(\s*)\(?(\d+(\.\d+)?)\s*(mg|g|mcg|ml|iu|%|u|units?)?\)?(\s*|$)/gi;
-  cleaned = cleaned.replace(strengthPattern, ' ').trim();
+  // 5. Final sanitation: remove trailing punctuation/spaces
+  cleaned = cleaned.replace(/[,\s.-]+$/, '').trim();
 
-  // Clean up any double spaces or empty parentheses left behind
-  cleaned = cleaned.replace(/\s+/g, ' ').replace(/\(\s*\)/g, '').trim();
+  // 6. BRAND INTEGRITY FALLBACK
+  // If we cleaned it too much and it's empty, use the original (minus prefixes)
+  // This handles cases like medicine name being just "6-MP" or "123"
+  if (!cleaned) {
+    cleaned = original.replace(prefixRegex, '').trim();
+  }
 
   return cleaned;
 }

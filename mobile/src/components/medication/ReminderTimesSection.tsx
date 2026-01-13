@@ -5,6 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
+import { cleanMedicationName } from '../../utils/medicationParser';
 
 interface ReminderTimesSectionProps {
     reminderTimes: string[];
@@ -103,19 +104,7 @@ const getMealLabel = (
     return null;
 };
 
-/**
- * Get clean medicine name for display (without strength, Title Case)
- */
-const getCleanMedicineName = (name: string): string => {
-    let cleanName = name || '';
-    cleanName = cleanName.replace(/\s*\d+\s*(mg|ml|mcg|g|iu|%)/gi, '').trim();
-    cleanName = cleanName.replace(/\s*\(\s*[\d\/\.]+\s*(mg|ml|mcg|g)?\s*\)/gi, '').trim();
-    return cleanName
-        .toLowerCase()
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-};
+
 
 export function ReminderTimesSection({
     reminderTimes,
@@ -202,7 +191,7 @@ export function ReminderTimesSection({
 
     if (reminderTimes.length === 0) return null;
 
-    const cleanName = getCleanMedicineName(medicineName);
+    const cleanName = cleanMedicationName(medicineName);
 
     const toggleNoteExpansion = (id: string) => {
         setExpandedNotes(prev => ({
@@ -389,7 +378,7 @@ export function ReminderTimesSection({
             <View style={styles.reminderHeader}>
                 <View style={styles.reminderHeaderLeft}>
                     <Feather name="bell" size={16} color={Colors.primary} />
-                    <Text style={styles.reminderTitle}>REMINDER SCHEDULE</Text>
+                    <Text style={styles.reminderTitle}>DOSE SCHEDULE</Text>
                 </View>
             </View>
 
@@ -798,9 +787,9 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     reminderBarsContainer: {
-        marginHorizontal: 16,
+        paddingHorizontal: 16,
         marginTop: 8,
-        marginBottom: 8,
+        marginBottom: 0,
     },
     reminderHeader: {
         flexDirection: 'row',

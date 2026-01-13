@@ -3,17 +3,19 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 
+// Update Props to include style
 interface PrescriptionSummaryProps {
     summary: string;
     otherInformation?: Array<{ value: string; category?: string }>;
     recommendedTests?: Array<{ test_name: string; reason?: string }>;
+    style?: any;
 }
 
 /**
  * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
  * Extracted from DocumentDetailScreen.tsx
  */
-export function PrescriptionSummary({ summary, otherInformation, recommendedTests }: PrescriptionSummaryProps) {
+export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style }: PrescriptionSummaryProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Truncate text to 80 characters without cutting off words
@@ -38,7 +40,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
         : summary;
 
     return (
-        <View style={styles.aiSummaryCard}>
+        <View style={[styles.aiSummaryCard, style]}>
             <View style={styles.aiSummaryHeader}>
                 <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
                 <Text style={styles.aiSummaryTitle}>AI Summary</Text>
@@ -106,7 +108,7 @@ const styles = StyleSheet.create({
     aiSummaryCard: {
         backgroundColor: 'rgba(59, 130, 246, 0.05)', // Subtle Blue Tint (matches original)
         borderRadius: 16,
-        marginBottom: 12,
+        marginBottom: 0,
         padding: 16,
     },
     aiSummaryHeader: {
@@ -116,10 +118,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     aiSummaryTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        letterSpacing: -0.3,
+        fontSize: 18, // Adjusted to 18px
+        fontWeight: '900',
+        color: Colors.gray900,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
     },
     aiSummaryText: {
         fontSize: 14,
