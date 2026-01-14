@@ -1713,62 +1713,70 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               </LinearGradient>
 
               {/* Medication Verification Cards - Single Column */}
-              {document.ai_analysis_result.prescription_data.medicines
-                .map((medicine, index) => ({ medicine, index }))
-                .filter(({ index }) => {
-                  const dismissId = `${document.id}_${index}`;
-                  return !dismissedMedicationIds.has(dismissId);
-                })
-                .map(({ medicine, index }, arrayIndex, filteredArray) => {
-                  const parsedMed = parseAIMedication(
-                    medicine,
-                    document.id,
-                    displayTitle
-                  );
-                  const suggestedStartDate = document.created_at.split('T')[0]; // Use upload date only
-                  const activeMeds = getActiveMedications();
-                  const duplicateOf = detectDuplicateMedication(
-                    parsedMed.name,
-                    parsedMed.dosage,
-                    activeMeds
-                  );
-                  const isVerified = verifiedMedications.has(parsedMed.name);
-                  const isLastItem = arrayIndex === filteredArray.length - 1;
+              {(() => {
+                let unverifiedCardIndex = 0; // Track unverified cards separately
+                return document.ai_analysis_result.prescription_data.medicines
+                  .map((medicine, index) => ({ medicine, index }))
+                  .filter(({ index }) => {
+                    const dismissId = `${document.id}_${index}`;
+                    return !dismissedMedicationIds.has(dismissId);
+                  })
+                  .map(({ medicine, index }, arrayIndex, filteredArray) => {
+                    const parsedMed = parseAIMedication(
+                      medicine,
+                      document.id,
+                      displayTitle
+                    );
+                    const suggestedStartDate = document.created_at.split('T')[0]; // Use upload date only
+                    const activeMeds = getActiveMedications();
+                    const duplicateOf = detectDuplicateMedication(
+                      parsedMed.name,
+                      parsedMed.dosage,
+                      activeMeds
+                    );
+                    const isVerified = verifiedMedications.has(parsedMed.name);
+                    const isLastItem = arrayIndex === filteredArray.length - 1;
 
-                  if (isVerified) {
-                    return (
-                      <View key={index} style={{ marginHorizontal: 16 }}>
-                        <View style={styles.verifiedBanner}>
-                          <Feather name="check-circle" size={16} color={Colors.success} />
-                          <Text style={styles.verifiedText}>Added to tracker</Text>
+                    if (isVerified) {
+                      return (
+                        <View key={index} style={{ marginHorizontal: 16 }}>
+                          <View style={styles.verifiedBanner}>
+                            <Feather name="check-circle" size={16} color={Colors.success} />
+                            <Text style={styles.verifiedText}>Added to tracker</Text>
+                          </View>
+                          {!isLastItem && <View style={styles.medicationDivider} />}
                         </View>
-                        {!isLastItem && <View style={styles.medicationDivider} />}
+                      );
+                    }
+
+                    // This is an unverified card - check if it's the first one
+                    const isFirstUnverifiedCard = unverifiedCardIndex === 0;
+                    unverifiedCardIndex++; // Increment for next unverified card
+
+                    return (
+                      <View key={index}>
+                        <MedicationVerificationCard
+                          medication={parsedMed}
+                          documentId={document.id}
+                          documentTitle={displayTitle}
+                          suggestedStartDate={suggestedStartDate}
+                          onVerifyAndAdd={handleVerifyAndAddMedication}
+                          duplicateOf={duplicateOf || undefined}
+                          medicineIndex={index}
+                          onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                            setMedicationLiveUpdates(prev => ({
+                              ...prev,
+                              [index]: { ...prev[index], ...updates }
+                            }));
+                          }}
+                          onDismiss={() => handleDismissMedication(index)}
+                          isFirstItem={isFirstUnverifiedCard}
+                        />
+                        {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                       </View>
                     );
-                  }
-
-                  return (
-                    <View key={index}>
-                      <MedicationVerificationCard
-                        medication={parsedMed}
-                        documentId={document.id}
-                        documentTitle={displayTitle}
-                        suggestedStartDate={suggestedStartDate}
-                        onVerifyAndAdd={handleVerifyAndAddMedication}
-                        duplicateOf={duplicateOf || undefined}
-                        medicineIndex={index}
-                        onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
-                          setMedicationLiveUpdates(prev => ({
-                            ...prev,
-                            [index]: { ...prev[index], ...updates }
-                          }));
-                        }}
-                        onDismiss={() => handleDismissMedication(index)}
-                      />
-                      {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
-                    </View>
-                  );
-                })}
+                  });
+              })()}
 
 
 

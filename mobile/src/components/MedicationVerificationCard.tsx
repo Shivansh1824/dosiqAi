@@ -12,6 +12,7 @@ import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSection } from './medication/ReminderTimesSection';
 import AddReminderModal from './medication/AddReminderModal';
 import { InfoModal } from './InfoModal';
+import { AnimatedTooltip } from './AnimatedTooltip';
 
 const getMealTimingLabel = (relation: string): string => {
   switch (relation) {
@@ -34,6 +35,7 @@ interface MedicationVerificationCardProps {
   onDismiss?: () => void;
   medicineIndex?: number;
   onLiveUpdate?: (updates: { current_reminder_times: string[] }) => void;
+  isFirstItem?: boolean;
 }
 
 /**
@@ -50,6 +52,7 @@ export default function MedicationVerificationCard({
   onDismiss,
   medicineIndex,
   onLiveUpdate,
+  isFirstItem = false,
 }: MedicationVerificationCardProps) {
   const [medication, setMedication] = useState<ParsedMedication>(initialMedication);
   const [isEditing, setIsEditing] = useState(false);
@@ -81,6 +84,10 @@ export default function MedicationVerificationCard({
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [infoModalTitle, setInfoModalTitle] = useState('');
   const [infoModalBody, setInfoModalBody] = useState('');
+
+  // Floating Tooltip State (specifically for medicine type)
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
@@ -325,11 +332,11 @@ export default function MedicationVerificationCard({
     }));
   };
 
-  // Handle Info Modal Press
-  const handleTypePress = () => {
-    setInfoModalTitle('About Medication Type');
-    setInfoModalBody(`This categorizes the medicine based on its primary function. dosiq AI identified this as ${medication.medicine_type || 'Medicine'} to help you understand its purpose.`);
-    setInfoModalVisible(true);
+  // Handle Tooltip Press (medicine type)
+  const handleTypePress = (event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setTooltipPosition({ x: pageX, y: pageY });
+    setTooltipVisible(true);
   };
 
 
@@ -519,6 +526,7 @@ export default function MedicationVerificationCard({
             sourceName={medication.source_raw?.exact_written_name}
             originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
             originalInterval={medication.source_raw?.interval_days}
+            shouldAnimate={isFirstItem}
           />
 
           <AddReminderModal
@@ -579,6 +587,14 @@ export default function MedicationVerificationCard({
         title={infoModalTitle}
         body={infoModalBody}
         onClose={() => setInfoModalVisible(false)}
+      />
+
+      {/* Floating Tooltip specifically for medicine type */}
+      <AnimatedTooltip
+        visible={tooltipVisible}
+        content="Medication Type"
+        targetPosition={tooltipPosition}
+        onClose={() => setTooltipVisible(false)}
       />
 
     </View>

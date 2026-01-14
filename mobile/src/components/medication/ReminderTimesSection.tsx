@@ -31,6 +31,7 @@ interface ReminderTimesSectionProps {
     sourceName?: string;
     originalTotalTimes?: number;
     originalInterval?: number;
+    shouldAnimate?: boolean; // New prop to control animation
 }
 
 /**
@@ -126,7 +127,8 @@ export function ReminderTimesSection({
     interval,
     sourceName,
     originalTotalTimes,
-    originalInterval
+    originalInterval,
+    shouldAnimate = false // Default to false if not provided
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -141,9 +143,12 @@ export function ReminderTimesSection({
     const firstItemRef = React.useRef<View>(null);
     const [hasAnimated, setHasAnimated] = useState(false);
 
+    // Track which batch is currently swiped open (for dynamic border radius)
+    const [swipedOpenBatchId, setSwipedOpenBatchId] = useState<string | null>(null);
+
     // Initial Onboarding Animation - Trigger when visible
     useEffect(() => {
-        if (hasAnimated) return;
+        if (!shouldAnimate || hasAnimated) return;
 
         const screenHeight = Dimensions.get('window').height;
 
@@ -173,7 +178,7 @@ export function ReminderTimesSection({
         }, 500); // Check every 500ms
 
         return () => clearInterval(interval);
-    }, [hasAnimated]);
+    }, [hasAnimated, shouldAnimate]);
 
     const handleDelete = (id: string, time: string) => {
         // If it's a preset (morning/afternoon/night/extra), we "hide" it by adding to deleted list
@@ -456,6 +461,10 @@ export function ReminderTimesSection({
 
                     // Wrapper to keep styling clean
                     const renderRowContent = () => {
+                        // Check if this batch is currently swiped open
+                        const isSwiped = swipedOpenBatchId === batch.id;
+                        const swipedRightRadiusStyle = isSwiped ? { borderTopRightRadius: 0, borderBottomRightRadius: 0 } : {};
+
                         if (isCustomReminder) {
                             // Modern Layout for Custom Reminders
                             return (
@@ -468,7 +477,7 @@ export function ReminderTimesSection({
                                     </View>
 
                                     <View style={styles.barWithNoteContainer}>
-                                        <View style={styles.timeBarModern}>
+                                        <View style={[styles.timeBarModern, swipedRightRadiusStyle]}>
                                             {/* Left: Clickable Time */}
                                             <TouchableOpacity
                                                 onPress={() => handleTimeClick(batch.defaultTime)}
@@ -547,7 +556,7 @@ export function ReminderTimesSection({
                                 </View>
 
                                 <View style={styles.barWithNoteContainer}>
-                                    <View style={styles.batchRow}>
+                                    <View style={[styles.batchRow, swipedRightRadiusStyle]}>
                                         <View style={styles.batchInfo}>
                                             <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
                                                 <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
@@ -630,6 +639,8 @@ export function ReminderTimesSection({
                                 renderRightActions={renderRightActions}
                                 containerStyle={{ marginBottom: 8 }} // Margin moved here to exclude from swipe height
                                 childrenContainerStyle={{}}
+                                onSwipeableOpen={() => setSwipedOpenBatchId(batch.id)}
+                                onSwipeableClose={() => setSwipedOpenBatchId(null)}
                             >
                                 {renderRowContent()}
                             </Swipeable>

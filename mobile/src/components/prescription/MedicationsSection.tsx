@@ -99,51 +99,59 @@ export function MedicationsSection({
             </LinearGradient>
 
             {/* Medication Verification Cards */}
-            {medicines
-                .map((medicine, index) => ({ medicine, index }))
-                .filter(({ index }) => {
-                    const dismissId = `${documentId}_${index}`;
-                    return !dismissedMedicationIds.has(dismissId);
-                })
-                .map(({ medicine, index }, arrayIndex, filteredArray) => {
-                    const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
-                    const suggestedStartDate = documentCreatedAt.split('T')[0];
-                    const duplicateOf = detectDuplicateMedication(
-                        parsedMed.name,
-                        parsedMed.dosage,
-                        activeMedications
-                    );
-                    const isVerified = verifiedMedications.has(parsedMed.name);
-                    const isLastItem = arrayIndex === filteredArray.length - 1;
+            {(() => {
+                let unverifiedCardIndex = 0; // Track unverified cards separately
+                return medicines
+                    .map((medicine, index) => ({ medicine, index }))
+                    .filter(({ index }) => {
+                        const dismissId = `${documentId}_${index}`;
+                        return !dismissedMedicationIds.has(dismissId);
+                    })
+                    .map(({ medicine, index }, arrayIndex, filteredArray) => {
+                        const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
+                        const suggestedStartDate = documentCreatedAt.split('T')[0];
+                        const duplicateOf = detectDuplicateMedication(
+                            parsedMed.name,
+                            parsedMed.dosage,
+                            activeMedications
+                        );
+                        const isVerified = verifiedMedications.has(parsedMed.name);
+                        const isLastItem = arrayIndex === filteredArray.length - 1;
 
-                    if (isVerified) {
-                        return (
-                            <View key={index} style={{ marginHorizontal: 16 }}>
-                                <View style={styles.verifiedBanner}>
-                                    <Feather name="check-circle" size={16} color={Colors.success} />
-                                    <Text style={styles.verifiedText}>Added to tracker</Text>
+                        if (isVerified) {
+                            return (
+                                <View key={index} style={{ marginHorizontal: 16 }}>
+                                    <View style={styles.verifiedBanner}>
+                                        <Feather name="check-circle" size={16} color={Colors.success} />
+                                        <Text style={styles.verifiedText}>Added to tracker</Text>
+                                    </View>
+                                    {!isLastItem && <View style={styles.medicationDivider} />}
                                 </View>
-                                {!isLastItem && <View style={styles.medicationDivider} />}
+                            );
+                        }
+
+                        // This is an unverified card - check if it's the first one
+                        const isFirstUnverifiedCard = unverifiedCardIndex === 0;
+                        unverifiedCardIndex++; // Increment for next unverified card
+
+                        return (
+                            <View key={index}>
+                                <MedicationVerificationCard
+                                    medication={parsedMed}
+                                    documentId={documentId}
+                                    documentTitle={documentTitle}
+                                    suggestedStartDate={suggestedStartDate}
+                                    onVerifyAndAdd={onVerifyAndAdd}
+                                    duplicateOf={duplicateOf || undefined}
+                                    medicineIndex={index}
+                                    onDismiss={() => onDismiss(index)}
+                                    isFirstItem={isFirstUnverifiedCard}
+                                />
+                                {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                             </View>
                         );
-                    }
-
-                    return (
-                        <View key={index}>
-                            <MedicationVerificationCard
-                                medication={parsedMed}
-                                documentId={documentId}
-                                documentTitle={documentTitle}
-                                suggestedStartDate={suggestedStartDate}
-                                onVerifyAndAdd={onVerifyAndAdd}
-                                duplicateOf={duplicateOf || undefined}
-                                medicineIndex={index}
-                                onDismiss={() => onDismiss(index)}
-                            />
-                            {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
-                        </View>
-                    );
-                })}
+                    });
+            })()}
 
             {/* Single Verify & Add All Button at the end */}
             {hasUnverifiedMedications && (
