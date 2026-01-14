@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, 
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Swipeable } from 'react-native-gesture-handler';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Colors } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 import { cleanMedicationName } from '../../utils/medicationParser';
@@ -106,6 +107,24 @@ const getMealLabel = (
     return null;
 };
 
+// Animated Number Component - provides smooth fade/slide when numbers change
+const AnimatedNumber = ({ number, style }: { number: number | null; style: any }) => {
+    if (number === null) {
+        return <View style={style} />;
+    }
+
+    return (
+        <Animated.Text
+            key={`num-${number}`}
+            entering={FadeIn.duration(200).springify()}
+            exiting={FadeOut.duration(150)}
+            layout={LinearTransition.springify().damping(15).stiffness(120)}
+            style={style}
+        >
+            {`${number}.`}
+        </Animated.Text>
+    );
+};
 
 
 export function ReminderTimesSection({
@@ -471,9 +490,7 @@ export function ReminderTimesSection({
                                 <View style={styles.numberedRowContainer}>
                                     {/* Dynamic Numbering Column */}
                                     <View style={styles.numberColumn}>
-                                        <Text style={styles.numberText}>
-                                            {numberToShow ? `${numberToShow}.` : ''}
-                                        </Text>
+                                        <AnimatedNumber number={numberToShow} style={styles.numberText} />
                                     </View>
 
                                     <View style={styles.barWithNoteContainer}>
@@ -550,9 +567,7 @@ export function ReminderTimesSection({
                             <View style={styles.numberedRowContainer}>
                                 {/* Dynamic Numbering Column */}
                                 <View style={styles.numberColumn}>
-                                    <Text style={styles.numberText}>
-                                        {numberToShow ? `${numberToShow}.` : ''}
-                                    </Text>
+                                    <AnimatedNumber number={numberToShow} style={styles.numberText} />
                                 </View>
 
                                 <View style={styles.barWithNoteContainer}>
@@ -629,10 +644,12 @@ export function ReminderTimesSection({
                     };
 
                     return (
-                        <View
+                        <Animated.View
                             key={batch.id}
                             ref={index === 0 ? firstItemRef : null}
                             collapsable={false} // Ensure measurement works on Android
+                            layout={LinearTransition.springify().damping(15).stiffness(100)}
+                            exiting={FadeOut.duration(200)}
                         >
                             <Swipeable
                                 ref={swipeableRef}
@@ -644,7 +661,7 @@ export function ReminderTimesSection({
                             >
                                 {renderRowContent()}
                             </Swipeable>
-                        </View>
+                        </Animated.View>
                     );
                 })}
 
