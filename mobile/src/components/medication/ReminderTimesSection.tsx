@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
     },
     reminderBarsContainer: {
         paddingHorizontal: 16,
-        marginTop: 8,
+        marginTop: 12,
         marginBottom: 0,
     },
     reminderHeader: {
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: Colors.gray600,
         // marginTop: -8, // REMOVED to match Course Period spacing (12px)
-        marginBottom: 12,
+        marginBottom: 18,
         lineHeight: 17,
         fontWeight: '500',
     },
