@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants';
 import { ParsedMedication } from '../types/medicationVerification';
 import { Medication } from '../types/medication';
@@ -85,9 +86,12 @@ export default function MedicationVerificationCard({
   const [infoModalTitle, setInfoModalTitle] = useState('');
   const [infoModalBody, setInfoModalBody] = useState('');
 
-  // Floating Tooltip State (specifically for medicine type)
+  // Floating Tooltip State (RETAINED but unused for now, or can be removed if strictly replaced by buttons)
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Info Modal content state
+  const [infoModalContent, setInfoModalContent] = useState<React.ReactNode | null>(null);
 
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
@@ -332,67 +336,43 @@ export default function MedicationVerificationCard({
     }));
   };
 
-  // Handle Tooltip Press (medicine type)
-  const handleTypePress = (event: any) => {
-    const { pageX, pageY } = event.nativeEvent;
-    setTooltipPosition({ x: pageX, y: pageY });
-    setTooltipVisible(true);
+  // Handle Analysis Detail Press
+  const handleOpenAnalysisDetail = (title: string) => {
+    setInfoModalTitle('dosiq Ai Analysis');
+    setInfoModalContent(renderAIAnalysisContent());
+    setInfoModalVisible(true);
   };
 
+  const renderAIAnalysisContent = () => {
+    const hasAttributes = !!(
+      medication.dosage ||
+      medication.duration_days ||
+      medication.strength ||
+      medication.form ||
+      medication.scientific_name ||
+      medication.food_relationship
+    );
 
-  return (
-    <View style={styles.card}>
-      {/* Header */}
-      <MedicationHeader
-        name={medication.name}
-        confidence={medication.confidence}
-        isEditing={isEditing}
-        editedName={editedName}
-        onEditedNameChange={setEditedName}
-        onToggleEdit={() => setIsEditing(!isEditing)}
-        onDelete={handleDelete}
-        onResetToAI={handleResetToAI}
-        onSave={handleSaveEdits}
-        onCancel={handleCancelEdits}
-      />
-
-      {/* AI Summary & Dosage Instruction */}
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryText}>
-          dosiq Ai Analysis: This{' '}
-          <Text
-            suppressHighlighting={true}
-            onPress={handleTypePress}
-            style={styles.interactiveText}
-          >
-            {medication.medicine_type || 'Medicine'}
-          </Text>
-          {' '}medicine helps with {medication.medicine_purpose || 'Treatment'}.
-          {/* Inline Read More */}
-          {!isSummaryExpanded && medication.dosage && (
-            <Text
-              style={styles.readMoreText}
-              onPress={() => setIsSummaryExpanded(true)}
-              suppressHighlighting={true}
-            >
-              {' '}... read more <Feather name="chevron-down" size={12} color={Colors.primary} />
-            </Text>
-          )}
+    return (
+      <View style={styles.modalContent}>
+        <Text style={styles.summaryTextModal}>
+          dosiq Ai Analysis: This {medication.medicine_type || 'Medicine'} medicine helps with {medication.medicine_purpose || 'Treatment'}.
         </Text>
 
-        {/* Expanded Rich Details View */}
-        {isSummaryExpanded && medication.dosage && (
-          <View style={styles.expandedContent}>
+        {hasAttributes && (
+          <View style={styles.expandedContentModal}>
             <View style={styles.tableBorderContainer}>
               {/* Note Row */}
-              <View style={styles.tableRow}>
-                <View style={styles.tableHeaderCell}>
-                  <Text style={styles.tableHeaderText}>Note</Text>
+              {medication.dosage && (
+                <View style={styles.tableRow}>
+                  <View style={styles.tableHeaderCell}>
+                    <Text style={styles.tableHeaderText}>Note</Text>
+                  </View>
+                  <View style={styles.tableValueCell}>
+                    <Text style={styles.tableValueText}>{medication.dosage}</Text>
+                  </View>
                 </View>
-                <View style={styles.tableValueCell}>
-                  <Text style={styles.tableValueText}>{medication.dosage}</Text>
-                </View>
-              </View>
+              )}
 
               {/* Attributes Rows */}
               {medication.duration_days && (
@@ -450,16 +430,61 @@ export default function MedicationVerificationCard({
                 </View>
               )}
             </View>
-
-            <TouchableOpacity
-              style={styles.readLessContainer}
-              onPress={() => setIsSummaryExpanded(false)}
-            >
-              <Text style={styles.readMoreText}>read less</Text>
-              <Feather name="chevron-up" size={12} color={Colors.primary} />
-            </TouchableOpacity>
           </View>
         )}
+      </View>
+    );
+  };
+
+
+  return (
+    <View style={styles.card}>
+      {/* Header */}
+      <MedicationHeader
+        name={medication.name}
+        confidence={medication.confidence}
+        isEditing={isEditing}
+        editedName={editedName}
+        onEditedNameChange={setEditedName}
+        onToggleEdit={() => setIsEditing(!isEditing)}
+        onDelete={handleDelete}
+        onResetToAI={handleResetToAI}
+        onSave={handleSaveEdits}
+        onCancel={handleCancelEdits}
+        onAnalysisPress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
+      />
+
+      {/* AI Summary Static Labels */}
+      <View style={styles.summaryContainer}>
+        <View style={styles.aiButtonsRow}>
+          <LinearGradient
+            colors={['#FFFFFF', '#EFF6FF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.aiButton}
+          >
+            <View style={styles.aiButtonIcon}>
+              <Feather name="layers" size={10} color={Colors.primary} />
+            </View>
+            <Text style={styles.aiButtonText}>
+              {medication.medicine_type || 'Medicine Type'}
+            </Text>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={['#FFFFFF', '#EFF6FF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.aiButton}
+          >
+            <View style={styles.aiButtonIcon}>
+              <Feather name="activity" size={10} color={Colors.primary} />
+            </View>
+            <Text style={styles.aiButtonText}>
+              {medication.medicine_purpose || 'Medicine Purpose'}
+            </Text>
+          </LinearGradient>
+        </View>
       </View>
 
       <View style={styles.divider} />
@@ -585,9 +610,11 @@ export default function MedicationVerificationCard({
       <InfoModal
         visible={infoModalVisible}
         title={infoModalTitle}
-        body={infoModalBody}
         onClose={() => setInfoModalVisible(false)}
-      />
+        hideIcon={infoModalTitle === 'dosiq Ai Analysis'}
+      >
+        {infoModalContent}
+      </InfoModal>
 
       {/* Floating Tooltip specifically for medicine type */}
       <AnimatedTooltip
@@ -700,6 +727,58 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.gray600,
   },
+  aiButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: 'rgba(59, 130, 246, 0.15)',
+    gap: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  aiButtonIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiButtonText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.gray800,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  modalContent: {
+    marginBottom: 20,
+  },
+  summaryTextModal: {
+    fontSize: 15, // 13 + 2 as requested
+    color: Colors.gray600,
+    lineHeight: 22,
+    fontWeight: '500',
+    marginBottom: 16,
+    textAlign: 'left',
+  },
+  expandedContentModal: {
+    marginTop: 0,
+  },
 
 
   // Table Layout Styles
@@ -742,7 +821,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   tableHeaderText: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '700',
     color: Colors.gray500, // Matches Course Period
     letterSpacing: 0.5, // Matches Course Period

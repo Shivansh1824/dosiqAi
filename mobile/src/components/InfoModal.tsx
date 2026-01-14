@@ -6,15 +6,21 @@ import { Colors } from '../constants';
 interface InfoModalProps {
     visible: boolean;
     title: string;
-    body: string;
+    body?: string;
+    children?: React.ReactNode;
     onClose: () => void;
+    bodyStyle?: any;
+    hideIcon?: boolean;
 }
 
 export const InfoModal: React.FC<InfoModalProps> = ({
     visible,
     title,
     body,
+    children,
     onClose,
+    bodyStyle,
+    hideIcon = false,
 }) => {
     return (
         <Modal
@@ -29,13 +35,15 @@ export const InfoModal: React.FC<InfoModalProps> = ({
                 onPress={onClose}
             >
                 <View style={styles.card}>
-                    <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Feather name="info" size={20} color={Colors.primary} />
-                        </View>
+                    <View style={[styles.header, hideIcon && { marginBottom: 24 }]}>
+                        {!hideIcon && (
+                            <View style={styles.iconContainer}>
+                                <Feather name="info" size={20} color={Colors.primary} />
+                            </View>
+                        )}
                         <Text style={styles.title}>{title}</Text>
                     </View>
-                    <Text style={styles.body}>{body}</Text>
+                    {children ? children : <Text style={[styles.body, bodyStyle]}>{body}</Text>}
                     <TouchableOpacity
                         style={styles.button}
                         onPress={onClose}

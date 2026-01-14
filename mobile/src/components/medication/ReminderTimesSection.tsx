@@ -513,7 +513,7 @@ export function ReminderTimesSection({
                                                 <Switch
                                                     value={isOn}
                                                     onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                    trackColor={{ false: Colors.gray200, true: Colors.primary }}
+                                                    trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                     thumbColor={Colors.white}
                                                     style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
                                                 />
@@ -594,7 +594,7 @@ export function ReminderTimesSection({
                                             <Switch
                                                 value={isOn}
                                                 onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                trackColor={{ false: Colors.gray200, true: Colors.primary }}
+                                                trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                 thumbColor={Colors.white}
                                                 style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
                                             />

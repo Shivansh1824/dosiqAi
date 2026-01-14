@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
 import { InfoModal } from '../InfoModal';
@@ -17,6 +18,7 @@ interface MedicationHeaderProps {
     onResetToAI: () => void;
     onSave: () => void;
     onCancel: () => void;
+    onAnalysisPress?: () => void;
 }
 
 /**
@@ -66,6 +68,7 @@ export function MedicationHeader({
     onResetToAI,
     onSave,
     onCancel,
+    onAnalysisPress,
 }: MedicationHeaderProps) {
     const confidenceStyle = getConfidenceStyles(confidence);
     const [showMenu, setShowMenu] = useState(false);
@@ -121,7 +124,22 @@ export function MedicationHeader({
                                     </Text>
                                 </View>
 
-
+                                <TouchableOpacity
+                                    onPress={onAnalysisPress}
+                                    activeOpacity={0.7}
+                                >
+                                    <LinearGradient
+                                        colors={['#FFFFFF', '#EFF6FF']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 0, y: 1 }}
+                                        style={styles.analysisBadge}
+                                    >
+                                        <MaterialCommunityIcons name="auto-fix" size={10} color={Colors.primary} />
+                                        <Text style={styles.analysisText}>
+                                            dosiq AI Analysis
+                                        </Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
                             </>
                         )}
                     </View>
@@ -244,17 +262,15 @@ const styles = StyleSheet.create({
     },
     headerTitleContainer: {
         flex: 1,
-        paddingRight: 8,
+        paddingRight: 80, // Prevent overlap with action icons
         justifyContent: 'center',
     },
     // titleRow removed
     subtitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 4, // Reduced gap for closer look
         marginTop: 0,
-        width: '100%',
-        paddingRight: 4,
     },
     headerActions: {
         alignItems: 'flex-end',
@@ -290,8 +306,8 @@ const styles = StyleSheet.create({
     medicationName: {
         fontSize: 20,
         fontWeight: '900',
-        color: Colors.gray500,
-        letterSpacing: -0.5,
+        color: '#000000', // Deep Black Highlight
+        letterSpacing: -0.7,
         marginBottom: 0,
     },
     nameInput: {
@@ -309,6 +325,34 @@ const styles = StyleSheet.create({
         color: Colors.gray500,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
+    },
+    analysisBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 20,
+        gap: 4,
+        borderWidth: 0.5,
+        borderColor: 'rgba(59, 130, 246, 0.15)',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.04,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 1,
+            },
+        }),
+    },
+    analysisText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: Colors.primary,
+        letterSpacing: 0.3,
+        textTransform: 'uppercase',
     },
     menuContainer: {
         position: 'absolute',
