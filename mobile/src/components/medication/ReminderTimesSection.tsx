@@ -412,38 +412,38 @@ export function ReminderTimesSection({
                 <View style={styles.reminderHeaderLeft}>
                     <Feather name="bell" size={16} color={Colors.primary} />
                     <Text style={styles.reminderTitle}>DOSE SCHEDULE</Text>
+                    <TouchableOpacity
+                        onPress={() => {
+                            // Use original values from JSON for this text, falling back to current if not provided (safety)
+                            const times = originalTotalTimes ?? totalTimesPerDay;
+                            const days = originalInterval ?? interval ?? 1;
+
+                            let explanation = "Please verify and adjust the reminders below.";
+
+                            if (times) {
+                                if (days === 1 && times === 1) {
+                                    explanation = `dosiq AI identified that this dose is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
+                                } else if (days === 1 && times > 1) {
+                                    explanation = `dosiq AI identified that this dose is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
+                                } else if (days > 1 && times === 1) {
+                                    explanation = `dosiq AI identified that this dose is to be taken 1 time, every ${days} days. Please verify and adjust the schedule below.`;
+                                } else {
+                                    explanation = `dosiq AI identified that this dose is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
+                                }
+                            }
+
+                            setInfoModalTitle("About Dose Schedule");
+                            setInfoModalBody(explanation);
+                            setInfoModalVisible(true);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Feather name="info" size={16} color={Colors.gray400} />
+                    </TouchableOpacity>
                 </View>
             </View>
 
-            <Text style={styles.explanatoryText}>
-                {(() => {
-                    // Use original values from JSON for this text, falling back to current if not provided (safety)
-                    // But explicitly prioritizing the 'original' props as requested.
-                    const times = originalTotalTimes ?? totalTimesPerDay;
-                    const days = originalInterval ?? interval ?? 1;
-                    const name = cleanName;
-
-                    if (!times) return "Please verify and adjust the reminders below.";
-
-                    // Case 1: 1 time everyday
-                    if (days === 1 && times === 1) {
-                        return `dosiq AI identified that this dose is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
-                    }
-
-                    // Case 3: x times everyday
-                    if (days === 1 && times > 1) {
-                        return `dosiq AI identified that this dose is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
-                    }
-
-                    // Case 4: 1 time, every y days
-                    if (days > 1 && times === 1) {
-                        return `dosiq AI identified that this dose is to be taken 1 time, every ${days} days. Please verify and adjust the schedule below.`;
-                    }
-
-                    // Case 2: x times a day, every y days (and fallback)
-                    return `dosiq AI identified that this dose is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
-                })()}
-            </Text>
+            {/* Removed inline explanatoryText */}
 
             {/* Content Body */}
             <View style={styles.batchesContainer}>
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 12,
     },
     reminderHeaderLeft: {
         flexDirection: 'row',
