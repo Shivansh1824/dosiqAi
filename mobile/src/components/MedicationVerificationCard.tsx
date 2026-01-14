@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants';
@@ -456,7 +456,11 @@ export default function MedicationVerificationCard({
 
       {/* AI Summary Static Labels */}
       <View style={styles.summaryContainer}>
-        <View style={styles.aiButtonsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.aiButtonsRow}
+        >
           <LinearGradient
             colors={['#FFFFFF', '#EFF6FF']}
             start={{ x: 0, y: 0 }}
@@ -484,7 +488,7 @@ export default function MedicationVerificationCard({
               {medication.medicine_purpose || 'Medicine Purpose'}
             </Text>
           </LinearGradient>
-        </View>
+        </ScrollView>
       </View>
 
       <View style={styles.divider} />
@@ -713,7 +717,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   summaryContainer: {
-    paddingHorizontal: 16,
     marginTop: 0,
     marginBottom: 0,
   },
@@ -729,9 +732,9 @@ const styles = StyleSheet.create({
   },
   aiButtonsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
     marginTop: 4,
+    paddingHorizontal: 16,
   },
   aiButton: {
     flexDirection: 'row',

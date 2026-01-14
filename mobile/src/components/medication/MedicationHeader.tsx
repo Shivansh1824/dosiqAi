@@ -136,7 +136,7 @@ export function MedicationHeader({
                                     >
                                         <MaterialCommunityIcons name="auto-fix" size={10} color={Colors.primary} />
                                         <Text style={styles.analysisText}>
-                                            dosiq AI Analysis
+                                            dosiq Ai Analysis
                                         </Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -352,7 +352,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: Colors.primary,
         letterSpacing: 0.3,
-        textTransform: 'uppercase',
     },
     menuContainer: {
         position: 'absolute',
