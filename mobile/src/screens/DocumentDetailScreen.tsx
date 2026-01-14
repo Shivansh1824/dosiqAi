@@ -590,13 +590,27 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
   // Handle dismissing a medication from verification list
   const handleDismissMedication = (medicineIndex: number) => {
-    const dismissId = `${document.id}_${medicineIndex} `;
+    const dismissId = `${document.id}_${medicineIndex}`;
 
     console.log('[DocumentDetail] Dismissing medication at index:', medicineIndex);
 
     setDismissedMedicationIds(prev => {
       const updated = new Set(prev);
       updated.add(dismissId);
+      saveDismissedToStorage(updated);
+      return updated;
+    });
+  };
+
+  // Handle restoring a dismissed medication
+  const handleRestoreMedication = (medicineIndex: number) => {
+    const dismissId = `${document.id}_${medicineIndex}`;
+
+    console.log('[DocumentDetail] Restoring medication at index:', medicineIndex);
+
+    setDismissedMedicationIds(prev => {
+      const updated = new Set(prev);
+      updated.delete(dismissId);
       saveDismissedToStorage(updated);
       return updated;
     });
@@ -1715,67 +1729,99 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               {/* Medication Verification Cards - Single Column */}
               {(() => {
                 let unverifiedCardIndex = 0; // Track unverified cards separately
-                return document.ai_analysis_result.prescription_data.medicines
-                  .map((medicine, index) => ({ medicine, index }))
-                  .filter(({ index }) => {
-                    const dismissId = `${document.id}_${index}`;
-                    return !dismissedMedicationIds.has(dismissId);
-                  })
-                  .map(({ medicine, index }, arrayIndex, filteredArray) => {
-                    const parsedMed = parseAIMedication(
-                      medicine,
-                      document.id,
-                      displayTitle
-                    );
-                    const suggestedStartDate = document.created_at.split('T')[0]; // Use upload date only
-                    const activeMeds = getActiveMedications();
-                    const duplicateOf = detectDuplicateMedication(
-                      parsedMed.name,
-                      parsedMed.dosage,
-                      activeMeds
-                    );
-                    const isVerified = verifiedMedications.has(parsedMed.name);
-                    const isLastItem = arrayIndex === filteredArray.length - 1;
+                const medicines = document.ai_analysis_result.prescription_data.medicines;
 
-                    if (isVerified) {
-                      return (
-                        <View key={index} style={{ marginHorizontal: 16 }}>
-                          <View style={styles.verifiedBanner}>
-                            <Feather name="check-circle" size={16} color={Colors.success} />
-                            <Text style={styles.verifiedText}>Added to tracker</Text>
-                          </View>
-                          {!isLastItem && <View style={styles.medicationDivider} />}
-                        </View>
-                      );
-                    }
+                return medicines.map((medicine, index) => {
+                  const parsedMed = parseAIMedication(
+                    medicine,
+                    document.id,
+                    displayTitle
+                  );
+                  const dismissId = `${document.id}_${index}`;
+                  const isDismissed = dismissedMedicationIds.has(dismissId);
+                  const isVerified = verifiedMedications.has(parsedMed.name);
+                  const isLastItem = index === medicines.length - 1;
 
-                    // This is an unverified card - check if it's the first one
-                    const isFirstUnverifiedCard = unverifiedCardIndex === 0;
-                    unverifiedCardIndex++; // Increment for next unverified card
-
+                  // Show Dismissed Banner
+                  if (isDismissed) {
                     return (
-                      <View key={index}>
-                        <MedicationVerificationCard
-                          medication={parsedMed}
-                          documentId={document.id}
-                          documentTitle={displayTitle}
-                          suggestedStartDate={suggestedStartDate}
-                          onVerifyAndAdd={handleVerifyAndAddMedication}
-                          duplicateOf={duplicateOf || undefined}
-                          medicineIndex={index}
-                          onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
-                            setMedicationLiveUpdates(prev => ({
-                              ...prev,
-                              [index]: { ...prev[index], ...updates }
-                            }));
-                          }}
-                          onDismiss={() => handleDismissMedication(index)}
-                          isFirstItem={isFirstUnverifiedCard}
-                        />
-                        {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
+                      <View key={index} style={{ marginHorizontal: 16 }}>
+                        <View style={styles.dismissedBanner}>
+                          <View style={styles.dismissedBannerLeft}>
+                            <View style={styles.dismissedIconContainer}>
+                              <MaterialCommunityIcons name="package-variant" size={20} color={Colors.gray400} />
+                            </View>
+                            <View style={styles.dismissedTextContainer}>
+                              <View style={styles.dismissedNameRow}>
+                                <Text style={styles.dismissedMedicineName} numberOfLines={1}>{parsedMed.name}</Text>
+                                <View style={styles.dismissedBadge}>
+                                  <Feather name="check-circle" size={10} color={Colors.success} />
+                                  <Text style={styles.dismissedBadgeText}>AI CONFIDENT</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.dismissedSubtext}>This medicine has been removed</Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.restoreButton}
+                            onPress={() => handleRestoreMedication(index)}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="refresh-cw" size={16} color={Colors.primary} />
+                          </TouchableOpacity>
+                        </View>
+                        {!isLastItem && <View style={styles.medicationDivider} />}
                       </View>
                     );
-                  });
+                  }
+
+                  // Show Verified Banner
+                  if (isVerified) {
+                    return (
+                      <View key={index} style={{ marginHorizontal: 16 }}>
+                        <View style={styles.verifiedBanner}>
+                          <Feather name="check-circle" size={16} color={Colors.success} />
+                          <Text style={styles.verifiedText}>Added to tracker</Text>
+                        </View>
+                        {!isLastItem && <View style={styles.medicationDivider} />}
+                      </View>
+                    );
+                  }
+
+                  // Show Full Medication Card
+                  const suggestedStartDate = document.created_at.split('T')[0];
+                  const activeMeds = getActiveMedications();
+                  const duplicateOf = detectDuplicateMedication(
+                    parsedMed.name,
+                    parsedMed.dosage,
+                    activeMeds
+                  );
+                  const isFirstUnverifiedCard = unverifiedCardIndex === 0;
+                  unverifiedCardIndex++;
+
+                  return (
+                    <View key={index}>
+                      <MedicationVerificationCard
+                        medication={parsedMed}
+                        documentId={document.id}
+                        documentTitle={displayTitle}
+                        suggestedStartDate={suggestedStartDate}
+                        onVerifyAndAdd={handleVerifyAndAddMedication}
+                        duplicateOf={duplicateOf || undefined}
+                        medicineIndex={index}
+                        onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                          setMedicationLiveUpdates(prev => ({
+                            ...prev,
+                            [index]: { ...prev[index], ...updates }
+                          }));
+                        }}
+                        onDismiss={() => handleDismissMedication(index)}
+                        isFirstItem={isFirstUnverifiedCard}
+                      />
+                      {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
+                    </View>
+                  );
+                });
               })()}
 
 
@@ -3130,6 +3176,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     marginVertical: 0,
     marginHorizontal: 0,
+  },
+
+  // Dismissed Medication Banner Styles
+  dismissedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.gray50,
+    paddingHorizontal: Sizes.md,
+    paddingVertical: Sizes.sm + 4,
+    borderRadius: 12,
+    marginBottom: Sizes.md,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+  },
+  dismissedBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: Sizes.sm,
+  },
+  dismissedIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: Colors.gray100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dismissedTextContainer: {
+    flex: 1,
+  },
+  dismissedNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.xs,
+    marginBottom: 2,
+  },
+  dismissedMedicineName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.gray500,
+    maxWidth: '60%',
+  },
+  dismissedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.successLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  dismissedBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.success,
+    textTransform: 'uppercase',
+  },
+  dismissedSubtext: {
+    fontSize: 12,
+    color: Colors.gray400,
+  },
+  restoreButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: Colors.primary + '10',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Error UI styles (errorContainer and errorMessage already defined above)
