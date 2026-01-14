@@ -82,7 +82,7 @@ export function MedicationsSection({
     return (
         <View style={styles.card}>
             <LinearGradient
-                colors={['rgba(59, 130, 246, 0.12)', 'rgba(59, 130, 246, 0)']}
+                colors={['rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
                 style={styles.cardHeader}
@@ -200,17 +200,6 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
         borderRadius: 0,
         marginBottom: 0,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftWidth: 0,
-        borderRightWidth: 0,
-        borderColor: 'rgba(59, 130, 246, 0.08)',
-        // Subtle shadow for depth
-        shadowColor: '#3B82F6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 2,
     },
     titleColumn: {
         flex: 1,

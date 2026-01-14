@@ -699,7 +699,6 @@ const styles = StyleSheet.create({
   interactiveText: {
     fontWeight: '700',
     color: Colors.gray600,
-    textDecorationLine: 'underline',
   },
 
 
