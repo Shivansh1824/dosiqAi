@@ -11,7 +11,7 @@ import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSection } from './medication/ReminderTimesSection';
 import AddReminderModal from './medication/AddReminderModal';
-import { AnimatedTooltip } from './AnimatedTooltip';
+import { InfoModal } from './InfoModal';
 
 const getMealTimingLabel = (relation: string): string => {
   switch (relation) {
@@ -77,9 +77,10 @@ export default function MedicationVerificationCard({
   const [customMealLabels, setCustomMealLabels] = useState<Record<string, string>>({});
   const [showAddReminderModal, setShowAddReminderModal] = useState(false);
 
-  // Tooltip State
-  const [tooltipVisible, setTooltipVisible] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  // Info Modal State
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [infoModalTitle, setInfoModalTitle] = useState('');
+  const [infoModalBody, setInfoModalBody] = useState('');
 
   // Calculate end date
   const durationDays = medication.duration_days ?? 5;
@@ -143,15 +144,32 @@ export default function MedicationVerificationCard({
   const handleResetToAI = () => {
     Alert.alert(
       "Reset to AI Defaults?",
-      "This will revert all fields to the original values detected by AI.",
+      "This will revert all fields and schedules back to the original values detected by dosiq AI.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Reset",
           style: "destructive",
           onPress: () => {
+            // Reset all editable state to initial values
+            setMedication(initialMedication);
             setEditedName(initialMedication.name);
             setEditedNotes(initialMedication.notes);
+            setStartDate(suggestedStartDate);
+            setEndDate(null);
+
+            // Clear all custom overrides
+            setCustomReminderTimes([]);
+            setReminderToggles([]);
+            setReminderDefaultNotes({});
+            setCustomMealLabels({});
+
+            // UI state
+            setIsEditing(false);
+            setIsSummaryExpanded(false);
+
+            // Broadcast live update if needed
+            onLiveUpdate?.({ current_reminder_times: [] });
           }
         }
       ]
@@ -179,7 +197,7 @@ export default function MedicationVerificationCard({
   const handleDelete = () => {
     Alert.alert(
       'Remove Medication?',
-      `${medication.name} will be hidden from this verification list. You can always re-scan the document to see it again.`,
+      `${medication.name} will be hidden from this verification list.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -307,11 +325,11 @@ export default function MedicationVerificationCard({
     }));
   };
 
-  // Handle Tooltip Press
-  const handleTypePress = (event: any) => {
-    const { pageX, pageY } = event.nativeEvent;
-    setTooltipPosition({ x: pageX, y: pageY });
-    setTooltipVisible(true);
+  // Handle Info Modal Press
+  const handleTypePress = () => {
+    setInfoModalTitle('About Medication Type');
+    setInfoModalBody(`This categorizes the medicine based on its primary function. dosiq AI identified this as ${medication.medicine_type || 'Medicine'} to help you understand its purpose.`);
+    setInfoModalVisible(true);
   };
 
 
@@ -326,6 +344,9 @@ export default function MedicationVerificationCard({
         onEditedNameChange={setEditedName}
         onToggleEdit={() => setIsEditing(!isEditing)}
         onDelete={handleDelete}
+        onResetToAI={handleResetToAI}
+        onSave={handleSaveEdits}
+        onCancel={handleCancelEdits}
       />
 
       {/* AI Summary & Dosage Instruction */}
@@ -333,7 +354,7 @@ export default function MedicationVerificationCard({
         <Text style={styles.summaryText}>
           dosiq Ai Analysis: This{' '}
           <Text
-            suppressHighlighting={false}
+            suppressHighlighting={true}
             onPress={handleTypePress}
             style={styles.interactiveText}
           >
@@ -552,12 +573,12 @@ export default function MedicationVerificationCard({
         </View>
       )}
 
-      {/* Animated Tooltip */}
-      <AnimatedTooltip
-        visible={tooltipVisible}
-        content="Medication Type"
-        targetPosition={tooltipPosition}
-        onClose={() => setTooltipVisible(false)}
+      {/* Information Modal */}
+      <InfoModal
+        visible={infoModalVisible}
+        title={infoModalTitle}
+        body={infoModalBody}
+        onClose={() => setInfoModalVisible(false)}
       />
 
     </View>
@@ -568,7 +589,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 0,
     paddingTop: 0, // Header has its own padding
-    paddingBottom: 20, // Symmetrical 20px bottom padding
+    paddingBottom: 18, // Reduced to 18px
     overflow: 'hidden',
   },
   divider: {
@@ -634,7 +655,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginHorizontal: 20,
+    marginHorizontal: 18,
     marginBottom: 16,
     padding: 12,
     backgroundColor: '#FFFBEB',

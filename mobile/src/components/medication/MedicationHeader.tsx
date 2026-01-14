@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
+import { InfoModal } from '../InfoModal';
 
 interface MedicationHeaderProps {
     name: string;
@@ -13,6 +14,9 @@ interface MedicationHeaderProps {
     onEditedNameChange: (name: string) => void;
     onToggleEdit: () => void;
     onDelete: () => void;
+    onResetToAI: () => void;
+    onSave: () => void;
+    onCancel: () => void;
 }
 
 /**
@@ -59,8 +63,26 @@ export function MedicationHeader({
     onEditedNameChange,
     onToggleEdit,
     onDelete,
+    onResetToAI,
+    onSave,
+    onCancel,
 }: MedicationHeaderProps) {
     const confidenceStyle = getConfidenceStyles(confidence);
+    const [showMenu, setShowMenu] = useState(false);
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [infoModalTitle, setInfoModalTitle] = useState('');
+    const [infoModalBody, setInfoModalBody] = useState('');
+
+    const handleInfoPress = (type: 'delete' | 'reset') => {
+        if (type === 'delete') {
+            setInfoModalTitle('About Delete');
+            setInfoModalBody('This will permanently remove the medication from this prescription list.');
+        } else {
+            setInfoModalTitle('About Reset to AI');
+            setInfoModalBody('This will revert all fields back to the original values detected by dosiq AI from your prescription document. Any manual edits you made will be lost.');
+        }
+        setInfoModalVisible(true);
+    };
 
 
     return (
@@ -110,21 +132,90 @@ export function MedicationHeader({
                 <View style={styles.actionButtons}>
                     <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={onToggleEdit}
+                        onPress={isEditing ? onCancel : onToggleEdit}
                         activeOpacity={0.7}
                     >
                         <Feather name={isEditing ? 'x' : 'edit-3'} size={18} color={Colors.gray500} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={onDelete}
-                        activeOpacity={0.7}
-                    >
-                        <Feather name="trash-2" size={18} color={Colors.gray500} />
-                    </TouchableOpacity>
+                    {isEditing ? (
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#E6F4EA' }]}
+                            onPress={onSave}
+                            activeOpacity={0.7}
+                        >
+                            <Feather name="check" size={18} color="#137333" />
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => setShowMenu(!showMenu)}
+                            activeOpacity={0.7}
+                        >
+                            <Feather name={showMenu ? 'x' : 'more-vertical'} size={18} color={Colors.gray500} />
+                        </TouchableOpacity>
+                    )}
+
+                    {showMenu && (
+                        <View style={styles.menuContainer}>
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setShowMenu(false);
+                                    onDelete();
+                                }}
+                            >
+                                <View style={[styles.menuIconContainer, { backgroundColor: '#FEE2E2' }]}>
+                                    <Feather name="trash-2" size={14} color="#DC2626" />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <View style={styles.menuLabelRow}>
+                                        <Text style={[styles.menuItemText, styles.deleteText]}>Delete</Text>
+                                        <TouchableOpacity
+                                            onPress={() => handleInfoPress('delete')}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            style={styles.infoIconWrapper}
+                                        >
+                                            <Feather name="info" size={13} color={Colors.gray400} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.menuItem, styles.resetMenuItem]}
+                                onPress={() => {
+                                    setShowMenu(false);
+                                    onResetToAI();
+                                }}
+                            >
+                                <View style={[styles.menuIconContainer, { backgroundColor: '#F3F4F6' }]}>
+                                    <Feather name="repeat" size={14} color={Colors.gray500} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <View style={styles.menuLabelRow}>
+                                        <Text style={[styles.menuItemText, styles.resetText]}>Reset to AI</Text>
+                                        <TouchableOpacity
+                                            onPress={() => handleInfoPress('reset')}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            style={styles.infoIconWrapper}
+                                        >
+                                            <Feather name="info" size={13} color={Colors.gray400} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             </View>
+
+            <InfoModal
+                visible={infoModalVisible}
+                title={infoModalTitle}
+                body={infoModalBody}
+                onClose={() => setInfoModalVisible(false)}
+            />
         </View>
     );
 }
@@ -218,5 +309,63 @@ const styles = StyleSheet.create({
         color: Colors.gray500,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
+    },
+    menuContainer: {
+        position: 'absolute',
+        top: 40,
+        right: 0,
+        backgroundColor: Colors.white,
+        borderRadius: 14,
+        padding: 6,
+        zIndex: 1000,
+        width: 170, // Increased width
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 10,
+        gap: 12,
+        borderRadius: 10,
+    },
+    resetMenuItem: {
+        backgroundColor: 'transparent',
+    },
+    menuIconContainer: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    menuTextContainer: {
+        flex: 1,
+    },
+    menuLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between', // Align icons to the right
+        flex: 1,
+    },
+    infoIconWrapper: {
+        transform: [{ translateY: 1 }], // Geometric fix for visual centering
+    },
+    menuItemText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.gray700,
+    },
+    deleteText: {
+        color: '#DC2626',
+    },
+    resetText: {
+        color: Colors.gray500, // Muted/Blur color
     },
 });

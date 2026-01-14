@@ -6,6 +6,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 import { cleanMedicationName } from '../../utils/medicationParser';
+import { InfoModal } from '../InfoModal';
 
 interface ReminderTimesSectionProps {
     reminderTimes: string[];
@@ -262,8 +263,16 @@ export function ReminderTimesSection({
         setEditingTime(null);
     };
 
-    // Tooltip State
-    const [activeTooltip, setActiveTooltip] = useState<{ id: string, label: string, time: string } | null>(null);
+    // Info Modal State
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [infoModalTitle, setInfoModalTitle] = useState('');
+    const [infoModalBody, setInfoModalBody] = useState('');
+
+    const handleInfoPress = (label: string, time: string) => {
+        setInfoModalTitle(`About ${label}`);
+        setInfoModalBody(`Your ${label} (${formatTimeDisplay(time)}) currently includes 2 medicines. This update adds ${cleanName} to this schedule.`);
+        setInfoModalVisible(true);
+    };
 
     // Helper to render Grouped Batches
     const renderGroupedView = () => {
@@ -388,27 +397,27 @@ export function ReminderTimesSection({
                     // But explicitly prioritizing the 'original' props as requested.
                     const times = originalTotalTimes ?? totalTimesPerDay;
                     const days = originalInterval ?? interval ?? 1;
-                    const name = sourceName || cleanName;
+                    const name = cleanName;
 
                     if (!times) return "Please verify and adjust the reminders below.";
 
                     // Case 1: 1 time everyday
                     if (days === 1 && times === 1) {
-                        return `Based on the prescription, dosiq AI identified that ${name} is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
+                        return `dosiq AI identified that this dose is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
                     }
 
                     // Case 3: x times everyday
                     if (days === 1 && times > 1) {
-                        return `Based on the prescription, dosiq AI identified that ${name} is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
+                        return `dosiq AI identified that this dose is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
                     }
 
                     // Case 4: 1 time, every y days
                     if (days > 1 && times === 1) {
-                        return `Based on the prescription, dosiq AI identified that ${name} is to be taken 1 time, every ${days} days. Please verify and adjust the schedule below.`;
+                        return `dosiq AI identified that this dose is to be taken 1 time, every ${days} days. Please verify and adjust the schedule below.`;
                     }
 
                     // Case 2: x times a day, every y days (and fallback)
-                    return `Based on the prescription, dosiq AI identified that ${name} is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
+                    return `dosiq AI identified that this dose is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
                 })()}
             </Text>
 
@@ -547,7 +556,7 @@ export function ReminderTimesSection({
                                                 <View style={styles.batchLabelContainer}>
                                                     <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
                                                     <TouchableOpacity
-                                                        onPress={() => setActiveTooltip({ id: batch.id, label: batch.label, time: batch.defaultTime })}
+                                                        onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
                                                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                                     >
                                                         <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
@@ -694,35 +703,13 @@ export function ReminderTimesSection({
                     />
                 )
             }
-            {/* Tooltip Modal */}
-            <Modal
-                transparent={true}
-                visible={!!activeTooltip}
-                animationType="fade"
-                onRequestClose={() => setActiveTooltip(null)}
-            >
-                <TouchableOpacity
-                    style={styles.tooltipOverlay}
-                    activeOpacity={1}
-                    onPress={() => setActiveTooltip(null)}
-                >
-                    <View style={styles.tooltipCard}>
-                        <View style={styles.tooltipHeader}>
-                            <Feather name="info" size={20} color={Colors.primary} />
-                            <Text style={styles.tooltipTitle}>About {activeTooltip?.label}</Text>
-                        </View>
-                        <Text style={styles.tooltipBody}>
-                            Your {activeTooltip?.label} ({formatTimeDisplay(activeTooltip?.time || '')}) currently includes <Text style={{ color: Colors.gray800 }}>2 medicines</Text>. This update adds <Text style={{ color: Colors.gray800 }}>{cleanName}</Text> to this schedule.
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.tooltipCloseButton}
-                            onPress={() => setActiveTooltip(null)}
-                        >
-                            <Text style={styles.tooltipCloseText}>Got it</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
+            {/* Information Modal */}
+            <InfoModal
+                visible={infoModalVisible}
+                title={infoModalTitle}
+                body={infoModalBody}
+                onClose={() => setInfoModalVisible(false)}
+            />
         </View>
     );
 }
@@ -795,7 +782,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 6,
     },
     reminderHeaderLeft: {
         flexDirection: 'row',
@@ -811,10 +798,11 @@ const styles = StyleSheet.create({
     },
     explanatoryText: {
         fontSize: 12,
-        color: Colors.gray500,
+        color: Colors.gray600,
         // marginTop: -8, // REMOVED to match Course Period spacing (12px)
-        marginBottom: 16,
-        lineHeight: 18,
+        marginBottom: 12,
+        lineHeight: 17,
+        fontWeight: '500',
     },
     boldText: {
         fontWeight: '700',
@@ -1071,7 +1059,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        paddingTop: 20,
+        paddingTop: 18,
         paddingBottom: 40,
         shadowColor: '#000',
         shadowOffset: {
@@ -1085,8 +1073,8 @@ const styles = StyleSheet.create({
     modalButtonContainer: {
         flexDirection: 'row',
         justifyContent: 'space-evenly',
-        paddingHorizontal: 20,
-        paddingTop: 20,
+        paddingHorizontal: 18,
+        paddingTop: 18,
         gap: 12,
     },
     modalButton: {

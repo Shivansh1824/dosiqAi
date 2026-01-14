@@ -1647,7 +1647,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
                   paddingHorizontal: 16,
-                  paddingVertical: 20,
+                  paddingVertical: 16,
                   borderRadius: 0,
                   marginBottom: 0,
                   borderTopWidth: 1,
@@ -2070,7 +2070,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewButtonContainer: {
-    padding: 20,
+    padding: 18,
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: Colors.gray100,

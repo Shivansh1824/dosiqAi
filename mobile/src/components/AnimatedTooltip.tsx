@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
         elevation: 8,
     },
     bubble: {
-        backgroundColor: '#1F2937', // Slightly softer black (gray-900)
+        backgroundColor: Colors.primary, // Theme primary color
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 12, // Sleeker radius
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
         borderTopWidth: 6, // Smaller arrow
         borderLeftColor: 'transparent',
         borderRightColor: 'transparent',
-        borderTopColor: '#1F2937',
+        borderTopColor: Colors.primary,
         marginTop: -0.5,
     }
 });
