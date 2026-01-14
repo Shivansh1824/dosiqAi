@@ -1652,10 +1652,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           document.ai_analysis_result?.prescription_data?.medicines &&
           document.ai_analysis_result.prescription_data.medicines.length > 0 && (
             <View style={styles.medicationsCard}>
-              <LinearGradient
-                colors={['rgba(59, 130, 246, 0.12)', 'rgba(59, 130, 246, 0)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
+              <View
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
@@ -1664,23 +1661,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                   paddingVertical: 16,
                   borderRadius: 0,
                   marginBottom: 0,
-                  borderTopWidth: 1,
-                  borderBottomWidth: 1,
-                  borderLeftWidth: 0,
-                  borderRightWidth: 0,
-                  borderColor: 'rgba(59, 130, 246, 0.08)',
-                  // Subtle shadow for depth
-                  ...Platform.select({
-                    ios: {
-                      shadowColor: '#3B82F6',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 12,
-                    },
-                    android: {
-                      elevation: 2,
-                    },
-                  }),
+                  backgroundColor: 'transparent',
                 }}
               >
                 <View style={{ flex: 1, gap: 2 }}>
@@ -1724,7 +1705,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     {document.ai_analysis_result.prescription_data.medicines.length - dismissedMedicationIds.size}
                   </Text>
                 </View>
-              </LinearGradient>
+              </View>
 
               {/* Medication Verification Cards - Single Column */}
               {(() => {
@@ -1924,14 +1905,16 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       />
 
       {/* Full Screen Image Modal */}
-      {imageUri && (
-        <FullScreenImageModal
-          visible={showFullScreenImage}
-          imageUri={imageUri}
-          onClose={() => setShowFullScreenImage(false)}
-        />
-      )}
-    </SafeAreaView>
+      {
+        imageUri && (
+          <FullScreenImageModal
+            visible={showFullScreenImage}
+            imageUri={imageUri}
+            onClose={() => setShowFullScreenImage(false)}
+          />
+        )
+      }
+    </SafeAreaView >
   );
 }
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants';
 
 // Update Props to include style
@@ -106,8 +107,8 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
 
 const styles = StyleSheet.create({
     aiSummaryCard: {
-        backgroundColor: 'rgba(59, 130, 246, 0.05)', // Subtle Blue Tint (matches original)
-        borderRadius: 16,
+        backgroundColor: 'transparent',
+        borderRadius: 0,
         marginBottom: 0,
         padding: 16,
     },

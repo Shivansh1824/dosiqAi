@@ -81,12 +81,7 @@ export function MedicationsSection({
 
     return (
         <View style={styles.card}>
-            <LinearGradient
-                colors={['rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.cardHeader}
-            >
+            <View style={styles.cardHeader}>
                 <View style={styles.titleColumn}>
                     <Text style={styles.cardTitle}>MEDS DETECTED</Text>
                     <Text style={styles.cardSubtitle}>
@@ -96,7 +91,7 @@ export function MedicationsSection({
                 <View style={styles.cardBadge}>
                     <Text style={styles.cardBadgeText}>{visibleMedicationsCount}</Text>
                 </View>
-            </LinearGradient>
+            </View>
 
             {/* Medication Verification Cards */}
             {(() => {
@@ -200,6 +195,7 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
         borderRadius: 0,
         marginBottom: 0,
+        backgroundColor: 'transparent',
     },
     titleColumn: {
         flex: 1,

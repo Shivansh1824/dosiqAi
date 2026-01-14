@@ -57,15 +57,15 @@ export function CoursePeriodSection({
             <View style={styles.coursePeriodCards}>
                 {/* Start Date Card - Clickable */}
                 <TouchableOpacity
-                    style={styles.dateCard}
+                    style={[styles.dateCard, styles.startDateCard]}
                     onPress={onStartDatePress}
                     activeOpacity={0.7}
                 >
                     <View style={styles.dateCardContent}>
-                        <Text style={styles.dateCardLabel}>START DATE</Text>
+                        <Text style={[styles.dateCardLabel, styles.startDateLabel]}>START DATE</Text>
                         <Text style={styles.dateCardValue}>{formatDateDisplay(startDate)}</Text>
                     </View>
-                    <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
+                    <Feather name="edit-2" size={12} color={Colors.success} style={styles.dateCardEditIcon} />
                 </TouchableOpacity>
 
                 {/* Arrow */}
@@ -73,15 +73,15 @@ export function CoursePeriodSection({
 
                 {/* End Date Card - Clickable */}
                 <TouchableOpacity
-                    style={styles.dateCard}
+                    style={[styles.dateCard, styles.endDateCard]}
                     onPress={onEndDatePress}
                     activeOpacity={0.7}
                 >
                     <View style={styles.dateCardContent}>
-                        <Text style={styles.dateCardLabel}>END DATE</Text>
+                        <Text style={[styles.dateCardLabel, styles.endDateLabel]}>END DATE</Text>
                         <Text style={styles.dateCardValue}>{formatDateDisplay(endDate)}</Text>
                     </View>
-                    <Feather name="edit-2" size={12} color={Colors.gray400} style={styles.dateCardEditIcon} />
+                    <Feather name="edit-2" size={12} color={Colors.error} style={styles.dateCardEditIcon} />
                 </TouchableOpacity>
             </View>
 
@@ -129,13 +129,21 @@ const styles = StyleSheet.create({
     },
     dateCard: {
         flex: 1,
-        backgroundColor: '#EFF6FF',
         borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        borderLeftWidth: 3,
+    },
+    startDateCard: {
+        backgroundColor: '#ECFDF5', // Emerald-50: soft green tint
+        borderLeftColor: Colors.success, // Green accent
+    },
+    endDateCard: {
+        backgroundColor: '#FEF2F2', // Rose-50: soft red tint
+        borderLeftColor: Colors.error, // Red accent
     },
     dateCardContent: {
         flex: 1,
@@ -147,9 +155,14 @@ const styles = StyleSheet.create({
     dateCardLabel: {
         fontSize: 9,
         fontWeight: '700',
-        color: Colors.gray500,
         letterSpacing: 0.5,
         marginBottom: 2,
+    },
+    startDateLabel: {
+        color: Colors.successDark, // Dark green for start
+    },
+    endDateLabel: {
+        color: Colors.errorDark, // Dark red for end
     },
     dateCardValue: {
         fontSize: 13,
