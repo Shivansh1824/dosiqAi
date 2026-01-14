@@ -442,6 +442,7 @@ export default function MedicationVerificationCard({
       {/* Header */}
       <MedicationHeader
         name={medication.name}
+        form={medication.form || null}
         confidence={medication.confidence}
         isEditing={isEditing}
         editedName={editedName}

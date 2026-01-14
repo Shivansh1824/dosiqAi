@@ -1647,6 +1647,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           )}
 
 
+
         {/* Medications Section - Only for prescriptions with medicines */}
         {document.ai_analysis_status === 'completed' &&
           document.ai_analysis_result?.prescription_data?.medicines &&

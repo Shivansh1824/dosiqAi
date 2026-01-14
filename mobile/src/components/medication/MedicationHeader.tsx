@@ -5,9 +5,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
 import { InfoModal } from '../InfoModal';
+import { MedicationIcon } from './MedicationIcons';
 
 interface MedicationHeaderProps {
     name: string;
+    form: string | null;
     // Strength is now part of the name string
     confidence: VerificationConfidence;
     isEditing: boolean;
@@ -59,6 +61,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
  */
 export function MedicationHeader({
     name,
+    form,
     confidence,
     isEditing,
     editedName,
@@ -91,8 +94,8 @@ export function MedicationHeader({
     return (
         <View style={styles.cardHeader}>
             <View style={styles.headerLeft}>
-                <View style={styles.iconContainer}>
-                    <Feather name="package" size={20} color={Colors.primary} />
+                <View style={[styles.iconContainer, { backgroundColor: 'transparent' }]}>
+                    <MedicationIcon form={form} size={28} />
                 </View>
                 <View style={styles.headerTitleContainer}>
                     {isEditing ? (
