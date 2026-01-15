@@ -62,7 +62,10 @@ export default function MedicationVerificationCard({
   const [startDate, setStartDate] = useState(suggestedStartDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [endDate, setEndDate] = useState<string | null>(null);
+  // Initialize endDate with the default calculated date so it doesn't float with startDate changes
+  const [endDate, setEndDate] = useState<string>(
+    calculateEndDate(suggestedStartDate, initialMedication.duration_days ?? 5)
+  );
 
   // Editable fields state
   const [editedName, setEditedName] = useState(medication.name);
@@ -106,12 +109,16 @@ export default function MedicationVerificationCard({
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const [tooltipContent, setTooltipContent] = useState('');
 
+  // State for forcing re-render of children
+  const [resetKey, setResetKey] = useState(0);
+
   // Info Modal content state
   const [infoModalContent, setInfoModalContent] = useState<React.ReactNode | null>(null);
 
   // Calculate end date
-  const durationDays = medication.duration_days ?? 5;
-  const computedEndDate = endDate ?? calculateEndDate(startDate, durationDays);
+  // const durationDays = medication.duration_days ?? 5; // internal Note: no longer needed for floating calculation
+  // const computedEndDate = endDate ?? calculateEndDate(startDate, durationDays); // Replaced by fixed state
+
 
   // Check if frequency is "As Needed"
   const isAsNeeded = isAsNeededFrequency(
@@ -198,7 +205,9 @@ export default function MedicationVerificationCard({
             setEditedName(initialMedication.name);
             setEditedNotes(initialMedication.notes);
             setStartDate(suggestedStartDate);
-            setEndDate(null);
+            setStartDate(suggestedStartDate);
+            // Reset to original calculated end date
+            setEndDate(calculateEndDate(suggestedStartDate, initialMedication.duration_days ?? 5));
 
             // Re-calculate defaults for reset
             const resetTimesList = getInitialTimes(); // Re-use the helper
@@ -230,6 +239,9 @@ export default function MedicationVerificationCard({
               resetTimes.forEach(t => resetNotes[t] = noteText);
               setReminderDefaultNotes(resetNotes);
             }
+
+            // Force re-render of child components (clears internal state like deletedBatchIds)
+            setResetKey(prev => prev + 1);
           }
         }
       ]
@@ -616,7 +628,7 @@ export default function MedicationVerificationCard({
       {!isAsNeeded && (
         <CoursePeriodSection
           startDate={startDate}
-          endDate={computedEndDate}
+          endDate={endDate}
           interval={medication.interval_days ?? medication.source_raw?.interval_days}
           onStartDatePress={() => setShowDatePicker(true)}
           onEndDatePress={() => setShowEndDatePicker(true)}
@@ -640,7 +652,7 @@ export default function MedicationVerificationCard({
       {/* End Date Picker Modal */}
       <DatePickerModal
         visible={showEndDatePicker}
-        date={computedEndDate}
+        date={endDate}
         onConfirm={(date) => {
           setEndDate(date);
           setShowEndDatePicker(false);
@@ -654,6 +666,7 @@ export default function MedicationVerificationCard({
       {!isAsNeeded && (
         <>
           <ReminderTimesSection
+            key={`times-section-${resetKey}`}
             reminderTimes={getReminderTimes()}
             intervalText={getIntervalText()}
             medicineName={medication.name}
