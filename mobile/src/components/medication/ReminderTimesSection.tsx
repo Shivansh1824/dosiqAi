@@ -33,6 +33,8 @@ interface ReminderTimesSectionProps {
     originalTotalTimes?: number;
     originalInterval?: number;
     shouldAnimate?: boolean; // New prop to control animation
+    inactiveReminderTimes?: string[]; // New: Track inactive custom times
+    onDeleteCustomReminder?: (time: string) => void; // New: Explicit delete handler
 }
 
 /**
@@ -147,7 +149,9 @@ export function ReminderTimesSection({
     sourceName,
     originalTotalTimes,
     originalInterval,
-    shouldAnimate = false // Default to false if not provided
+    shouldAnimate = false, // Default to false if not provided
+    inactiveReminderTimes = [], // Default empty
+    onDeleteCustomReminder
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -206,8 +210,11 @@ export function ReminderTimesSection({
             setDeletedBatchIds(prev => [...prev, id]);
             onBatchToggle?.(id, false, time);
         } else {
-            // It's a custom time (custom-X-TIME), we actually remove it from the array
-            if (onUpdateReminderTimes) {
+            // It's a custom time. If the new handler is provided, use it.
+            if (onDeleteCustomReminder) {
+                onDeleteCustomReminder(time);
+            } else if (onUpdateReminderTimes) {
+                // Fallback for backward compatibility
                 const newTimes = reminderTimes.filter(t => t !== time);
                 onUpdateReminderTimes(newTimes);
             }
@@ -349,11 +356,21 @@ export function ReminderTimesSection({
         // 2. Add extra rows for any active reminder times that aren't covered by the generated rows
         const coveredTimes = new Set(rows.map(r => r.defaultTime));
 
-        // We iterate reminderTimes (the active ones)
-        reminderTimes.forEach((time, index) => {
+        // Create a combined list of all custom times (active + inactive) to ensure we render them
+        // We use a Set to avoid duplicates if something is weirdly in both
+        // We also want to preserve the order relative to active reminderTimes if possible, but simplest is to just collect all unique times
+        const allCustomTimes = Array.from(new Set([...reminderTimes, ...inactiveReminderTimes]));
+
+        // However, we want to maintain the sort order of reminderTimes generally.
+        // Let's iterate the combined distinct times, sorting them to be nice.
+        allCustomTimes.sort((a, b) => parseInt(a.replace(':', '')) - parseInt(b.replace(':', '')));
+
+        allCustomTimes.forEach((time, index) => {
             if (!coveredTimes.has(time)) {
+                // Determine if it's active or inactive is handled by checking reminderTimes in the loop later
+                // Here we just need to ensure the ROW exists.
                 rows.push({
-                    id: `custom-${index}-${time}`,
+                    id: `custom-${time.replace(':', '')}`, // Use time as stable ID part
                     label: 'Reminder',
                     icon: 'clock',
                     defaultTime: time

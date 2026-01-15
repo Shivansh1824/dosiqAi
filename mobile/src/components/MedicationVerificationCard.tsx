@@ -71,6 +71,8 @@ export default function MedicationVerificationCard({
 
   // Reminder toggle states
   const [reminderToggles, setReminderToggles] = useState<boolean[]>([]);
+  // NEW: Inactive custom reminders (toggled off but not deleted)
+  const [inactiveReminders, setInactiveReminders] = useState<string[]>([]);
 
   // Reminder default notes state (for note feature)
   const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
@@ -200,6 +202,7 @@ export default function MedicationVerificationCard({
             // Clear all custom overrides
             setCustomReminderTimes([]);
             setReminderToggles([]);
+            setInactiveReminders([]); // Clear inactive reminders
             setReminderDefaultNotes({});
             setCustomMealLabels({});
 
@@ -324,6 +327,10 @@ export default function MedicationVerificationCard({
 
     const updatedTimes = [...currentTimes, time].sort();
     setCustomReminderTimes(updatedTimes);
+    // Remove from inactive if it was there (reactivating implies removing from inactive list)
+    if (inactiveReminders.includes(time)) {
+      setInactiveReminders(prev => prev.filter(t => t !== time));
+    }
     // Broadcast live update
     onLiveUpdate?.({ current_reminder_times: updatedTimes });
 
@@ -353,7 +360,7 @@ export default function MedicationVerificationCard({
   };
 
 
-  // Handle batch toggle (Morning/Afternoon/Evening/Night)
+  // Handle batch toggle (Morning/Afternoon/Evening/Night OR Custom)
   const handleBatchToggle = (batchId: string, isEnabled: boolean, defaultTime: string) => {
     const currentTimes = getReminderTimes();
     let updatedTimes = [...currentTimes];
@@ -364,10 +371,27 @@ export default function MedicationVerificationCard({
         updatedTimes.push(defaultTime);
         updatedTimes.sort(); // Keep sorted
       }
+      // Also remove from inactive reminders since it's now active
+      if (inactiveReminders.includes(defaultTime)) {
+        setInactiveReminders(prev => prev.filter(t => t !== defaultTime));
+      }
     } else {
-      // Remove the specific default time
-      // Improvement: Could also remove any time *within* that batch's range, but for now strict default time is safer/simpler
+      // Remove the specific default time from ACTIVE list
       updatedTimes = updatedTimes.filter(t => t !== defaultTime);
+
+      // If this is a recurring standard batch time (morning/afternoon/night), we don't necessarily need to add to inactiveReminders if the design treats them as implicit.
+      // However, for CUSTOM reminders (which are just times), we MUST add them to inactiveReminders so they don't disappear.
+      // The batchId for standard is 'morning', 'afternoon' etc.
+      // The batchId for custom in ReminderTimesSection is `custom-${time}` or `custom-${index}`.
+
+      const isStandardBatch = ['morning', 'afternoon', 'night', 'extra-'].some(prefix => batchId.startsWith(prefix));
+
+      if (!isStandardBatch) {
+        // It's a custom reminder! We want to "Remember it as off"
+        if (!inactiveReminders.includes(defaultTime)) {
+          setInactiveReminders(prev => [...prev, defaultTime]);
+        }
+      }
     }
 
     setCustomReminderTimes(updatedTimes);
@@ -375,10 +399,35 @@ export default function MedicationVerificationCard({
     onLiveUpdate?.({ current_reminder_times: updatedTimes });
 
     // Sync toggles state (optimistic)
-    // In grouped mode, we don't strictly use reminderToggles index mapping like Separate mode
-    // But we need to keep the state valid for the backend.
-    // Re-generating toggles array to match new times length
     setReminderToggles(new Array(updatedTimes.length).fill(true));
+  };
+
+  // NEW: Handle explicit delete of custom reminder
+  const handleDeleteCustomReminder = (time: string) => {
+    // Remove from active
+    const currentTimes = getReminderTimes();
+    if (currentTimes.includes(time)) {
+      const updatedTimes = currentTimes.filter(t => t !== time);
+      setCustomReminderTimes(updatedTimes);
+      onLiveUpdate?.({ current_reminder_times: updatedTimes });
+    }
+
+    // Remove from inactive
+    if (inactiveReminders.includes(time)) {
+      setInactiveReminders(prev => prev.filter(t => t !== time));
+    }
+
+    // Remove associated data
+    setCustomMealLabels(prev => {
+      const next = { ...prev };
+      delete next[time];
+      return next;
+    });
+    setReminderDefaultNotes(prev => {
+      const next = { ...prev };
+      delete next[time];
+      return next;
+    });
   };
 
   // Handle bulk update of reminder times (fix for race conditions in auto-sync)
@@ -635,6 +684,8 @@ export default function MedicationVerificationCard({
             originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
             originalInterval={medication.source_raw?.interval_days}
             shouldAnimate={isFirstItem}
+            inactiveReminderTimes={inactiveReminders}
+            onDeleteCustomReminder={handleDeleteCustomReminder}
           />
 
           <AddReminderModal
