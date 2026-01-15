@@ -640,7 +640,7 @@ export function ReminderTimesSection({
                                                 />
 
                                                 {/* Premium Rising Sun Graphic - Centered & Standardized */}
-                                                <View style={{ position: 'absolute', top: 12, left: 12, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                                <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
                                                     <Svg height="100%" width="100%" viewBox="0 0 40 40">
                                                         {/* Rays - Radiating Upwards */}
                                                         <G opacity="0.6" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
@@ -714,7 +714,7 @@ export function ReminderTimesSection({
                                                 />
 
                                                 {/* Full Sun Graphic - Centered/Top for Afternoon */}
-                                                <View style={{ position: 'absolute', top: 12, left: 12, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                                <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
                                                     <Svg height="100%" width="100%" viewBox="0 0 40 40">
                                                         {/* Rays - All around, short ticks */}
                                                         <G opacity="0.6" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round">
@@ -785,7 +785,7 @@ export function ReminderTimesSection({
                                                 />
 
                                                 {/* Moon & Stars Graphic */}
-                                                <View style={{ position: 'absolute', top: 12, left: 12, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                                <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
                                                     <Svg height="100%" width="100%" viewBox="0 0 40 40">
                                                         {/* Crescent Moon */}
                                                         <Path
