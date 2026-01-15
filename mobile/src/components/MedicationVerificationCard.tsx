@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -124,6 +124,33 @@ export default function MedicationVerificationCard({
     return [];
   };
 
+  // Helper to generate default notes based on food relationship
+  const generateFoodRelationNotes = useCallback((times: string[]) => {
+    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
+    if (!relation || relation === 'anytime' || relation === 'any') return {};
+
+    const noteText = getMealTimingLabel(relation);
+    const newNotes: Record<string, string> = {};
+
+    times.forEach(time => {
+      newNotes[time] = noteText;
+    });
+
+    return newNotes;
+  }, [medication]);
+
+  // Initial Population of Notes
+  useEffect(() => {
+    // Only populate if empty (initial load)
+    if (Object.keys(reminderDefaultNotes).length === 0) {
+      const times = getReminderTimes();
+      const initialNotes = generateFoodRelationNotes(times);
+      if (Object.keys(initialNotes).length > 0) {
+        setReminderDefaultNotes(initialNotes);
+      }
+    }
+  }, []); // Run once on mount (effectively) - usually we depend on medication but we only want initial population
+
   // Get interval display text
   const getIntervalText = (): string => {
     const intervalDays = medication.interval_days ?? medication.source_raw?.interval_days;
@@ -182,6 +209,27 @@ export default function MedicationVerificationCard({
 
             // Broadcast live update if needed
             onLiveUpdate?.({ current_reminder_times: [] });
+
+            // Re-populate default notes
+            // We need to calculate times based on initialMedication since state update is async/batched
+            // Re-using logic from getReminderTimes but with initialMedication
+            // Actually, easier to let the effect run? No, we need explicit reset.
+            let resetTimes: string[] = [];
+            const timesPerDay = initialMedication.total_times_per_day ?? initialMedication.source_raw?.timing?.total_times_per_day ?? 0;
+            if (initialMedication.time_of_day?.length > 0) {
+              resetTimes = initialMedication.time_of_day;
+            } else if (timesPerDay > 0) {
+              resetTimes = generateCyclicReminderTimes(timesPerDay);
+            }
+
+            // Generate notes for these times
+            const relation = initialMedication.food_relationship || initialMedication.source_raw?.timing?.relation_to_meal;
+            if (relation && relation !== 'anytime' && relation !== 'any') {
+              const noteText = getMealTimingLabel(relation);
+              const resetNotes: Record<string, string> = {};
+              resetTimes.forEach(t => resetNotes[t] = noteText);
+              setReminderDefaultNotes(resetNotes);
+            }
           }
         }
       ]
@@ -290,6 +338,16 @@ export default function MedicationVerificationCard({
       setCustomMealLabels(prev => ({
         ...prev,
         [time]: mealLabel
+      }));
+    }
+
+    // Add default note if food relationship exists
+    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
+    if (relation && relation !== 'anytime' && relation !== 'any') {
+      const noteText = getMealTimingLabel(relation);
+      setReminderDefaultNotes(prev => ({
+        ...prev,
+        [time]: noteText
       }));
     }
   };
