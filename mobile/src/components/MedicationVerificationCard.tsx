@@ -37,6 +37,7 @@ interface MedicationVerificationCardProps {
   medicineIndex?: number;
   onLiveUpdate?: (updates: { current_reminder_times: string[] }) => void;
   isFirstItem?: boolean;
+  cardIndex?: number; // Index for alternating background colors
 }
 
 /**
@@ -54,7 +55,11 @@ export default function MedicationVerificationCard({
   medicineIndex,
   onLiveUpdate,
   isFirstItem = false,
+  cardIndex = 0,
 }: MedicationVerificationCardProps) {
+  // Alternating background colors for visual differentiation
+  const backgroundColors = ['#FFFFFF', '#F0F9FF']; // White and light blue
+  const backgroundColor = backgroundColors[cardIndex % 2];
   const [medication, setMedication] = useState<ParsedMedication>(initialMedication);
   const [isEditing, setIsEditing] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
@@ -565,7 +570,7 @@ export default function MedicationVerificationCard({
 
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor }]}>
       {/* Header */}
       <MedicationHeader
         name={medication.name}

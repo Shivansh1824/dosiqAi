@@ -1786,6 +1786,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     activeMeds
                   );
                   const isFirstUnverifiedCard = unverifiedCardIndex === 0;
+                  const currentCardIndex = unverifiedCardIndex;
                   unverifiedCardIndex++;
 
                   return (
@@ -1806,6 +1807,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         }}
                         onDismiss={() => handleDismissMedication(index)}
                         isFirstItem={isFirstUnverifiedCard}
+                        cardIndex={currentCardIndex}
                       />
                       {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                     </View>
