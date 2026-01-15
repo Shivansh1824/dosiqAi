@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
 import { InfoModal } from '../InfoModal';
-import { MedicationIcon } from './MedicationIcons';
+import { MedicationIcon, getHeaderBackgroundColor } from './MedicationIcons';
 
 interface MedicationHeaderProps {
     name: string;
@@ -93,141 +93,149 @@ export function MedicationHeader({
 
     return (
         <View style={styles.cardHeader}>
-            <View style={styles.headerLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: 'transparent' }]}>
-                    <MedicationIcon form={form} size={28} />
-                </View>
-                <View style={styles.headerTitleContainer}>
-                    {isEditing ? (
-                        <TextInput
-                            style={styles.nameInput}
-                            value={editedName}
-                            onChangeText={onEditedNameChange}
-                            placeholder="Medication name"
-                            autoFocus
-                            multiline
-                        />
-                    ) : (
-                        <Text
-                            style={styles.medicationName}
-                            numberOfLines={1}
-                            adjustsFontSizeToFit={false} // Strict single line
-                        >
-                            {name}
-                        </Text>
-                    )}
-
-                    <View style={styles.subtitleRow}>
-                        {!isEditing && (
-                            <>
-                                <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                                    <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
-                                    <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
-                                        {confidenceStyle.text}
-                                    </Text>
-                                </View>
-
-                                <TouchableOpacity
-                                    onPress={onAnalysisPress}
-                                    activeOpacity={0.7}
+            <View style={[styles.innerHeaderContainer, { backgroundColor: getHeaderBackgroundColor(form) }]}>
+                <View style={styles.headerLeft}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'transparent' }]}>
+                        <MedicationIcon form={form} size={28} />
+                    </View>
+                    <View style={styles.headerTitleContainer}>
+                        {isEditing ? (
+                            <TextInput
+                                style={styles.nameInput}
+                                value={editedName}
+                                onChangeText={onEditedNameChange}
+                                placeholder="Medication name"
+                                autoFocus
+                                multiline
+                            />
+                        ) : (
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={styles.nameScrollView}
+                                contentContainerStyle={styles.nameScrollContent}
+                            >
+                                <Text
+                                    style={styles.medicationName}
+                                    numberOfLines={1}
                                 >
-                                    <LinearGradient
-                                        colors={['#FFFFFF', '#EFF6FF']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 0, y: 1 }}
-                                        style={styles.analysisBadge}
-                                    >
-                                        <MaterialCommunityIcons name="auto-fix" size={10} color={Colors.primary} />
-                                        <Text style={styles.analysisText}>
-                                            dosiq Ai Analysis
-                                        </Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </>
+                                    {name}
+                                </Text>
+                            </ScrollView>
                         )}
+
+                        <View style={styles.subtitleRow}>
+                            {!isEditing && (
+                                <>
+                                    <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
+                                        <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
+                                        <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
+                                            {confidenceStyle.text}
+                                        </Text>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        onPress={onAnalysisPress}
+                                        activeOpacity={0.7}
+                                    >
+                                        <LinearGradient
+                                            colors={['#FFFFFF', '#EFF6FF']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 0, y: 1 }}
+                                            style={styles.analysisBadge}
+                                        >
+                                            <MaterialCommunityIcons name="auto-fix" size={10} color={Colors.primary} />
+                                            <Text style={styles.analysisText}>
+                                                dosiq Ai Analysis
+                                            </Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
                     </View>
                 </View>
-            </View>
 
-            <View style={styles.headerActions}>
-                <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={isEditing ? onCancel : onToggleEdit}
-                        activeOpacity={0.7}
-                    >
-                        <Feather name={isEditing ? 'x' : 'edit-3'} size={18} color={Colors.gray500} />
-                    </TouchableOpacity>
-
-                    {isEditing ? (
+                <View style={styles.headerActions}>
+                    <View style={styles.actionButtons}>
                         <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: '#E6F4EA' }]}
-                            onPress={onSave}
+                            style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
+                            onPress={isEditing ? onCancel : onToggleEdit}
                             activeOpacity={0.7}
                         >
-                            <Feather name="check" size={18} color="#137333" />
+                            <Feather name={isEditing ? 'x' : 'edit-3'} size={18} color={Colors.gray500} />
                         </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => setShowMenu(!showMenu)}
-                            activeOpacity={0.7}
-                        >
-                            <Feather name={showMenu ? 'x' : 'more-vertical'} size={18} color={Colors.gray500} />
-                        </TouchableOpacity>
-                    )}
 
-                    {showMenu && (
-                        <View style={styles.menuContainer}>
+                        {isEditing ? (
                             <TouchableOpacity
-                                style={styles.menuItem}
-                                onPress={() => {
-                                    setShowMenu(false);
-                                    onDelete();
-                                }}
+                                style={[styles.actionButton, { backgroundColor: '#E6F4EA' }]}
+                                onPress={onSave}
+                                activeOpacity={0.7}
                             >
-                                <View style={[styles.menuIconContainer, { backgroundColor: '#FEE2E2' }]}>
-                                    <Feather name="trash-2" size={14} color="#DC2626" />
-                                </View>
-                                <View style={styles.menuTextContainer}>
-                                    <View style={styles.menuLabelRow}>
-                                        <Text style={[styles.menuItemText, styles.deleteText]}>Delete</Text>
-                                        <TouchableOpacity
-                                            onPress={() => handleInfoPress('delete')}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                            style={styles.infoIconWrapper}
-                                        >
-                                            <Feather name="info" size={13} color={Colors.gray400} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
+                                <Feather name="check" size={18} color="#137333" />
                             </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
+                                onPress={() => setShowMenu(!showMenu)}
+                                activeOpacity={0.7}
+                            >
+                                <Feather name={showMenu ? 'x' : 'more-vertical'} size={18} color={Colors.gray500} />
+                            </TouchableOpacity>
+                        )}
 
-                            <TouchableOpacity
-                                style={[styles.menuItem, styles.resetMenuItem]}
-                                onPress={() => {
-                                    setShowMenu(false);
-                                    onResetToAI();
-                                }}
-                            >
-                                <View style={[styles.menuIconContainer, { backgroundColor: '#F3F4F6' }]}>
-                                    <Feather name="repeat" size={14} color={Colors.gray500} />
-                                </View>
-                                <View style={styles.menuTextContainer}>
-                                    <View style={styles.menuLabelRow}>
-                                        <Text style={[styles.menuItemText, styles.resetText]}>Reset to AI</Text>
-                                        <TouchableOpacity
-                                            onPress={() => handleInfoPress('reset')}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                            style={styles.infoIconWrapper}
-                                        >
-                                            <Feather name="info" size={13} color={Colors.gray400} />
-                                        </TouchableOpacity>
+                        {showMenu && (
+                            <View style={styles.menuContainer}>
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={() => {
+                                        setShowMenu(false);
+                                        onDelete();
+                                    }}
+                                >
+                                    <View style={[styles.menuIconContainer, { backgroundColor: '#FEE2E2' }]}>
+                                        <Feather name="trash-2" size={14} color="#DC2626" />
                                     </View>
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                                    <View style={styles.menuTextContainer}>
+                                        <View style={styles.menuLabelRow}>
+                                            <Text style={[styles.menuItemText, styles.deleteText]}>Delete</Text>
+                                            <TouchableOpacity
+                                                onPress={() => handleInfoPress('delete')}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                style={styles.infoIconWrapper}
+                                            >
+                                                <Feather name="info" size={13} color={Colors.gray400} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.menuItem, styles.resetMenuItem]}
+                                    onPress={() => {
+                                        setShowMenu(false);
+                                        onResetToAI();
+                                    }}
+                                >
+                                    <View style={[styles.menuIconContainer, { backgroundColor: '#F3F4F6' }]}>
+                                        <Feather name="repeat" size={14} color={Colors.gray500} />
+                                    </View>
+                                    <View style={styles.menuTextContainer}>
+                                        <View style={styles.menuLabelRow}>
+                                            <Text style={[styles.menuItemText, styles.resetText]}>Reset to AI</Text>
+                                            <TouchableOpacity
+                                                onPress={() => handleInfoPress('reset')}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                style={styles.infoIconWrapper}
+                                            >
+                                                <Feather name="info" size={13} color={Colors.gray400} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
 
@@ -243,12 +251,17 @@ export function MedicationHeader({
 
 const styles = StyleSheet.create({
     cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
         paddingHorizontal: 16,
         paddingTop: 20,
         paddingBottom: 12,
+    },
+    innerHeaderContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
     },
     headerLeft: {
         flex: 1,
@@ -265,7 +278,7 @@ const styles = StyleSheet.create({
     },
     headerTitleContainer: {
         flex: 1,
-        paddingRight: 80, // Prevent overlap with action icons
+        paddingRight: 16, // Clear gap before action buttons
         justifyContent: 'center',
     },
     // titleRow removed
@@ -281,7 +294,7 @@ const styles = StyleSheet.create({
     },
     actionButtons: {
         flexDirection: 'row',
-        gap: 8,
+        gap: 2,
     },
     actionButton: {
         width: 32,
@@ -305,6 +318,13 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 0.3,
         textTransform: 'uppercase',
+    },
+    nameScrollView: {
+        flexGrow: 0,
+        flexShrink: 1,
+    },
+    nameScrollContent: {
+        alignItems: 'center',
     },
     medicationName: {
         fontSize: 20,

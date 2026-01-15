@@ -28,6 +28,7 @@ import DocumentOptionsModal from '../components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { MedicationIcon } from '../components/medication/MedicationIcons';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
@@ -1647,6 +1648,44 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           )}
 
 
+        {/* Icon Preview Section */}
+        {document.ai_analysis_status === 'completed' && (
+          <View style={{ marginBottom: 24, marginTop: 10 }}>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '900',
+              color: Colors.gray400,
+              marginLeft: 20,
+              marginBottom: 12,
+              letterSpacing: 1.5,
+              textTransform: 'uppercase'
+            }}>Neo-Glass Style Preview</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 20 }}
+            >
+              {[
+                { label: 'Tablet', form: 'Tablet' },
+                { label: 'Capsule', form: 'Capsule' },
+                { label: 'Syrup', form: 'Syrup' },
+                { label: 'Injection', form: 'Injection' },
+                { label: 'Drops', form: 'Drops' },
+                { label: 'Cream', form: 'Cream' },
+                { label: 'Ointment', form: 'Ointment' },
+                { label: 'Inhaler', form: 'Inhaler' },
+                { label: 'Sachet', form: 'Sachet' },
+                { label: 'Nebulizer', form: 'Nebulizer' },
+                { label: 'Fallback', form: null }
+              ].map((item, idx) => (
+                <View key={idx} style={{ alignItems: 'center', gap: 8 }}>
+                  <MedicationIcon form={item.form} size={28} />
+                  <Text style={{ fontSize: 9, fontWeight: '800', color: Colors.gray500, letterSpacing: 0.5 }}>{item.label.toUpperCase()}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Medications Section - Only for prescriptions with medicines */}
         {document.ai_analysis_status === 'completed' &&

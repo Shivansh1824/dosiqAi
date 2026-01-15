@@ -12,7 +12,7 @@ interface MedicationIconProps {
 /**
  * Type-specific theme definitions for Neo-Glass Icons
  */
-const ICON_THEMES: Record<string, { colors: readonly [string, string, ...string[]]; iconColor: string; shadowColor: string }> = {
+export const ICON_THEMES: Record<string, { colors: readonly [string, string, ...string[]]; iconColor: string; shadowColor: string }> = {
     tablet: {
         colors: ['#EFF6FF', '#DBEAFE'], // Light Blue Frost
         iconColor: '#3B82F6',
@@ -68,6 +68,17 @@ const ICON_THEMES: Record<string, { colors: readonly [string, string, ...string[
         iconColor: '#64748B',
         shadowColor: 'rgba(100, 116, 139, 0.1)',
     }
+};
+
+/**
+ * Get header background color based on medication form type.
+ * Returns the lightest shade from the form's theme for subtle header background.
+ */
+export const getHeaderBackgroundColor = (form: string | null): string => {
+    const normalizedForm = form?.toLowerCase() || 'default';
+    const theme = ICON_THEMES[normalizedForm] || ICON_THEMES.default;
+    // Use the second color of the gradient (slightly more prominent shade)
+    return theme.colors[1];
 };
 
 /**
@@ -321,8 +332,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 1,
         shadowRadius: 10,
         elevation: 4,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.6)', // Glass edge reflection
     },
     iconWrapper: {
         justifyContent: 'center',
