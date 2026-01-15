@@ -8,6 +8,8 @@ interface AnimatedTooltipProps {
     content: string;
     targetPosition: { x: number; y: number } | null;
     onClose: () => void;
+    backgroundColor?: string;
+    textColor?: string;
 }
 
 /**
@@ -19,6 +21,8 @@ export const AnimatedTooltip: React.FC<AnimatedTooltipProps> = ({
     content,
     targetPosition,
     onClose,
+    backgroundColor = Colors.primary,
+    textColor = '#FFF',
 }) => {
     if (!visible || !targetPosition) return null;
 
@@ -47,10 +51,10 @@ export const AnimatedTooltip: React.FC<AnimatedTooltipProps> = ({
                             }
                         ]}
                     >
-                        <View style={styles.bubble}>
-                            <Text style={styles.text}>{content}</Text>
+                        <View style={[styles.bubble, { backgroundColor }]}>
+                            <Text style={[styles.text, { color: textColor }]}>{content}</Text>
                         </View>
-                        <View style={styles.arrow} />
+                        <View style={[styles.arrow, { borderTopColor: backgroundColor }]} />
                     </Animated.View>
                 </View>
             </TouchableWithoutFeedback>
@@ -92,12 +96,11 @@ const styles = StyleSheet.create({
         height: 0,
         backgroundColor: 'transparent',
         borderStyle: 'solid',
-        borderLeftWidth: 6,
-        borderRightWidth: 6,
-        borderTopWidth: 6, // Smaller arrow
+        borderLeftWidth: 8,
+        borderRightWidth: 8,
+        borderTopWidth: 8,
         borderLeftColor: 'transparent',
         borderRightColor: 'transparent',
         borderTopColor: Colors.primary,
-        marginTop: -0.5,
     }
 });

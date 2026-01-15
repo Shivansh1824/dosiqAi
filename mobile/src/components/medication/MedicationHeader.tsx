@@ -137,6 +137,7 @@ export function MedicationHeader({
                                     <TouchableOpacity
                                         onPress={onAnalysisPress}
                                         activeOpacity={0.7}
+                                        style={styles.analysisContainer}
                                     >
                                         <LinearGradient
                                             colors={['#FFFFFF', '#EFF6FF']}
@@ -144,11 +145,13 @@ export function MedicationHeader({
                                             end={{ x: 0, y: 1 }}
                                             style={styles.analysisBadge}
                                         >
-                                            <MaterialCommunityIcons name="auto-fix" size={10} color={Colors.primary} />
                                             <Text style={styles.analysisText}>
                                                 dosiq Ai Analysis
                                             </Text>
                                         </LinearGradient>
+                                        <View style={styles.pointerWrapper}>
+                                            <MaterialCommunityIcons name="cursor-default-click" size={14} color={Colors.primary} />
+                                        </View>
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -349,13 +352,16 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
+    analysisContainer: {
+        position: 'relative',
+    },
     analysisBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
+        paddingLeft: 8,
+        paddingRight: 12, // Increased padding to avoid text overlap with pointer on the right
         paddingVertical: 2,
         borderRadius: 20,
-        gap: 4,
         borderWidth: 0.5,
         borderColor: 'rgba(59, 130, 246, 0.15)',
         ...Platform.select({
@@ -369,6 +375,12 @@ const styles = StyleSheet.create({
                 elevation: 1,
             },
         }),
+    },
+    pointerWrapper: {
+        position: 'absolute',
+        bottom: -2,
+        right: -4,
+        zIndex: 10,
     },
     analysisText: {
         fontSize: 9,

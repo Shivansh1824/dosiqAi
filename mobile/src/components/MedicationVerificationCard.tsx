@@ -86,9 +86,10 @@ export default function MedicationVerificationCard({
   const [infoModalTitle, setInfoModalTitle] = useState('');
   const [infoModalBody, setInfoModalBody] = useState('');
 
-  // Floating Tooltip State (RETAINED but unused for now, or can be removed if strictly replaced by buttons)
+  // Floating Tooltip State
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipContent, setTooltipContent] = useState('');
 
   // Info Modal content state
   const [infoModalContent, setInfoModalContent] = useState<React.ReactNode | null>(null);
@@ -343,6 +344,14 @@ export default function MedicationVerificationCard({
     setInfoModalVisible(true);
   };
 
+  // Handle Tooltip Press
+  const handleTooltipPress = (event: any, content: string) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setTooltipPosition({ x: pageX, y: pageY });
+    setTooltipContent(content);
+    setTooltipVisible(true);
+  };
+
   const renderAIAnalysisContent = () => {
     const hasAttributes = !!(
       medication.dosage ||
@@ -462,33 +471,43 @@ export default function MedicationVerificationCard({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.aiButtonsRow}
         >
-          <LinearGradient
-            colors={['#FFFFFF', '#EFF6FF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.aiButton}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={(e) => handleTooltipPress(e, 'Medication Type')}
           >
-            <View style={styles.aiButtonIcon}>
-              <Feather name="layers" size={10} color={Colors.primary} />
-            </View>
-            <Text style={styles.aiButtonText}>
-              {medication.medicine_type || 'Medicine Type'}
-            </Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={['#FFFFFF', '#EFF6FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.aiButton}
+            >
+              <View style={styles.aiButtonIcon}>
+                <Feather name="layers" size={10} color={Colors.primary} />
+              </View>
+              <Text style={styles.aiButtonText}>
+                {medication.medicine_type || 'Medicine Type'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-          <LinearGradient
-            colors={['#FFFFFF', '#EFF6FF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.aiButton}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
           >
-            <View style={styles.aiButtonIcon}>
-              <Feather name="activity" size={10} color={Colors.primary} />
-            </View>
-            <Text style={styles.aiButtonText}>
-              {medication.medicine_purpose || 'Medicine Purpose'}
-            </Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={['#FFFFFF', '#EFF6FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.aiButton}
+            >
+              <View style={styles.aiButtonIcon}>
+                <Feather name="activity" size={10} color={Colors.primary} />
+              </View>
+              <Text style={styles.aiButtonText}>
+                {medication.medicine_purpose || 'Medicine Purpose'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -621,12 +640,14 @@ export default function MedicationVerificationCard({
         {infoModalContent}
       </InfoModal>
 
-      {/* Floating Tooltip specifically for medicine type */}
+      {/* Floating Tooltip specifically for medicine type and purpose */}
       <AnimatedTooltip
         visible={tooltipVisible}
-        content="Medication Type"
+        content={tooltipContent}
         targetPosition={tooltipPosition}
         onClose={() => setTooltipVisible(false)}
+        backgroundColor="#BFDBFE"
+        textColor="#000000"
       />
 
     </View>
