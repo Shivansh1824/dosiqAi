@@ -169,6 +169,13 @@ export function ReminderTimesSection({
     // Track which batch is currently swiped open (for dynamic border radius)
     const [swipedOpenBatchId, setSwipedOpenBatchId] = useState<string | null>(null);
 
+    // Info Modal State
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [infoModalTitle, setInfoModalTitle] = useState('');
+    const [infoModalBody, setInfoModalBody] = useState('');
+
+    const cleanName = cleanMedicationName(medicineName);
+
     // Initial Onboarding Animation - Trigger when visible
     useEffect(() => {
         if (!shouldAnimate || hasAnimated) return;
@@ -201,7 +208,10 @@ export function ReminderTimesSection({
         }, 500); // Check every 500ms
 
         return () => clearInterval(interval);
+        return () => clearInterval(interval);
     }, [hasAnimated, shouldAnimate]);
+
+
 
     const handleDelete = (id: string, time: string) => {
         // If it's a preset (morning/afternoon/night/extra), we "hide" it by adding to deleted list
@@ -219,90 +229,6 @@ export function ReminderTimesSection({
                 onUpdateReminderTimes(newTimes);
             }
         }
-    };
-
-    if (reminderTimes.length === 0) return null;
-
-    const cleanName = cleanMedicationName(medicineName);
-
-    const toggleNoteExpansion = (id: string) => {
-        setExpandedNotes(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
-    };
-
-    /**
-     * Convert 24h time string to Date object for picker
-     */
-    const timeStringToDate = (timeString: string): Date => {
-        const [hours, minutes] = timeString.split(':').map(Number);
-        const date = new Date();
-        date.setHours(hours, minutes, 0, 0);
-        return date;
-    };
-
-    /**
-     * Convert Date object to 24h time string
-     */
-    const dateToTimeString = (date: Date): string => {
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
-    };
-
-    /**
-     * Handle time click - open the time picker
-     */
-    const handleTimeClick = (currentTime: string) => {
-        setTempTime(timeStringToDate(currentTime));
-        setEditingTime(currentTime);
-    };
-
-    /**
-     * Handle time picker change
-     */
-    const handleTimePickerChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            const timeToUpdate = editingTime;
-            setEditingTime(null); // Dismiss immediately
-            if (event.type === 'set' && selectedDate && timeToUpdate) {
-                const newTimeString = dateToTimeString(selectedDate);
-                onTimeChange?.(timeToUpdate, newTimeString);
-            }
-        } else {
-            // iOS
-            if (selectedDate) setTempTime(selectedDate);
-        }
-    };
-
-    /**
-     * Handle iOS time picker confirm
-     */
-    const handleIOSConfirm = () => {
-        if (editingTime) {
-            const newTimeString = dateToTimeString(tempTime);
-            onTimeChange?.(editingTime, newTimeString);
-        }
-        setEditingTime(null);
-    };
-
-    /**
-     * Handle cancel
-     */
-    const handleCancel = () => {
-        setEditingTime(null);
-    };
-
-    // Info Modal State
-    const [infoModalVisible, setInfoModalVisible] = useState(false);
-    const [infoModalTitle, setInfoModalTitle] = useState('');
-    const [infoModalBody, setInfoModalBody] = useState('');
-
-    const handleInfoPress = (label: string, time: string) => {
-        setInfoModalTitle(`About ${label}`);
-        setInfoModalBody(`Your ${label} (${formatTimeDisplay(time)}) currently includes 2 medicines. This update adds ${cleanName} to this schedule.`);
-        setInfoModalVisible(true);
     };
 
     // Helper to render Grouped Batches
@@ -416,6 +342,88 @@ export function ReminderTimesSection({
         }
         // Removing reminderTimes from dependency array to prevent auto-re-enabling when user toggles off
     }, [totalTimesPerDay, timingDosage]);
+
+    if (reminderTimes.length === 0 && inactiveReminderTimes.length === 0) return null;
+
+
+
+    const toggleNoteExpansion = (id: string) => {
+        setExpandedNotes(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
+
+    /**
+     * Convert 24h time string to Date object for picker
+     */
+    const timeStringToDate = (timeString: string): Date => {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+    };
+
+    /**
+     * Convert Date object to 24h time string
+     */
+    const dateToTimeString = (date: Date): string => {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    /**
+     * Handle time click - open the time picker
+     */
+    const handleTimeClick = (currentTime: string) => {
+        setTempTime(timeStringToDate(currentTime));
+        setEditingTime(currentTime);
+    };
+
+    /**
+     * Handle time picker change
+     */
+    const handleTimePickerChange = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            const timeToUpdate = editingTime;
+            setEditingTime(null); // Dismiss immediately
+            if (event.type === 'set' && selectedDate && timeToUpdate) {
+                const newTimeString = dateToTimeString(selectedDate);
+                onTimeChange?.(timeToUpdate, newTimeString);
+            }
+        } else {
+            // iOS
+            if (selectedDate) setTempTime(selectedDate);
+        }
+    };
+
+    /**
+     * Handle iOS time picker confirm
+     */
+    const handleIOSConfirm = () => {
+        if (editingTime) {
+            const newTimeString = dateToTimeString(tempTime);
+            onTimeChange?.(editingTime, newTimeString);
+        }
+        setEditingTime(null);
+    };
+
+    /**
+     * Handle cancel
+     */
+    const handleCancel = () => {
+        setEditingTime(null);
+    };
+
+
+
+    const handleInfoPress = (label: string, time: string) => {
+        setInfoModalTitle(`About ${label}`);
+        setInfoModalBody(`Your ${label} (${formatTimeDisplay(time)}) currently includes 2 medicines. This update adds ${cleanName} to this schedule.`);
+        setInfoModalVisible(true);
+    };
+
 
     const rowsToRender = renderGroupedView();
     let activeCounter = 0; // Tracking active reminders for dynamic numbering
