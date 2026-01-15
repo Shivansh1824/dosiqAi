@@ -293,14 +293,24 @@ export function ReminderTimesSection({
 
         allCustomTimes.forEach((time, index) => {
             if (!coveredTimes.has(time)) {
-                // Determine if it's active or inactive is handled by checking reminderTimes in the loop later
-                // Here we just need to ensure the ROW exists.
-                rows.push({
-                    id: `custom-${time.replace(':', '')}`, // Use time as stable ID part
-                    label: 'Reminder',
-                    icon: 'clock',
-                    defaultTime: time
-                });
+
+                // Check if this time matches a standard batch
+                const standardBatch = batches.find(b => b.defaultTime === time);
+
+                if (standardBatch) {
+                    rows.push({
+                        ...standardBatch
+                        // ID implicitly used from standardBatch (e.g., 'morning')
+                        // This ensures it uses the standard icon and label
+                    });
+                } else {
+                    rows.push({
+                        id: `custom-${time.replace(':', '')}`, // Use time as stable ID part
+                        label: 'Reminder',
+                        icon: 'clock',
+                        defaultTime: time
+                    });
+                }
                 coveredTimes.add(time);
             }
         });

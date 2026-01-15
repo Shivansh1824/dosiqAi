@@ -8,13 +8,14 @@ interface AddReminderModalProps {
     visible: boolean;
     onClose: () => void;
     onAdd: (time: string, mealLabel: string | null) => void;
+    existingTimes?: string[];
 }
 
 /**
  * AddReminderModal - Specific modal to add a new reminder time
  * User picks a time and selects a meal relationship
  */
-export default function AddReminderModal({ visible, onClose, onAdd }: AddReminderModalProps) {
+export default function AddReminderModal({ visible, onClose, onAdd, existingTimes = [] }: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
@@ -59,20 +60,34 @@ export default function AddReminderModal({ visible, onClose, onAdd }: AddReminde
         { label: 'Not Specified', value: null, icon: 'slash' },
         { label: 'Before Meal', value: 'Before Meal', icon: 'chevron-left' },
         { label: 'After Meal', value: 'After Meal', icon: 'chevron-right' },
-        { label: 'With Food', value: 'With Food', icon: 'plus-circle' },
         { label: 'Empty Stomach', value: 'Empty Stomach', icon: 'circle' },
     ];
 
     // Dynamic context options based on time could be cool, but keeping it simple for now as requested
     // Maybe adding specific meals if needed?
-    const TIME_SPECIFIC_OPTIONS = [
-        { label: 'Before Breakfast', value: 'Before Breakfast' },
-        { label: 'After Breakfast', value: 'After Breakfast' },
-        { label: 'Before Lunch', value: 'Before Lunch' },
-        { label: 'After Lunch', value: 'After Lunch' },
-        { label: 'Before Dinner', value: 'Before Dinner' },
-        { label: 'After Dinner', value: 'After Dinner' },
+    const DOSE_GROUPS = [
+        { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: '08:00' },
+        { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: '14:00' },
+        { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: '21:00' },
     ];
+
+    // Filter out groups that are already in existingTimes
+    const availableGroups = DOSE_GROUPS.filter(group => !existingTimes.includes(group.defaultTime));
+
+    const handleGroupSelect = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const newDate = new Date();
+        newDate.setHours(hours);
+        newDate.setMinutes(minutes);
+        newDate.setSeconds(0);
+        setSelectedTime(newDate);
+    };
+
+    // Check for duplicate time
+    const hours = selectedTime.getHours().toString().padStart(2, '0');
+    const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+    const timeString = `${hours}:${minutes}`;
+    const isDuplicate = existingTimes.includes(timeString);
 
     return (
         <Modal
@@ -109,14 +124,10 @@ export default function AddReminderModal({ visible, onClose, onAdd }: AddReminde
                                         <Text style={styles.androidTimeText}>
                                             {selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </Text>
-                                        {/* Android usually requires a button to show the picker dialogue, 
-                          but embedded is safer inside a custom modal UI flow. 
-                          However, simplistic approach: simplified time display + optional edit button */}
                                         <TouchableOpacity
                                             style={styles.androidEditButton}
-                                            onPress={() => {/* In a real app we'd show a separate picker here, but for now assuming iOS primary or simple Android flow */ }}
+                                            onPress={() => {/* In a real app we'd show a separate picker here */ }}
                                         >
-                                            {/* Android picker handling is complex inside a modal, simplifying for this step */}
                                         </TouchableOpacity>
                                         <DateTimePicker
                                             value={selectedTime}
@@ -127,6 +138,12 @@ export default function AddReminderModal({ visible, onClose, onAdd }: AddReminde
                                     </View>
                                 )}
                             </View>
+                            {isDuplicate && (
+                                <View style={styles.errorContainer}>
+                                    <Feather name="alert-circle" size={14} color={Colors.error} />
+                                    <Text style={styles.errorText}>Reminder already exists for this time</Text>
+                                </View>
+                            )}
                         </View>
 
                         {/* Meal Relation Section */}
@@ -152,41 +169,76 @@ export default function AddReminderModal({ visible, onClose, onAdd }: AddReminde
                                 ))}
                             </View>
 
-                            <Text style={[styles.sectionTitle, { marginTop: 16 }]}>MEAL SPECIFIC</Text>
-                            <View style={styles.optionsGrid}>
-                                {TIME_SPECIFIC_OPTIONS.map((option) => (
-                                    <TouchableOpacity
-                                        key={option.label}
-                                        style={[
-                                            styles.optionChip,
-                                            selectedLabel === option.value && styles.optionChipSelected
-                                        ]}
-                                        onPress={() => setSelectedLabel(option.value)}
-                                    >
-                                        <Text style={[
-                                            styles.optionText,
-                                            selectedLabel === option.value && styles.optionTextSelected
-                                        ]}>
-                                            {option.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
                         </View>
+
+
+
+
+                        {/* Dose Group Section */}
+                        {availableGroups.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>DOSE GROUP</Text>
+                                <View style={styles.optionsGrid}>
+                                    {availableGroups.map((group) => (
+                                        <TouchableOpacity
+                                            key={group.id}
+                                            style={[
+                                                styles.optionChip,
+                                                selectedTime.getHours() === parseInt(group.defaultTime.split(':')[0]) &&
+                                                selectedTime.getMinutes() === parseInt(group.defaultTime.split(':')[1]) &&
+                                                styles.optionChipSelected
+                                            ]}
+                                            onPress={() => handleGroupSelect(group.defaultTime)}
+                                        >
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                <Feather
+                                                    name={group.icon as any}
+                                                    size={14}
+                                                    color={
+                                                        selectedTime.getHours() === parseInt(group.defaultTime.split(':')[0]) &&
+                                                            selectedTime.getMinutes() === parseInt(group.defaultTime.split(':')[1])
+                                                            ? Colors.primary
+                                                            : Colors.gray500
+                                                    }
+                                                />
+                                                <Text style={[
+                                                    styles.optionText,
+                                                    selectedTime.getHours() === parseInt(group.defaultTime.split(':')[0]) &&
+                                                    selectedTime.getMinutes() === parseInt(group.defaultTime.split(':')[1]) &&
+                                                    styles.optionTextSelected
+                                                ]}>
+                                                    {group.label}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
                     </ScrollView>
 
                     <View style={styles.footer}>
                         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
                             <Text style={styles.cancelButtonText}>Cancel</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.addButton} onPress={handleConfirm}>
-                            <Feather name="plus" size={18} color={Colors.white} />
-                            <Text style={styles.addButtonText}>Add Reminder</Text>
+                        <TouchableOpacity
+                            style={[
+                                styles.addButton,
+                                isDuplicate && styles.addButtonDisabled
+                            ]}
+                            onPress={handleConfirm}
+                            disabled={isDuplicate}
+                        >
+                            <Feather name="plus" size={18} color={isDuplicate ? Colors.gray400 : Colors.white} />
+                            <Text style={[
+                                styles.addButtonText,
+                                isDuplicate && styles.addButtonTextDisabled
+                            ]}>Add Reminder</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
-        </Modal>
+            </View >
+        </Modal >
     );
 }
 
@@ -321,5 +373,28 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '600',
         color: Colors.white,
+    },
+    addButtonDisabled: {
+        backgroundColor: Colors.gray200,
+    },
+    addButtonTextDisabled: {
+        color: Colors.gray400,
+    },
+    errorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center', // Center it
+        gap: 6,
+        marginTop: 12, // More space
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        backgroundColor: '#FEF2F2', // Light red bg
+        borderRadius: 12,
+        alignSelf: 'center', // Center in parent
+    },
+    errorText: {
+        fontSize: 13,
+        color: Colors.error,
+        fontWeight: '500',
     },
 });

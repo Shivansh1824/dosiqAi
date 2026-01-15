@@ -358,12 +358,20 @@ export default function MedicationVerificationCard({
     }
 
     // Add default note if food relationship exists
+    // Add default note if food relationship exists OR if user selected a specific label
     const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
-    if (relation && relation !== 'anytime' && relation !== 'any') {
-      const noteText = getMealTimingLabel(relation);
+    let noteToApply = '';
+
+    if (mealLabel) {
+      noteToApply = mealLabel;
+    } else if (relation && relation !== 'anytime' && relation !== 'any') {
+      noteToApply = getMealTimingLabel(relation);
+    }
+
+    if (noteToApply) {
       setReminderDefaultNotes(prev => ({
         ...prev,
-        [time]: noteText
+        [time]: noteToApply
       }));
     }
   };
@@ -696,6 +704,7 @@ export default function MedicationVerificationCard({
             visible={showAddReminderModal}
             onClose={() => setShowAddReminderModal(false)}
             onAdd={handleAddReminderObject}
+            existingTimes={getReminderTimes()}
           />
         </>
       )}
