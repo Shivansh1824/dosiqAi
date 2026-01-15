@@ -133,11 +133,16 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
         title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
       } else if (analysis.document_type) {
-        // Capitalize (e.g., "lab_report" -> "Lab Report")
-        title = analysis.document_type
-          .split('_')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
+        // Map 'invalid' to friendlier 'Needs Review' label
+        if (analysis.document_type.toLowerCase() === 'invalid') {
+          title = 'Unrecognized Document';
+        } else {
+          // Capitalize (e.g., "lab_report" -> "Lab Report")
+          title = analysis.document_type
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
       } else if (analysis.file_name) {
         // Fallback to filename if no specific type data
         title = analysis.file_name;
@@ -731,6 +736,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
   // Helper to format document type
   const formatDocumentType = (type: string): string => {
+    if (type.toLowerCase() === 'invalid') return 'Invalid';
     return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
   };
 
@@ -1643,6 +1649,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               summary={getSummary(document.ai_analysis_result)!}
               recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
               style={{ marginBottom: 0 }}
+              defaultExpanded={document.ai_analysis_result.document_type?.toLowerCase() === 'invalid'}
             />
           )}
 

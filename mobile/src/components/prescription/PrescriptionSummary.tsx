@@ -10,14 +10,16 @@ interface PrescriptionSummaryProps {
     otherInformation?: Array<{ value: string; category?: string }>;
     recommendedTests?: Array<{ test_name: string; reason?: string }>;
     style?: any;
+    /** When true, the summary dropdown will be expanded by default (e.g., for invalid documents) */
+    defaultExpanded?: boolean;
 }
 
 /**
  * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
  * Extracted from DocumentDetailScreen.tsx
  */
-export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style }: PrescriptionSummaryProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
+export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false }: PrescriptionSummaryProps) {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
     // Consolidated display logic: show nothing by default (except header), show all when expanded
     return (

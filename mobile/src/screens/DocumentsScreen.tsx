@@ -82,33 +82,39 @@ export default function DocumentsScreen() {
                 ) : (
                     documents.map((doc) => {
                         // Prefer AI-generated filename from analysis result, fallback to document title
-                        const displayTitle = doc.ai_analysis_result?.file_name || doc.title;
+                        const displayTitle = doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
+                            ? "Unrecognized Document"
+                            : (doc.ai_analysis_result?.file_name || doc.title);
                         // Prefer AI-detected document type, fallback to original type
-                        const formatDocType = (type: string) => type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+                        const formatDocType = (type: string) => {
+                            // Map 'invalid' to 'Invalid' label
+                            if (type.toLowerCase() === 'invalid') return 'Invalid';
+                            return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+                        };
                         const displayType = doc.ai_analysis_result?.document_type
                             ? formatDocType(doc.ai_analysis_result.document_type)
                             : doc.type;
                         return (
-                        <TouchableOpacity
-                            key={doc.id}
-                            style={styles.documentCard}
-                            activeOpacity={0.7}
-                            onPress={() => (navigation as any).navigate('Document', { document: doc })}
-                        >
-                            <View style={[styles.documentIconContainer, { backgroundColor: doc.color + '15' }]}>
-                                <Feather name="file-text" size={24} color={doc.color} />
-                            </View>
-                            <View style={styles.documentInfo}>
-                                <Text style={styles.documentTitle}>{displayTitle}</Text>
-                                <View style={styles.documentMeta}>
-                                    <View style={styles.typeBadge}>
-                                        <Text style={styles.typeBadgeText}>{displayType}</Text>
-                                    </View>
-                                    <Text style={styles.documentDate}>{formatDate(doc.created_at)}</Text>
+                            <TouchableOpacity
+                                key={doc.id}
+                                style={styles.documentCard}
+                                activeOpacity={0.7}
+                                onPress={() => (navigation as any).navigate('Document', { document: doc })}
+                            >
+                                <View style={[styles.documentIconContainer, { backgroundColor: doc.color + '15' }]}>
+                                    <Feather name="file-text" size={24} color={doc.color} />
                                 </View>
-                            </View>
-                            <Feather name="chevron-right" size={20} color={Colors.gray400} />
-                        </TouchableOpacity>
+                                <View style={styles.documentInfo}>
+                                    <Text style={styles.documentTitle}>{displayTitle}</Text>
+                                    <View style={styles.documentMeta}>
+                                        <View style={styles.typeBadge}>
+                                            <Text style={styles.typeBadgeText}>{displayType}</Text>
+                                        </View>
+                                        <Text style={styles.documentDate}>{formatDate(doc.created_at)}</Text>
+                                    </View>
+                                </View>
+                                <Feather name="chevron-right" size={20} color={Colors.gray400} />
+                            </TouchableOpacity>
                         );
                     })
                 )}

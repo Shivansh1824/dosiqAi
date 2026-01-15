@@ -553,9 +553,13 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             ) : (
               <View style={styles.documentsList}>
                 {recentDocuments.map((doc, index) => {
-                  const displayTitle = doc.ai_analysis_result?.file_name || doc.title;
+                  const displayTitle = doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
+                    ? "Unrecognized Document"
+                    : (doc.ai_analysis_result?.file_name || doc.title);
                   const displayType = doc.ai_analysis_result?.document_type
-                    ? doc.ai_analysis_result.document_type.charAt(0).toUpperCase() + doc.ai_analysis_result.document_type.slice(1).replace(/_/g, ' ')
+                    ? (doc.ai_analysis_result.document_type.toLowerCase() === 'invalid'
+                      ? 'Invalid'
+                      : doc.ai_analysis_result.document_type.charAt(0).toUpperCase() + doc.ai_analysis_result.document_type.slice(1).replace(/_/g, ' '))
                     : doc.type;
 
                   // Dynamic card colors - Clean Professional
