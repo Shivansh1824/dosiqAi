@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../constants';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -41,6 +41,9 @@ export default function FullScreenImageModal({
 
   // Pinch gesture for zooming
   const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      savedScale.value = scale.value;
+    })
     .onUpdate((event) => {
       scale.value = savedScale.value * event.scale;
     })
@@ -63,6 +66,10 @@ export default function FullScreenImageModal({
 
   // Pan gesture for dragging
   const panGesture = Gesture.Pan()
+    .onStart(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    })
     .onUpdate((event) => {
       translateX.value = savedTranslateX.value + event.translationX;
       translateY.value = savedTranslateY.value + event.translationY;
@@ -91,9 +98,7 @@ export default function FullScreenImageModal({
       }
     });
 
-  const composed = Gesture.Simultaneous(
-    Gesture.Exclusive(doubleTapGesture, Gesture.Simultaneous(pinchGesture, panGesture))
-  );
+  const composed = Gesture.Simultaneous(pinchGesture, panGesture, doubleTapGesture);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -124,38 +129,40 @@ export default function FullScreenImageModal({
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" />
 
-        {/* Close Button */}
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={handleClose}
-          activeOpacity={0.8}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <View style={styles.closeButtonBackground}>
-            <Feather name="x" size={24} color={Colors.white} />
+          {/* Close Button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleClose}
+            activeOpacity={0.8}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={styles.closeButtonBackground}>
+              <Feather name="x" size={24} color={Colors.white} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Image with Gesture Handling */}
+          <GestureDetector gesture={composed}>
+            <Animated.Image
+              source={{ uri: imageUri }}
+              style={[styles.image, animatedStyle]}
+              resizeMode="contain"
+            />
+          </GestureDetector>
+
+          {/* Hint Text */}
+          <View style={styles.hintContainer}>
+            <Feather name="maximize" size={16} color={Colors.white} />
+            <Animated.Text style={styles.hintText}>
+              Pinch to zoom • Double tap to reset
+            </Animated.Text>
           </View>
-        </TouchableOpacity>
-
-        {/* Image with Gesture Handling */}
-        <GestureDetector gesture={composed}>
-          <Animated.Image
-            source={{ uri: imageUri }}
-            style={[styles.image, animatedStyle]}
-            resizeMode="contain"
-          />
-        </GestureDetector>
-
-        {/* Hint Text */}
-        <View style={styles.hintContainer}>
-          <Feather name="maximize" size={16} color={Colors.white} />
-          <Animated.Text style={styles.hintText}>
-            Pinch to zoom • Double tap to reset
-          </Animated.Text>
         </View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
