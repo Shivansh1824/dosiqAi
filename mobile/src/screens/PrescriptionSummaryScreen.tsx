@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
+import { AnimatedTooltip } from '../components/AnimatedTooltip';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
@@ -70,6 +71,18 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
+
+  // Tooltip state for dismissed medications
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipContent, setTooltipContent] = useState('');
+
+  const handleTooltipPress = (event: any, content: string) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setTooltipPosition({ x: pageX, y: pageY });
+    setTooltipContent(content);
+    setTooltipVisible(true);
+  };
 
   // Detect document type for share modal
   const documentType = useMemo(() => {
@@ -1744,7 +1757,12 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             </View>
                             <View style={styles.dismissedTextContainer}>
                               <View style={styles.dismissedNameRow}>
-                                <Text style={styles.dismissedMedicineName} numberOfLines={1}>{parsedMed.name}</Text>
+                                <TouchableOpacity
+                                  onPress={(e) => handleTooltipPress(e, parsedMed.name)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.dismissedMedicineName} numberOfLines={1}>{parsedMed.name}</Text>
+                                </TouchableOpacity>
                               </View>
                               <Text style={styles.dismissedSubtext}>This medicine has been removed</Text>
                             </View>
@@ -1920,6 +1938,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           />
         )
       }
+
+      {/* Floating Tooltip specifically for dismissed medications */}
+      <AnimatedTooltip
+        visible={tooltipVisible}
+        content={tooltipContent}
+        targetPosition={tooltipPosition}
+        onClose={() => setTooltipVisible(false)}
+      />
     </SafeAreaView >
   );
 }
@@ -3233,7 +3259,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: Colors.gray500,
-    maxWidth: '60%',
+    flexShrink: 1,
   },
   dismissedSubtext: {
     fontSize: 12,
