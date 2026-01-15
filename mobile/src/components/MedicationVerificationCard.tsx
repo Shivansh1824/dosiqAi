@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 0,
     paddingTop: 0, // Header has its own padding
-    paddingBottom: 18, // Reduced to 18px
+    paddingBottom: 40, // Increased to 40px
     overflow: 'hidden',
   },
   divider: {

@@ -256,7 +256,7 @@ export function MedicationHeader({
 const styles = StyleSheet.create({
     cardHeader: {
         paddingHorizontal: 16,
-        paddingTop: 20,
+        paddingTop: 40,
         paddingBottom: 12,
     },
     innerHeaderContainer: {
