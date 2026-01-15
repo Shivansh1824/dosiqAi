@@ -501,9 +501,7 @@ export function ReminderTimesSection({
                                                 style={styles.timeButton}
                                             >
                                                 <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
-                                                <View style={[styles.intervalBadge, { backgroundColor: Colors.primary + '15', borderColor: Colors.primary + '30' }]}>
-                                                    <Feather name="clock" size={10} color={Colors.primary} />
-                                                </View>
+
                                             </TouchableOpacity>
 
                                             {/* Right Group */}
