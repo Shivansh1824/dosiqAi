@@ -34,6 +34,30 @@ export default function DatePickerModal({
     onConfirm(localDateString);
   };
 
+  if (Platform.OS === 'android') {
+    return visible ? (
+      <DateTimePicker
+        value={selectedDate}
+        mode="date"
+        display="default"
+        onChange={(event, date) => {
+          if (event.type === 'set' && date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const localDateString = `${year}-${month}-${day}`;
+            onConfirm(localDateString);
+          } else if (event.type === 'dismissed') {
+            onCancel();
+          }
+        }}
+        minimumDate={minimumDate ? new Date(minimumDate) : undefined}
+        maximumDate={maximumDate ? new Date(maximumDate) : undefined}
+      />
+    ) : null;
+  }
+
+  // iOS Implementation
   return (
     <Modal
       visible={visible}
@@ -53,13 +77,14 @@ export default function DatePickerModal({
           <DateTimePicker
             value={selectedDate}
             mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display="spinner"
             onChange={(event, date) => {
               if (date) setSelectedDate(date);
             }}
             minimumDate={minimumDate ? new Date(minimumDate) : undefined}
             maximumDate={maximumDate ? new Date(maximumDate) : undefined}
             style={styles.picker}
+            textColor="black"
           />
 
           <View style={styles.actions}>

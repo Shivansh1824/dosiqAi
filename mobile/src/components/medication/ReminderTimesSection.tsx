@@ -642,21 +642,17 @@ export function ReminderTimesSection({
                                                 {/* Premium Rising Sun Graphic - Centered & Standardized */}
                                                 <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
                                                     <Svg height="100%" width="100%" viewBox="0 0 40 40">
-                                                        {/* Rays - Radiating Upwards */}
                                                         <G opacity="0.6" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
-                                                            <Line x1="20" y1="2" x2="20" y2="8" />   {/* Middle Top */}
-                                                            <Line x1="7" y1="9" x2="11" y2="13" />   {/* Left Top */}
-                                                            <Line x1="33" y1="9" x2="29" y2="13" />  {/* Right Top */}
-                                                            <Line x1="2" y1="20" x2="8" y2="20" />   {/* Left Horizontal */}
-                                                            <Line x1="38" y1="20" x2="32" y2="20" /> {/* Right Horizontal */}
+                                                            <Line x1="20" y1="2" x2="20" y2="8" />
+                                                            <Line x1="7" y1="9" x2="11" y2="13" />
+                                                            <Line x1="33" y1="9" x2="29" y2="13" />
+                                                            <Line x1="2" y1="20" x2="8" y2="20" />
+                                                            <Line x1="38" y1="20" x2="32" y2="20" />
                                                         </G>
-
-                                                        {/* Rising Sun Semicircle - Centered Horizon */}
                                                         <Path
                                                             d="M 6 24 A 14 14 0 0 1 34 24 Z"
                                                             fill="#F97316"
                                                         />
-                                                        {/* Subtle Horizon Line */}
                                                         <Line x1="4" y1="26" x2="36" y2="26" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
                                                     </Svg>
                                                 </View>
@@ -666,7 +662,7 @@ export function ReminderTimesSection({
                                                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
                                                     <View style={styles.batchInfo}>
                                                         {/* Spacer matches original icon width (32px) - ensure text doesn't overlap sun */}
-                                                        <View style={{ width: 32, height: 32 }} />
+                                                        <View style={{ width: 36, height: 36 }} />
 
                                                         <View>
                                                             <View style={styles.batchLabelContainer}>
@@ -707,37 +703,31 @@ export function ReminderTimesSection({
                                         ) : batch.id === 'afternoon' ? (
                                             <>
                                                 <LinearGradient
-                                                    colors={['#FEF9C3', '#FFFFFF']} // Yellow 100 to White (Sunny Afternoon)
+                                                    colors={['#FEF9C3', '#FFFFFF']}
                                                     start={{ x: 0, y: 0 }}
                                                     end={{ x: 1, y: 0 }}
                                                     style={StyleSheet.absoluteFill}
                                                 />
 
-                                                {/* Full Sun Graphic - Centered/Top for Afternoon */}
                                                 <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
                                                     <Svg height="100%" width="100%" viewBox="0 0 40 40">
-                                                        {/* Rays - All around, short ticks */}
                                                         <G opacity="0.6" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round">
-                                                            <Line x1="20" y1="2" x2="20" y2="6" />  {/* Top */}
-                                                            <Line x1="20" y1="38" x2="20" y2="34" /> {/* Bottom */}
-                                                            <Line x1="2" y1="20" x2="6" y2="20" />   {/* Left */}
-                                                            <Line x1="38" y1="20" x2="34" y2="20" /> {/* Right */}
-
-                                                            <Line x1="7.3" y1="7.3" x2="10" y2="10" />     {/* Top Left */}
-                                                            <Line x1="32.7" y1="7.3" x2="30" y2="10" />    {/* Top Right */}
-                                                            <Line x1="7.3" y1="32.7" x2="10" y2="30" />    {/* Bottom Left */}
-                                                            <Line x1="32.7" y1="32.7" x2="30" y2="30" />   {/* Bottom Right */}
+                                                            <Line x1="20" y1="2" x2="20" y2="6" />
+                                                            <Line x1="20" y1="38" x2="20" y2="34" />
+                                                            <Line x1="2" y1="20" x2="6" y2="20" />
+                                                            <Line x1="38" y1="20" x2="34" y2="20" />
+                                                            <Line x1="7.3" y1="7.3" x2="10" y2="10" />
+                                                            <Line x1="32.7" y1="7.3" x2="30" y2="10" />
+                                                            <Line x1="7.3" y1="32.7" x2="10" y2="30" />
+                                                            <Line x1="32.7" y1="32.7" x2="30" y2="30" />
                                                         </G>
-
-                                                        {/* Full Circle Sun */}
                                                         <Circle cx="20" cy="20" r="9" fill="#D97706" />
                                                     </Svg>
                                                 </View>
 
                                                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
                                                     <View style={styles.batchInfo}>
-                                                        {/* Spacer for icon */}
-                                                        <View style={{ width: 32, height: 32 }} />
+                                                        <View style={{ width: 36, height: 36 }} />
 
                                                         <View>
                                                             <View style={styles.batchLabelContainer}>
@@ -778,22 +768,18 @@ export function ReminderTimesSection({
                                         ) : batch.id === 'night' ? (
                                             <>
                                                 <LinearGradient
-                                                    colors={['#0F172A', '#F1F5F9']} // Slate 900 to Slate 100 (High Contrast Moonlight)
+                                                    colors={['#0F172A', '#F1F5F9']}
                                                     start={{ x: 0, y: 0 }}
                                                     end={{ x: 1, y: 0 }}
                                                     style={StyleSheet.absoluteFill}
                                                 />
 
-                                                {/* Moon & Stars Graphic */}
                                                 <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
                                                     <Svg height="100%" width="100%" viewBox="0 0 40 40">
-                                                        {/* Crescent Moon */}
                                                         <Path
                                                             d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z"
-                                                            fill="#FCD34D" // Amber 300
+                                                            fill="#FCD34D"
                                                         />
-
-                                                        {/* Stars - White/Pale Yellow dots */}
                                                         <Circle cx="8" cy="12" r="1.5" fill="#FEF08A" opacity="0.8" />
                                                         <Circle cx="32" cy="8" r="1" fill="#FEF08A" opacity="0.6" />
                                                         <Circle cx="35" cy="25" r="1.5" fill="#FEF08A" opacity="0.7" />
@@ -802,8 +788,7 @@ export function ReminderTimesSection({
 
                                                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
                                                     <View style={styles.batchInfo}>
-                                                        {/* Spacer for icon */}
-                                                        <View style={{ width: 32, height: 32 }} />
+                                                        <View style={{ width: 36, height: 36 }} />
 
                                                         <View>
                                                             <View style={styles.batchLabelContainer}>

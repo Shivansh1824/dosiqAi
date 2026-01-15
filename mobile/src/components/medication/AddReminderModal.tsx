@@ -18,6 +18,7 @@ interface AddReminderModalProps {
 export default function AddReminderModal({ visible, onClose, onAdd, existingTimes = [] }: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+    const [showAndroidPicker, setShowAndroidPicker] = useState(false);
 
     // Reset state when modal opens
     useEffect(() => {
@@ -32,10 +33,12 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
     }, [visible]);
 
     const handleTimeChange = (event: any, date?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowAndroidPicker(false);
+        }
         if (date) {
             setSelectedTime(date);
         }
-        // On Android we don't close, we just update the state
     };
 
     const handleConfirm = () => {
@@ -126,15 +129,18 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
                                         </Text>
                                         <TouchableOpacity
                                             style={styles.androidEditButton}
-                                            onPress={() => {/* In a real app we'd show a separate picker here */ }}
+                                            onPress={() => setShowAndroidPicker(true)}
                                         >
+                                            <Text style={{ opacity: 0 }}>Open Picker</Text>
                                         </TouchableOpacity>
-                                        <DateTimePicker
-                                            value={selectedTime}
-                                            mode="time"
-                                            display="spinner"
-                                            onChange={handleTimeChange}
-                                        />
+                                        {showAndroidPicker && (
+                                            <DateTimePicker
+                                                value={selectedTime}
+                                                mode="time"
+                                                display="spinner"
+                                                onChange={handleTimeChange}
+                                            />
+                                        )}
                                     </View>
                                 )}
                             </View>
