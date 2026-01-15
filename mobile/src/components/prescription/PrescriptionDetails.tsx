@@ -14,7 +14,7 @@ interface PrescriptionDetailsProps {
 
 /**
  * PrescriptionDetails - Details card showing visit date, diagnosis, patient, doctor, type, status
- * Extracted from DocumentDetailScreen.tsx
+ * Extracted from PrescriptionSummaryScreen.tsx
  */
 export function PrescriptionDetails({
     analysisResult,

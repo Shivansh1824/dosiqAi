@@ -21,6 +21,7 @@ interface MedicationHeaderProps {
     onSave: () => void;
     onCancel: () => void;
     onAnalysisPress?: () => void;
+    onNamePress?: (event: any) => void;
 }
 
 /**
@@ -72,6 +73,7 @@ export function MedicationHeader({
     onSave,
     onCancel,
     onAnalysisPress,
+    onNamePress,
 }: MedicationHeaderProps) {
     const confidenceStyle = getConfidenceStyles(confidence);
     const [showMenu, setShowMenu] = useState(false);
@@ -109,19 +111,18 @@ export function MedicationHeader({
                                 multiline
                             />
                         ) : (
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                style={styles.nameScrollView}
-                                contentContainerStyle={styles.nameScrollContent}
+                            <TouchableOpacity
+                                onPress={onNamePress}
+                                activeOpacity={0.7}
                             >
                                 <Text
                                     style={styles.medicationName}
                                     numberOfLines={1}
+                                    ellipsizeMode="tail"
                                 >
                                     {name}
                                 </Text>
-                            </ScrollView>
+                            </TouchableOpacity>
                         )}
 
                         <View style={styles.subtitleRow}>

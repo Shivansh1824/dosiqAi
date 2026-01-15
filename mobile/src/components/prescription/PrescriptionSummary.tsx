@@ -16,7 +16,7 @@ interface PrescriptionSummaryProps {
 
 /**
  * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
- * Extracted from DocumentDetailScreen.tsx
+ * Extracted from PrescriptionSummaryScreen.tsx
  */
 export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false }: PrescriptionSummaryProps) {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);

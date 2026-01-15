@@ -15,7 +15,7 @@ interface DocumentPreviewProps {
 
 /**
  * DocumentPreview - Document preview card with image/PDF display and action buttons
- * Extracted from DocumentDetailScreen.tsx
+ * Extracted from PrescriptionSummaryScreen.tsx
  */
 export function DocumentPreview({
     imageUri,

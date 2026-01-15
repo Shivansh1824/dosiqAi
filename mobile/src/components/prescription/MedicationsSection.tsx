@@ -23,7 +23,7 @@ interface MedicationsSectionProps {
 
 /**
  * MedicationsSection - Container for medication verification cards
- * Extracted from DocumentDetailScreen.tsx
+ * Extracted from PrescriptionSummaryScreen.tsx
  */
 export function MedicationsSection({
     medicines,

@@ -99,7 +99,7 @@ export default function DocumentsScreen() {
                                 key={doc.id}
                                 style={styles.documentCard}
                                 activeOpacity={0.7}
-                                onPress={() => (navigation as any).navigate('Document', { document: doc })}
+                                onPress={() => (navigation as any).navigate('PrescriptionSummary', { document: doc })}
                             >
                                 <View style={[styles.documentIconContainer, { backgroundColor: doc.color + '15' }]}>
                                     <Feather name="file-text" size={24} color={doc.color} />

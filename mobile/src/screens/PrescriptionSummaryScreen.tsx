@@ -37,15 +37,15 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 
-type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
+type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
-interface DocumentDetailScreenProps {
+interface PrescriptionSummaryScreenProps {
   onBack: () => void;
   document: Document | undefined;
-  navigation: DocumentDetailNavigationProp;
+  navigation: PrescriptionSummaryNavigationProp;
 }
 
-export default function DocumentDetailScreen({ onBack, document: documentProp, navigation }: DocumentDetailScreenProps) {
+export default function PrescriptionSummaryScreen({ onBack, document: documentProp, navigation }: PrescriptionSummaryScreenProps) {
   const { familyMembers } = useFamilyMembersStore();
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
   const { addMedicationFromAI, getActiveMedications } = useMedicationsStore();
@@ -171,13 +171,13 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     const checkAndSyncFile = async () => {
       if (document.local_file_path) {
         try {
-          console.log('[DocumentDetail] Original relative path:', document.local_file_path);
+          console.log('[PrescriptionSummary] Original relative path:', document.local_file_path);
 
           // Convert relative path to absolute path at runtime
           const absolutePath = getAbsolutePath(document.local_file_path);
 
-          console.log('[DocumentDetail] Converted to absolute path:', absolutePath);
-          console.log('[DocumentDetail] Path has file:// protocol:', absolutePath.startsWith('file://'));
+          console.log('[PrescriptionSummary] Converted to absolute path:', absolutePath);
+          console.log('[PrescriptionSummary] Path has file:// protocol:', absolutePath.startsWith('file://'));
 
           // First check if file exists locally
           const exists = await fileExists(absolutePath);
@@ -185,51 +185,51 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           if (exists) {
             setImageUri(absolutePath);
             setFileNotFound(false);
-            console.log('[DocumentDetail] File found and URI set successfully');
+            console.log('[PrescriptionSummary] File found and URI set successfully');
           } else {
             // File not found locally - try to sync from R2
-            console.log('[DocumentDetail] File not found locally, attempting R2 sync...');
+            console.log('[PrescriptionSummary] File not found locally, attempting R2 sync...');
 
             if (document.cloud_file_key) {
               try {
                 setDownloading(true);
-                console.log('[DocumentDetail] Cloud file key available:', document.cloud_file_key);
+                console.log('[PrescriptionSummary] Cloud file key available:', document.cloud_file_key);
 
                 // Import and use the file sync utility
                 const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
                 const filename = extractFilename(document.local_file_path);
 
-                console.log('[DocumentDetail] Starting file sync for:', filename);
+                console.log('[PrescriptionSummary] Starting file sync for:', filename);
                 const { localPath, wasDownloaded } = await getFileWithSync(filename, document.cloud_file_key);
 
                 if (wasDownloaded) {
-                  console.log('[DocumentDetail] ✅ File downloaded from R2:', localPath);
+                  console.log('[PrescriptionSummary] ✅ File downloaded from R2:', localPath);
                 } else {
-                  console.log('[DocumentDetail] File was already available locally:', localPath);
+                  console.log('[PrescriptionSummary] File was already available locally:', localPath);
                 }
 
                 setImageUri(localPath);
                 setFileNotFound(false);
                 setDownloading(false);
               } catch (syncError) {
-                console.error('[DocumentDetail] R2 sync failed:', syncError);
+                console.error('[PrescriptionSummary] R2 sync failed:', syncError);
                 setFileNotFound(true);
                 setDownloading(false);
               }
             } else {
               // No cloud key available
               setFileNotFound(true);
-              console.error('[DocumentDetail] File not found at path and no cloud_file_key available:', absolutePath);
+              console.error('[PrescriptionSummary] File not found at path and no cloud_file_key available:', absolutePath);
             }
           }
         } catch (error) {
           setFileNotFound(true);
-          console.error('[DocumentDetail] Error checking file:', error);
-          console.error('[DocumentDetail] Error details:', JSON.stringify(error, null, 2));
+          console.error('[PrescriptionSummary] Error checking file:', error);
+          console.error('[PrescriptionSummary] Error details:', JSON.stringify(error, null, 2));
         }
       } else {
         setFileNotFound(true);
-        console.warn('[DocumentDetail] No local_file_path provided for document:', document.id);
+        console.warn('[PrescriptionSummary] No local_file_path provided for document:', document.id);
       }
     };
 
@@ -244,10 +244,10 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         if (stored) {
           const dismissed = JSON.parse(stored);
           setDismissedMedicationIds(new Set(dismissed));
-          console.log('[DocumentDetail] Loaded dismissed medications:', dismissed);
+          console.log('[PrescriptionSummary] Loaded dismissed medications:', dismissed);
         }
       } catch (error) {
-        console.error('[DocumentDetail] Error loading dismissed medications:', error);
+        console.error('[PrescriptionSummary] Error loading dismissed medications:', error);
       }
     };
 
@@ -267,15 +267,15 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         if (error) {
           if (error.code !== 'PGRST116') {
             // PGRST116 = no rows returned (not a lab report)
-            console.error('[DocumentDetail] Error loading lab report:', error);
+            console.error('[PrescriptionSummary] Error loading lab report:', error);
           }
           setLabReportId(null);
         } else if (data) {
           setLabReportId(data.id);
-          console.log('[DocumentDetail] Found lab report ID:', data.id);
+          console.log('[PrescriptionSummary] Found lab report ID:', data.id);
         }
       } catch (error) {
-        console.error('[DocumentDetail] Error querying lab_reports:', error);
+        console.error('[PrescriptionSummary] Error querying lab_reports:', error);
         setLabReportId(null);
       }
     };
@@ -317,10 +317,10 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       return;
     }
 
-    console.log('[DocumentDetail] Opening document viewer');
-    console.log('[DocumentDetail] File type is PDF:', isPdf);
-    console.log('[DocumentDetail] URI being passed:', imageUri);
-    console.log('[DocumentDetail] URI has file:// protocol:', imageUri.startsWith('file://'));
+    console.log('[PrescriptionSummary] Opening document viewer');
+    console.log('[PrescriptionSummary] File type is PDF:', isPdf);
+    console.log('[PrescriptionSummary] URI being passed:', imageUri);
+    console.log('[PrescriptionSummary] URI has file:// protocol:', imageUri.startsWith('file://'));
 
     if (isPdf) {
       // Navigate to embedded PDF viewer
@@ -328,11 +328,11 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         uri: imageUri,
         title: displayTitle
       });
-      console.log('[DocumentDetail] Navigated to PdfViewer with URI:', imageUri);
+      console.log('[PrescriptionSummary] Navigated to PdfViewer with URI:', imageUri);
     } else {
       // For images, open full-screen image viewer
       setShowFullScreenImage(true);
-      console.log('[DocumentDetail] Opened full-screen image modal');
+      console.log('[PrescriptionSummary] Opened full-screen image modal');
     }
   };
 
@@ -367,9 +367,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         try {
           const absolutePath = getAbsolutePath(document.local_file_path);
           await deleteLocalFile(absolutePath);
-          console.log('[DocumentDetail] Deleted local file:', absolutePath);
+          console.log('[PrescriptionSummary] Deleted local file:', absolutePath);
         } catch (e) {
-          console.warn('[DocumentDetail] Failed to delete local file:', e);
+          console.warn('[PrescriptionSummary] Failed to delete local file:', e);
         }
       }
 
@@ -587,9 +587,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         DISMISSED_MEDS_STORAGE_KEY,
         JSON.stringify(Array.from(dismissedSet))
       );
-      console.log('[DocumentDetail] Saved dismissed medications:', Array.from(dismissedSet));
+      console.log('[PrescriptionSummary] Saved dismissed medications:', Array.from(dismissedSet));
     } catch (error) {
-      console.error('[DocumentDetail] Error saving dismissed medications:', error);
+      console.error('[PrescriptionSummary] Error saving dismissed medications:', error);
     }
   };
 
@@ -597,7 +597,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const handleDismissMedication = (medicineIndex: number) => {
     const dismissId = `${document.id}_${medicineIndex}`;
 
-    console.log('[DocumentDetail] Dismissing medication at index:', medicineIndex);
+    console.log('[PrescriptionSummary] Dismissing medication at index:', medicineIndex);
 
     setDismissedMedicationIds(prev => {
       const updated = new Set(prev);
@@ -611,7 +611,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const handleRestoreMedication = (medicineIndex: number) => {
     const dismissId = `${document.id}_${medicineIndex}`;
 
-    console.log('[DocumentDetail] Restoring medication at index:', medicineIndex);
+    console.log('[PrescriptionSummary] Restoring medication at index:', medicineIndex);
 
     setDismissedMedicationIds(prev => {
       const updated = new Set(prev);
@@ -724,7 +724,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         { text: 'OK' },
       ]);
     } catch (error) {
-      console.error('[DocumentDetail] Error adding medication:', error);
+      console.error('[PrescriptionSummary] Error adding medication:', error);
       throw error; // Let the card component handle the error
     }
   };
@@ -1342,10 +1342,10 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                   enableAnnotationRendering={false}
                   style={styles.pdfPreview}
                   onLoadComplete={(numberOfPages) => {
-                    console.log(`[DocumentDetail] PDF Loaded: ${numberOfPages} pages`);
+                    console.log(`[PrescriptionSummary] PDF Loaded: ${numberOfPages} pages`);
                   }}
                   onError={(error) => {
-                    console.error('[DocumentDetail] PDF Error:', error);
+                    console.error('[PrescriptionSummary] PDF Error:', error);
                   }}
                 />
 
@@ -1837,7 +1837,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       await handleVerifyAndAddMedication(parsedMed, suggestedStartDate);
                     }
                   } catch (error) {
-                    console.error('[DocumentDetail] Error verifying all medications:', error);
+                    console.error('[PrescriptionSummary] Error verifying all medications:', error);
                   } finally {
                     setIsVerifyingAll(false);
                   }

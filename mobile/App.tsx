@@ -47,7 +47,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ScanDocumentScreen from './src/screens/ScanDocumentScreen';
-import DocumentDetailScreen from './src/screens/DocumentDetailScreen';
+import PrescriptionSummaryScreen from './src/screens/PrescriptionSummaryScreen';
 import DocumentsScreen from './src/screens/DocumentsScreen';
 import MedicationsScreen from './src/screens/MedicationsScreen';
 import MedicationHomeScreen from './src/screens/MedicationHomeScreen';
@@ -75,7 +75,7 @@ export type RootStackParamList = {
   Signup: undefined;
   Home: undefined;
   Scan: undefined;
-  Document: undefined;
+  PrescriptionSummary: undefined;
   Documents: undefined;
   Medications: undefined;
   MedicationList: undefined;
@@ -215,7 +215,7 @@ export default function App() {
                         <HomeScreen
                           onNavigate={(screen, params) => {
                             if (screen === 'scan') navigation.navigate('Scan');
-                            else if (screen === 'document') navigation.navigate('Document', params);
+                            else if (screen === 'document') navigation.navigate('PrescriptionSummary', params);
                             else if (screen === 'documents') navigation.navigate('Documents');
                             else if (screen === 'medications') navigation.navigate('Medications');
                             else if (screen === 'medicationList') navigation.navigate('MedicationList');
@@ -239,12 +239,12 @@ export default function App() {
                         />
                       )}
                     </Stack.Screen>
-                    <Stack.Screen name="Document">
+                    <Stack.Screen name="PrescriptionSummary">
                       {({ navigation, route }) => {
                         const params = route.params as unknown as { document: any } | undefined;
                         const document = params?.document;
                         return (
-                          <DocumentDetailScreen
+                          <PrescriptionSummaryScreen
                             document={document}
                             navigation={navigation}
                             onBack={() => {

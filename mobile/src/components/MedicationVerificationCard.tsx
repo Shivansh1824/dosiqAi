@@ -462,6 +462,7 @@ export default function MedicationVerificationCard({
         onSave={handleSaveEdits}
         onCancel={handleCancelEdits}
         onAnalysisPress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
+        onNamePress={(e) => handleTooltipPress(e, medication.name)}
       />
 
       {/* AI Summary Static Labels */}

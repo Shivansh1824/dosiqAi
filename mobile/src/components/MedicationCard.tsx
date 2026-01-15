@@ -47,8 +47,8 @@ export default function MedicationCard({ medication, onTake }: MedicationCardPro
 
     const handleSourcePress = () => {
         if (medication.source_document_id) {
-            (navigation as any).navigate('DocumentDetail', {
-                documentId: medication.source_document_id
+            (navigation as any).navigate('PrescriptionSummary', {
+                document: { id: medication.source_document_id }
             });
         }
     };
