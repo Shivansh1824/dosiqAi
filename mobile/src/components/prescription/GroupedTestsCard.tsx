@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, Modal } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants';
 import DatePickerModal from '../DatePickerModal';
@@ -150,7 +151,12 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
     };
 
     return (
-        <View style={styles.container}>
+        <LinearGradient
+            colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.container}
+        >
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerTitleRow}>
@@ -315,23 +321,23 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
                     onChange={handleTimePickerChange}
                 />
             )}
-        </View>
+        </LinearGradient>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Colors.white,
         borderRadius: 16,
         padding: 16,
         marginBottom: 8,
         borderWidth: 1,
-        borderColor: Colors.gray100,
+        borderColor: '#BAE6FD', // Soft sky blue border
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 2,
+        overflow: 'hidden', // Ensure gradient respects border radius
     },
     header: {
         flexDirection: 'row',
@@ -388,16 +394,16 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     testChip: {
-        backgroundColor: Colors.gray50,
+        backgroundColor: 'transparent', // Transparent to blend with gradient
         borderWidth: 1,
-        borderColor: Colors.gray200,
+        borderColor: 'rgba(59, 130, 246, 0.25)', // Subtle blue border for definition
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 8,
     },
     testChipText: {
         fontSize: 13,
-        color: Colors.gray700,
+        color: Colors.gray900, // Black text
         fontWeight: '500',
     },
     remindersList: {
@@ -409,7 +415,7 @@ const styles = StyleSheet.create({
     reminderBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#EFF6FF', // Blue reminder bar (original)
         borderRadius: 12,
         paddingVertical: 8,
         paddingHorizontal: 12,
@@ -443,11 +449,11 @@ const styles = StyleSheet.create({
     actionsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 0, // Remove gap between icons
     },
     iconButton: {
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         justifyContent: 'center',
         alignItems: 'center',
     },

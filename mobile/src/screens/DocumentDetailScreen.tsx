@@ -1883,7 +1883,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={['#4F46E5', '#3B82F6']}
+                      colors={['#3B82F6', '#60A5FA', '#93C5FD']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.verifyAllGradient}
