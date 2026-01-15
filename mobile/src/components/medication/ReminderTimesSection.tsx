@@ -639,30 +639,30 @@ export function ReminderTimesSection({
                                                     style={StyleSheet.absoluteFill}
                                                 />
 
-                                                {/* Premium Sun Graphic - Bottom Left */}
-                                                <View style={{ position: 'absolute', bottom: 0, left: 12, width: 42, height: 32, overflow: 'visible' }}>
-                                                    <Svg height="100%" width="100%" viewBox="0 0 50 40" style={{ overflow: 'visible' }}>
-                                                        {/* Rays - Minimal, detached, rounded */}
+                                                {/* Premium Sun Graphic - Shifted Left & Wider & Taller */}
+                                                <View style={{ position: 'absolute', bottom: 0, left: 0, width: 50, height: 32, overflow: 'visible' }}>
+                                                    <Svg height="100%" width="100%" viewBox="0 0 60 40" style={{ overflow: 'visible' }}>
+                                                        {/* Rays - Minimal, detached, rounded - Adjusted for taller sun */}
                                                         <G opacity="0.4">
-                                                            {/* Vertical Top - Short tick */}
-                                                            <Line x1="25" y1="20" x2="25" y2="15" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                                                            {/* Vertical Top */}
+                                                            <Line x1="30" y1="14" x2="30" y2="8" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
 
                                                             {/* Diagonal Left */}
-                                                            <Line x1="14" y1="24" x2="10" y2="20" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <Line x1="15" y1="17" x2="11" y2="13" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
 
                                                             {/* Diagonal Right */}
-                                                            <Line x1="36" y1="24" x2="40" y2="20" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <Line x1="45" y1="17" x2="49" y2="13" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
 
                                                             {/* Far Left */}
-                                                            <Line x1="6" y1="32" x2="2" y2="30" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <Line x1="4" y1="28" x2="0" y2="25" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
 
                                                             {/* Far Right */}
-                                                            <Line x1="44" y1="32" x2="48" y2="30" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <Line x1="56" y1="28" x2="60" y2="25" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
                                                         </G>
 
-                                                        {/* Sun Semicircle - Clean Orange */}
+                                                        {/* Sun Semicircle - Taller (rx=28, ry=22) */}
                                                         <Path
-                                                            d="M 5 40 A 20 14 0 0 1 45 40 Z"
+                                                            d="M 2 40 A 28 22 0 0 1 58 40 Z"
                                                             fill="#F97316"
                                                             fillOpacity="1"
                                                         />
@@ -673,7 +673,7 @@ export function ReminderTimesSection({
                                                 {/* Content Container with EXACT original padding */}
                                                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
                                                     <View style={styles.batchInfo}>
-                                                        {/* Spacer matches original icon width (32px) */}
+                                                        {/* Spacer matches original icon width (32px) - ensure text doesn't overlap sun */}
                                                         <View style={{ width: 32, height: 32 }} />
 
                                                         <View>
@@ -694,7 +694,7 @@ export function ReminderTimesSection({
                                                         <Switch
                                                             value={isOn}
                                                             onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                            trackColor={{ false: '#FED7AA', true: '#EA580C' }}
+                                                            trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                             thumbColor={Colors.white}
                                                             style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
                                                         />
