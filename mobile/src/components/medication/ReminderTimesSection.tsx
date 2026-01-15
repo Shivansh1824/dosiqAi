@@ -116,9 +116,9 @@ const AnimatedNumber = ({ number, style }: { number: number | null; style: any }
     return (
         <Animated.Text
             key={`num-${number}`}
-            entering={FadeIn.duration(200).springify()}
+            entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(150)}
-            layout={LinearTransition.springify().damping(15).stiffness(120)}
+            layout={LinearTransition.duration(200)}
             style={style}
         >
             {`${number}.`}
@@ -646,7 +646,8 @@ export function ReminderTimesSection({
                             key={batch.id}
                             ref={index === 0 ? firstItemRef : null}
                             collapsable={false} // Ensure measurement works on Android
-                            layout={LinearTransition.springify().damping(15).stiffness(100)}
+                            layout={LinearTransition.duration(250)}
+                            entering={FadeIn.duration(300)}
                             exiting={FadeOut.duration(200)}
                         >
                             <Swipeable
