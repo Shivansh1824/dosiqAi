@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, 
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Line, G } from 'react-native-svg';
+import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Colors } from '../../constants';
@@ -629,43 +629,35 @@ export function ReminderTimesSection({
                                 </View>
 
                                 <View style={styles.barWithNoteContainer}>
-                                    <View style={[styles.batchRow, swipedRightRadiusStyle, batch.id === 'morning' && { overflow: 'hidden', paddingLeft: 0, paddingRight: 0, paddingVertical: 0, height: 54 }]}>
+                                    <View style={[styles.batchRow, swipedRightRadiusStyle, (batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night') && { overflow: 'hidden', paddingLeft: 0, paddingRight: 0, paddingVertical: 0, height: 54 }]}>
                                         {batch.id === 'morning' ? (
                                             <>
                                                 <LinearGradient
-                                                    colors={['#FFEDD5', '#FFFFFF']} // Premium Pale Orange to White
+                                                    colors={['#FED7AA', '#FFF7ED']} // Orange 200 to Orange 50 (Rich Dawn)
                                                     start={{ x: 0, y: 0 }}
-                                                    end={{ x: 0.8, y: 0 }} // Slightly faster fade for minimal look
+                                                    end={{ x: 1, y: 0 }}
                                                     style={StyleSheet.absoluteFill}
                                                 />
 
-                                                {/* Premium Sun Graphic - Shifted Left & Wider & Taller */}
-                                                <View style={{ position: 'absolute', bottom: 0, left: 0, width: 50, height: 32, overflow: 'visible' }}>
-                                                    <Svg height="100%" width="100%" viewBox="0 0 60 40" style={{ overflow: 'visible' }}>
-                                                        {/* Rays - Minimal, detached, rounded - Adjusted for taller sun */}
-                                                        <G opacity="0.4">
-                                                            {/* Vertical Top */}
-                                                            <Line x1="30" y1="14" x2="30" y2="8" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
-
-                                                            {/* Diagonal Left */}
-                                                            <Line x1="15" y1="17" x2="11" y2="13" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
-
-                                                            {/* Diagonal Right */}
-                                                            <Line x1="45" y1="17" x2="49" y2="13" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
-
-                                                            {/* Far Left */}
-                                                            <Line x1="4" y1="28" x2="0" y2="25" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
-
-                                                            {/* Far Right */}
-                                                            <Line x1="56" y1="28" x2="60" y2="25" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                                                {/* Premium Rising Sun Graphic - Centered & Standardized */}
+                                                <View style={{ position: 'absolute', top: 12, left: 12, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                                    <Svg height="100%" width="100%" viewBox="0 0 40 40">
+                                                        {/* Rays - Radiating Upwards */}
+                                                        <G opacity="0.6" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
+                                                            <Line x1="20" y1="2" x2="20" y2="8" />   {/* Middle Top */}
+                                                            <Line x1="7" y1="9" x2="11" y2="13" />   {/* Left Top */}
+                                                            <Line x1="33" y1="9" x2="29" y2="13" />  {/* Right Top */}
+                                                            <Line x1="2" y1="20" x2="8" y2="20" />   {/* Left Horizontal */}
+                                                            <Line x1="38" y1="20" x2="32" y2="20" /> {/* Right Horizontal */}
                                                         </G>
 
-                                                        {/* Sun Semicircle - Taller (rx=28, ry=22) */}
+                                                        {/* Rising Sun Semicircle - Centered Horizon */}
                                                         <Path
-                                                            d="M 2 40 A 28 22 0 0 1 58 40 Z"
+                                                            d="M 6 24 A 14 14 0 0 1 34 24 Z"
                                                             fill="#F97316"
-                                                            fillOpacity="1"
                                                         />
+                                                        {/* Subtle Horizon Line */}
+                                                        <Line x1="4" y1="26" x2="36" y2="26" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
                                                     </Svg>
                                                 </View>
 
@@ -707,6 +699,143 @@ export function ReminderTimesSection({
                                                                 name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
                                                                 size={20}
                                                                 color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#C2410C" : "#FB923C"}
+                                                            />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            </>
+                                        ) : batch.id === 'afternoon' ? (
+                                            <>
+                                                <LinearGradient
+                                                    colors={['#FEF9C3', '#FFFFFF']} // Yellow 100 to White (Sunny Afternoon)
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={StyleSheet.absoluteFill}
+                                                />
+
+                                                {/* Full Sun Graphic - Centered/Top for Afternoon */}
+                                                <View style={{ position: 'absolute', top: 12, left: 12, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                                    <Svg height="100%" width="100%" viewBox="0 0 40 40">
+                                                        {/* Rays - All around, short ticks */}
+                                                        <G opacity="0.6" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round">
+                                                            <Line x1="20" y1="2" x2="20" y2="6" />  {/* Top */}
+                                                            <Line x1="20" y1="38" x2="20" y2="34" /> {/* Bottom */}
+                                                            <Line x1="2" y1="20" x2="6" y2="20" />   {/* Left */}
+                                                            <Line x1="38" y1="20" x2="34" y2="20" /> {/* Right */}
+
+                                                            <Line x1="7.3" y1="7.3" x2="10" y2="10" />     {/* Top Left */}
+                                                            <Line x1="32.7" y1="7.3" x2="30" y2="10" />    {/* Top Right */}
+                                                            <Line x1="7.3" y1="32.7" x2="10" y2="30" />    {/* Bottom Left */}
+                                                            <Line x1="32.7" y1="32.7" x2="30" y2="30" />   {/* Bottom Right */}
+                                                        </G>
+
+                                                        {/* Full Circle Sun */}
+                                                        <Circle cx="20" cy="20" r="9" fill="#D97706" />
+                                                    </Svg>
+                                                </View>
+
+                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
+                                                    <View style={styles.batchInfo}>
+                                                        {/* Spacer for icon */}
+                                                        <View style={{ width: 32, height: 32 }} />
+
+                                                        <View>
+                                                            <View style={styles.batchLabelContainer}>
+                                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive, { color: '#B45309' }]}>{batch.label}</Text>
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
+                                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                                >
+                                                                    <Feather name="info" size={14} color="#D97706" style={styles.infoIcon} />
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                            <Text style={[styles.batchTimeHint, { color: '#92400E' }]}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                        </View>
+                                                    </View>
+
+                                                    <View style={styles.timeBarRightGroup}>
+                                                        <Switch
+                                                            value={isOn}
+                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                            trackColor={{ false: Colors.gray200, true: Colors.success }}
+                                                            thumbColor={Colors.white}
+                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                        />
+
+                                                        <TouchableOpacity
+                                                            style={styles.noteIconButton}
+                                                            onPress={() => toggleNoteExpansion(batch.id)}
+                                                        >
+                                                            <MaterialCommunityIcons
+                                                                name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
+                                                                size={20}
+                                                                color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#B45309" : "#F59E0B"}
+                                                            />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            </>
+                                        ) : batch.id === 'night' ? (
+                                            <>
+                                                <LinearGradient
+                                                    colors={['#0F172A', '#F1F5F9']} // Slate 900 to Slate 100 (High Contrast Moonlight)
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={StyleSheet.absoluteFill}
+                                                />
+
+                                                {/* Moon & Stars Graphic */}
+                                                <View style={{ position: 'absolute', top: 12, left: 12, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                                    <Svg height="100%" width="100%" viewBox="0 0 40 40">
+                                                        {/* Crescent Moon */}
+                                                        <Path
+                                                            d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z"
+                                                            fill="#FCD34D" // Amber 300
+                                                        />
+
+                                                        {/* Stars - White/Pale Yellow dots */}
+                                                        <Circle cx="8" cy="12" r="1.5" fill="#FEF08A" opacity="0.8" />
+                                                        <Circle cx="32" cy="8" r="1" fill="#FEF08A" opacity="0.6" />
+                                                        <Circle cx="35" cy="25" r="1.5" fill="#FEF08A" opacity="0.7" />
+                                                    </Svg>
+                                                </View>
+
+                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
+                                                    <View style={styles.batchInfo}>
+                                                        {/* Spacer for icon */}
+                                                        <View style={{ width: 32, height: 32 }} />
+
+                                                        <View>
+                                                            <View style={styles.batchLabelContainer}>
+                                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive, { color: '#F8FAFC' }]}>{batch.label}</Text>
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
+                                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                                >
+                                                                    <Feather name="info" size={14} color="#94A3B8" style={styles.infoIcon} />
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                            <Text style={[styles.batchTimeHint, { color: '#CBD5E1' }]}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                        </View>
+                                                    </View>
+
+                                                    <View style={styles.timeBarRightGroup}>
+                                                        <Switch
+                                                            value={isOn}
+                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                            trackColor={{ false: '#334155', true: Colors.success }}
+                                                            thumbColor={Colors.white}
+                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                        />
+
+                                                        <TouchableOpacity
+                                                            style={styles.noteIconButton}
+                                                            onPress={() => toggleNoteExpansion(batch.id)}
+                                                        >
+                                                            <MaterialCommunityIcons
+                                                                name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
+                                                                size={20}
+                                                                color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : "#64748B"}
                                                             />
                                                         </TouchableOpacity>
                                                     </View>
