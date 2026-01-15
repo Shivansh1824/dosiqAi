@@ -1737,16 +1737,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       <View key={index} style={{ marginHorizontal: 16 }}>
                         <View style={styles.dismissedBanner}>
                           <View style={styles.dismissedBannerLeft}>
+                            <Text style={styles.dismissedSerialNumber}>{index + 1}</Text>
+                            <View style={[styles.dismissedSerialNumberDivider, { marginTop: -12, marginBottom: -12 }]} />
                             <View style={styles.dismissedIconContainer}>
                               <MaterialCommunityIcons name="package-variant" size={20} color={Colors.gray400} />
                             </View>
                             <View style={styles.dismissedTextContainer}>
                               <View style={styles.dismissedNameRow}>
                                 <Text style={styles.dismissedMedicineName} numberOfLines={1}>{parsedMed.name}</Text>
-                                <View style={styles.dismissedBadge}>
-                                  <Feather name="check-circle" size={10} color={Colors.success} />
-                                  <Text style={styles.dismissedBadgeText}>AI CONFIDENT</Text>
-                                </View>
                               </View>
                               <Text style={styles.dismissedSubtext}>This medicine has been removed</Text>
                             </View>
@@ -3188,6 +3186,32 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Sizes.sm,
   },
+  serialNumber: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#000000',
+    letterSpacing: -0.5,
+    marginRight: 6,
+  },
+  serialNumberDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginRight: 8,
+  },
+  dismissedSerialNumber: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: Colors.gray300,
+    letterSpacing: -0.5,
+    marginRight: 6,
+  },
+  dismissedSerialNumberDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    marginRight: 8,
+  },
   dismissedIconContainer: {
     width: 40,
     height: 40,
@@ -3210,21 +3234,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.gray500,
     maxWidth: '60%',
-  },
-  dismissedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: Colors.successLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  dismissedBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: Colors.success,
-    textTransform: 'uppercase',
   },
   dismissedSubtext: {
     fontSize: 12,
