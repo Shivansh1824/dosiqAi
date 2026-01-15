@@ -1790,27 +1790,24 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                   unverifiedCardIndex++;
 
                   return (
-                    <View key={index}>
-                      <MedicationVerificationCard
-                        medication={parsedMed}
-                        documentId={document.id}
-                        documentTitle={displayTitle}
-                        suggestedStartDate={suggestedStartDate}
-                        onVerifyAndAdd={handleVerifyAndAddMedication}
-                        duplicateOf={duplicateOf || undefined}
-                        medicineIndex={index}
-                        onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
-                          setMedicationLiveUpdates(prev => ({
-                            ...prev,
-                            [index]: { ...prev[index], ...updates }
-                          }));
-                        }}
-                        onDismiss={() => handleDismissMedication(index)}
-                        isFirstItem={isFirstUnverifiedCard}
-                        cardIndex={currentCardIndex}
-                      />
-                      {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
-                    </View>
+                    <MedicationVerificationCard
+                      medication={parsedMed}
+                      documentId={document.id}
+                      documentTitle={displayTitle}
+                      suggestedStartDate={suggestedStartDate}
+                      onVerifyAndAdd={handleVerifyAndAddMedication}
+                      duplicateOf={duplicateOf || undefined}
+                      medicineIndex={index}
+                      onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                        setMedicationLiveUpdates(prev => ({
+                          ...prev,
+                          [index]: { ...prev[index], ...updates }
+                        }));
+                      }}
+                      onDismiss={() => handleDismissMedication(index)}
+                      isFirstItem={isFirstUnverifiedCard}
+                      cardIndex={currentCardIndex}
+                    />
                   );
                 });
               })()}

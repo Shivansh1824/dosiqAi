@@ -57,9 +57,8 @@ export default function MedicationVerificationCard({
   isFirstItem = false,
   cardIndex = 0,
 }: MedicationVerificationCardProps) {
-  // Alternating background colors for visual differentiation
-  const backgroundColors = ['#FFFFFF', '#F0F9FF']; // White and light blue
-  const backgroundColor = backgroundColors[cardIndex % 2];
+  // Use white background for all cards
+  const backgroundColor = '#FFFFFF';
   const [medication, setMedication] = useState<ParsedMedication>(initialMedication);
   const [isEditing, setIsEditing] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
@@ -784,9 +783,20 @@ export default function MedicationVerificationCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 0,
+    marginBottom: 30,
+    marginHorizontal: 16,
     paddingTop: 0, // Header has its own padding
-    paddingBottom: 40, // Increased to 40px
+    paddingBottom: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    // iOS Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    // Android Shadow
+    elevation: 3,
     overflow: 'hidden',
   },
   divider: {

@@ -255,16 +255,16 @@ export function MedicationHeader({
 
 const styles = StyleSheet.create({
     cardHeader: {
-        paddingHorizontal: 16,
-        paddingTop: 40,
         paddingBottom: 12,
     },
     innerHeaderContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        borderRadius: 14,
-        paddingVertical: 12,
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
+        paddingTop: 14,
+        paddingBottom: 12,
         paddingHorizontal: 12,
     },
     headerLeft: {
