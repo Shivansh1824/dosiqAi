@@ -22,6 +22,7 @@ interface MedicationHeaderProps {
     onCancel: () => void;
     onAnalysisPress?: () => void;
     onNamePress?: (event: any) => void;
+    serialNumber?: number;
 }
 
 /**
@@ -74,6 +75,7 @@ export function MedicationHeader({
     onCancel,
     onAnalysisPress,
     onNamePress,
+    serialNumber,
 }: MedicationHeaderProps) {
     const confidenceStyle = getConfidenceStyles(confidence);
     const [showMenu, setShowMenu] = useState(false);
@@ -97,6 +99,12 @@ export function MedicationHeader({
         <View style={styles.cardHeader}>
             <View style={[styles.innerHeaderContainer, { backgroundColor: getHeaderBackgroundColor(form) }]}>
                 <View style={styles.headerLeft}>
+                    {serialNumber !== undefined && (
+                        <>
+                            <Text style={styles.serialNumber}>{serialNumber}</Text>
+                            <View style={styles.serialNumberDivider} />
+                        </>
+                    )}
                     <View style={[styles.iconContainer, { backgroundColor: 'transparent' }]}>
                         <MedicationIcon form={form} size={28} />
                     </View>
@@ -162,22 +170,23 @@ export function MedicationHeader({
 
                 <View style={styles.headerActions}>
                     <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
-                            onPress={isEditing ? onCancel : onToggleEdit}
-                            activeOpacity={0.7}
-                        >
-                            <Feather name={isEditing ? 'x' : 'edit-3'} size={18} color={Colors.gray500} />
-                        </TouchableOpacity>
-
                         {isEditing ? (
-                            <TouchableOpacity
-                                style={[styles.actionButton, { backgroundColor: '#E6F4EA' }]}
-                                onPress={onSave}
-                                activeOpacity={0.7}
-                            >
-                                <Feather name="check" size={18} color="#137333" />
-                            </TouchableOpacity>
+                            <>
+                                <TouchableOpacity
+                                    style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
+                                    onPress={onCancel}
+                                    activeOpacity={0.7}
+                                >
+                                    <Feather name="x" size={18} color={Colors.gray500} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.actionButton, { backgroundColor: '#E6F4EA' }]}
+                                    onPress={onSave}
+                                    activeOpacity={0.7}
+                                >
+                                    <Feather name="check" size={18} color="#137333" />
+                                </TouchableOpacity>
+                            </>
                         ) : (
                             <TouchableOpacity
                                 style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
@@ -190,6 +199,23 @@ export function MedicationHeader({
 
                         {showMenu && (
                             <View style={styles.menuContainer}>
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={() => {
+                                        setShowMenu(false);
+                                        onToggleEdit();
+                                    }}
+                                >
+                                    <View style={[styles.menuIconContainer, { backgroundColor: '#EFF6FF' }]}>
+                                        <Feather name="edit-3" size={14} color={Colors.primary} />
+                                    </View>
+                                    <View style={styles.menuTextContainer}>
+                                        <View style={styles.menuLabelRow}>
+                                            <Text style={[styles.menuItemText, styles.renameText]}>Rename</Text>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+
                                 <TouchableOpacity
                                     style={styles.menuItem}
                                     onPress={() => {
@@ -270,7 +296,23 @@ const styles = StyleSheet.create({
     headerLeft: {
         flex: 1,
         flexDirection: 'row',
-        gap: 12,
+        gap: 8,
+        alignItems: 'center',
+    },
+    serialNumber: {
+        fontSize: 26,
+        fontWeight: '900',
+        color: '#000000',
+        letterSpacing: -0.5,
+        marginRight: 6,
+    },
+    serialNumberDivider: {
+        width: 1,
+        alignSelf: 'stretch',
+        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        marginRight: 8,
+        marginTop: -14, // Offset parent paddingTop
+        marginBottom: -12, // Offset parent paddingBottom
     },
     iconContainer: {
         width: 44,
@@ -443,6 +485,9 @@ const styles = StyleSheet.create({
     },
     deleteText: {
         color: '#DC2626',
+    },
+    renameText: {
+        color: Colors.primary,
     },
     resetText: {
         color: Colors.gray500, // Muted/Blur color

@@ -585,6 +585,7 @@ export default function MedicationVerificationCard({
         onCancel={handleCancelEdits}
         onAnalysisPress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
         onNamePress={(e) => handleTooltipPress(e, medication.name)}
+        serialNumber={medicineIndex !== undefined ? medicineIndex + 1 : undefined}
       />
 
       {/* AI Summary Static Labels */}
