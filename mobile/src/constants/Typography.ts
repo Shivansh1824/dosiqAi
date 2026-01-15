@@ -1,29 +1,31 @@
 import { Platform } from 'react-native';
 
+const fontFamilies = {
+  regular: Platform.select({
+    ios: 'System',
+    android: 'Roboto',
+    default: 'System',
+  }),
+  medium: Platform.select({
+    ios: 'System',
+    android: 'Roboto-Medium',
+    default: 'System',
+  }),
+  semibold: Platform.select({
+    ios: 'System',
+    android: 'Roboto-Medium',
+    default: 'System',
+  }),
+  bold: Platform.select({
+    ios: 'System',
+    android: 'Roboto-Bold',
+    default: 'System',
+  }),
+};
+
 export const Typography = {
   // Font Families (Platform-specific system fonts)
-  fontFamily: {
-    regular: Platform.select({
-      ios: 'System',
-      android: 'Roboto',
-      default: 'System',
-    }),
-    medium: Platform.select({
-      ios: 'System',
-      android: 'Roboto-Medium',
-      default: 'System',
-    }),
-    semibold: Platform.select({
-      ios: 'System',
-      android: 'Roboto-Medium',
-      default: 'System',
-    }),
-    bold: Platform.select({
-      ios: 'System',
-      android: 'Roboto-Bold',
-      default: 'System',
-    }),
-  },
+  fontFamily: fontFamilies,
 
   // Font Sizes (in points for accessibility)
   h1: 36,
@@ -69,23 +71,27 @@ export const Typography = {
   styles: {
     // Headings
     h1: {
+      fontFamily: fontFamilies.bold,
       fontSize: 36,
       fontWeight: '700' as const,
       lineHeight: 36 * 1.2,
       letterSpacing: -0.5,
     },
     h2: {
+      fontFamily: fontFamilies.bold,
       fontSize: 28,
       fontWeight: '700' as const,
       lineHeight: 28 * 1.2,
       letterSpacing: -0.5,
     },
     h3: {
+      fontFamily: fontFamilies.semibold,
       fontSize: 24,
       fontWeight: '600' as const,
       lineHeight: 24 * 1.3,
     },
     h4: {
+      fontFamily: fontFamilies.semibold,
       fontSize: 20,
       fontWeight: '600' as const,
       lineHeight: 20 * 1.4,
@@ -93,16 +99,19 @@ export const Typography = {
 
     // Body text
     bodyLarge: {
+      fontFamily: fontFamilies.regular,
       fontSize: 18,
       fontWeight: '400' as const,
       lineHeight: 18 * 1.5,
     },
     body: {
+      fontFamily: fontFamilies.regular,
       fontSize: 16,
       fontWeight: '400' as const,
       lineHeight: 16 * 1.5,
     },
     bodySmall: {
+      fontFamily: fontFamilies.regular,
       fontSize: 14,
       fontWeight: '400' as const,
       lineHeight: 14 * 1.5,
@@ -110,28 +119,33 @@ export const Typography = {
 
     // UI Elements
     button: {
+      fontFamily: fontFamilies.semibold,
       fontSize: 16,
       fontWeight: '600' as const,
       lineHeight: 16 * 1.2,
       letterSpacing: 0.5,
     },
     buttonSmall: {
+      fontFamily: fontFamilies.semibold,
       fontSize: 14,
       fontWeight: '600' as const,
       lineHeight: 14 * 1.2,
       letterSpacing: 0.5,
     },
     input: {
+      fontFamily: fontFamilies.regular,
       fontSize: 16,
       fontWeight: '400' as const,
       lineHeight: 16 * 1.5,
     },
     inputLabel: {
+      fontFamily: fontFamilies.medium,
       fontSize: 14,
       fontWeight: '500' as const,
       lineHeight: 14 * 1.4,
     },
     link: {
+      fontFamily: fontFamilies.medium,
       fontSize: 14,
       fontWeight: '500' as const,
       lineHeight: 14 * 1.4,
@@ -139,16 +153,19 @@ export const Typography = {
 
     // Specialized
     tagline: {
+      fontFamily: fontFamilies.medium,
       fontSize: 16,
       fontWeight: '500' as const,
       lineHeight: 16 * 1.5,
     },
     caption: {
+      fontFamily: fontFamilies.regular,
       fontSize: 14,
       fontWeight: '400' as const,
       lineHeight: 14 * 1.4,
     },
     small: {
+      fontFamily: fontFamilies.regular,
       fontSize: 12,
       fontWeight: '400' as const,
       lineHeight: 12 * 1.4,

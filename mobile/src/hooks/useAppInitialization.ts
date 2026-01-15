@@ -13,7 +13,7 @@ import { useDocumentSync } from './useDocumentSync';
 export const useAppInitialization = () => {
   console.log('[DEBUG] [useAppInitialization] Hook called');
 
-  const [isAppReady, setIsAppReady] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const initialize = useAuthStore((state) => state.initialize);
 
   // Start automatic document sync (60-second polling)
@@ -36,19 +36,19 @@ export const useAppInitialization = () => {
         // e.g., load fonts, check for updates, etc.
 
         console.log('[DEBUG] [AppInit] App initialization complete');
-        setIsAppReady(true);
-        console.log('[DEBUG] [AppInit] isAppReady set to true');
+        setIsAuthReady(true);
+        console.log('[DEBUG] [AppInit] isAuthReady set to true');
       } catch (error) {
         console.error('[DEBUG] [AppInit] ❌ Initialization error:', error);
         console.error('[DEBUG] [AppInit] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
         // Even if there's an error, we should let the app load
-        console.log('[DEBUG] [AppInit] Setting isAppReady to true despite error');
-        setIsAppReady(true);
+        console.log('[DEBUG] [AppInit] Setting isAuthReady to true despite error');
+        setIsAuthReady(true);
       }
     };
 
     initApp();
   }, [initialize]);
 
-  return { isAppReady };
+  return { isAppReady: isAuthReady };
 };
