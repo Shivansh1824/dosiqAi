@@ -1791,6 +1791,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                   return (
                     <MedicationVerificationCard
+                      key={index}
                       medication={parsedMed}
                       documentId={document.id}
                       documentTitle={displayTitle}
