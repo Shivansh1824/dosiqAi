@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform }
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants';
+import { AndroidTimePicker } from './AndroidTimePicker';
 
 interface AddReminderModalProps {
     visible: boolean;
@@ -18,7 +19,6 @@ interface AddReminderModalProps {
 export default function AddReminderModal({ visible, onClose, onAdd, existingTimes = [] }: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-    const [showAndroidPicker, setShowAndroidPicker] = useState(false);
 
     // Reset state when modal opens
     useEffect(() => {
@@ -33,9 +33,6 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
     }, [visible]);
 
     const handleTimeChange = (event: any, date?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowAndroidPicker(false);
-        }
         if (date) {
             setSelectedTime(date);
         }
@@ -109,7 +106,6 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
                     </View>
 
                     <ScrollView style={styles.content}>
-                        {/* Time Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>TIME</Text>
                             <View style={styles.timePickerContainer}>
@@ -123,24 +119,11 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
                                         textColor={Colors.gray900}
                                     />
                                 ) : (
-                                    <View style={styles.androidTimeButtonContainer}>
-                                        <Text style={styles.androidTimeText}>
-                                            {selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </Text>
-                                        <TouchableOpacity
-                                            style={styles.androidEditButton}
-                                            onPress={() => setShowAndroidPicker(true)}
-                                        >
-                                            <Text style={{ opacity: 0 }}>Open Picker</Text>
-                                        </TouchableOpacity>
-                                        {showAndroidPicker && (
-                                            <DateTimePicker
-                                                value={selectedTime}
-                                                mode="time"
-                                                display="spinner"
-                                                onChange={handleTimeChange}
-                                            />
-                                        )}
+                                    <View style={{ paddingVertical: 10 }}>
+                                        <AndroidTimePicker
+                                            value={selectedTime}
+                                            onChange={(date) => setSelectedTime(date)}
+                                        />
                                     </View>
                                 )}
                             </View>
