@@ -150,9 +150,14 @@ export interface Document {
   // AI Analysis fields
   ai_analysis_status?: DocumentAnalysisStatus;
   ai_analysis_result?: DocumentAnalysisResult;
-  ai_analysis_error?: string; // NULL by default, only filled when analysis fails
+  ai_analysis_error?: DocumentAnalysisError | null; // Changed to object with { error, prompt }
   ai_analyzed_at?: string;
-  ai_analysis_tokens_used?: number;
+  ai_analysis_token_count?: number;
+}
+
+export interface DocumentAnalysisError {
+  error: string;
+  prompt: string;
 }
 
 export interface DocumentsState {

@@ -380,15 +380,21 @@ serve(async (req: Request) => {
     // Save the prompt that was used so we know what caused the failure
     try {
       const body = await req.clone().json();
-      const { documentId } = body;
+      const { documentId, prompt } = body;
 
       if (documentId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        // Save error as JSON with prompt
+        const errorData = {
+          error: errorMessage,
+          prompt: prompt || DOCUMENT_ANALYSIS_PROMPT
+        };
+
         await supabase
           .from("documents")
           .update({
             ai_analysis_status: "failed",
-            ai_analysis_error: errorMessage,
+            ai_analysis_error: errorData,
           })
           .eq("id", documentId);
       }
