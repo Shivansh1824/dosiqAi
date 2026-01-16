@@ -135,15 +135,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderLeftWidth: 3,
     },
     startDateCard: {
         backgroundColor: '#ECFDF5', // Emerald-50: soft green tint
-        borderLeftColor: Colors.success, // Green accent
     },
     endDateCard: {
         backgroundColor: '#FEF2F2', // Rose-50: soft red tint
-        borderLeftColor: Colors.error, // Red accent
     },
     dateCardContent: {
         flex: 1,
