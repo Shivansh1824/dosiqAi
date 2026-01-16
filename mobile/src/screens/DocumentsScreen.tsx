@@ -81,10 +81,12 @@ export default function DocumentsScreen() {
                     </View>
                 ) : (
                     documents.map((doc) => {
-                        // Prefer AI-generated filename from analysis result, fallback to document title
-                        const displayTitle = doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
-                            ? "Unrecognized Document"
-                            : (doc.ai_analysis_result?.file_name || doc.title);
+                        // Prefer AI-generated filename from analysis result, fallback to brand processing message if missing
+                        const displayTitle = doc.ai_analysis_status === 'processing' || doc.ai_analysis_status === 'pending'
+                            ? "dosiq Ai • Analyzing..."
+                            : (doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
+                                ? "Unrecognized Document"
+                                : (doc.ai_analysis_result?.file_name || doc.title));
                         // Prefer AI-detected document type, fallback to original type
                         const formatDocType = (type: string) => {
                             // Map 'invalid' to 'Invalid' label

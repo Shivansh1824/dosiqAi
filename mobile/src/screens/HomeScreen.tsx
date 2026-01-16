@@ -553,9 +553,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             ) : (
               <View style={styles.documentsList}>
                 {recentDocuments.map((doc, index) => {
-                  const displayTitle = doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
-                    ? "Unrecognized Document"
-                    : (doc.ai_analysis_result?.file_name || doc.title);
+                  const displayTitle = doc.ai_analysis_status === 'processing' || doc.ai_analysis_status === 'pending'
+                    ? "dosiq Ai • Analyzing..."
+                    : (doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
+                      ? "Unrecognized Document"
+                      : (doc.ai_analysis_result?.file_name || doc.title));
                   const displayType = doc.ai_analysis_result?.document_type
                     ? (doc.ai_analysis_result.document_type.toLowerCase() === 'invalid'
                       ? 'Invalid'

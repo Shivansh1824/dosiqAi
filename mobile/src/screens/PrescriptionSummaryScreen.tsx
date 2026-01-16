@@ -138,7 +138,9 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const analysis = document.ai_analysis_result;
 
   const { titleText, subtitleText } = useMemo(() => {
-    let title = document.title;
+    let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
+      ? "dosiq Ai • Analyzing..."
+      : document.title;
     let subtitle = '';
 
     if (analysis) {
