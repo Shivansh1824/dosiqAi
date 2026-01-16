@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../constants';
+import { Colors, Typography } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
 import { InfoModal } from '../InfoModal';
 import { MedicationIcon, getHeaderBackgroundColor } from './MedicationIcons';
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     },
     serialNumber: {
         fontSize: 26,
-        fontWeight: '900',
+        ...Typography.fontWeights.extrabold,
         color: '#000000',
         letterSpacing: -0.5,
         marginRight: 6,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     },
     confidenceText: {
         fontSize: 10,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         letterSpacing: 0.3,
         textTransform: 'uppercase',
     },
@@ -374,14 +374,14 @@ const styles = StyleSheet.create({
     },
     medicationName: {
         fontSize: 20,
-        fontWeight: '900',
+        ...Typography.fontWeights.extrabold,
         color: '#000000', // Deep Black Highlight
         letterSpacing: -0.7,
         marginBottom: 0,
     },
     nameInput: {
         fontSize: 18,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray900,
         borderBottomWidth: 1,
         borderBottomColor: Colors.primary,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     },
     strengthFormText: {
         fontSize: 10,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray500,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     },
     analysisText: {
         fontSize: 9,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.primary,
         letterSpacing: 0.3,
     },
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     },
     menuItemText: {
         fontSize: 14,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray700,
     },
     deleteText: {

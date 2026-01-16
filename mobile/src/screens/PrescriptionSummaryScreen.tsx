@@ -1663,6 +1663,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
             <PrescriptionSummary
               summary={getSummary(document.ai_analysis_result)!}
               recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
+              otherInformation={document.ai_analysis_result.prescription_data?.other_information}
               style={{ marginBottom: 0 }}
               defaultExpanded={document.ai_analysis_result.document_type?.toLowerCase() === 'invalid'}
             />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Colors } from '../../constants';
+import { Colors, Typography } from '../../constants';
 import { AndroidTimePicker } from './AndroidTimePicker';
 
 interface AddReminderModalProps {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 18,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray900,
     },
     closeButton: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 12,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray500,
         marginBottom: 12,
         letterSpacing: 0.5,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     },
     androidTimeText: {
         fontSize: 24,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.primary,
     },
     androidEditButton: {
@@ -321,11 +321,11 @@ const styles = StyleSheet.create({
     optionText: {
         fontSize: 13,
         color: Colors.gray600,
-        fontWeight: '500',
+        ...Typography.fontWeights.medium,
     },
     optionTextSelected: {
         color: Colors.primary,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
     },
     footer: {
         flexDirection: 'row',
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     },
     cancelButtonText: {
         fontSize: 15,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.gray600,
     },
     addButton: {
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     },
     addButtonText: {
         fontSize: 15,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.white,
     },
     addButtonDisabled: {
@@ -384,6 +384,6 @@ const styles = StyleSheet.create({
     errorText: {
         fontSize: 13,
         color: Colors.error,
-        fontWeight: '500',
+        ...Typography.fontWeights.medium,
     },
 });

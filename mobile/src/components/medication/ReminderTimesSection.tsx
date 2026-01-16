@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { Colors } from '../../constants';
+import { Colors, Typography } from '../../constants';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 import { cleanMedicationName } from '../../utils/medicationParser';
 import { InfoModal } from '../InfoModal';
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     },
     tooltipTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray900,
     },
     tooltipBody: {
@@ -1049,7 +1049,7 @@ const styles = StyleSheet.create({
     },
     tooltipCloseText: {
         color: Colors.white,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         fontSize: 16,
     },
     batchLabelContainer: {
@@ -1080,7 +1080,7 @@ const styles = StyleSheet.create({
     },
     reminderTitle: {
         fontSize: 11,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray500,
         letterSpacing: 0.5,
     },
@@ -1090,10 +1090,10 @@ const styles = StyleSheet.create({
         // marginTop: -8, // REMOVED to match Course Period spacing (12px)
         marginBottom: 18,
         lineHeight: 17,
-        fontWeight: '500',
+        ...Typography.fontWeights.medium,
     },
     boldText: {
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray700,
     },
     // Mode Selector Styles
@@ -1120,12 +1120,12 @@ const styles = StyleSheet.create({
     },
     modeButtonText: {
         fontSize: 13,
-        fontWeight: '500',
+        ...Typography.fontWeights.medium,
         color: Colors.gray500,
     },
     modeButtonTextActive: {
         color: Colors.primary,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
     },
     // Numbering Styles
     numberedRowContainer: {
@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
     },
     numberText: {
         fontSize: 22,
-        fontWeight: '800',
+        ...Typography.fontWeights.extrabold,
         color: Colors.gray500,
         textAlign: 'left',
     },
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
     },
     batchLabel: {
         fontSize: 14,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.gray800,
     },
     batchLabelActive: {
@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
     deleteActionText: {
         color: Colors.white,
         fontSize: 12,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
     },
     intervalBadge: {
         backgroundColor: '#ECFDF5',
@@ -1231,7 +1231,7 @@ const styles = StyleSheet.create({
     },
     intervalText: {
         fontSize: 10,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: '#059669',
     },
     timeBarsWrapper: {
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
     },
     timeBarTimeLeft: {
         fontSize: 15,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray900,
         letterSpacing: -0.3,
         minWidth: 65, // Reduced from 75
@@ -1261,13 +1261,13 @@ const styles = StyleSheet.create({
     },
     timeBarDoseLabel: {
         fontSize: 9,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray600,
         maxWidth: 90,
     },
     timeBarFoodRelation: {
         fontSize: 9,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray600,
     },
     noteIconButton: {
@@ -1307,7 +1307,7 @@ const styles = StyleSheet.create({
         color: '#D97706',
         textAlign: 'right',
         marginTop: 6,
-        fontWeight: '500',
+        ...Typography.fontWeights.medium,
     },
     timeButton: {
         flexDirection: 'row',
@@ -1332,7 +1332,7 @@ const styles = StyleSheet.create({
     },
     addTimeCleanText: {
         fontSize: 13,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.primary,
     },
     // iOS Modal Styles
@@ -1380,7 +1380,7 @@ const styles = StyleSheet.create({
     },
     textStyle: {
         color: 'white',
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         fontSize: 16,
     },
 });

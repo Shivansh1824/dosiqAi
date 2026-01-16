@@ -292,11 +292,12 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       // title = UUID filename for consistency across local, Supabase, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
-        title: filename, // UUID filename like "0a83ce65-ac2d.pdf"
         type: docType,
-        local_file_path: relativePath, // "documents/0a83ce65-ac2d.pdf"
+        local_file_path: relativePath,
         family_member_id: memberForUpload.id,
-        is_local: true,
+        ai_analysis_result: {
+          file_name: fileName || filename,
+        },
         color: '', // Will be calculated by store from document type
       });
 
@@ -557,7 +558,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                     ? "dosiq Ai • Analyzing..."
                     : (doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
                       ? "Unrecognized Document"
-                      : (doc.ai_analysis_result?.file_name || doc.title));
+                      : (doc.ai_analysis_result?.file_name || doc.local_file_path || 'Untitled Document'));
                   const displayType = doc.ai_analysis_result?.document_type
                     ? (doc.ai_analysis_result.document_type.toLowerCase() === 'invalid'
                       ? 'Invalid'
@@ -769,15 +770,13 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 18,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.regular,
     color: Colors.gray600,
     marginBottom: 4,
-    fontWeight: '600',
   },
   userName: {
     fontSize: 34,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
     color: Colors.gray900,
     letterSpacing: -0.5,
   },
@@ -828,21 +827,18 @@ const styles = StyleSheet.create({
   },
   profileCardLabel: {
     fontSize: 14,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.semibold,
     color: '#4B5563',
     marginBottom: 2,
-    fontWeight: '600',
   },
   profileCardName: {
     fontSize: 16,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: '#1F2937',
   },
   profileCardRelationship: {
     fontSize: 14,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '500',
+    ...Typography.fontWeights.medium,
     color: '#4A90E2',
   },
   profileCardChevron: {
@@ -934,8 +930,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: Colors.textPrimary,
     lineHeight: 28,
     textAlign: 'center',
@@ -943,8 +938,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,                // Compact font for label
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
     color: Colors.textSecondary,
     textAlign: 'center',
   },
@@ -986,14 +980,13 @@ const styles = StyleSheet.create({
   },
   insightsTitle: {
     fontSize: 14,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: '#1F2937',
     marginBottom: 4,
   },
   insightsText: {
     fontSize: 13,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.regular,
     color: '#6B7280',
     lineHeight: 18,
   },
@@ -1010,15 +1003,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: '#1F2937',
   },
   seeAllText: {
     fontSize: 14,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.semibold,
     color: '#4A90E2',
-    fontWeight: '600',
   },
 
   // Documents List - New Design
@@ -1064,8 +1055,7 @@ const styles = StyleSheet.create({
   },
   documentTitleNew: {
     fontSize: 15,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: '#1F2937',
     marginBottom: 6,
   },
@@ -1084,14 +1074,14 @@ const styles = StyleSheet.create({
   },
   typeBadgeTextNew: {
     fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
     color: '#6B7280',
   },
   documentDateNew: {
     fontSize: 12,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.regular,
     color: '#9CA3AF',
+    marginBottom: 8,
   },
   documentStatusBadge: {
     width: 32,
@@ -1182,8 +1172,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
     color: Colors.gray700,
     marginBottom: 4,
   },
@@ -1246,13 +1235,13 @@ const styles = StyleSheet.create({
   },
   navText: {
     fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.regular,
     color: Colors.gray400,
     marginTop: 4,
   },
   navTextActive: {
     color: Colors.primary,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
   },
 
   // Loading Overlay
@@ -1273,9 +1262,8 @@ const styles = StyleSheet.create({
   uploadingText: {
     marginTop: Sizes.md,
     fontSize: 16,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.semibold,
     color: Colors.gray700,
-    fontWeight: '600',
   },
 
   // Modal
@@ -1300,8 +1288,7 @@ const styles = StyleSheet.create({
   },
   familyModalTitle: {
     fontSize: 18,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: Colors.gray900,
   },
   familyMembersList: {
@@ -1334,13 +1321,12 @@ const styles = StyleSheet.create({
   },
   familyMemberName: {
     fontSize: 16,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
     color: Colors.gray900,
   },
   familyMemberRelationship: {
     fontSize: 13,
-    fontFamily: Typography.fontFamily.regular,
+    ...Typography.fontWeights.regular,
     color: Colors.gray500,
     marginTop: 2,
   },
@@ -1359,8 +1345,7 @@ const styles = StyleSheet.create({
   },
   addMemberButtonText: {
     fontSize: 16,
-    fontFamily: Typography.fontFamily.regular,
-    fontWeight: '600',
+    ...Typography.fontWeights.semibold,
     color: Colors.primary,
   },
 });

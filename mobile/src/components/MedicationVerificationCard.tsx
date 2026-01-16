@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../constants';
+import { Colors, Typography } from '../constants';
 import { ParsedMedication } from '../types/medicationVerification';
 import { Medication } from '../types/medication';
 import DatePickerModal from './DatePickerModal';
@@ -476,6 +476,7 @@ export default function MedicationVerificationCard({
 
   const renderAIAnalysisContent = () => {
     const hasAttributes = !!(
+      medication.source_raw?.dosage_instruction ||
       medication.dosage ||
       medication.duration_days ||
       medication.strength ||
@@ -494,13 +495,15 @@ export default function MedicationVerificationCard({
           <View style={styles.expandedContentModal}>
             <View style={styles.tableBorderContainer}>
               {/* Note Row */}
-              {medication.dosage && (
+              {(medication.source_raw?.dosage_instruction || medication.dosage) && (
                 <View style={styles.tableRow}>
                   <View style={styles.tableHeaderCell}>
                     <Text style={styles.tableHeaderText}>Note</Text>
                   </View>
                   <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{medication.dosage}</Text>
+                    <Text style={styles.tableValueText}>
+                      {medication.source_raw?.dosage_instruction || medication.dosage}
+                    </Text>
                   </View>
                 </View>
               )}
@@ -806,7 +809,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.gray500,
     letterSpacing: 0.5,
   },
@@ -834,7 +837,7 @@ const styles = StyleSheet.create({
   },
   notesLabel: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.gray500,
   },
   notesValue: {
@@ -868,7 +871,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.warningDark,
     flex: 1,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.medium,
   },
   summaryContainer: {
     marginTop: 0,
@@ -881,7 +884,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   interactiveText: {
-    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.gray600,
   },
   aiButtonsRow: {
@@ -917,7 +920,7 @@ const styles = StyleSheet.create({
   },
   aiButtonText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.gray800,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -929,7 +932,7 @@ const styles = StyleSheet.create({
     fontSize: 15, // 13 + 2 as requested
     color: Colors.gray600,
     lineHeight: 22,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.medium,
     marginBottom: 16,
     textAlign: 'left',
   },
@@ -979,14 +982,14 @@ const styles = StyleSheet.create({
   },
   tableHeaderText: {
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.gray500, // Matches Course Period
     letterSpacing: 0.5, // Matches Course Period
     textTransform: 'uppercase', // Matches Course Period
   },
   tableValueText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.gray600, // Matches analysis text
     lineHeight: 18,
   },
@@ -998,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   readMoreText: {
     color: Colors.primary,
-    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     fontSize: 12, // Smaller size
   },
 });

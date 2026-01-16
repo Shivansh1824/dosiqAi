@@ -13,6 +13,14 @@ import * as Linking from 'expo-linking';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -97,6 +105,14 @@ export default function App() {
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   console.log('[DEBUG] [App] State initialized - showProfileModal:', showProfileModal, 'isNavigationReady:', isNavigationReady);
 
+  const [fontsLoaded] = useFonts({
+    'PlusJakartaSans-Regular': PlusJakartaSans_400Regular,
+    'PlusJakartaSans-Medium': PlusJakartaSans_500Medium,
+    'PlusJakartaSans-SemiBold': PlusJakartaSans_600SemiBold,
+    'PlusJakartaSans-Bold': PlusJakartaSans_700Bold,
+    'PlusJakartaSans-ExtraBold': PlusJakartaSans_800ExtraBold,
+  });
+
   const { isAppReady } = useAppInitialization();
   console.log('[DEBUG] [App] useAppInitialization hook called, isAppReady:', isAppReady);
 
@@ -159,7 +175,7 @@ export default function App() {
     }
   }, [isAppReady]);
 
-  if (!isAppReady) {
+  if (!isAppReady || !fontsLoaded) {
     return null; // Keep native splash screen visible
   }
 

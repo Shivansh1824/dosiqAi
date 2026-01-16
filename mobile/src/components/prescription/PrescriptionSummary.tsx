@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../constants';
+import { Colors, Typography } from '../../constants';
 
 // Update Props to include style
 interface PrescriptionSummaryProps {
@@ -46,26 +46,15 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
                         {summary}
                     </Text>
 
-                    {/* Recommended Tests Section */}
-                    {recommendedTests && recommendedTests.length > 0 && (
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>Recommended Investigations:</Text>
-                            <Text style={styles.aiSummaryText}>
-                                {recommendedTests.map(t => t.test_name).join(', ')}
-                            </Text>
-                        </View>
-                    )}
 
-                    {/* Other Information Section */}
+                    {/* Other Information Section - Simple Text List */}
                     {otherInformation && otherInformation.length > 0 && (
                         <View style={styles.sectionContainer}>
                             {otherInformation.map((info, index) => (
-                                <View key={index} style={styles.infoRow}>
-                                    <Text style={styles.aiSummaryText}>
-                                        <Text style={styles.boldText}>{info.category ? `${info.category}: ` : 'Note: '}</Text>
-                                        {info.value}
-                                    </Text>
-                                </View>
+                                <Text key={index} style={[styles.aiSummaryText, { marginTop: 4 }]}>
+                                    <Text style={styles.boldText}>{info.category || 'Note'}. </Text>
+                                    {info.value}
+                                </Text>
                             ))}
                         </View>
                     )}
@@ -99,7 +88,7 @@ const styles = StyleSheet.create({
     },
     aiSummaryTitle: {
         fontSize: 18,
-        fontWeight: '900',
+        ...Typography.fontWeights.extrabold,
         color: Colors.gray900,
         letterSpacing: 0.8,
         textTransform: 'uppercase',
@@ -108,7 +97,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         lineHeight: 20,
         color: Colors.gray700,
-        fontWeight: '400',
+        ...Typography.fontWeights.regular,
     },
     // Removed readMore styles as they are no longer needed
     extraInfoContainer: {
@@ -120,7 +109,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 14,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
@@ -128,8 +117,8 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     boldText: {
-        fontWeight: '600',
-        color: Colors.gray800,
+        ...Typography.fontWeights.bold,
+        color: Colors.gray900,
     }
 });
 

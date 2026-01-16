@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors } from '../../constants';
+import { Colors, Typography } from '../../constants';
 import NumberPickerModal from '../NumberPickerModal';
 
 interface CoursePeriodSectionProps {
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     },
     coursePeriodTitle: {
         fontSize: 11,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray500,
         letterSpacing: 0.5,
     },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     },
     dateCardLabel: {
         fontSize: 9,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         letterSpacing: 0.5,
         marginBottom: 2,
     },
@@ -163,12 +163,12 @@ const styles = StyleSheet.create({
     },
     dateCardValue: {
         fontSize: 13,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.gray800,
     },
     placeholderButton: {
         fontSize: 11,
-        fontWeight: '700',
+        ...Typography.fontWeights.bold,
         color: Colors.primary,
         letterSpacing: 0.5,
         textTransform: 'uppercase',

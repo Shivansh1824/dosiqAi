@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; // Added LinearGradient import
-import { Colors, Sizes } from '../../constants';
+import { Colors, Sizes, Typography } from '../../constants';
 import { MedicineInfo } from '../../types/document';
 import { ParsedMedication } from '../../types/medicationVerification';
 import { Medication } from '../../types/medication';
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontSize: 18,
-        fontWeight: '900',
+        ...Typography.fontWeights.bold,
         color: Colors.gray900,
         letterSpacing: 0.8,
         marginBottom: 2,
@@ -224,13 +224,13 @@ const styles = StyleSheet.create({
     },
     cardBadgeText: {
         fontSize: 13,
-        fontWeight: '900',
+        ...Typography.fontWeights.bold,
         color: Colors.white,
     },
     cardSubtitle: {
         fontSize: 12,
         color: Colors.gray500,
-        fontWeight: '500',
+        ...Typography.fontWeights.medium,
         lineHeight: 16,
         opacity: 0.8,
     },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     },
     verifiedText: {
         fontSize: 14,
-        fontWeight: '600',
+        ...Typography.fontWeights.semibold,
         color: Colors.success,
     },
     medicationDivider: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     },
     verifyAllButtonText: {
         color: Colors.white,
-        fontWeight: '800',
+        ...Typography.fontWeights.extrabold,
         fontSize: 16,
         letterSpacing: 0.5,
     },
