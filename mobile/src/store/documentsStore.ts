@@ -391,8 +391,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
           try {
             const updateFields: { type?: string } = {};
 
-            // NOTE: Title is NOT updated - we keep the UUID filename permanently
-            // The AI-generated filename is stored in ai_analysis_result.file_name for display purposes
+            // NOTE: The AI-generated filename is stored in ai_analysis_result.file_name for display purposes
 
 
             // Map AI document type to DocumentType enum

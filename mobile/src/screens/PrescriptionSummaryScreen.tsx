@@ -140,7 +140,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const { titleText, subtitleText } = useMemo(() => {
     let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
       ? "dosiq Ai • Analyzing..."
-      : document.title;
+      : (document.local_file_path?.split('/').pop() || 'Medical Document');
     let subtitle = '';
 
     if (analysis) {
@@ -176,7 +176,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     }
 
     return { titleText: title, subtitleText: subtitle };
-  }, [document.title, analysis]);
+  }, [document.local_file_path, analysis]);
 
   // Keep displayTitle for shared PDF viewer
   const displayTitle = titleText;

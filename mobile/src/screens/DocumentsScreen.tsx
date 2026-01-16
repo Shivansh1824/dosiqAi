@@ -86,7 +86,7 @@ export default function DocumentsScreen() {
                             ? "dosiq Ai • Analyzing..."
                             : (doc.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'
                                 ? "Unrecognized Document"
-                                : (doc.ai_analysis_result?.file_name || doc.title));
+                                : (doc.ai_analysis_result?.file_name || (doc.local_file_path?.split('/').pop() || 'Medical Document')));
                         // Prefer AI-detected document type, fallback to original type
                         const formatDocType = (type: string) => {
                             // Map 'invalid' to 'Invalid' label

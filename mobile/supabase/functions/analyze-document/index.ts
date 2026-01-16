@@ -8,12 +8,9 @@
  * - OPENROUTER_API_KEY: OpenRouter API key for authentication
  * - DOCUMENT_ANALYSIS_PROMPT: Default prompt for document analysis (required)
  *
- * Request body:
+ * Request Payload:
  * {
- *   documentId: string;
- *   base64Image: string;
- *   fileType: string; // 'image/jpeg', 'image/png', 'application/pdf', etc.
- *   prompt?: string; // Optional custom prompt (overrides DOCUMENT_ANALYSIS_PROMPT)
+ *   "documentId": "uuid-of-document"
  * }
  *
  * Response:
@@ -28,8 +25,8 @@
  * }
  */
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { serve } from "std/http/server.ts";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Environment variables (automatically available in Edge Functions)
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
@@ -83,7 +80,7 @@ interface OpenRouterResponse {
 /**
  * Check if user has exceeded upload limit
  */
-async function checkRateLimit(supabase: any, userId: string): Promise<boolean> {
+async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
   try {
     const { data, error } = await supabase.rpc("check_upload_limit", {
       p_user_id: userId,
@@ -180,14 +177,14 @@ async function callOpenRouterAPI(
  * Parse JSON from OpenRouter response
  * Handles both raw JSON and JSON wrapped in markdown code blocks
  */
-function parseAnalysisResult(analysisText: string): any {
+function parseAnalysisResult(analysisText: string): Record<string, unknown> {
   try {
     // Try to extract JSON from markdown code blocks
     const jsonMatch = analysisText.match(/```json\n([\s\S]*?)\n```/);
     const jsonText = jsonMatch ? jsonMatch[1] : analysisText;
 
     return JSON.parse(jsonText.trim());
-  } catch (parseError) {
+  } catch (_parseError) {
     // If parsing fails, store as raw text with error
     console.warn("[Parser] Could not parse JSON, storing as raw text");
     return {
@@ -353,7 +350,6 @@ serve(async (req: Request) => {
         ai_analyzed_at: new Date().toISOString(),
         ai_analysis_tokens_used: openRouterResponse.usage.total_tokens,
         ai_analysis_error: null, // Clear any previous error
-        ai_analysis_prompt: null, // Keep NULL for successful analyses
       })
       .eq("id", documentId);
 
@@ -374,7 +370,8 @@ serve(async (req: Request) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
     console.error("[Error] Analysis failed:", error);
 
     const duration = Date.now() - startTime;
@@ -383,7 +380,7 @@ serve(async (req: Request) => {
     // Save the prompt that was used so we know what caused the failure
     try {
       const body = await req.clone().json();
-      const { documentId, prompt } = body;
+      const { documentId } = body;
 
       if (documentId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -391,8 +388,7 @@ serve(async (req: Request) => {
           .from("documents")
           .update({
             ai_analysis_status: "failed",
-            ai_analysis_error: error.message || "Analysis failed",
-            ai_analysis_prompt: prompt || DOCUMENT_ANALYSIS_PROMPT, // Save prompt only on error
+            ai_analysis_error: errorMessage,
           })
           .eq("id", documentId);
       }
@@ -404,7 +400,7 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || "Internal server error",
+        error: errorMessage,
         duration,
       }),
       {

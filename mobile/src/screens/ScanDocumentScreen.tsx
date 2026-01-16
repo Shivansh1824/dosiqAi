@@ -14,6 +14,7 @@ import { DocumentType } from '../types/document';
 import { compressImage } from '../utils/imageCompression';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import { incrementUploadCount } from '../services/documentAnalysisService';
+import FilePreviewModal from '../components/FilePreviewModal';
 
 interface ScanDocumentScreenProps {
   onBack: () => void;
@@ -236,14 +237,11 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
 
       // Save document metadata to database
-      // title = UUID filename for consistency across local, Supabase, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
-        title: filename, // UUID filename like "0a83ce65-ac2d.pdf"
         type: docType,
         local_file_path: relativePath, // "documents/0a83ce65-ac2d.pdf"
         family_member_id: memberForUpload.id,
-        is_local: true,
         color: '', // Will be calculated by store from document type
       });
 

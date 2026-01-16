@@ -138,13 +138,10 @@ export interface DocumentAnalysisResult {
 export interface Document {
   id: string;
   user_id: string;
-  title: string;
   type: DocumentType;
-  file_url?: string; // Legacy field, nullable
   local_file_path?: string; // New: local file path
   cloud_file_key?: string; // R2 storage key for cloud sync
   family_member_id?: string; // New: reference to family member
-  is_local?: boolean; // New: flag for local vs cloud storage
   color: string; // Calculated on-the-fly from type, not stored in database
   created_at: string;
   updated_at: string;
@@ -154,7 +151,6 @@ export interface Document {
   ai_analysis_status?: DocumentAnalysisStatus;
   ai_analysis_result?: DocumentAnalysisResult;
   ai_analysis_error?: string; // NULL by default, only filled when analysis fails
-  ai_analysis_prompt?: string; // NULL by default, only filled when custom prompt used
   ai_analyzed_at?: string;
   ai_analysis_tokens_used?: number;
 }
