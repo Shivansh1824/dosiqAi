@@ -61,6 +61,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
+  
+  // Check if this document has already been processed/added to tracker
+  const isAlreadyAdded = useMemo(() => {
+    if (!documentProp?.id || !medications.length) return false;
+    // Check if ANY medication in the store comes from this document
+    return medications.some(med => med.source_document_id === documentProp.id);
+  }, [documentProp?.id, medications]);
+
   // Live updates for medication reminders (index -> updates)
   const [medicationLiveUpdates, setMedicationLiveUpdates] = useState<Record<number, { current_reminder_times?: string[] }>>({});
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
@@ -96,6 +104,15 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   if (!documentProp) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Header - Fixed Verification Banner if already added */}
+        {isAlreadyAdded && (
+            <View style={styles.verifiedHeaderBanner}>
+              <Feather name="check-circle" size={16} color={Colors.white} />
+              <Text style={styles.verifiedHeaderText}>
+                Prescription Verified & Added to Tracker
+              </Text>
+            </View>
+        )}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
@@ -1530,6 +1547,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                   );
                 })()}
 
+
+
                 {/* Categories Section */}
                 <View style={styles.medicalReportCategoriesContainer}>
                   {reportData.report_data.grouped_metrics.map((category) => {
@@ -1577,8 +1596,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
               const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
               return !verifiedMedications.has(parsedMed.name);
             });
-          
+
           const hasUnverifiedMeds = unverifiedMedsIdx.length > 0;
+
+
           const summary = getSummary(document.ai_analysis_result);
 
           return (
@@ -1586,13 +1607,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
               {/* AI Summary Section - Hidden if all verified */}
               {document.ai_analysis_status === 'completed' &&
                 document.ai_analysis_result?.document_type !== 'medical_report' &&
-                summary && 
-                hasUnverifiedMeds && (
+                summary &&
+                (hasUnverifiedMeds || isAlreadyAdded) && (
                   <PrescriptionSummary
                     summary={summary}
                     recommendedTests={document.ai_analysis_result?.prescription_data?.recommended_tests}
                     otherInformation={document.ai_analysis_result?.prescription_data?.other_information}
-                    style={{ marginBottom: 0 }}
+                    style={[{ marginBottom: 0 }, isAlreadyAdded ? { opacity: 0.6 } : {}]}
                     defaultExpanded={document.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
                   />
                 )}
@@ -1600,8 +1621,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
               {/* Medications Section */}
               {document.ai_analysis_status === 'completed' &&
                 innerMedicines.length > 0 && (
-                  <View style={[styles.medicationsCard, !hasUnverifiedMeds && { paddingTop: 16 }]}>
-                    {hasUnverifiedMeds && (
+                  <View style={[styles.medicationsCard, (!hasUnverifiedMeds && !isAlreadyAdded) && { paddingTop: 16 }]}>
+                    {(hasUnverifiedMeds || isAlreadyAdded) && (
                       <View
                         style={{
                           flexDirection: 'row',
@@ -1657,7 +1678,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         .map(m => parseAIMedication(m, document.id, displayTitle))
                         .filter(m => verifiedMedications.has(m.name))
                         .map(m => m.name);
-                      
+
                       return verifiedNames.length > 0 ? (
                         <VerifiedMedicationsGroup 
                           medicationNames={verifiedNames} 
@@ -1666,43 +1687,59 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       ) : null;
                     })()}
 
-                    {/* Unverified Individual Cards */}
-                    {unverifiedMedsIdx.map(({ medicine, index }, arrayIndex) => {
-                      const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
-                      const suggestedStartDate = document.created_at.split('T')[0];
-                      // Pass full medications list for history check (parser handles filtering)
-                      const duplicateOf = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, medications);
+                    {/* Divider Line - Only show if we have verified items above in CURRENT session */}
+                    {verifiedMedications.size > 0 && (
+                      <View style={{ width: 1, backgroundColor: '#E2E8F0', flex: 1, marginHorizontal: 23 }} />
+                    )}
 
-                      return (
-                        <MedicationVerificationCard
-                          key={index}
-                          medication={parsedMed}
-                          documentId={document.id}
-                          documentTitle={displayTitle}
-                          suggestedStartDate={suggestedStartDate}
-                          onVerifyAndAdd={handleVerifyAndAddMedication}
-                          duplicateOf={duplicateOf || undefined}
-                          medicineIndex={index}
-                          onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
-                            setMedicationLiveUpdates(prev => ({
-                              ...prev,
-                              [index]: { ...prev[index], ...updates }
-                            }));
-                          }}
-                          onDismiss={() => handleDismissMedication(index)}
-                          isFirstItem={arrayIndex === 0}
-                          cardIndex={arrayIndex + 1}
-                          isVerified={false}
-                        />
-                      );
-                    })}
+                    {/* Unverified Medications List (Or Read-Only View of them if already added) */}
+                    {/* If already added, we ideally shouldn't see 'MedicationVerificationCard' with edit actions,
+                        but for now per requirements we just "View" them. We might want to disable interactions later.
+                        Since user asked to "grey out" and change button, we keep rendering them but maybe with pointerEvents="none"
+                        or just visual grey out.
+                    */}
+                    <View style={isAlreadyAdded ? { opacity: 0.7, pointerEvents: 'none' } : {}}>
+                      {unverifiedMedsIdx.map(({ medicine, index }, arrayIndex) => {
+                        const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+                        const suggestedStartDate = document.created_at.split('T')[0];
+                        // Pass full medications list for history check (parser handles filtering)
+                        const duplicateOf = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, medications);
+
+                        return (
+                          <MedicationVerificationCard
+                            key={index}
+                            medication={parsedMed}
+                            documentId={document.id}
+                            documentTitle={displayTitle}
+                            suggestedStartDate={suggestedStartDate}
+                            onVerifyAndAdd={handleVerifyAndAddMedication}
+                            duplicateOf={duplicateOf || undefined}
+                            medicineIndex={index}
+                            onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                              setMedicationLiveUpdates(prev => ({
+                                ...prev,
+                                [index]: { ...prev[index], ...updates }
+                              }));
+                            }}
+                            onDismiss={() => handleDismissMedication(index)}
+                            isFirstItem={arrayIndex === 0}
+                            cardIndex={arrayIndex + 1}
+                            isVerified={false}
+                          />
+                        );
+                      })}
+                    </View>
 
                     {/* Verify & Add All Button Content moved here */}
-                    {hasUnverifiedMeds && (
+                    {(hasUnverifiedMeds || isAlreadyAdded) && (
                       <View style={{ padding: 16 }}>
                         <TouchableOpacity
                           style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                           onPress={async () => {
+                            if (isAlreadyAdded) {
+                              navigation.navigate('Medications');
+                              return;
+                            }
                             setIsVerifyingAll(true);
                             try {
                               const currentUser = (await supabase.auth.getUser()).data.user;
@@ -1742,8 +1779,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           disabled={isVerifyingAll}
                           activeOpacity={0.8}
                         >
-                          <LinearGradient
-                            colors={['#3B82F6', '#60A5FA', '#93C5FD']}
+                            <LinearGradient
+                              colors={['#3B82F6', '#60A5FA', '#93C5FD']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.verifyAllGradient}
@@ -1752,13 +1789,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               <ActivityIndicator color={Colors.white} size="small" />
                             ) : (
                               <>
-                                <Feather name="check-circle" size={18} color={Colors.white} />
+                                <Feather name={isAlreadyAdded ? "eye" : "check-circle"} size={18} color={Colors.white} />
                                 <Text style={styles.verifyAllButtonText}>
-                                  Confirm & Add {unverifiedMedsIdx.length > 1 ? `All (${unverifiedMedsIdx.length})` : ''}
+                                  {isAlreadyAdded 
+                                    ? "View in Tracker" 
+                                    : `Confirm & Add ${unverifiedMedsIdx.length > 1 ? `All (${unverifiedMedsIdx.length})` : ''}`
+                                  }
                                 </Text>
                               </>
                             )}
-                          </LinearGradient>
+                            </LinearGradient>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1838,6 +1878,21 @@ const styles = StyleSheet.create({
   },
 
   // Header
+  verifiedHeaderText: {
+    ...Typography.styles.body,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: Colors.white,
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  verifiedHeaderBanner: {
+    backgroundColor: Colors.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3389,6 +3444,23 @@ const styles = StyleSheet.create({
   },
   verifyAllButtonDisabled: {
     opacity: 0.6,
+  },
+  actionButtonContainer: {
+    padding: 0,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    width: '100%',
+  },
+  buttonShadow: {
+    borderRadius: 16,
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    // Elevation for Android
+    elevation: 4,
+    backgroundColor: 'transparent',
   },
 });
 
