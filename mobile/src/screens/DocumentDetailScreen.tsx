@@ -21,7 +21,9 @@ import {
   METRIC_STATUS_COLORS,
 } from '../types/medicalReport';
 import { InfoRow, MetricCard, ExpandableSection } from '../components/medicalReport';
-import { generateAndSharePDF, generateAnalysisPDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
+import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
+import LoadingOverlay from '../components/LoadingOverlay';
+import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
 import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
@@ -37,7 +39,7 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 
-type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'Document'>;
+type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
 interface DocumentDetailScreenProps {
   onBack: () => void;
@@ -55,9 +57,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  // Instant Share: Store pre-generated PDF path
-  const [preGeneratedPdfPath, setPreGeneratedPdfPath] = useState<string | null>(null);
-  const generationPromise = React.useRef<Promise<string | undefined> | null>(null);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
   // Live updates for medication reminders (index -> updates)
@@ -125,7 +124,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const analysis = document.ai_analysis_result;
 
   const { titleText, subtitleText } = useMemo(() => {
-    let title = document.title;
+    let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
+      ? "dosiq Ai • Analyzing..."
+      : (document.local_file_path?.split('/').pop() || 'Medical Document');
     let subtitle = '';
 
     if (analysis) {
@@ -133,11 +134,16 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
       if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
         title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
       } else if (analysis.document_type) {
-        // Capitalize (e.g., "lab_report" -> "Lab Report")
-        title = analysis.document_type
-          .split('_')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
+        // Map 'invalid' to friendlier 'Needs Review' label
+        if (analysis.document_type.toLowerCase() === 'invalid') {
+          title = 'Unrecognized Document';
+        } else {
+          // Capitalize (e.g., "lab_report" -> "Lab Report")
+          title = analysis.document_type
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
       } else if (analysis.file_name) {
         // Fallback to filename if no specific type data
         title = analysis.file_name;
@@ -156,7 +162,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     }
 
     return { titleText: title, subtitleText: subtitle };
-  }, [document.title, analysis]);
+  }, [document.ai_analysis_status, document.local_file_path, analysis]);
 
   // Keep displayTitle for shared PDF viewer
   const displayTitle = titleText;
@@ -400,104 +406,12 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     }
   };
 
-  /* 
-   * Pre-generate PDF for Instant Sharing
-   */
-  const preparePdfInBackground = useCallback(async () => {
-    if (!document?.ai_analysis_result) return;
-
-    // meaningful key to prevent re-generation if doc hasn't changed
-    // simple check: if we already have a path or promise, skip.
-    if (preGeneratedPdfPath || generationPromise.current) return;
-
-    const task = async (): Promise<string | undefined> => {
-      try {
-        console.log('[InstantShare] Starting background generation...');
-        let documentImageBase64: string | undefined = undefined;
-
-        // Convert document image to base64 for preview if available
-        if (imageUri) {
-          try {
-            if (imageUri.startsWith('file://')) {
-              documentImageBase64 = await FileSystem.readAsStringAsync(imageUri, {
-                encoding: 'base64'
-              });
-            }
-          } catch (e) {
-            console.log('[InstantShare] Failed to load image for preview:', e);
-          }
-        }
-
-        const patientName = document.ai_analysis_result?.patient_info?.name || 'Patient';
-
-        const result = await generateAnalysisPDF(
-          document.ai_analysis_result!,
-          documentType,
-          patientName,
-          undefined,
-          documentImageBase64
-        );
-
-        if (result.success && result.localPath) {
-          console.log('[InstantShare] PDF Ready:', result.localPath);
-          setPreGeneratedPdfPath(result.localPath || null);
-          return result.localPath;
-        }
-      } catch (e) {
-        console.error('[InstantShare] Background generation failed:', e);
-      }
-      return undefined;
-    };
-
-    generationPromise.current = task();
-    await generationPromise.current;
-  }, [document, imageUri, preGeneratedPdfPath, documentType]);
-
-  // Trigger background generation when dependencies are ready
-  useEffect(() => {
-    if (document?.ai_analysis_result && imageUri !== undefined) {
-      preparePdfInBackground();
-    }
-  }, [document, imageUri, preparePdfInBackground]);
-
-  /* 
-   * Handle Share Analysis - Instant or Wait
-   */
-  const handleShareAnalysis = async () => {
-    if (!document?.ai_analysis_result) {
-      Alert.alert('Error', 'No analysis available to share');
-      return;
-    }
-
-    try {
-      let pdfPath = preGeneratedPdfPath;
-
-      // If not ready yet, wait for the background task
-      if (!pdfPath && generationPromise.current) {
-        // Show a non-intrusive indicator via state if needed, or just await
-        // User requested "fast", so we just block the async flow briefly
-        console.log('[InstantShare] PDF not fully ready, waiting for background task...');
-        pdfPath = (await generationPromise.current) || null;
-      }
-
-      // If still not ready (failed or didn't start), try one last specific generation (fallback)
-      if (!pdfPath) {
-        console.log('[InstantShare] Fallback generation triggered');
-        await preparePdfInBackground();
-        pdfPath = (await generationPromise.current) || null;
-      }
-
-      if (pdfPath) {
-        await sharePDF(pdfPath);
-      } else {
-        Alert.alert('Error', 'Could not generate PDF');
-      }
-
-    } catch (error) {
-      console.error('Error sharing analysis:', error);
-      Alert.alert('Error', 'Failed to share analysis');
-    }
-  };
+  const { isGenerating: isGeneratingAnalysis, generateAndShare: handleShareAnalysis } = useAnalysisPDF({
+    analysis: document.ai_analysis_result,
+    documentType,
+    imageUri,
+    displayTitle
+  });
 
   // Handle download
   const handleDownload = async () => {
@@ -1897,6 +1811,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         onShareDocument={handleShareDocument}
         onShareAnalysis={handleShareAnalysis}
       />
+
+      <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing your health analysis..." />
 
       {/* Document Options Modal */}
       <DocumentOptionsModal

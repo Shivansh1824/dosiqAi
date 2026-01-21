@@ -68,6 +68,7 @@ import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
+import { Document } from './src/types/document';
 
 // Constants
 import { Colors } from './src/constants/Colors';
@@ -83,7 +84,7 @@ export type RootStackParamList = {
   Signup: undefined;
   Home: undefined;
   Scan: undefined;
-  PrescriptionSummary: undefined;
+  PrescriptionSummary: { document: Document };
   Documents: undefined;
   Medications: undefined;
   MedicationList: undefined;
