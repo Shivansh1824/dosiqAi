@@ -38,6 +38,7 @@ interface MedicationVerificationCardProps {
   onLiveUpdate?: (updates: { current_reminder_times: string[] }) => void;
   isFirstItem?: boolean;
   cardIndex?: number; // Index for alternating background colors
+  isVerified?: boolean; // NEW: Whether medication is already added to tracker
 }
 
 /**
@@ -56,6 +57,7 @@ export default function MedicationVerificationCard({
   onLiveUpdate,
   isFirstItem = false,
   cardIndex = 0,
+  isVerified = false,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
   const backgroundColor = '#FFFFFF';
@@ -572,7 +574,7 @@ export default function MedicationVerificationCard({
 
 
   return (
-    <View style={[styles.card, { backgroundColor }]}>
+    <View style={[styles.card, { backgroundColor, paddingBottom: isVerified ? 12 : 24 }]}>
       {/* Header */}
       <MedicationHeader
         name={medication.name}
@@ -589,176 +591,186 @@ export default function MedicationVerificationCard({
         onAnalysisPress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
         onNamePress={(e) => handleTooltipPress(e, medication.name)}
         serialNumber={medicineIndex !== undefined ? medicineIndex + 1 : undefined}
+        isVerified={isVerified}
       />
 
-      {/* AI Summary Static Labels */}
-      <View style={styles.summaryContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.aiButtonsRow}
-        >
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={(e) => handleTooltipPress(e, 'Medication Type')}
-          >
-            <LinearGradient
-              colors={['#FFFFFF', '#EFF6FF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.aiButton}
-            >
-              <View style={styles.aiButtonIcon}>
-                <Feather name="layers" size={10} color={Colors.primary} />
-              </View>
-              <Text style={styles.aiButtonText}>
-                {medication.medicine_type || 'Medicine Type'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
-          >
-            <LinearGradient
-              colors={['#FFFFFF', '#EFF6FF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.aiButton}
-            >
-              <View style={styles.aiButtonIcon}>
-                <Feather name="activity" size={10} color={Colors.primary} />
-              </View>
-              <Text style={styles.aiButtonText}>
-                {medication.medicine_purpose || 'Medicine Purpose'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Course Period Section */}
-      {!isAsNeeded && (
-        <CoursePeriodSection
-          startDate={startDate}
-          endDate={endDate}
-          interval={medication.interval_days ?? medication.source_raw?.interval_days}
-          onStartDatePress={() => setShowDatePicker(true)}
-          onEndDatePress={() => setShowEndDatePicker(true)}
-          onIntervalChange={handleIntervalChange}
-        />
-      )}
-
-      {/* Start Date Picker Modal */}
-      <DatePickerModal
-        visible={showDatePicker}
-        date={startDate}
-        onConfirm={(date) => {
-          setStartDate(date);
-          setShowDatePicker(false);
-        }}
-        onCancel={() => setShowDatePicker(false)}
-        maximumDate={new Date().toISOString().split('T')[0]}
-        minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-      />
-
-      {/* End Date Picker Modal */}
-      <DatePickerModal
-        visible={showEndDatePicker}
-        date={endDate}
-        onConfirm={(date) => {
-          setEndDate(date);
-          setShowEndDatePicker(false);
-        }}
-        onCancel={() => setShowEndDatePicker(false)}
-        minimumDate={startDate}
-        maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-      />
-
-      {/* Reminder Times Section */}
-      {!isAsNeeded && (
+      {isVerified ? (
+        <View style={[styles.verifiedBanner, { marginTop: -8, marginBottom: 0 }]}>
+          <Feather name="check-circle" size={16} color={Colors.success} />
+          <Text style={styles.verifiedText}>Added to tracker</Text>
+        </View>
+      ) : (
         <>
-          <ReminderTimesSection
-            key={`times-section-${resetKey}`}
-            reminderTimes={getReminderTimes()}
-            intervalText={getIntervalText()}
-            medicineName={medication.name}
-            reminderToggles={reminderToggles}
-            totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
-            timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
-            foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
-            onToggleChange={handleReminderToggleChange}
-            onTimeChange={handleTimeChange}
-            defaultNotes={reminderDefaultNotes}
-            onDefaultNoteChange={handleDefaultNoteChange}
-            onAddPress={() => setShowAddReminderModal(true)}
-            customMealLabels={customMealLabels}
+          {/* AI Summary Static Labels */}
+          <View style={styles.summaryContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.aiButtonsRow}
+            >
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={(e) => handleTooltipPress(e, 'Medication Type')}
+              >
+                <LinearGradient
+                  colors={['#FFFFFF', '#EFF6FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.aiButton}
+                >
+                  <View style={styles.aiButtonIcon}>
+                    <Feather name="layers" size={10} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.aiButtonText}>
+                    {medication.medicine_type || 'Medicine Type'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
 
-            onBatchToggle={handleBatchToggle}
-            onUpdateReminderTimes={handleUpdateReminderTimes}
-            interval={medication.interval_days ?? medication.source_raw?.interval_days}
-            sourceName={medication.source_raw?.exact_written_name}
-            originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
-            originalInterval={medication.source_raw?.interval_days}
-            shouldAnimate={isFirstItem}
-            inactiveReminderTimes={inactiveReminders}
-            onDeleteCustomReminder={handleDeleteCustomReminder}
-          />
-
-          <AddReminderModal
-            visible={showAddReminderModal}
-            onClose={() => setShowAddReminderModal(false)}
-            onAdd={handleAddReminderObject}
-            existingTimes={getReminderTimes()}
-          />
-        </>
-      )}
-
-
-      {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
-      {((medication.notes && isAsNeeded) || isEditing) && (
-        <View style={styles.detailsGrid}>
-          <View style={styles.notesCompactContainer}>
-            {!isEditing ? (
-              <View style={styles.notesRow}>
-                <View style={styles.notesHeaderGroup}>
-                  <Feather name="info" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.notesLabel}>Note :</Text>
-                </View>
-                <Text style={styles.notesValue}>
-                  {medication.notes}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.notesEditContainer}>
-                <View style={styles.notesHeaderGroup}>
-                  <Feather name="info" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.notesLabel}>Note :</Text>
-                </View>
-                <TextInput
-                  style={styles.notesInput}
-                  value={editedNotes}
-                  onChangeText={setEditedNotes}
-                  placeholder="Add note..."
-                  multiline
-                />
-              </View>
-            )}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
+              >
+                <LinearGradient
+                  colors={['#FFFFFF', '#EFF6FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.aiButton}
+                >
+                  <View style={styles.aiButtonIcon}>
+                    <Feather name="activity" size={10} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.aiButtonText}>
+                    {medication.medicine_purpose || 'Medicine Purpose'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
-      )}
 
-      {/* Duplicate Warning */}
-      {duplicateOf && (
-        <View style={styles.duplicateWarning}>
-          <Feather name="alert-triangle" size={16} color={Colors.warning} />
-          <Text style={styles.duplicateText}>
-            Previously prescribed: {duplicateOf.name}
-          </Text>
-        </View>
+          <View style={styles.divider} />
+
+          {/* Course Period Section */}
+          {!isAsNeeded && (
+            <CoursePeriodSection
+              startDate={startDate}
+              endDate={endDate}
+              interval={medication.interval_days ?? medication.source_raw?.interval_days}
+              onStartDatePress={() => setShowDatePicker(true)}
+              onEndDatePress={() => setShowEndDatePicker(true)}
+              onIntervalChange={handleIntervalChange}
+            />
+          )}
+
+          {/* Start Date Picker Modal */}
+          <DatePickerModal
+            visible={showDatePicker}
+            date={startDate}
+            onConfirm={(date) => {
+              setStartDate(date);
+              setShowDatePicker(false);
+            }}
+            onCancel={() => setShowDatePicker(false)}
+            maximumDate={new Date().toISOString().split('T')[0]}
+            minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+          />
+
+          {/* End Date Picker Modal */}
+          <DatePickerModal
+            visible={showEndDatePicker}
+            date={endDate}
+            onConfirm={(date) => {
+              setEndDate(date);
+              setShowEndDatePicker(false);
+            }}
+            onCancel={() => setShowEndDatePicker(false)}
+            minimumDate={startDate}
+            maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+          />
+
+          {/* Reminder Times Section */}
+          {!isAsNeeded && (
+            <>
+              <ReminderTimesSection
+                key={`times-section-${resetKey}`}
+                reminderTimes={getReminderTimes()}
+                intervalText={getIntervalText()}
+                medicineName={medication.name}
+                reminderToggles={reminderToggles}
+                totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
+                timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
+                foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
+                onToggleChange={handleReminderToggleChange}
+                onTimeChange={handleTimeChange}
+                defaultNotes={reminderDefaultNotes}
+                onDefaultNoteChange={handleDefaultNoteChange}
+                onAddPress={() => setShowAddReminderModal(true)}
+                customMealLabels={customMealLabels}
+
+                onBatchToggle={handleBatchToggle}
+                onUpdateReminderTimes={handleUpdateReminderTimes}
+                interval={medication.interval_days ?? medication.source_raw?.interval_days}
+                sourceName={medication.source_raw?.exact_written_name}
+                originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
+                originalInterval={medication.source_raw?.interval_days}
+                shouldAnimate={isFirstItem}
+                inactiveReminderTimes={inactiveReminders}
+                onDeleteCustomReminder={handleDeleteCustomReminder}
+              />
+
+              <AddReminderModal
+                visible={showAddReminderModal}
+                onClose={() => setShowAddReminderModal(false)}
+                onAdd={handleAddReminderObject}
+                existingTimes={getReminderTimes()}
+              />
+            </>
+          )}
+
+
+          {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
+          {((medication.notes && isAsNeeded) || isEditing) && (
+            <View style={styles.detailsGrid}>
+              <View style={styles.notesCompactContainer}>
+                {!isEditing ? (
+                  <View style={styles.notesRow}>
+                    <View style={styles.notesHeaderGroup}>
+                      <Feather name="info" size={14} color={Colors.textSecondary} />
+                      <Text style={styles.notesLabel}>Note :</Text>
+                    </View>
+                    <Text style={styles.notesValue}>
+                      {medication.notes}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.notesEditContainer}>
+                    <View style={styles.notesHeaderGroup}>
+                      <Feather name="info" size={14} color={Colors.textSecondary} />
+                      <Text style={styles.notesLabel}>Note :</Text>
+                    </View>
+                    <TextInput
+                      style={styles.notesInput}
+                      value={editedNotes}
+                      onChangeText={setEditedNotes}
+                      placeholder="Add note..."
+                      multiline
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Duplicate Warning */}
+          {duplicateOf && (
+            <View style={styles.duplicateWarning}>
+              <Feather name="alert-triangle" size={16} color={Colors.warning} />
+              <Text style={styles.duplicateText}>
+                Previously prescribed: {duplicateOf.name}
+              </Text>
+            </View>
+          )}
+        </>
       )}
 
       {/* Information Modal */}
@@ -790,7 +802,6 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     marginHorizontal: 16,
     paddingTop: 0, // Header has its own padding
-    paddingBottom: 24,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -872,6 +883,23 @@ const styles = StyleSheet.create({
     color: Colors.warningDark,
     flex: 1,
     fontFamily: Typography.fontFamily.medium,
+  },
+  verifiedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5', // Colors.successLight
+    marginHorizontal: 18,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)', // Colors.success + '30'
+  },
+  verifiedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669', // Colors.success
   },
   summaryContainer: {
     marginTop: 0,

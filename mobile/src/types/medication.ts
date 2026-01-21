@@ -83,6 +83,14 @@ export interface MedicationsActions {
     familyMemberId: string,
     color?: string
   ) => Promise<Medication>;
+  addMedicationsBatchFromAI: (
+    parsedMeds: import('./medicationVerification').ParsedMedication[],
+    userId: string,
+    documentId: string,
+    documentTitle: string,
+    startDate: string,
+    familyMemberId: string
+  ) => Promise<void>;
   getActiveMedications: () => Medication[];
   replaceMedication: (oldMedicationId: string, newMedicationData: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<Medication>;
 }

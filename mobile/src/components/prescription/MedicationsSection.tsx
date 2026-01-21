@@ -7,7 +7,12 @@ import { MedicineInfo } from '../../types/document';
 import { ParsedMedication } from '../../types/medicationVerification';
 import { Medication } from '../../types/medication';
 import MedicationVerificationCard from '../MedicationVerificationCard';
+import { VerifiedMedicationsGroup } from './VerifiedMedicationsGroup';
 import { parseAIMedication, detectDuplicateMedication } from '../../utils/medicationParser';
+
+import { Alert } from 'react-native';
+import { useMedicationsStore } from '../../store/medicationsStore';
+import { supabase } from '../../services/supabaseClient';
 
 interface MedicationsSectionProps {
     medicines: MedicineInfo[];
@@ -17,6 +22,8 @@ interface MedicationsSectionProps {
     dismissedMedicationIds: Set<string>;
     verifiedMedications: Set<string>;
     activeMedications: Medication[];
+    userId: string;
+    familyMemberId: string;
     onVerifyAndAdd: (medication: ParsedMedication, startDate: string) => Promise<void>;
     onDismiss: (index: number) => void;
 }
@@ -33,6 +40,8 @@ export function MedicationsSection({
     dismissedMedicationIds,
     verifiedMedications,
     activeMedications,
+    userId,
+    familyMemberId,
     onVerifyAndAdd,
     onDismiss,
 }: MedicationsSectionProps) {
@@ -54,6 +63,8 @@ export function MedicationsSection({
             .map(({ medicine }) => parseAIMedication(medicine, documentId, documentTitle));
     };
 
+    const { addMedicationsBatchFromAI, fetchMedications } = useMedicationsStore();
+
     // Handle verify all medications
     const handleVerifyAll = async () => {
         const unverifiedMeds = getUnverifiedMedications();
@@ -62,15 +73,28 @@ export function MedicationsSection({
         setIsVerifyingAll(true);
         try {
             const suggestedStartDate = documentCreatedAt.split('T')[0];
-            for (const medication of unverifiedMeds) {
-                const finalMedication = {
-                    ...medication,
-                    verified_by_user: true,
-                };
-                await onVerifyAndAdd(finalMedication, suggestedStartDate);
-            }
+            
+            // Use batch addition for better performance and single alert
+            await addMedicationsBatchFromAI(
+                unverifiedMeds,
+                userId,
+                documentId,
+                documentTitle,
+                suggestedStartDate,
+                familyMemberId
+            );
+
+            // Fetch to sync local state
+            await fetchMedications(userId, true);
+
+            Alert.alert(
+                'Success',
+                `${unverifiedMeds.length} medication${unverifiedMeds.length > 1 ? 's' : ''} added to tracker!`,
+                [{ text: 'OK' }]
+            );
         } catch (error) {
             console.error('[MedicationsSection] Error adding medications:', error);
+            Alert.alert('Error', 'Failed to add some medications. Please try again.');
         } finally {
             setIsVerifyingAll(false);
         }
@@ -78,56 +102,60 @@ export function MedicationsSection({
 
     const unverifiedCount = getUnverifiedMedications().length;
     const hasUnverifiedMedications = unverifiedCount > 0;
+    const allVerified = medicines.length > 0 && unverifiedCount === 0 && dismissedMedicationIds.size < medicines.length;
 
     return (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <View style={styles.titleColumn}>
-                    <Text style={styles.cardTitle}>MEDS DETECTED</Text>
-                    <Text style={styles.cardSubtitle}>
-                        {medicines.length} {medicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription
-                    </Text>
+        <View style={allVerified ? styles.cardAllVerified : styles.card}>
+            {!allVerified && (
+                <View style={styles.cardHeader}>
+                    <View style={styles.titleColumn}>
+                        <Text style={styles.cardTitle}>MEDS DETECTED</Text>
+                        <Text style={styles.cardSubtitle}>
+                            {medicines.length} {medicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription
+                        </Text>
+                    </View>
+                    <View style={styles.cardBadge}>
+                        <Text style={styles.cardBadgeText}>{visibleMedicationsCount}</Text>
+                    </View>
                 </View>
-                <View style={styles.cardBadge}>
-                    <Text style={styles.cardBadgeText}>{visibleMedicationsCount}</Text>
-                </View>
-            </View>
+            )}
 
-            {/* Medication Verification Cards */}
+            {/* Verified Medications Group */}
             {(() => {
-                let unverifiedCardIndex = 0; // Track unverified cards separately
+                const verifiedMedNames = medicines
+                    .map(medicine => parseAIMedication(medicine, documentId, documentTitle))
+                    .filter(med => verifiedMedications.has(med.name))
+                    .map(med => med.name);
+                
+                return <VerifiedMedicationsGroup medicationNames={verifiedMedNames} />;
+            })()}
+
+            {/* Unverified Medication Verification Cards */}
+            {(() => {
+                let unverifiedCardIndex = 0;
                 return medicines
                     .map((medicine, index) => ({ medicine, index }))
                     .filter(({ index }) => {
                         const dismissId = `${documentId}_${index}`;
                         return !dismissedMedicationIds.has(dismissId);
                     })
+                    .filter(({ medicine }) => {
+                        const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
+                        return !verifiedMedications.has(parsedMed.name);
+                    })
                     .map(({ medicine, index }, arrayIndex, filteredArray) => {
                         const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
                         const suggestedStartDate = documentCreatedAt.split('T')[0];
+                        const isLastItem = arrayIndex === filteredArray.length - 1;
+
                         const duplicateOf = detectDuplicateMedication(
                             parsedMed.name,
                             parsedMed.dosage,
                             activeMedications
                         );
-                        const isVerified = verifiedMedications.has(parsedMed.name);
-                        const isLastItem = arrayIndex === filteredArray.length - 1;
 
-                        if (isVerified) {
-                            return (
-                                <View key={index} style={{ marginHorizontal: 16 }}>
-                                    <View style={styles.verifiedBanner}>
-                                        <Feather name="check-circle" size={16} color={Colors.success} />
-                                        <Text style={styles.verifiedText}>Added to tracker</Text>
-                                    </View>
-                                    {!isLastItem && <View style={styles.medicationDivider} />}
-                                </View>
-                            );
-                        }
-
-                        // This is an unverified card - check if it's the first one
                         const isFirstUnverifiedCard = unverifiedCardIndex === 0;
-                        unverifiedCardIndex++; // Increment for next unverified card
+                        unverifiedCardIndex++;
 
                         return (
                             <View key={index}>
@@ -141,6 +169,7 @@ export function MedicationsSection({
                                     medicineIndex={index}
                                     onDismiss={() => onDismiss(index)}
                                     isFirstItem={isFirstUnverifiedCard}
+                                    isVerified={false}
                                 />
                                 {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                             </View>
@@ -183,6 +212,13 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: Colors.white,
         paddingTop: 0,
+        paddingBottom: 0,
+        paddingHorizontal: 0,
+        marginBottom: 0,
+    },
+    cardAllVerified: {
+        backgroundColor: Colors.white,
+        paddingTop: 16, // Add some top padding when header is gone
         paddingBottom: 0,
         paddingHorizontal: 0,
         marginBottom: 0,

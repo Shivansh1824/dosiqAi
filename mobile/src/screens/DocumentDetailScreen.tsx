@@ -29,6 +29,7 @@ import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
+import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
 import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 import { RootStackParamList } from '../../App';
@@ -642,9 +643,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   };
 
   // Helper to get summary from new or legacy structure
-  const getSummary = (result: DocumentAnalysisResult): string | undefined => {
-    return result.common_data?.summary || result.summary;
-  };
+   const getSummary = (result?: DocumentAnalysisResult): string | undefined => {
+     return result?.common_data?.summary || result?.summary;
+   };
 
   // Helper to format document type
   const formatDocumentType = (type: string): string => {
@@ -1551,237 +1552,209 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
 
 
-        {/* Prescription Summary - AI Summary for prescriptions */}
-        {document.ai_analysis_status === 'completed' &&
-          document.ai_analysis_result &&
-          document.ai_analysis_result.document_type !== 'medical_report' &&
-          getSummary(document.ai_analysis_result) && (
-            <PrescriptionSummary
-              summary={getSummary(document.ai_analysis_result)!}
-              recommendedTests={document.ai_analysis_result.prescription_data?.recommended_tests}
-              style={{ marginBottom: 0 }}
-            />
-          )}
+        {/* Consolidated AI Summary, Medications & Action Bar */}
+        {(() => {
+          const innerMedicines = document.ai_analysis_result?.prescription_data?.medicines || [];
+          const unverifiedMedsIdx = innerMedicines
+            .map((medicine, index) => ({ medicine, index }))
+            .filter(({ index }) => !dismissedMedicationIds.has(`${document.id}_${index}`))
+            .filter(({ medicine }) => {
+              const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+              return !verifiedMedications.has(parsedMed.name);
+            });
+          
+          const hasUnverifiedMeds = unverifiedMedsIdx.length > 0;
+          const summary = getSummary(document.ai_analysis_result);
 
+          return (
+            <>
+              {/* AI Summary Section - Hidden if all verified */}
+              {document.ai_analysis_status === 'completed' &&
+                document.ai_analysis_result?.document_type !== 'medical_report' &&
+                summary && 
+                hasUnverifiedMeds && (
+                  <PrescriptionSummary
+                    summary={summary}
+                    recommendedTests={document.ai_analysis_result?.prescription_data?.recommended_tests}
+                    style={{ marginBottom: 0 }}
+                  />
+                )}
 
-
-        {/* Medications Section - Only for prescriptions with medicines */}
-        {document.ai_analysis_status === 'completed' &&
-          document.ai_analysis_result?.prescription_data?.medicines &&
-          document.ai_analysis_result.prescription_data.medicines.length > 0 && (
-            <View style={styles.medicationsCard}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  paddingHorizontal: 16,
-                  paddingVertical: 16,
-                  borderRadius: 0,
-                  marginBottom: 0,
-                  backgroundColor: 'transparent',
-                }}
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{
-                    fontSize: 18,
-                    fontWeight: '900',
-                    color: Colors.gray900,
-                    letterSpacing: 0.8,
-                    marginBottom: 2,
-                  }}>MEDS DETECTED</Text>
-                  <Text style={{
-                    fontSize: 12,
-                    color: Colors.gray500,
-                    fontWeight: '500',
-                    lineHeight: 16,
-                    opacity: 0.8,
-                  }}>{document.ai_analysis_result.prescription_data.medicines.length} {document.ai_analysis_result.prescription_data.medicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription</Text>
-                </View>
-                <View style={{
-                  backgroundColor: Colors.primary,
-                  minWidth: 34,
-                  paddingHorizontal: 12,
-                  paddingVertical: 5,
-                  borderRadius: 20,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: 2,
-                  ...Platform.select({
-                    ios: {
-                      shadowColor: Colors.primary,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 4,
-                    },
-                    android: {
-                      elevation: 2,
-                    },
-                  }),
-                }}>
-                  <Text style={{ fontSize: 13, fontWeight: '900', color: Colors.white }}>
-                    {document.ai_analysis_result.prescription_data.medicines.length - dismissedMedicationIds.size}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Medication Verification Cards - Single Column */}
-              {(() => {
-                let unverifiedCardIndex = 0; // Track unverified cards separately
-                const medicines = document.ai_analysis_result.prescription_data.medicines;
-
-                return medicines.map((medicine, index) => {
-                  const parsedMed = parseAIMedication(
-                    medicine,
-                    document.id,
-                    displayTitle
-                  );
-                  const dismissId = `${document.id}_${index}`;
-                  const isDismissed = dismissedMedicationIds.has(dismissId);
-                  const isVerified = verifiedMedications.has(parsedMed.name);
-                  const isLastItem = index === medicines.length - 1;
-
-                  // Show Dismissed Banner
-                  if (isDismissed) {
-                    return (
-                      <View key={index} style={{ marginHorizontal: 16 }}>
-                        <View style={styles.dismissedBanner}>
-                          <View style={styles.dismissedBannerLeft}>
-                            <View style={styles.dismissedIconContainer}>
-                              <MaterialCommunityIcons name="package-variant" size={20} color={Colors.gray400} />
-                            </View>
-                            <View style={styles.dismissedTextContainer}>
-                              <View style={styles.dismissedNameRow}>
-                                <Text style={styles.dismissedMedicineName} numberOfLines={1}>{parsedMed.name}</Text>
-                                <View style={styles.dismissedBadge}>
-                                  <Feather name="check-circle" size={10} color={Colors.success} />
-                                  <Text style={styles.dismissedBadgeText}>AI CONFIDENT</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.dismissedSubtext}>This medicine has been removed</Text>
-                            </View>
-                          </View>
-                          <TouchableOpacity
-                            style={styles.restoreButton}
-                            onPress={() => handleRestoreMedication(index)}
-                            activeOpacity={0.7}
-                          >
-                            <Feather name="refresh-cw" size={16} color={Colors.primary} />
-                          </TouchableOpacity>
-                        </View>
-                        {!isLastItem && <View style={styles.medicationDivider} />}
-                      </View>
-                    );
-                  }
-
-                  // Show Verified Banner
-                  if (isVerified) {
-                    return (
-                      <View key={index} style={{ marginHorizontal: 16 }}>
-                        <View style={styles.verifiedBanner}>
-                          <Feather name="check-circle" size={16} color={Colors.success} />
-                          <Text style={styles.verifiedText}>Added to tracker</Text>
-                        </View>
-                        {!isLastItem && <View style={styles.medicationDivider} />}
-                      </View>
-                    );
-                  }
-
-                  // Show Full Medication Card
-                  const suggestedStartDate = document.created_at.split('T')[0];
-                  const activeMeds = getActiveMedications();
-                  const duplicateOf = detectDuplicateMedication(
-                    parsedMed.name,
-                    parsedMed.dosage,
-                    activeMeds
-                  );
-                  const isFirstUnverifiedCard = unverifiedCardIndex === 0;
-                  unverifiedCardIndex++;
-
-                  return (
-                    <View key={index}>
-                      <MedicationVerificationCard
-                        medication={parsedMed}
-                        documentId={document.id}
-                        documentTitle={displayTitle}
-                        suggestedStartDate={suggestedStartDate}
-                        onVerifyAndAdd={handleVerifyAndAddMedication}
-                        duplicateOf={duplicateOf || undefined}
-                        medicineIndex={index}
-                        onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
-                          setMedicationLiveUpdates(prev => ({
-                            ...prev,
-                            [index]: { ...prev[index], ...updates }
-                          }));
+              {/* Medications Section */}
+              {document.ai_analysis_status === 'completed' &&
+                innerMedicines.length > 0 && (
+                  <View style={[styles.medicationsCard, !hasUnverifiedMeds && { paddingTop: 16 }]}>
+                    {hasUnverifiedMeds && (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          paddingHorizontal: 16,
+                          paddingVertical: 16,
+                          borderRadius: 0,
+                          marginBottom: 0,
+                          backgroundColor: 'transparent',
                         }}
-                        onDismiss={() => handleDismissMedication(index)}
-                        isFirstItem={isFirstUnverifiedCard}
-                      />
-                      {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
-                    </View>
-                  );
-                });
-              })()}
+                      >
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={{
+                            fontSize: 18,
+                            fontWeight: '900',
+                            color: Colors.gray900,
+                            letterSpacing: 0.8,
+                            marginBottom: 2,
+                          }}>MEDS DETECTED</Text>
+                          <Text style={{
+                            fontSize: 12,
+                            color: Colors.gray500,
+                            fontWeight: '500',
+                            lineHeight: 16,
+                            opacity: 0.8,
+                          }}>{innerMedicines.length} {innerMedicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription</Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: Colors.primary,
+                          minWidth: 34,
+                          paddingHorizontal: 12,
+                          paddingVertical: 5,
+                          borderRadius: 20,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginTop: 2,
+                          ...Platform.select({
+                            ios: { shadowColor: Colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+                            android: { elevation: 2 },
+                          }),
+                        }}>
+                          <Text style={{ fontSize: 13, fontWeight: '900', color: Colors.white }}>
+                            {innerMedicines.length - dismissedMedicationIds.size}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
 
+                    {/* Verified Group */}
+                    {(() => {
+                      const verifiedNames = innerMedicines
+                        .map(m => parseAIMedication(m, document.id, displayTitle))
+                        .filter(m => verifiedMedications.has(m.name))
+                        .map(m => m.name);
+                      
+                      return verifiedNames.length > 0 ? (
+                        <VerifiedMedicationsGroup 
+                          medicationNames={verifiedNames} 
+                          onViewInTracker={() => navigation.navigate('Medications')}
+                        />
+                      ) : null;
+                    })()}
 
-
-              {/* Verify & Add All Button */}
-              {(() => {
-                const medicines = document.ai_analysis_result?.prescription_data?.medicines || [];
-                const unverifiedMeds = medicines
-                  .map((medicine, index) => ({ medicine, index }))
-                  .filter(({ index }) => !dismissedMedicationIds.has(`${document.id}_${index}`))
-                  .filter(({ medicine }) => {
-                    const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
-                    return !verifiedMedications.has(parsedMed.name);
-                  });
-
-                if (unverifiedMeds.length === 0) return null;
-
-                const handleVerifyAll = async () => {
-                  setIsVerifyingAll(true);
-                  try {
-                    for (const { medicine } of unverifiedMeds) {
+                    {/* Unverified Individual Cards */}
+                    {unverifiedMedsIdx.map(({ medicine, index }, arrayIndex) => {
                       const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
                       const suggestedStartDate = document.created_at.split('T')[0];
-                      await handleVerifyAndAddMedication(parsedMed, suggestedStartDate);
-                    }
-                  } catch (error) {
-                    console.error('[DocumentDetail] Error verifying all medications:', error);
-                  } finally {
-                    setIsVerifyingAll(false);
-                  }
-                };
+                      const activeMeds = getActiveMedications();
+                      const duplicateOf = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, activeMeds);
 
-                return (
-                  <TouchableOpacity
-                    style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
-                    onPress={handleVerifyAll}
-                    disabled={isVerifyingAll}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={['#3B82F6', '#60A5FA', '#93C5FD']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.verifyAllGradient}
-                    >
-                      {isVerifyingAll ? (
-                        <ActivityIndicator color={Colors.white} size="small" />
-                      ) : (
-                        <>
-                          <Feather name="check-circle" size={18} color={Colors.white} />
-                          <Text style={styles.verifyAllButtonText}>
-                            Confirm & Add {unverifiedMeds.length > 1 ? `All (${unverifiedMeds.length})` : ''}
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                );
-              })()}
-            </View>
-          )}
+                      return (
+                        <View key={index}>
+                          <MedicationVerificationCard
+                            medication={parsedMed}
+                            documentId={document.id}
+                            documentTitle={displayTitle}
+                            suggestedStartDate={suggestedStartDate}
+                            onVerifyAndAdd={handleVerifyAndAddMedication}
+                            duplicateOf={duplicateOf || undefined}
+                            medicineIndex={index}
+                            onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                              setMedicationLiveUpdates(prev => ({
+                                ...prev,
+                                ...updates
+                              }));
+                            }}
+                            onDismiss={() => handleDismissMedication(index)}
+                            isFirstItem={arrayIndex === 0}
+                            isVerified={false}
+                          />
+                          {arrayIndex < unverifiedMedsIdx.length - 1 && (
+                            <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />
+                          )}
+                        </View>
+                      );
+                    })}
+
+                    {/* Verify & Add All Button */}
+                    {hasUnverifiedMeds && (
+                      <View style={{ padding: 16 }}>
+                        <TouchableOpacity
+                          style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
+                          onPress={async () => {
+                            if (!user) {
+                              Alert.alert('Error', 'You must be logged in to add medications');
+                              return;
+                            }
+
+                            setIsVerifyingAll(true);
+                            try {
+                              const medsToVerify = unverifiedMedsIdx.map(({ medicine }) => 
+                                parseAIMedication(medicine, document.id, displayTitle)
+                              );
+                              const startDate = document.created_at.split('T')[0];
+
+                              await useMedicationsStore.getState().addMedicationsBatchFromAI(
+                                medsToVerify,
+                                user.id,
+                                document.id,
+                                displayTitle,
+                                startDate,
+                                document.family_member_id!
+                              );
+
+                              setVerifiedMedications(prev => {
+                                const next = new Set(prev);
+                                medsToVerify.forEach(m => next.add(m.name));
+                                return next;
+                              });
+
+                              Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
+                                { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
+                                { text: 'OK' },
+                              ]);
+                            } catch (err) {
+                              console.error('[DocumentDetail] Verify All Error:', err);
+                              Alert.alert('Error', 'Failed to add all medications.');
+                            } finally {
+                              setIsVerifyingAll(false);
+                            }
+                          }}
+                          disabled={isVerifyingAll}
+                          activeOpacity={0.8}
+                        >
+                          <LinearGradient
+                            colors={['#3B82F6', '#60A5FA', '#93C5FD']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.verifyAllGradient}
+                          >
+                            {isVerifyingAll ? (
+                              <ActivityIndicator color={Colors.white} size="small" />
+                            ) : (
+                              <>
+                                <Feather name="check-circle" size={18} color={Colors.white} />
+                                <Text style={styles.verifyAllButtonText}>
+                                  Confirm & Add {unverifiedMedsIdx.length > 1 ? `All (${unverifiedMedsIdx.length})` : ''}
+                                </Text>
+                              </>
+                            )}
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+            </>
+          );
+        })()}
 
         {/* Advised Tests Section */}
         {document.ai_analysis_status === 'completed' &&

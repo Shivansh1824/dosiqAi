@@ -349,6 +349,80 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       throw error;
     }
   },
+  
+  /**
+   * Add multiple medications from AI extraction in one batch
+   */
+  addMedicationsBatchFromAI: async (
+    parsedMeds: ParsedMedication[],
+    userId: string,
+    documentId: string,
+    documentTitle: string,
+    startDate: string,
+    familyMemberId: string
+  ): Promise<void> => {
+    set({ isLoading: true, error: null });
+
+    try {
+      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!familyMemberId) throw new Error('Family member ID required for AI medication');
+
+      const newSchedules = parsedMeds.map(parsedMed => {
+        let endDate: string | undefined;
+        if (parsedMed.duration_days) {
+          endDate = calculateEndDate(startDate, parsedMed.duration_days);
+        }
+
+        return {
+          user_id: userId,
+          family_member_id: familyMemberId,
+          name: parsedMed.name,
+          
+          // Detailed info
+          scientific_name: parsedMed.scientific_name,
+          medicine_type: parsedMed.medicine_type,
+          medicine_purpose: parsedMed.medicine_purpose,
+          form: parsedMed.form,
+          strength: parsedMed.strength,
+
+          // Scheduling
+          dosage_instruction: parsedMed.dosage,
+          timing_dosage: parsedMed.timing_dosage,
+          times_per_day: parsedMed.total_times_per_day,
+          reminder_times: parsedMed.time_of_day,
+          food_relationship: parsedMed.food_relationship,
+          interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
+
+          start_date: startDate,
+          duration_days: parsedMed.duration_days,
+          end_date: endDate,
+          is_active: true,
+          notes: parsedMed.notes,
+          
+          // Metadata
+          source_document_id: documentId,
+          ai_confidence: 0.95,
+        };
+      });
+
+      const { data, error } = await supabase
+        .from('medication_schedules')
+        .insert(newSchedules);
+
+      if (error) throw error;
+
+      console.log('[MedicationsStore] Batch AI schedules added:', newSchedules.length);
+      
+      // Refresh to get the full list with correct colors
+      await get().fetchMedications(userId, true);
+      
+      set({ isLoading: false });
+    } catch (error) {
+      console.error('[MedicationsStore] Batch Add AI error:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      throw error;
+    }
+  },
 
   /**
    * Get all active medications (not expired)

@@ -419,6 +419,18 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
   return generateDefaultTimeSlots(frequency);
 }
 
+
+
+/**
+ * Strip all special characters and spaces, keeping only alphanumeric chars
+ * Used for aggressive matching to ignore formatting/punctuation differences
+ * @param str - Input string
+ * @returns Normalized alphanumeric string
+ */
+function stripSpecialChars(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 /**
  * Detect duplicate medication in existing active medications
  * Uses fuzzy name matching and dosage comparison
@@ -438,10 +450,14 @@ export function detectDuplicateMedication(
   dosage: string,
   existingMeds: Medication[]
 ): Medication | null {
-  const normalizedName = name.toLowerCase().trim();
-  const normalizedDosage = dosage.toLowerCase().trim();
+  // Normalize by stripping ALL special chars and spaces
+  // "Emset-4mg" -> "emset4mg"
+  // "Co-Amoxiclav" -> "coamoxiclav"
+  const cleanTargetName = stripSpecialChars(name);
+  const cleanTargetDosage = stripSpecialChars(dosage);
+  const targetNameLength = cleanTargetName.length;
 
-  // Only check ACTIVE medications that aren't expired
+  // Only check ACTIVE medications that aren't expired (User Request: "Expiry logic is correct")
   const activeMeds = existingMeds.filter(med => {
     if (!med.is_active) return false;
 
@@ -458,30 +474,27 @@ export function detectDuplicateMedication(
 
   // Look for duplicate
   for (const med of activeMeds) {
-    const existingName = med.name.toLowerCase().trim();
-    const existingDosage = med.dosage.toLowerCase().trim();
+    const cleanExistingName = stripSpecialChars(med.name);
+    const cleanExistingDosage = stripSpecialChars(med.dosage);
 
-    // Exact name match
-    if (existingName === normalizedName) {
-      // If dosages also match, it's definitely a duplicate
-      if (existingDosage === normalizedDosage) {
-        return med;
-      }
-
-      // If name matches but dosage differs, still flag as duplicate
-      // (user might be changing dosage)
+    // 1. Exact name match (after strict cleaning)
+    if (cleanExistingName === cleanTargetName) {
+      // If names match identically (ignoring format), it's a match.
       return med;
     }
 
-    // Fuzzy name match (contains or very similar)
-    if (existingName.includes(normalizedName) || normalizedName.includes(existingName)) {
+    // 2. Contains match (Substrings)
+    if (cleanExistingName.includes(cleanTargetName) || cleanTargetName.includes(cleanExistingName)) {
       return med;
     }
 
-    // Check scientific name if available
+    // REMOVED: Fuzzy match (Levenshtein) per user request.
+    // Logic is now strict: remove spaces/special chars -> check if same.
+
+    // 3. Check scientific name match
     if (med.scientific_name) {
-      const scientificName = med.scientific_name.toLowerCase().trim();
-      if (scientificName === normalizedName || normalizedName.includes(scientificName)) {
+      const cleanScientific = stripSpecialChars(med.scientific_name);
+      if (cleanScientific === cleanTargetName || cleanTargetName.includes(cleanScientific)) {
         return med;
       }
     }
