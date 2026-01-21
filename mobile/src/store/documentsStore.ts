@@ -124,7 +124,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       // Exclude color field - it will be calculated when fetched, not stored in DB
       const { color, ...newDoc } = doc;
-
+      // Add new medication
       const { data, error } = await supabase
         .from('documents')
         .insert(newDoc)
@@ -659,10 +659,15 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       // This handles R2, Documents, Lab Reports, Test Results
       await get().clearAllCloudDocuments(userId);
 
+      // 2. Clear Medications & Logs (logs already deleted by cascade from medication_schedules)
+      // But clearing medication_logs explicitly is safe too if not cascaded
       // 2. Clear Medications & Logs
       console.log('[DocumentsStore] Clearing Medications...');
-      await supabase.from('medication_logs').delete().eq('user_id', userId);
-      await supabase.from('medications').delete().eq('user_id', userId);
+      try {
+        await supabase.from('medication_logs').delete().eq('user_id', userId);
+      } catch (e) { console.log('medication_logs table might not exist'); }
+      
+      await supabase.from('medication_schedules').delete().eq('user_id', userId);
 
       // 3. Clear Vitals & metrics
       console.log('[DocumentsStore] Clearing Vitals & Charts...');

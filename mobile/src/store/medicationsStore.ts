@@ -56,7 +56,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       return;
     }
 
-    // Only show loading spinner if not a silent refresh
     if (!silent) {
       set({ isLoading: true, error: null });
     }
@@ -68,11 +67,16 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         return;
       }
 
-      console.log(`[MedicationsStore] Fetching medications for user: ${userId} (silent: ${silent})`);
+      console.log(`[MedicationsStore] Fetching schedules for user: ${userId} (silent: ${silent})`);
 
       const { data, error } = await supabase
-        .from('medications')
-        .select('*')
+        .from('medication_schedules')
+        .select(`
+          *,
+          source_document:source_document_id (
+             id
+          )
+        `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -82,17 +86,61 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         return;
       }
 
-      // Calculate color from index (7 colors cycling)
-      const medicationsWithColor: Medication[] = (data || []).map((med, index) => ({
-        ...med,
-        color: medicationColors[index % medicationColors.length], // Always calculate from index
-      }));
+      const medications: Medication[] = (data || []).map((row: any, index: number) => {
+        // Map interval_days + times_per_day to frequency enum
+        let frequency: any = 'once_daily';
+        if (row.interval_days === 0) frequency = 'as_needed';
+        else if (row.interval_days === 7) frequency = 'weekly';
+        else if (row.interval_days === 30) frequency = 'monthly';
+        else if (row.interval_days === 1) {
+           if (row.times_per_day === 2) frequency = 'twice_daily';
+           else if (row.times_per_day === 3) frequency = 'three_times_daily';
+           else if (row.times_per_day === 4) frequency = 'four_times_daily';
+        }
 
-      // Save to cache for next time
-      await saveToCache(CacheKeys.medications(userId), medicationsWithColor);
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          family_member_id: row.family_member_id,
+          name: row.name,
+          scientific_name: row.scientific_name,
+          medicine_type: row.medicine_type,
+          medicine_purpose: row.medicine_purpose,
+          form: row.form,
+          strength: row.strength,
+          
+          dosage: row.dosage_instruction || '',
+          global_frequency: frequency, // Avoid naming collision if needed, but 'frequency' is in interface
+          frequency: frequency,
+          
+          time_of_day: row.reminder_times || [],
+          interval_days: row.interval_days,
+          timing_dosage: row.timing_dosage,
+          times_per_day: row.times_per_day,
+          
+          start_date: row.start_date,
+          end_date: row.end_date,
+          duration_days: row.duration_days,
+          
+          notes: row.notes,
+          color: medicationColors[index % medicationColors.length],
+          is_active: row.is_active,
+          
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          
+          source_document_id: row.source_document_id,
+          // source_document_title not joined, can be fetched if really needed
+          ai_extracted: !!row.source_document_id,
+          verified_by_user: true, // If it's in this table, it's verified
+          ai_confidence: row.ai_confidence,
+          food_relationship: row.food_relationship as any,
+        };
+      });
 
-      console.log('[MedicationsStore] Fetched', medicationsWithColor.length, 'medications');
-      set({ medications: medicationsWithColor, isLoading: false });
+      // Save to cache
+      await saveToCache(CacheKeys.medications(userId), medications);
+      set({ medications, isLoading: false });
     } catch (error) {
       console.error('[MedicationsStore] Unexpected error:', error);
       set({
@@ -109,36 +157,47 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
+      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!med.family_member_id) throw new Error('Family member ID is required');
 
-      const medications = get().medications;
-      const newMed = {
-        ...med,
-        // color will be calculated when fetched, no need to include here
+      // Map UI fields to DB fields
+      const newSchedule = {
+        user_id: med.user_id,
+        family_member_id: med.family_member_id,
+        name: med.name,
+        dosage_instruction: med.dosage,
+        reminder_times: med.time_of_day,
+        interval_days: med.interval_days || 1, // Default to daily if missing
+        start_date: med.start_date,
+        end_date: med.end_date,
+        notes: med.notes,
+        is_active: true,
+        food_relationship: med.food_relationship,
+        // Optional fields
+        scientific_name: med.scientific_name,
+        medicine_type: med.medicine_type,
+        medicine_purpose: med.medicine_purpose,
+        form: med.form,
+        strength: med.strength,
       };
 
       const { data, error } = await supabase
-        .from('medications')
-        .insert(newMed)
+        .from('medication_schedules')
+        .insert(newSchedule)
         .select()
         .single();
 
       if (error) throw error;
 
-      set({
-        medications: [data, ...medications],
-        isLoading: false,
-      });
-
-      console.log('[MedicationsStore] Medication added:', data.id);
+      // Optimistic update - actually we should probably refetch or reconstruct the full object
+      // For now, let's trigger a silent refetch to be safe and accurate
+      await get().fetchMedications(med.user_id, true);
+      
+      set({ isLoading: false });
+      console.log('[MedicationsStore] Schedule added:', data.id);
     } catch (error) {
-      console.error('[MedicationsStore] Add medication error:', error);
-      set({
-        error: error instanceof Error ? error.message : 'Failed to add medication',
-        isLoading: false,
-      });
+      console.error('[MedicationsStore] Add error:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to add', isLoading: false });
       throw error;
     }
   },
@@ -150,31 +209,39 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
+      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
 
+      // Map updates to DB columns
+      const dbUpdates: any = { ...updates, updated_at: new Date().toISOString() };
+      
+      // Remap specific fields if present
+      if (updates.dosage !== undefined) {
+         dbUpdates.dosage_instruction = updates.dosage;
+         delete dbUpdates.dosage;
+      }
+      if (updates.time_of_day !== undefined) {
+         dbUpdates.reminder_times = updates.time_of_day;
+         delete dbUpdates.time_of_day;
+      }
+      // Note: mapping frequency back to interval_days is tricky here without more logic.
+      // Ideally we update interval_days directly if changed.
+      
       const { data, error } = await supabase
-        .from('medications')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .from('medication_schedules')
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
 
-      const medications = get().medications.map((med) =>
-        med.id === id ? data : med
-      );
-      set({ medications, isLoading: false });
-
-      console.log('[MedicationsStore] Medication updated:', id);
+      // Refetch to sync state perfectly
+      await get().fetchMedications(data.user_id, true);
+      
+      console.log('[MedicationsStore] Updated:', id);
     } catch (error) {
-      console.error('[MedicationsStore] Update medication error:', error);
-      set({
-        error: error instanceof Error ? error.message : 'Failed to update medication',
-        isLoading: false,
-      });
+      console.error('[MedicationsStore] Update error:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -184,30 +251,21 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
    */
   deleteMedication: async (id: string) => {
     set({ isLoading: true, error: null });
-
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
-
+      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       const { error } = await supabase
-        .from('medications')
+        .from('medication_schedules')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
-
+      
+      // Update local state
       const medications = get().medications.filter((med) => med.id !== id);
       set({ medications, isLoading: false });
-
-      console.log('[MedicationsStore] Medication deleted:', id);
     } catch (error) {
-      console.error('[MedicationsStore] Delete medication error:', error);
-      set({
-        error: error instanceof Error ? error.message : 'Failed to delete medication',
-        isLoading: false,
-      });
-      throw error;
+       set({ error: 'Failed to delete', isLoading: false });
+       throw error;
     }
   },
 
@@ -221,69 +279,73 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     documentId: string,
     documentTitle: string,
     startDate: string,
+    familyMemberId: string,
     color?: string
   ): Promise<Medication> => {
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
+      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
-      const medications = get().medications;
-
-      // Calculate end date if duration is provided
       let endDate: string | undefined;
       if (parsedMed.duration_days) {
         endDate = calculateEndDate(startDate, parsedMed.duration_days);
       }
 
-      const newMed: Omit<Medication, 'id' | 'created_at' | 'updated_at'> = {
+      const newSchedule = {
         user_id: userId,
+        family_member_id: familyMemberId,
         name: parsedMed.name,
-        dosage: parsedMed.dosage,
-        frequency: parsedMed.frequency,
-        time_of_day: parsedMed.time_of_day,
-        start_date: startDate,
-        end_date: endDate,
-        notes: parsedMed.notes,
-        color: '', // Will be calculated from index when fetched
-        is_active: true,
-
-        // Source tracking fields
-        source_document_id: documentId,
-        source_document_title: documentTitle,
-        ai_extracted: parsedMed.ai_extracted,
-        verified_by_user: parsedMed.verified_by_user,
-        original_frequency_code: parsedMed.original_frequency_code,
+        
+        // Detailed info
         scientific_name: parsedMed.scientific_name,
+        medicine_type: parsedMed.medicine_type,
+        medicine_purpose: parsedMed.medicine_purpose,
+        form: parsedMed.form,
+        strength: parsedMed.strength,
+
+        // Scheduling
+        dosage_instruction: parsedMed.dosage,
+        timing_dosage: parsedMed.timing_dosage,
+        times_per_day: parsedMed.total_times_per_day,
+        reminder_times: parsedMed.time_of_day,
+        food_relationship: parsedMed.food_relationship,
+        interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
+
+        start_date: startDate,
+        duration_days: parsedMed.duration_days,
+        end_date: endDate,
+        is_active: true,
+        notes: parsedMed.notes,
+        
+        // Metadata
+        source_document_id: documentId,
+        ai_confidence: 0.95, // Default high confidence for confirmed items
       };
 
       const { data, error } = await supabase
-        .from('medications')
-        .insert(newMed)
+        .from('medication_schedules')
+        .insert(newSchedule)
         .select()
         .single();
 
       if (error) throw error;
 
-      set({
-        medications: [data, ...medications],
-        isLoading: false,
-      });
+      console.log('[MedicationsStore] AI Schedule added:', data.id);
+      
+      // Refresh to get the full list with correct colors
+      await get().fetchMedications(userId, true);
+      
+      // Return a dummy object or the last added one from state. 
+      // Since we just refetched, we can find it in the new state.
+      const freshMeds = get().medications;
+      const addedMed = freshMeds.find(m => m.id === data.id) || freshMeds[0]; // Fallback
+      return addedMed;
 
-      console.log('[MedicationsStore] AI medication added:', data.id);
-
-      // Refresh cache
-      await saveToCache(CacheKeys.medications(userId), [data, ...medications]);
-
-      return data;
     } catch (error) {
-      console.error('[MedicationsStore] Add AI medication error:', error);
-      set({
-        error: error instanceof Error ? error.message : 'Failed to add medication',
-        isLoading: false,
-      });
+      console.error('[MedicationsStore] Add AI error:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -330,7 +392,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       // Add new medication
       const { data, error } = await supabase
-        .from('medications')
+        .from('medication_schedules')
         .insert(newMedicationData)
         .select()
         .single();

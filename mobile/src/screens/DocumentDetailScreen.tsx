@@ -567,7 +567,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       user.id,
                       document.id,
                       displayTitle,
-                      startDate
+                      startDate,
+                      document.family_member_id!
                     );
 
                     // Mark old as inactive
@@ -594,7 +595,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       user.id,
                       document.id,
                       displayTitle,
-                      startDate
+                      startDate,
+                      document.family_member_id!
                     );
 
                     // Mark as verified
@@ -619,7 +621,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         user.id,
         document.id,
         displayTitle,
-        startDate
+        startDate,
+        document.family_member_id!
       );
 
       // Mark as verified

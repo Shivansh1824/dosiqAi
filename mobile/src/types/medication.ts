@@ -21,26 +21,42 @@ export type FoodRelationship =
 export interface Medication {
   id: string;
   user_id: string;
+  family_member_id: string; // Linked to family_members table
   name: string;
-  dosage: string;
-  frequency: MedicationFrequency;
-  time_of_day: string[]; // e.g., ["08:00", "20:00"]
+  
+  // Detailed medicine info
+  scientific_name?: string;
+  medicine_type?: string;
+  medicine_purpose?: string;
+  form?: string;
+  strength?: string;
+  
+  // Dosing & Schedule
+  dosage: string; // Mapped from dosage_instruction in DB
+  frequency: MedicationFrequency; // Derived from interval_days/times_per_day
+  time_of_day: string[]; // Mapped from reminder_times in DB
+  interval_days?: number;
+  timing_dosage?: string;
+  times_per_day?: number;
+  
   start_date: string;
   end_date?: string;
+  duration_days?: number;
+  
   notes?: string;
-  color: string; // Calculated on-the-fly from index (7 colors cycling), not stored in database
+  color: string; // Calculated on-the-fly
   is_active: boolean;
+  
   created_at: string;
   updated_at: string;
 
-  // Source tracking fields for AI-extracted medications
-  source_document_id?: string;           // Links to prescription document
-  source_document_title?: string;        // Quick reference without DB lookup
-  ai_extracted?: boolean;                // True if added via AI extraction
-  verified_by_user?: boolean;            // True if user verified/edited
-  original_frequency_code?: string;      // Store original code (e.g., "Q6H")
-  scientific_name?: string;              // Generic name from AI
-  food_relationship?: FoodRelationship;  // Meal timing requirement
+  // Source tracking fields
+  source_document_id?: string;
+  source_document_title?: string; // Optional, might need join to fetch
+  ai_extracted?: boolean;         // Inferred from source_document_id existing
+  verified_by_user?: boolean;     // Implicit true for active schedule?
+  ai_confidence?: number;
+  food_relationship?: FoodRelationship;
 }
 
 export interface MedicationsState {
@@ -64,6 +80,7 @@ export interface MedicationsActions {
     documentId: string,
     documentTitle: string,
     startDate: string,
+    familyMemberId: string,
     color?: string
   ) => Promise<Medication>;
   getActiveMedications: () => Medication[];
