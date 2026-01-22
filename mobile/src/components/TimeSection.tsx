@@ -19,13 +19,11 @@ export default function TimeSection({ category, medications, onTakeMedication }:
     const getIconColor = () => {
         switch (category) {
             case 'morning':
-                return '#F59E0B'; // Orange
+                return '#F59E0B'; // Warm orange for sunrise
             case 'afternoon':
-                return '#EF4444'; // Red
-            case 'evening':
-                return '#8B5CF6'; // Purple
+                return '#EF4444'; // Red for bright sun
             case 'night':
-                return '#3B82F6'; // Blue
+                return '#3B82F6'; // Blue for night
         }
     };
 

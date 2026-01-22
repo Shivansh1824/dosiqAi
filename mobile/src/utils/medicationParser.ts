@@ -335,13 +335,13 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency): string
       return ['08:00']; // Morning
 
     case 'twice_daily':
-      return ['08:00', '20:00']; // Morning and night (12 hours apart)
+      return ['08:00', '21:00']; // Morning and night
 
     case 'three_times_daily':
-      return ['08:00', '14:00', '20:00']; // Morning, afternoon, night (8 hours apart)
+      return ['08:00', '14:00', '21:00']; // Morning, afternoon, night
 
     case 'four_times_daily':
-      return ['08:00', '14:00', '20:00', '02:00']; // Every 6 hours
+      return ['08:00', '14:00', '21:00', '02:00']; // Every 6-7 hours
 
     case 'as_needed':
       return []; // No fixed schedule
@@ -385,10 +385,6 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
     slots.push('14:00');
   }
 
-  // Evening (16:00 - 4 PM)
-  if (normalized.includes('EVENING')) {
-    slots.push('16:00'); // 4 PM standard for evening
-  }
 
   // Night (21:00 - 9 PM)
   if (normalized.includes('NIGHT')) {

@@ -32,6 +32,10 @@ import { supabase } from './src/services/supabaseClient';
 
 console.log('[DEBUG] [App.tsx] supabaseClient imported successfully');
 
+// Notification services
+import { initializeNotifications } from './src/services/notificationService';
+import { setupForegroundEventHandler } from './src/services/notificationEventHandler';
+
 import { logError } from './src/utils/debugLogger';
 
 // Global error handler
@@ -175,6 +179,22 @@ export default function App() {
       SplashScreen.hideAsync();
     }
   }, [isAppReady]);
+
+  // Initialize notifications
+  useEffect(() => {
+    console.log('[DEBUG] [App] Initializing notification service');
+    initializeNotifications().then((success) => {
+      console.log('[DEBUG] [App] Notification initialization:', success ? 'success' : 'failed');
+    });
+    
+    // Set up foreground event handler
+    const unsubscribe = setupForegroundEventHandler();
+    console.log('[DEBUG] [App] Foreground notification handler set up');
+    
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   if (!isAppReady || !fontsLoaded) {
     return null; // Keep native splash screen visible

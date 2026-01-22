@@ -28,6 +28,7 @@ import ShareModal from '../components/ShareModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNotifications } from '../hooks/useNotifications';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
 import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
@@ -54,6 +55,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
   const { addMedicationFromAI, medications } = useMedicationsStore();
   const { user } = useAuthStore();
+  const { scheduleAllForMedication } = useNotifications();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [fileNotFound, setFileNotFound] = useState(false);
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
@@ -593,7 +595,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 text: 'Replace Existing',
                 onPress: async () => {
                   try {
-                    await addMedicationFromAI(
+                    const addedMed = await addMedicationFromAI(
                       parsedMed,
                       user.id,
                       document.id,
@@ -601,6 +603,11 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       startDate,
                       document.family_member_id!
                     );
+
+                    // Schedule reminders
+                    if (addedMed) {
+                      await scheduleAllForMedication(addedMed);
+                    }
 
                     // Mark old as inactive
                     await useMedicationsStore.getState().updateMedication(duplicate.id, {
@@ -621,7 +628,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 text: 'Add Both',
                 onPress: async () => {
                   try {
-                    await addMedicationFromAI(
+                    const addedMed = await addMedicationFromAI(
                       parsedMed,
                       user.id,
                       document.id,
@@ -629,6 +636,11 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       startDate,
                       document.family_member_id!
                     );
+
+                    // Schedule reminders
+                    if (addedMed) {
+                      await scheduleAllForMedication(addedMed);
+                    }
 
                     // Mark as verified
                     setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
@@ -647,7 +659,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       }
 
       // No duplicate, add directly
-      await addMedicationFromAI(
+      const addedMed = await addMedicationFromAI(
         parsedMed,
         user.id,
         document.id,
@@ -655,6 +667,11 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         startDate,
         document.family_member_id!
       );
+
+      // Schedule reminders
+      if (addedMed) {
+        await scheduleAllForMedication(addedMed);
+      }
 
       // Mark as verified
       setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
@@ -1758,6 +1775,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                 startDate,
                                 document.family_member_id!
                               );
+
+                              // Schedule reminders for all batch-added meds
+                              const updatedMeds = useMedicationsStore.getState().medications;
+                              const batchMeds = updatedMeds.filter(m => m.source_document_id === document.id);
+                              
+                              for (const med of batchMeds) {
+                                await scheduleAllForMedication(med);
+                              }
 
                               setVerifiedMedications(prev => {
                                 const next = new Set(prev);

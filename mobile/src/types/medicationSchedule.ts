@@ -19,7 +19,7 @@ export type MedicineType =
 // Medication status for daily tracking
 export type MedicationStatus = 'pending' | 'taken' | 'missed' | 'skipped';
 
-// Time of day categories (aligned with 1-1-1 dosage format: morning-afternoon-night)
+// Time of day categories
 export type TimeOfDayCategory = 'morning' | 'afternoon' | 'night';
 
 // Instruction types
@@ -104,7 +104,6 @@ export interface DailyMedicationView {
     date: string; // ISO date string
     morning: MedicationWithStatus[];
     afternoon: MedicationWithStatus[];
-    evening: MedicationWithStatus[];
     night: MedicationWithStatus[];
 }
 
@@ -191,7 +190,7 @@ export const getInstructionText = (instruction: MedicationInstruction): string =
     }
 };
 
-// Helper function to categorize time into time of day (3 categories to match 1-1-1 dosage format)
+// Helper function to categorize time into time of day (3 categories)
 export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
     const hour = parseInt(time.split(':')[0]);
 
@@ -204,7 +203,6 @@ export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
     }
 };
 
-// Helper function to get time of day display text
 // Helper function to get time of day display text
 export const getTimeOfDayText = (category: TimeOfDayCategory): string => {
     switch (category) {
@@ -245,7 +243,7 @@ export const generateCyclicReminderTimes = (totalTimesPerDay: number): string[] 
 
     if (totalTimesPerDay <= 0) return [];
 
-    // For 1-3 times, we pick from the standard set to align with UI defaults
+    // Base times tailored for standard intervals
     if (totalTimesPerDay === 1) return [morning];
     if (totalTimesPerDay === 2) return [morning, night];
     if (totalTimesPerDay === 3) return [morning, afternoon, night];

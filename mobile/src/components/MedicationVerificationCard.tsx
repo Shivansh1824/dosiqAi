@@ -383,7 +383,7 @@ export default function MedicationVerificationCard({
   };
 
 
-  // Handle batch toggle (Morning/Afternoon/Evening/Night OR Custom)
+  // Handle batch toggle (Morning/Afternoon/Night OR Custom)
   const handleBatchToggle = (batchId: string, isEnabled: boolean, defaultTime: string) => {
     const currentTimes = getReminderTimes();
     let updatedTimes = [...currentTimes];

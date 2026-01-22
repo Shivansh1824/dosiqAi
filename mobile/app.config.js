@@ -18,8 +18,13 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.shivanshrana.familycare.health",
       infoPlist: {
-        ITSAppUsesNonExemptEncryption: false
-      }
+        ITSAppUsesNonExemptEncryption: false,
+        UIBackgroundModes: ["remote-notification"],
+      },
+      // Enable after Apple Critical Alerts approval:
+      // entitlements: {
+      //   "com.apple.developer.usernotifications.critical-alerts": true
+      // }
     },
     android: {
       adaptiveIcon: {

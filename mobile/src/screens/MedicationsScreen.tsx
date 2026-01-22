@@ -100,7 +100,6 @@ export default function MedicationsScreen() {
         const grouped = {
             morning: [] as MedicationWithStatus[],
             afternoon: [] as MedicationWithStatus[],
-            evening: [] as MedicationWithStatus[],
             night: [] as MedicationWithStatus[],
         };
 
@@ -314,11 +313,6 @@ export default function MedicationsScreen() {
                     onTakeMedication={handleTakeMedication}
                 />
 
-                <TimeSection
-                    category="evening"
-                    medications={medicationsByTime.evening}
-                    onTakeMedication={handleTakeMedication}
-                />
 
                 <TimeSection
                     category="night"
