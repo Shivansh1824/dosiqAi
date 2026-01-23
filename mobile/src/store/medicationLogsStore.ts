@@ -19,6 +19,14 @@ interface MedicationLogsStore {
     scheduledTime: string
   ) => Promise<MedicationLog>;
 
+  // Mark medication as skipped
+  markAsSkipped: (
+    userId: string,
+    medicationId: string,
+    scheduledDate: string,
+    scheduledTime: string
+  ) => Promise<MedicationLog>;
+
   // Undo taken (mark back as pending)
   undoTaken: (logId: string) => Promise<void>;
 
@@ -113,6 +121,57 @@ export const useMedicationLogsStore = create<MedicationLogsStore>((set, get) => 
       return data;
     } catch (error) {
       console.error('[MedicationLogsStore] Mark as taken error:', error);
+      throw error;
+    }
+  },
+
+  markAsSkipped: async (userId, medicationId, scheduledDate, scheduledTime) => {
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+      }
+
+      const now = new Date().toISOString();
+
+      // Upsert: create if doesn't exist, update if exists
+      const { data, error } = await supabase
+        .from('medication_logs')
+        .upsert({
+          medication_id: medicationId,
+          user_id: userId,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          taken_at: null, // Not taken
+          status: 'skipped' as MedicationStatus,
+          updated_at: now,
+        }, {
+          onConflict: 'medication_id,scheduled_date,scheduled_time',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      const logs = get().logs;
+      const existingIndex = logs.findIndex(
+        log => log.medication_id === medicationId &&
+               log.scheduled_date === scheduledDate &&
+               log.scheduled_time === scheduledTime
+      );
+
+      if (existingIndex >= 0) {
+        logs[existingIndex] = data;
+      } else {
+        logs.push(data);
+      }
+
+      set({ logs: [...logs] });
+
+      console.log('[MedicationLogsStore] Medication marked as skipped:', medicationId);
+      return data;
+    } catch (error) {
+      console.error('[MedicationLogsStore] Mark as skipped error:', error);
       throw error;
     }
   },

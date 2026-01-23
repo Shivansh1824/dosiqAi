@@ -13,12 +13,18 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  Modal,
+  Animated,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import notifee from '@notifee/react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { cancelReminder, snoozeReminder, MedicineReminderData } from '../services/notificationService';
 import SponsoredSpace from '../components/notification/SponsoredSpace';
+import { useMedicationLogsStore } from '../store/medicationLogsStore';
+import { useAuthStore } from '../store/authStore';
+import { toLocalDateString } from '../utils/dateUtils';
+import { Colors } from '../constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,29 +42,80 @@ interface Props {
   };
 }
 
-export default function MedicineAlarmScreen({ notification, route }: any) {
+export default function MedicineAlarmScreen({ notification, route, navigation }: any) {
   console.log('='.repeat(60));
   console.log('[MedicineAlarmScreen] 🚨 COMPONENT RENDERING');
-  console.log('[MedicineAlarmScreen] notification prop:', JSON.stringify(notification));
-  console.log('[MedicineAlarmScreen] route prop:', JSON.stringify(route));
-  console.log('='.repeat(60));
   
+  // Detailed logging of incoming props
+  try {
+    if (notification) {
+      console.log('[MedicineAlarmScreen] notification prop keys:', Object.keys(notification));
+      console.log('[MedicineAlarmScreen] notification.data:', JSON.stringify(notification.data));
+    } else {
+      console.log('[MedicineAlarmScreen] notification prop is undefined');
+    }
+    
+    if (route) {
+      console.log('[MedicineAlarmScreen] route prop keys:', Object.keys(route));
+      console.log('[MedicineAlarmScreen] route.params:', JSON.stringify(route.params));
+    } else {
+      console.log('[MedicineAlarmScreen] route prop is undefined');
+    }
+  } catch (err) {
+    console.error('[MedicineAlarmScreen] Error logging props:', err);
+  }
+
   const [isActionTaken, setIsActionTaken] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
+  const slideAnim = useState(new Animated.Value(300))[0];
   
-  // Extract medication data from notification or use fallbacks for preview
-  // Priority: 
-  // 1. Notifee notification prop (Full Screen Intent)
-  // 2. React Navigation route params (Deep Link / Manual Navigation)
-  const medicationData: NotificationData = notification?.data || route?.params || {
-    medicationName: 'Metformin',
-    dosage: '500mg',
-    scheduleId: '',
-    medicationId: '',
-    instructions: 'Take with food'
+  // Store hooks for database updates
+  const { user } = useAuthStore();
+  const { markAsTaken, markAsSkipped } = useMedicationLogsStore();
+  
+  console.log('[MedicineAlarmScreen] Auth User ID:', user?.id || 'UNDEFINED');
+  
+  // Snooze options
+  const snoozeOptions = [
+    { label: '5 minutes', value: 5 },
+    { label: '10 minutes', value: 10 },
+    { label: '15 minutes', value: 15 },
+    { label: '30 minutes', value: 30 },
+  ];
+  
+  // Helper to safely extract data
+  const resolveMedicationData = (): NotificationData => {
+    // 1. Try notification data
+    if (notification?.data) {
+      console.log('[MedicineAlarmScreen] Using notification.data');
+      return notification.data;
+    }
+    
+    // 2. Try route params
+    if (route?.params) {
+      console.log('[MedicineAlarmScreen] Using route.params');
+      return route.params;
+    }
+    
+    // 3. Fallback
+    console.log('[MedicineAlarmScreen] Using default fallback data');
+    return {
+      medicationName: 'Metformin',
+      dosage: '500mg',
+      scheduleId: '',
+      medicationId: '',
+      instructions: 'Take with food'
+    };
   };
+
+  const medicationData = resolveMedicationData();
   
-  console.log('[MedicineAlarmScreen] Resolved medicationData:', JSON.stringify(medicationData));
+  // Extract scheduled time for logging
+  const scheduledDate = toLocalDateString(new Date());
+  const scheduledTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  
+  console.log('[MedicineAlarmScreen] Final Resolved medicationData:', JSON.stringify(medicationData));
   
   // Update time every second
   useEffect(() => {
@@ -77,20 +134,60 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
     return () => Vibration.cancel();
   }, []);
   
+  // Open snooze modal with animation
+  const openSnoozeModal = () => {
+    setShowSnoozeModal(true);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+  };
+
+  // Close snooze modal with animation
+  const closeSnoozeModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setShowSnoozeModal(false));
+  };
+
   const handleTaken = async () => {
     if (isActionTaken) return;
     setIsActionTaken(true);
     Vibration.cancel();
     
-    console.log('[MedicineAlarm] Marking as taken:', medicationData.medicationName);
+    // Fallback name if undefined
+    const name = medicationData.medicationName || 'your medication';
+    console.log('[MedicineAlarm] Marking as taken:', name);
+    
+    // Update medication_logs table
+    if (user?.id && medicationData.medicationId) {
+      try {
+        await markAsTaken(
+          user.id,
+          medicationData.medicationId,
+          scheduledDate,
+          scheduledTime
+        );
+        console.log('[MedicineAlarm] ✅ Database updated with taken status');
+      } catch (error) {
+        console.error('[MedicineAlarm] Failed to update database:', error);
+      }
+    } else {
+      console.warn('[MedicineAlarm] ⚠️ Cannot update database - Missing User ID or Medication ID');
+    }
     
     if (medicationData.scheduleId) {
       await cancelReminder(medicationData.scheduleId);
     }
     
+    // Show confirmation toast/notification then CLOSE
     await notifee.displayNotification({
       title: '✓ Medication Taken',
-      body: `Great job! You took ${medicationData.medicationName}`,
+      body: `Great job! You took ${name}`,
       android: {
         channelId: 'medication-reminders',
         autoCancel: true,
@@ -99,15 +196,27 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
         lightUpScreen: true,
       },
     });
+
+    // Close the alarm screen
+    if (navigation?.canGoBack()) {
+      navigation.goBack();
+    } else {
+      // If we can't go back, maybe navigation reset or go Home?
+      // Assuming this screen might be opened on top of everything
+      console.log('[MedicineAlarm] Navigating back/home');
+      navigation.navigate('Home');
+    }
   };
   
-  const handleSnooze = async () => {
+  const handleSnoozeSelect = async (minutes: number) => {
     if (isActionTaken) return;
     setIsActionTaken(true);
+    closeSnoozeModal();
     Vibration.cancel();
     
-    console.log('[MedicineAlarm] Snoozing:', medicationData.medicationName);
+    console.log('[MedicineAlarm] Snoozing for', minutes, 'minutes:', medicationData.medicationName);
     
+    // Snooze does NOT update the database - only reschedules the alarm
     if (medicationData.scheduleId) {
       const reminderData: MedicineReminderData = {
         medicationId: medicationData.medicationId || '',
@@ -118,12 +227,12 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
         scheduledTime: new Date(),
       };
       
-      await snoozeReminder(medicationData.scheduleId, reminderData, 10);
+      await snoozeReminder(medicationData.scheduleId, reminderData, minutes);
     }
     
     await notifee.displayNotification({
       title: '⏰ Snoozed',
-      body: `Reminder for ${medicationData.medicationName} in 10 minutes`,
+      body: `Reminder for ${medicationData.medicationName} in ${minutes} minutes`,
       android: {
         channelId: 'medication-reminders',
         autoCancel: true,
@@ -132,6 +241,13 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
         lightUpScreen: true,
       },
     });
+
+    // Close the alarm screen
+    if (navigation?.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Home');
+    }
   };
   
   const handleSkip = async () => {
@@ -139,10 +255,36 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
     setIsActionTaken(true);
     Vibration.cancel();
     
-    console.log('[MedicineAlarm] Skipping:', medicationData.medicationName);
+    // Fallback name if undefined
+    const name = medicationData.medicationName || 'your medication';
+    console.log('[MedicineAlarm] Skipping:', name);
+    
+    // Update medication_logs table with skipped status
+    if (user?.id && medicationData.medicationId) {
+      try {
+        await markAsSkipped(
+          user.id,
+          medicationData.medicationId,
+          scheduledDate,
+          scheduledTime
+        );
+        console.log('[MedicineAlarm] ✅ Database updated with skipped status');
+      } catch (error) {
+        console.error('[MedicineAlarm] Failed to update database:', error);
+      }
+    } else {
+      console.warn('[MedicineAlarm] ⚠️ Cannot update database (Skip) - Missing User ID or Medication ID');
+    }
     
     if (medicationData.scheduleId) {
       await cancelReminder(medicationData.scheduleId);
+    }
+
+    // Close the alarm screen
+    if (navigation?.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Home');
     }
   };
   
@@ -211,7 +353,7 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
             <View style={styles.actionItem}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.snoozeButton]}
-                onPress={handleSnooze}
+                onPress={openSnoozeModal}
                 disabled={isActionTaken}
               >
                 <MaterialCommunityIcons name="clock-outline" size={28} color="#1E293B" />
@@ -243,6 +385,53 @@ export default function MedicineAlarmScreen({ notification, route }: any) {
           {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
       </View>
+      {/* Snooze Options Modal */}
+      <Modal
+        visible={showSnoozeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={closeSnoozeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1} 
+            onPress={closeSnoozeModal}
+          />
+          
+          <Animated.View 
+            style={[
+              styles.modalContent,
+              {
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Snooze for...</Text>
+              <TouchableOpacity onPress={closeSnoozeModal}>
+                <MaterialCommunityIcons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.optionsContainer}>
+              {snoozeOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={styles.optionButton}
+                  onPress={() => handleSnoozeSelect(option.value)}
+                >
+                  <View style={styles.optionIconContainer}>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.optionText}>{option.label}</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -391,5 +580,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#E0E7FF',
     marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  optionsContainer: {
+    gap: 12,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+  },
+  optionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    flex: 1,
   },
 });

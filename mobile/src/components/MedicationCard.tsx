@@ -16,6 +16,7 @@ export default function MedicationCard({ medication, onTake, onReschedule }: Med
     const navigation = useNavigation();
     const isTaken = medication.status === 'taken';
     const isMissed = medication.status === 'missed';
+    const isSkipped = medication.status === 'skipped';
     const isPending = medication.status === 'pending';
 
     const iconName = getMedicineTypeIcon(medication.type);
@@ -114,18 +115,16 @@ export default function MedicationCard({ medication, onTake, onReschedule }: Med
                 </View>
             </View>
 
-            {/* Right: Take Button / Checkmark */}
+            {/* Right: Take Button / Status Indicator */}
             <View style={styles.actionButtonContainer}>
                 {isTaken ? (
                     <View style={styles.statusContainer}>
-                        <Animated.View style={[styles.checkmarkCircle, animatedStyle]}>
-                            <Feather name="check" size={20} color={Colors.white} />
-                        </Animated.View>
-                        {medication.taken_at && (
-                            <Text style={styles.takenAtText}>
-                                {new Date(medication.taken_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </Text>
-                        )}
+                        <Feather name="check-circle" size={32} color={Colors.success} />
+                    </View>
+                ) : isSkipped ? (
+                    <View style={styles.skippedBanner}>
+                        <Feather name="x" size={14} color={Colors.textSecondary} />
+                        <Text style={styles.skippedText}>Skipped</Text>
                     </View>
                 ) : (
                     <TouchableOpacity
@@ -156,8 +155,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     containerTaken: {
-        opacity: 0.8,
-        backgroundColor: '#F9FAFB',
+        opacity: 0.9,
+        backgroundColor: '#FFFFFF',
     },
     containerMissed: {
         borderLeftWidth: 4,
@@ -252,13 +251,13 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     actionButtonContainer: {
-        marginLeft: 10,
-        width: 65,
-        alignItems: 'center',
+        marginLeft: 8,
+        minWidth: 80, // Allow expansion
+        alignItems: 'flex-end',
     },
     takeButton: {
         backgroundColor: Colors.primary,
-        width: '100%',
+        width: 70, 
         height: 38,
         borderRadius: 19,
         justifyContent: 'center',
@@ -275,19 +274,25 @@ const styles = StyleSheet.create({
     },
     statusContainer: {
         alignItems: 'center',
-    },
-    checkmarkCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.success,
         justifyContent: 'center',
-        alignItems: 'center',
+        width: 40,
+        height: 40,
     },
-    takenAtText: {
-        fontSize: 9,
+    // Skipped Banner Styles
+    skippedBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: Colors.gray100,
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
+    },
+    skippedText: {
+        fontSize: 12,
         fontWeight: '600',
         color: Colors.textSecondary,
-        marginTop: 4,
     },
 });

@@ -35,9 +35,10 @@ console.log('[DEBUG] [App.tsx] supabaseClient imported successfully');
 
 // Notification services
 import { initializeNotifications } from './src/services/notificationService';
-import { setupForegroundEventHandler } from './src/services/notificationEventHandler';
+import { setupForegroundEventHandler, setLogMedicationCallback } from './src/services/notificationEventHandler';
 
 import { logError } from './src/utils/debugLogger';
+import { toLocalDateString } from './src/utils/dateUtils';
 
 // Global error handler
 if ((global as any).ErrorUtils) {
@@ -73,6 +74,7 @@ import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
 import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
+import { useMedicationLogsStore } from './src/store/medicationLogsStore';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
 import { Document } from './src/types/document';
 
@@ -178,7 +180,10 @@ export default function App() {
       const initialNotification = await notifee.getInitialNotification();
       if (initialNotification?.pressAction?.id === 'default') {
         console.log('[App] App opened via notification (Deep Linking)');
-        return Linking.createURL('medicine-alarm');
+        const data = initialNotification.notification.data || {};
+        // Serialize data to query string
+        const queryString = new URLSearchParams(data as any).toString();
+        return Linking.createURL(`medicine-alarm?${queryString}`);
       }
 
       return null;
@@ -194,7 +199,10 @@ export default function App() {
       const notifeeSub = notifee.onForegroundEvent(({ type, detail }) => {
         if (type === EventType.PRESS && detail.pressAction?.id === 'default') {
           console.log('[App] Notification clicked (Foreground Deep Link)');
-          listener(Linking.createURL('medicine-alarm'));
+          const data = detail.notification?.data || {};
+          // Serialize data to query string
+          const queryString = new URLSearchParams(data as any).toString();
+          listener(Linking.createURL(`medicine-alarm?${queryString}`));
         }
       });
 
@@ -232,6 +240,49 @@ export default function App() {
     // Set up foreground event handler (for logging and side effects)
     const unsubscribe = setupForegroundEventHandler();
     console.log('[DEBUG] [App] Foreground notification handler set up');
+    
+    // Register log medication callback for notification service
+    setLogMedicationCallback(async (entry) => {
+      console.log('[App] 💊 Log medication callback received:', entry);
+      const userId = useAuthStore.getState().user?.id;
+      
+      if (!userId) {
+        console.warn('[App] Cannot log medication: User not logged in');
+        return;
+      }
+
+      try {
+        // Parse date and time from the entry
+        // notifications send ISO string for scheduled_time
+        const dateObj = new Date(entry.scheduled_time);
+        const dateStr = toLocalDateString(dateObj);
+        const timeStr = dateObj.toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: false 
+        });
+
+        if (entry.status === 'taken') {
+          await useMedicationLogsStore.getState().markAsTaken(
+            userId, 
+            entry.medication_id, 
+            dateStr, 
+            timeStr
+          );
+          console.log('[App] ✅ Marked as taken via notification');
+        } else if (entry.status === 'skipped') {
+          await useMedicationLogsStore.getState().markAsSkipped(
+            userId, 
+            entry.medication_id, 
+            dateStr, 
+            timeStr
+          );
+          console.log('[App] ⏭️ Marked as skipped via notification');
+        }
+      } catch (error) {
+        console.error('[App] Failed to log medication action:', error);
+      }
+    });
     
     // Register navigation callback for notification service
     const { setNavigationCallback } = require('./src/services/notificationEventHandler');
