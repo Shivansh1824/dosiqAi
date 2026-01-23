@@ -93,61 +93,62 @@ async function handleNotificationEvent(type: EventType, detail: any) {
   const medicationData = notification.data || {};
   const actionId = pressAction?.id || 'default';
   
-  console.log('[Notifications] Handling action:', actionId, 'for medication:', medicationData.medicationName || 'Unknown');
+  console.log('[DEBUG] [NotificationHandler] Action Received:', actionId);
+  console.log('[DEBUG] [NotificationHandler] Medication Name:', medicationData.medicationName || 'Unknown');
+  console.log('[DEBUG] [NotificationHandler] Notification ID:', notification?.id);
+  console.log('[DEBUG] [NotificationHandler] Schedule ID:', medicationData.scheduleId);
   
-  // Clean up the notification immediately to give "removed" feedback
-  if (notification?.id) {
-    // We'll trust the individual handlers to re-schedule if needed (like snooze)
-    // but we want to ensure the visual notification is gone.
-    // For 'snooze', we need to be careful not to cancel the *new* one if it happens too fast, 
-    // but usually actionable notifications are distinct.
-    if (actionId !== 'snooze') {
-        await cancelReminder(notification.id);
+  // Consolidate cancellation logic: 
+  // We cancel the reminder ONCE for actionable items (taken, skip, snooze)
+  // to remove the triggering notification.
+  if (actionId !== 'default') {
+    const idToCancel = notification?.id || medicationData.scheduleId;
+    if (idToCancel) {
+      console.log('[DEBUG] [NotificationHandler] One-time cancellation for:', idToCancel);
+      await cancelReminder(idToCancel);
     }
   }
 
   switch (actionId) {
     case 'taken':
-      await handleTakenAction(medicationData, notification?.id);
+      console.log('[DEBUG] [NotificationHandler] Routing to handleTakenAction');
+      await handleTakenAction(medicationData);
       break;
       
     case 'snooze':
-      // Banner action: Default 10 min snooze
-      await handleSnoozeAction(medicationData, notification?.id);
+      console.log('[DEBUG] [NotificationHandler] Routing to handleSnoozeAction');
+      await handleSnoozeAction(medicationData);
       break;
       
     case 'skip':
-      await handleSkipAction(medicationData, notification?.id);
+      console.log('[DEBUG] [NotificationHandler] Routing to handleSkipAction');
+      await handleSkipAction(medicationData);
       break;
       
     case 'default':
       // User just tapped the notification - open app
-      console.log('[Notifications] Notification tapped, opening app');
+      console.log('[DEBUG] [NotificationHandler] User tapped notification (default press)');
       
       // Navigate to MedicineAlarmScreen if we have data
       if (navigationCallback) {
-        console.log('[Notifications] Triggering navigation callback to MedicineAlarm');
+        console.log('[DEBUG] [NotificationHandler] Triggering navigation callback to MedicineAlarm');
         navigationCallback('MedicineAlarm', medicationData);
       } else {
-        console.log('[Notifications] No navigation callback registered');
+        console.log('[DEBUG] [NotificationHandler] No navigation callback registered');
       }
       break;
-  }
-  
-  // Double check cancellation using scheduleId just in case notification.id was different
-  if (actionId !== 'snooze' && actionId !== 'default' && medicationData.scheduleId) {
-     await cancelReminder(medicationData.scheduleId);
   }
 }
 
 /**
  * Handle "Taken" action
  */
-async function handleTakenAction(data: any, notificationId?: string) {
-  console.log('[Notifications] Medication marked as taken:', data.medicationName);
+async function handleTakenAction(data: any) {
+  console.log('[DEBUG] [NotificationHandler] Executing handleTakenAction for:', data.medicationName);
   
   if (logMedicationCallback) {
     try {
+      console.log('[DEBUG] [NotificationHandler] Logging to store...');
       await logMedicationCallback({
         medication_id: data.medicationId,
         schedule_id: data.scheduleId,
@@ -155,37 +156,38 @@ async function handleTakenAction(data: any, notificationId?: string) {
         scheduled_time: data.scheduledTime || new Date().toISOString(),
         action_time: new Date().toISOString(),
       });
+      console.log('[DEBUG] [NotificationHandler] Store logged successfully');
     } catch (error) {
-      console.error('[Notifications] Error logging taken action:', error);
+      console.error('[DEBUG] [NotificationHandler] Error logging taken action:', error);
     }
-  }
-  
-  // If we have a specific notification ID, cancel it explicitly
-  if (notificationId) {
-      await cancelReminder(notificationId);
   }
 
   // Show confirmation notification
+  const confirmationId = `confirmed-taken-${data.scheduleId || Date.now()}`;
+  console.log('[DEBUG] [NotificationHandler] Displaying confirmation notification:', confirmationId);
+  
   await notifee.displayNotification({
+    id: confirmationId,
     title: '✓ Medication Taken',
     body: `Great job! You took ${data.medicationName}`,
     android: {
       channelId: 'medication-reminders',
       autoCancel: true,
-      timeoutAfter: 5000, // Auto-dismiss after 5 seconds
+      // timeoutAfter removed to ensure persistence until manual dismissal
       pressAction: { id: 'default' },
     },
     ios: {
       sound: 'default',
     },
   });
+  console.log('[DEBUG] [NotificationHandler] handleTakenAction complete');
 }
 
 /**
  * Handle "Snooze" action (Default 10 mins for Banner)
  */
-async function handleSnoozeAction(data: any, notificationId?: string) {
-  console.log('[Notifications] Medication snoozed:', data.medicationName);
+async function handleSnoozeAction(data: any) {
+  console.log('[DEBUG] [NotificationHandler] Executing handleSnoozeAction for:', data.medicationName);
   
   const reminderData: MedicineReminderData = {
     medicationId: data.medicationId,
@@ -196,43 +198,45 @@ async function handleSnoozeAction(data: any, notificationId?: string) {
     scheduledTime: new Date(), // This will be overwritten by snoozeReminder
   };
   
-  // Explicitly cancel the old notification first to ensure it's "removed"
-  if (notificationId) {
-      await cancelReminder(notificationId);
-  }
-  
+  console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...');
   const snoozedId = await snoozeReminder(
     data.scheduleId,
     reminderData,
     10 // Snooze for 10 minutes (Default for banner action)
   );
   
-  console.log('[Notifications] Snoozed reminder ID:', snoozedId);
+  console.log('[DEBUG] [NotificationHandler] Snoozed reminder ID:', snoozedId);
   
   // Show snooze confirmation
+  const confirmationId = `confirmed-snooze-${data.scheduleId || Date.now()}`;
+  console.log('[DEBUG] [NotificationHandler] Displaying confirmation notification:', confirmationId);
+
   await notifee.displayNotification({
+    id: confirmationId,
     title: '⏰ Snoozed',
     body: `Reminder for ${data.medicationName} in 10 minutes`,
     android: {
       channelId: 'medication-reminders',
       autoCancel: true,
-      timeoutAfter: 3000,
+      // timeoutAfter removed for persistence
       pressAction: { id: 'default' },
     },
     ios: {
       sound: 'default',
     },
   });
+  console.log('[DEBUG] [NotificationHandler] handleSnoozeAction complete');
 }
 
 /**
  * Handle "Skip" action
  */
-async function handleSkipAction(data: any, notificationId?: string) {
-  console.log('[Notifications] Medication skipped:', data.medicationName);
+async function handleSkipAction(data: any) {
+  console.log('[DEBUG] [NotificationHandler] Executing handleSkipAction for:', data.medicationName);
   
   if (logMedicationCallback) {
     try {
+      console.log('[DEBUG] [NotificationHandler] Logging skip to store...');
       await logMedicationCallback({
         medication_id: data.medicationId,
         schedule_id: data.scheduleId,
@@ -240,12 +244,10 @@ async function handleSkipAction(data: any, notificationId?: string) {
         scheduled_time: data.scheduledTime || new Date().toISOString(),
         action_time: new Date().toISOString(),
       });
+      console.log('[DEBUG] [NotificationHandler] Skip logged successfully');
     } catch (error) {
-      console.error('[Notifications] Error logging skip action:', error);
+      console.error('[DEBUG] [NotificationHandler] Error logging skip action:', error);
     }
   }
-  
-  if (notificationId) {
-      await cancelReminder(notificationId);
-  }
+  console.log('[DEBUG] [NotificationHandler] handleSkipAction complete');
 }

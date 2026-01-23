@@ -185,17 +185,22 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
     }
     
     // Show confirmation toast/notification then CLOSE
+    const confirmationId = `confirmed-taken-${medicationData.scheduleId || Date.now()}`;
+    console.log('[DEBUG] [MedicineAlarm] Displaying confirmation notification:', confirmationId);
+
     await notifee.displayNotification({
+      id: confirmationId,
       title: '✓ Medication Taken',
       body: `Great job! You took ${name}`,
       android: {
         channelId: 'medication-reminders',
         autoCancel: true,
-        timeoutAfter: 5000,
+        // timeoutAfter removed for persistence
         pressAction: { id: 'default' },
         lightUpScreen: true,
       },
     });
+    console.log('[DEBUG] [MedicineAlarm] handleTaken complete');
 
     // Close the alarm screen
     if (navigation?.canGoBack()) {
@@ -230,17 +235,22 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
       await snoozeReminder(medicationData.scheduleId, reminderData, minutes);
     }
     
+    const confirmationId = `confirmed-snooze-${medicationData.scheduleId || Date.now()}`;
+    console.log('[DEBUG] [MedicineAlarm] Displaying snooze confirmation:', confirmationId);
+
     await notifee.displayNotification({
+      id: confirmationId,
       title: '⏰ Snoozed',
       body: `Reminder for ${medicationData.medicationName} in ${minutes} minutes`,
       android: {
         channelId: 'medication-reminders',
         autoCancel: true,
-        timeoutAfter: 3000,
+        // timeoutAfter removed for persistence
         pressAction: { id: 'default' },
         lightUpScreen: true,
       },
     });
+    console.log('[DEBUG] [MedicineAlarm] handleSnoozeSelect complete');
 
     // Close the alarm screen
     if (navigation?.canGoBack()) {
