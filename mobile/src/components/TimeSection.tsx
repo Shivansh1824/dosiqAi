@@ -9,9 +9,10 @@ interface TimeSectionProps {
     category: TimeOfDayCategory;
     medications: MedicationWithStatus[];
     onTakeMedication: (medicationId: string, scheduledTime: string) => void;
+    onReschedule?: (medication: MedicationWithStatus) => void;
 }
 
-export default function TimeSection({ category, medications, onTakeMedication }: TimeSectionProps) {
+export default function TimeSection({ category, medications, onTakeMedication, onReschedule }: TimeSectionProps) {
     const title = getTimeOfDayText(category);
     const iconName = getTimeOfDayIcon(category);
 
@@ -22,6 +23,8 @@ export default function TimeSection({ category, medications, onTakeMedication }:
                 return '#F59E0B'; // Warm orange for sunrise
             case 'afternoon':
                 return '#EF4444'; // Red for bright sun
+            case 'evening':
+                return '#F97316'; // Sunset orange
             case 'night':
                 return '#3B82F6'; // Blue for night
         }
@@ -55,6 +58,7 @@ export default function TimeSection({ category, medications, onTakeMedication }:
                             key={`${med.id}-${med.scheduled_time}`}
                             medication={med}
                             onTake={onTakeMedication}
+                            onReschedule={onReschedule}
                         />
                     ))}
                 </View>

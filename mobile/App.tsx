@@ -6,7 +6,8 @@ console.log('[DEBUG] [App.tsx] react-native-gesture-handler imported');
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import notifee, { EventType } from '@notifee/react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
@@ -69,6 +70,7 @@ import ProfileSwitcherModal from './src/components/ProfileSwitcherModal';
 import PdfViewerScreen from './src/screens/PdfViewerScreen';
 import LabReportDetailScreen from './src/screens/LabReportDetailScreen';
 import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
+import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
@@ -97,6 +99,7 @@ export type RootStackParamList = {
   PdfViewer: { uri: string; title: string };
   LabReportDetail: { labReportId: string };
   LabMetricTrend: { testResultId: string; familyMemberId: string; testCode: string; testName: string };
+  MedicineAlarm: { medicationId?: string; medicationName?: string; dosage?: string; scheduleId?: string; instructions?: string; } | undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -108,6 +111,8 @@ export default function App() {
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  
   console.log('[DEBUG] [App] State initialized - showProfileModal:', showProfileModal, 'isNavigationReady:', isNavigationReady);
 
   const [fontsLoaded] = useFonts({
@@ -163,22 +168,59 @@ export default function App() {
 
   const linking = {
     prefixes: [prefix, 'familyhealth://'],
+    // Custom getInitialURL to handle Notifee initial notification
+    getInitialURL: async () => {
+      // Check if opened via deep link
+      const url = await Linking.getInitialURL();
+      if (url) return url;
+
+      // Check if opened via notification
+      const initialNotification = await notifee.getInitialNotification();
+      if (initialNotification?.pressAction?.id === 'default') {
+        console.log('[App] App opened via notification (Deep Linking)');
+        return Linking.createURL('medicine-alarm');
+      }
+
+      return null;
+    },
+
+    // Subscribe to Notifee foreground events for deep linking
+    subscribe: (listener: (url: string) => void) => {
+      // Listen for deep links
+      const onUrl = ({ url }: { url: string }) => listener(url);
+      const linkingSub = Linking.addEventListener('url', onUrl);
+
+      // Listen for Notifee foreground events
+      const notifeeSub = notifee.onForegroundEvent(({ type, detail }) => {
+        if (type === EventType.PRESS && detail.pressAction?.id === 'default') {
+          console.log('[App] Notification clicked (Foreground Deep Link)');
+          listener(Linking.createURL('medicine-alarm'));
+        }
+      });
+
+      return () => {
+        linkingSub.remove();
+        notifeeSub();
+      };
+    },
+    
     config: {
       screens: {
         Login: 'auth/callback',
         Welcome: 'welcome',
         Home: 'home',
+        MedicineAlarm: 'medicine-alarm',
       },
     },
   };
 
-  // Hide splash screen when app is ready
+  // Hide splash screen when app is ready and navigation is settled
   useEffect(() => {
-    if (isAppReady) {
-      console.log('[DEBUG] [App] App ready, hiding splash screen');
+    if (isAppReady && isNavigationReady) {
+      console.log('[DEBUG] [App] App and Navigation ready, hiding splash screen');
       SplashScreen.hideAsync();
     }
-  }, [isAppReady]);
+  }, [isAppReady, isNavigationReady]);
 
   // Initialize notifications
   useEffect(() => {
@@ -187,10 +229,49 @@ export default function App() {
       console.log('[DEBUG] [App] Notification initialization:', success ? 'success' : 'failed');
     });
     
-    // Set up foreground event handler
+    // Set up foreground event handler (for logging and side effects)
     const unsubscribe = setupForegroundEventHandler();
     console.log('[DEBUG] [App] Foreground notification handler set up');
     
+    // Register navigation callback for notification service
+    const { setNavigationCallback } = require('./src/services/notificationEventHandler');
+    setNavigationCallback((screen: string, params: any) => {
+      console.log('='.repeat(60));
+      console.log('[App] 🚨 Navigation callback received');
+      console.log('[App] Screen:', screen);
+      console.log('[App] Params:', JSON.stringify(params));
+      console.log('[App] Navigation ready?:', navigationRef.isReady());
+      console.log('[App] Current state:', JSON.stringify(navigationRef.getCurrentRoute()));
+      console.log('='.repeat(60));
+      
+      if (navigationRef.isReady()) {
+        console.log('[App] Attempting navigation to', screen);
+        try {
+          // @ts-ignore - Dynamic navigation
+          navigationRef.navigate(screen, params);
+          console.log('[App] Navigation.navigate() called successfully');
+        } catch (error) {
+          console.error('[App] Navigation error:', error);
+        }
+      } else {
+        console.log('[App] Navigation not ready, retrying in 500ms');
+        setTimeout(() => {
+          if (navigationRef.isReady()) {
+            console.log('[App] Retry: attempting navigation to', screen);
+            try {
+              // @ts-ignore
+              navigationRef.navigate(screen, params);
+              console.log('[App] Retry: Navigation.navigate() called successfully');
+            } catch (error) {
+              console.error('[App] Retry: Navigation error:', error);
+            }
+          } else {
+            console.log('[App] Retry: Navigation still not ready!');
+          }
+        }, 500);
+      }
+    });
+
     return () => {
       unsubscribe();
     };
@@ -207,6 +288,7 @@ export default function App() {
       <ErrorBoundary>
         <SafeAreaProvider>
           <NavigationContainer
+            ref={navigationRef}
             linking={linking}
             onReady={() => {
               console.log('[DEBUG] [App] NavigationContainer onReady callback fired');
@@ -258,6 +340,7 @@ export default function App() {
                             else if (screen === 'medicationList') navigation.navigate('MedicationList');
                             else if (screen === 'health') navigation.navigate('Health');
                             else if (screen === 'profile') navigation.navigate('Profile');
+                            else if (screen === 'medicineAlarm') navigation.navigate('MedicineAlarm');
                           }}
                           onProfileSwitch={() => setShowProfileModal(true)}
                         />
@@ -278,11 +361,11 @@ export default function App() {
                     </Stack.Screen>
                     <Stack.Screen name="PrescriptionSummary">
                       {({ navigation, route }) => {
-                        const params = route.params as unknown as { document: any } | undefined;
-                        const document = params?.document;
+                        const params = route.params as unknown as { document?: Document; documentId?: string };
                         return (
                           <PrescriptionSummaryScreen
-                            document={document}
+                            document={params?.document}
+                            documentId={params?.documentId}
                             navigation={navigation}
                             onBack={() => {
                               if (navigation.canGoBack()) {
@@ -339,6 +422,16 @@ export default function App() {
                         headerShown: false,
                         gestureEnabled: true,
                         gestureDirection: 'horizontal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="MedicineAlarm"
+                      component={MedicineAlarmScreen}
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                        cardStyle: { backgroundColor: 'transparent' },
                       }}
                     />
                   </Stack.Navigator>

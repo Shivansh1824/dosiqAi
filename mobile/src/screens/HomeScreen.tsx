@@ -577,7 +577,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                     <TouchableOpacity
                       key={doc.id}
                       style={[styles.documentCardNew, { borderLeftColor: colorScheme.borderColor }]}
-                      onPress={() => onNavigate('document', { document: doc })}
+                      onPress={() => onNavigate('document', { documentId: doc.id })}
                       activeOpacity={0.85}
                     >
                       <View style={styles.documentCardContent}>
@@ -611,6 +611,29 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                 })}
               </View>
             )}
+          </View>
+
+          {/* Preview Section - Temporary */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Preview</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.documentCardNew, { backgroundColor: '#FEF3C7', borderLeftWidth: 4, borderLeftColor: '#F59E0B' }]}
+              onPress={() => onNavigate('medicineAlarm')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.documentCardContent}>
+                <View style={[styles.documentIconNew, { backgroundColor: '#FDE68A' }]}>
+                  <Feather name="bell" size={22} color="#D97706" />
+                </View>
+                <View style={styles.documentInfoNew}>
+                  <Text style={styles.documentTitleNew}>View Alarm Screen</Text>
+                  <Text style={styles.documentDateNew}>Preview full-screen notification UI</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color="#D97706" />
+              </View>
+            </TouchableOpacity>
           </View>
 
           <View style={{ height: 120 }} />

@@ -102,12 +102,53 @@ export async function initializeNotifications(): Promise<boolean> {
 }
 
 /**
+ * Check if full-screen notifications are allowed (Android 14+)
+ * On Android 14+, the USE_FULL_SCREEN_INTENT permission is not automatically granted
+ */
+export async function checkFullScreenIntentPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  
+  try {
+    const settings = await notifee.getNotificationSettings();
+    // Check if full-screen intents are allowed
+    // @ts-ignore - canDisplayFullScreenIntent may not be in older type definitions
+    return settings.android?.canDisplayFullScreenIntent !== false;
+  } catch (error) {
+    console.error('[Notifications] Error checking full-screen intent permission:', error);
+    return false;
+  }
+}
+
+/**
+ * Request full-screen intent permission (opens system settings on Android 14+)
+ */
+export async function requestFullScreenIntentPermission(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  
+  try {
+    // @ts-ignore - openFullScreenIntentSettings may not be in older type definitions
+    await notifee.openFullScreenIntentSettings();
+  } catch (error) {
+    console.error('[Notifications] Error opening full-screen intent settings:', error);
+  }
+}
+
+/**
  * Schedule a medicine reminder notification
  */
 export async function scheduleMedicineReminder(
   reminder: MedicineReminderData
 ): Promise<string | null> {
   try {
+    console.log('='.repeat(60));
+    console.log('[Notifications] 📋 SCHEDULING MEDICATION REMINDER');
+    console.log('[Notifications] Medication:', reminder.medicationName);
+    console.log('[Notifications] Dosage:', reminder.dosage);
+    console.log('[Notifications] Schedule ID:', reminder.scheduleId);
+    console.log('[Notifications] Scheduled Time:', reminder.scheduledTime.toLocaleString());
+    console.log('[Notifications] Instructions:', reminder.instructions || 'None');
+    console.log('='.repeat(60));
+
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: reminder.scheduledTime.getTime(),
@@ -115,6 +156,8 @@ export async function scheduleMedicineReminder(
         allowWhileIdle: true, // Fire even in Doze mode
       },
     };
+
+    console.log('[Notifications] ⏰ Trigger Config:', JSON.stringify(trigger, null, 2));
 
     const notificationId = await notifee.createTriggerNotification(
       {
@@ -136,6 +179,7 @@ export async function scheduleMedicineReminder(
           category: AndroidCategory.ALARM,
           importance: AndroidImportance.HIGH,
           visibility: AndroidVisibility.PUBLIC,
+          lightUpScreen: true, // Wake screen for full-screen alarm
           pressAction: {
             id: 'default',
           },
@@ -241,15 +285,26 @@ export async function scheduleAllRemindersForMedication(
 
 /**
  * Display immediate notification (for testing)
+ * @param medicationName Name of medication
+ * @param dosage Dosage string
+ * @param mode 'alarm' for full-screen UI (Android), 'banner' for standard notification
  */
 export async function displayTestNotification(
   medicationName: string = 'Test Medication',
-  dosage: string = '500mg'
+  dosage: string = '500mg',
+  mode: 'alarm' | 'banner' = 'alarm',
+  delaySeconds: number = 0
 ): Promise<string | null> {
   try {
-    const notificationId = await notifee.displayNotification({
-      id: `test-${Date.now()}`,
-      title: '💊 Medication Reminder',
+    const isAlarmMode = mode === 'alarm';
+    const trigger: TimestampTrigger | undefined = delaySeconds > 0 ? {
+      type: TriggerType.TIMESTAMP,
+      timestamp: Date.now() + (delaySeconds * 1000),
+    } : undefined;
+
+    const notificationConfig: any = {
+      id: `test-${mode}-${Date.now()}`,
+      title: isAlarmMode ? '💊 Medication Alarm' : '📱 New Prescription',
       body: `Time to take ${medicationName} ${dosage}`,
       data: {
         medicationId: 'test-id',
@@ -265,15 +320,19 @@ export async function displayTestNotification(
         category: AndroidCategory.ALARM,
         importance: AndroidImportance.HIGH,
         visibility: AndroidVisibility.PUBLIC,
+        lightUpScreen: isAlarmMode, // Wake screen only for alarm
         pressAction: {
           id: 'default',
+          launchActivity: 'default',
         },
         
-        // Full-screen alarm UI
-        fullScreenAction: {
-          id: 'default',
-          mainComponent: 'MedicineAlarmScreen',
-        },
+        // Full-screen alarm UI - only if mode is alarm
+        ...(isAlarmMode ? {
+          fullScreenAction: {
+            id: 'default',
+            mainComponent: 'MedicineAlarmScreen',
+          },
+        } : {}),
         
         // Action buttons
         actions: [
@@ -291,8 +350,10 @@ export async function displayTestNotification(
           },
         ],
         
-        autoCancel: false,
-        ongoing: true,
+        autoCancel: !isAlarmMode, 
+        ongoing: isAlarmMode,
+        // Use foreground service for call-like behavior (recommended by Notifee for full-screen)
+        asForegroundService: isAlarmMode,
       },
       
       // iOS configuration
@@ -301,9 +362,17 @@ export async function displayTestNotification(
         interruptionLevel: 'timeSensitive',
         sound: 'default',
       },
-    });
+    };
 
-    console.log('[Notifications] Test notification displayed:', notificationId);
+    let notificationId;
+    if (trigger) {
+      notificationId = await notifee.createTriggerNotification(notificationConfig, trigger);
+      console.log(`[Notifications] Scheduled delayed ${mode} notification:`, notificationId);
+    } else {
+      notificationId = await notifee.displayNotification(notificationConfig);
+      console.log(`[Notifications] Displayed immediate ${mode} notification:`, notificationId);
+    }
+
     return notificationId;
   } catch (error) {
     console.error('[Notifications] Display error:', error);
@@ -349,6 +418,7 @@ export async function scheduleRepeatingReminder(
           category: AndroidCategory.ALARM,
           importance: AndroidImportance.HIGH,
           visibility: AndroidVisibility.PUBLIC,
+          lightUpScreen: true, // Wake screen for full-screen alarm
           pressAction: { id: 'default' },
           fullScreenAction: {
             id: 'default',

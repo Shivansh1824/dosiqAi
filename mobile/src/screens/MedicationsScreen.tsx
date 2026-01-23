@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/authStore';
 import { Medication, getFrequencyText } from '../types/medication';
 import { toLocalDateString, fromLocalDateString, getTodayLocal } from '../utils/dateUtils';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function MedicationsScreen() {
     const navigation = useNavigation();
@@ -25,6 +26,10 @@ export default function MedicationsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showCalendarModal, setShowCalendarModal] = useState(false);
+    
+    // Rescheduling state
+    const [reschedulingMed, setReschedulingMed] = useState<MedicationWithStatus | null>(null);
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
     // Fetch medications on mount
     useEffect(() => {
@@ -100,6 +105,7 @@ export default function MedicationsScreen() {
         const grouped = {
             morning: [] as MedicationWithStatus[],
             afternoon: [] as MedicationWithStatus[],
+            evening: [] as MedicationWithStatus[],
             night: [] as MedicationWithStatus[],
         };
 
@@ -211,9 +217,43 @@ export default function MedicationsScreen() {
             console.log('✅ Medication taken:', medicationId, 'at', scheduledTime);
         } catch (error) {
             console.error('Failed to mark medication as taken:', error);
-            // TODO: Show error toast to user
         }
     }, [user?.id, selectedDate, markAsTaken]);
+
+    // Handle rescheduling medication
+    const handleReschedule = useCallback((medication: MedicationWithStatus) => {
+        setReschedulingMed(medication);
+        setShowTimePicker(true);
+    }, []);
+
+    const onTimeChange = async (event: any, selectedTime?: Date) => {
+        setShowTimePicker(false);
+        
+        if (selectedTime && reschedulingMed && user?.id) {
+            const timeString = selectedTime.toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: false 
+            });
+
+            try {
+                // Update the medication's schedule in the store
+                const updatedTimes = reschedulingMed.times.map((t: string) => 
+                    t === reschedulingMed.scheduled_time ? timeString : t
+                );
+                
+                await useMedicationsStore.getState().updateMedication(reschedulingMed.id, {
+                    time_of_day: updatedTimes.sort()
+                });
+                
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (error) {
+                console.error('Failed to reschedule medication:', error);
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+        }
+        setReschedulingMed(null);
+    };
 
     // Handle refresh
     const onRefresh = useCallback(async () => {
@@ -235,9 +275,14 @@ export default function MedicationsScreen() {
 
     // Handle save medication
     const handleSaveMedication = async (medication: any) => {
-        console.log('Saving medication:', medication);
-        // TODO: Connect to addMedication from store
-        setShowAddModal(false);
+        try {
+            await useMedicationsStore.getState().addMedication(medication);
+            setShowAddModal(false);
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (error) {
+            console.error('Failed to add medication:', error);
+            alert('Failed to add medication. Please try again.');
+        }
     };
 
     return (
@@ -311,13 +356,21 @@ export default function MedicationsScreen() {
                     category="afternoon"
                     medications={medicationsByTime.afternoon}
                     onTakeMedication={handleTakeMedication}
+                    onReschedule={handleReschedule}
                 />
 
+                <TimeSection
+                    category="evening"
+                    medications={medicationsByTime.evening}
+                    onTakeMedication={handleTakeMedication}
+                    onReschedule={handleReschedule}
+                />
 
                 <TimeSection
                     category="night"
                     medications={medicationsByTime.night}
                     onTakeMedication={handleTakeMedication}
+                    onReschedule={handleReschedule}
                 />
 
                 {/* Extra padding for bottom */}
@@ -340,6 +393,22 @@ export default function MedicationsScreen() {
                 onDateSelect={setSelectedDate}
                 filterType="medication"
             />
+
+            {/* Time Picker for Rescheduling */}
+            {showTimePicker && (
+                <DateTimePicker
+                    value={(() => {
+                        const [hours, minutes] = (reschedulingMed?.scheduled_time || "08:00").split(':').map(Number);
+                        const d = new Date();
+                        d.setHours(hours, minutes, 0, 0);
+                        return d;
+                    })()}
+                    mode="time"
+                    is24Hour={true}
+                    display="default"
+                    onChange={onTimeChange}
+                />
+            )}
         </SafeAreaView>
     );
 }

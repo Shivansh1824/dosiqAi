@@ -1557,7 +1557,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           const innerMedicines = document.ai_analysis_result?.prescription_data?.medicines || [];
           const unverifiedMedsIdx = innerMedicines
             .map((medicine, index) => ({ medicine, index }))
-            .filter(({ index }) => !dismissedMedicationIds.has(`${document.id}_${index}`))
             .filter(({ medicine }) => {
               const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
               return !verifiedMedications.has(parsedMed.name);
@@ -1628,7 +1627,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                           }),
                         }}>
                           <Text style={{ fontSize: 13, fontWeight: '900', color: Colors.white }}>
-                            {innerMedicines.length - dismissedMedicationIds.size}
+                            {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}
                           </Text>
                         </View>
                       </View>
@@ -1673,6 +1672,8 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                               }));
                             }}
                             onDismiss={() => handleDismissMedication(index)}
+                            isDismissed={dismissedMedicationIds.has(`${document.id}_${index}`)}
+                            onRestore={() => handleRestoreMedication(index)}
                             isFirstItem={arrayIndex === 0}
                             isVerified={false}
                           />

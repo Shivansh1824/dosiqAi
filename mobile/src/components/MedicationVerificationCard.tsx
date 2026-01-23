@@ -39,6 +39,8 @@ interface MedicationVerificationCardProps {
   isFirstItem?: boolean;
   cardIndex?: number; // Index for alternating background colors
   isVerified?: boolean; // NEW: Whether medication is already added to tracker
+  isDismissed?: boolean; // NEW: Whether medication is dismissed/deleted
+  onRestore?: () => void; // NEW: Callback to restore dismissed medication
 }
 
 /**
@@ -58,6 +60,8 @@ export default function MedicationVerificationCard({
   isFirstItem = false,
   cardIndex = 0,
   isVerified = false,
+  isDismissed = false,
+  onRestore,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
   const backgroundColor = '#FFFFFF';
@@ -258,9 +262,12 @@ export default function MedicationVerificationCard({
   const handleVerifyAndAdd = async () => {
     setIsVerifying(true);
     try {
+      // Include user-edited reminder times in the final medication object
+      const activeReminderTimes = customReminderTimes.filter(t => !inactiveReminders.includes(t));
       const finalMedication = {
         ...medication,
         verified_by_user: true,
+        time_of_day: activeReminderTimes, // Use user-edited times, not defaults
       };
       await onVerifyAndAdd(finalMedication, startDate);
     } catch (error) {
@@ -574,7 +581,10 @@ export default function MedicationVerificationCard({
 
 
   return (
-    <View style={[styles.card, { backgroundColor, paddingBottom: isVerified ? 12 : 24 }]}>
+    <View style={[
+      styles.card, 
+      { backgroundColor, paddingBottom: isVerified || isDismissed ? 12 : 24 }
+    ]}>
       {/* Header */}
       <MedicationHeader
         name={medication.name}
@@ -585,6 +595,8 @@ export default function MedicationVerificationCard({
         onEditedNameChange={setEditedName}
         onToggleEdit={() => setIsEditing(!isEditing)}
         onDelete={handleDelete}
+        onRestore={onRestore}
+        isDismissed={isDismissed}
         onResetToAI={handleResetToAI}
         onSave={handleSaveEdits}
         onCancel={handleCancelEdits}
@@ -594,181 +606,194 @@ export default function MedicationVerificationCard({
         isVerified={isVerified}
       />
 
-      {isVerified ? (
-        <View style={[styles.verifiedBanner, { marginTop: -8, marginBottom: 0 }]}>
-          <Feather name="check-circle" size={16} color={Colors.success} />
-          <Text style={styles.verifiedText}>Added to tracker</Text>
-        </View>
-      ) : (
+      {isDismissed ? null : (
         <>
-          {/* AI Summary Static Labels */}
-          <View style={styles.summaryContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.aiButtonsRow}
-            >
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={(e) => handleTooltipPress(e, 'Medication Type')}
-              >
-                <LinearGradient
-                  colors={['#FFFFFF', '#EFF6FF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.aiButton}
-                >
-                  <View style={styles.aiButtonIcon}>
-                    <Feather name="layers" size={10} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.aiButtonText}>
-                    {medication.medicine_type || 'Medicine Type'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
+          {/* Verified Banner - Show at top when verified */}
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
+          
+          {/* Full Card Content - Show greyed out when verified */}
+          {/* Full Card Content - Clean Read-Only Mode when verified */}
+          <View>
+            {/* AI Summary Static Labels */}
+            <View style={styles.summaryContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.aiButtonsRow}
               >
-                <LinearGradient
-                  colors={['#FFFFFF', '#EFF6FF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.aiButton}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={(e) => handleTooltipPress(e, 'Medication Type')}
                 >
-                  <View style={styles.aiButtonIcon}>
-                    <Feather name="activity" size={10} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.aiButtonText}>
-                    {medication.medicine_purpose || 'Medicine Purpose'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </ScrollView>
+                  <LinearGradient
+                    colors={['#FFFFFF', '#EFF6FF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={styles.aiButton}
+                  >
+                    <View style={styles.aiButtonIcon}>
+                      <Feather name="layers" size={10} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.aiButtonText}>
+                      {medication.medicine_type || 'Medicine Type'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
+                >
+                  <LinearGradient
+                    colors={['#FFFFFF', '#EFF6FF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={styles.aiButton}
+                  >
+                    <View style={styles.aiButtonIcon}>
+                      <Feather name="activity" size={10} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.aiButtonText}>
+                      {medication.medicine_purpose || 'Medicine Purpose'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Course Period Section */}
+            {!isAsNeeded && (
+              <CoursePeriodSection
+                startDate={startDate}
+                endDate={endDate}
+                interval={medication.interval_days ?? medication.source_raw?.interval_days}
+                onStartDatePress={() => setShowDatePicker(true)}
+                onEndDatePress={() => setShowEndDatePicker(true)}
+                onIntervalChange={handleIntervalChange}
+                isVerified={isVerified}
+              />
+            )}
+
+            {/* Start Date Picker Modal */}
+            <DatePickerModal
+              visible={showDatePicker}
+              date={startDate}
+              onConfirm={(date) => {
+                setStartDate(date);
+                setShowDatePicker(false);
+              }}
+              onCancel={() => setShowDatePicker(false)}
+              maximumDate={new Date().toISOString().split('T')[0]}
+              minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+            />
+
+            {/* End Date Picker Modal */}
+            <DatePickerModal
+              visible={showEndDatePicker}
+              date={endDate}
+              onConfirm={(date) => {
+                setEndDate(date);
+                setShowEndDatePicker(false);
+              }}
+              onCancel={() => setShowEndDatePicker(false)}
+              minimumDate={startDate}
+              maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+            />
+
+            {/* Reminder Times Section */}
+            {!isAsNeeded && (
+              <>
+                <ReminderTimesSection
+                  key={`times-section-${resetKey}`}
+                  reminderTimes={getReminderTimes()}
+                  intervalText={getIntervalText()}
+                  medicineName={medication.name}
+                  reminderToggles={reminderToggles}
+                  totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
+                  timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
+                  foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
+                  onToggleChange={handleReminderToggleChange}
+                  onTimeChange={handleTimeChange}
+                  defaultNotes={reminderDefaultNotes}
+                  onDefaultNoteChange={handleDefaultNoteChange}
+                  onAddPress={() => setShowAddReminderModal(true)}
+                  customMealLabels={customMealLabels}
+
+                  onBatchToggle={handleBatchToggle}
+                  onUpdateReminderTimes={handleUpdateReminderTimes}
+                  interval={medication.interval_days ?? medication.source_raw?.interval_days}
+                  sourceName={medication.source_raw?.exact_written_name}
+                  originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
+                  originalInterval={medication.source_raw?.interval_days}
+                  shouldAnimate={isFirstItem}
+                  inactiveReminderTimes={inactiveReminders}
+                  onDeleteCustomReminder={handleDeleteCustomReminder}
+                  isVerified={isVerified}
+                />
+
+                <AddReminderModal
+                  visible={showAddReminderModal}
+                  onClose={() => setShowAddReminderModal(false)}
+                  onAdd={handleAddReminderObject}
+                  existingTimes={getReminderTimes()}
+                />
+              </>
+            )}
+
+
+            {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
+            {((medication.notes && isAsNeeded) || isEditing) && (
+              <View style={styles.detailsGrid}>
+                <View style={styles.notesCompactContainer}>
+                  {!isEditing ? (
+                    <View style={styles.notesRow}>
+                      <View style={styles.notesHeaderGroup}>
+                        <Feather name="info" size={14} color={Colors.textSecondary} />
+                        <Text style={styles.notesLabel}>Note :</Text>
+                      </View>
+                      <Text style={styles.notesValue}>
+                        {medication.notes}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.notesEditContainer}>
+                      <View style={styles.notesHeaderGroup}>
+                        <Feather name="info" size={14} color={Colors.textSecondary} />
+                        <Text style={styles.notesLabel}>Note :</Text>
+                      </View>
+                      <TextInput
+                        style={styles.notesInput}
+                        value={editedNotes}
+                        onChangeText={setEditedNotes}
+                        placeholder="Add note..."
+                        multiline
+                      />
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Duplicate Warning */}
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Course Period Section */}
-          {!isAsNeeded && (
-            <CoursePeriodSection
-              startDate={startDate}
-              endDate={endDate}
-              interval={medication.interval_days ?? medication.source_raw?.interval_days}
-              onStartDatePress={() => setShowDatePicker(true)}
-              onEndDatePress={() => setShowEndDatePicker(true)}
-              onIntervalChange={handleIntervalChange}
-            />
-          )}
-
-          {/* Start Date Picker Modal */}
-          <DatePickerModal
-            visible={showDatePicker}
-            date={startDate}
-            onConfirm={(date) => {
-              setStartDate(date);
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-            maximumDate={new Date().toISOString().split('T')[0]}
-            minimumDate={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-          />
-
-          {/* End Date Picker Modal */}
-          <DatePickerModal
-            visible={showEndDatePicker}
-            date={endDate}
-            onConfirm={(date) => {
-              setEndDate(date);
-              setShowEndDatePicker(false);
-            }}
-            onCancel={() => setShowEndDatePicker(false)}
-            minimumDate={startDate}
-            maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-          />
-
-          {/* Reminder Times Section */}
-          {!isAsNeeded && (
-            <>
-              <ReminderTimesSection
-                key={`times-section-${resetKey}`}
-                reminderTimes={getReminderTimes()}
-                intervalText={getIntervalText()}
-                medicineName={medication.name}
-                reminderToggles={reminderToggles}
-                totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
-                timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
-                foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
-                onToggleChange={handleReminderToggleChange}
-                onTimeChange={handleTimeChange}
-                defaultNotes={reminderDefaultNotes}
-                onDefaultNoteChange={handleDefaultNoteChange}
-                onAddPress={() => setShowAddReminderModal(true)}
-                customMealLabels={customMealLabels}
-
-                onBatchToggle={handleBatchToggle}
-                onUpdateReminderTimes={handleUpdateReminderTimes}
-                interval={medication.interval_days ?? medication.source_raw?.interval_days}
-                sourceName={medication.source_raw?.exact_written_name}
-                originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
-                originalInterval={medication.source_raw?.interval_days}
-                shouldAnimate={isFirstItem}
-                inactiveReminderTimes={inactiveReminders}
-                onDeleteCustomReminder={handleDeleteCustomReminder}
-              />
-
-              <AddReminderModal
-                visible={showAddReminderModal}
-                onClose={() => setShowAddReminderModal(false)}
-                onAdd={handleAddReminderObject}
-                existingTimes={getReminderTimes()}
-              />
-            </>
-          )}
-
-
-          {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
-          {((medication.notes && isAsNeeded) || isEditing) && (
-            <View style={styles.detailsGrid}>
-              <View style={styles.notesCompactContainer}>
-                {!isEditing ? (
-                  <View style={styles.notesRow}>
-                    <View style={styles.notesHeaderGroup}>
-                      <Feather name="info" size={14} color={Colors.textSecondary} />
-                      <Text style={styles.notesLabel}>Note :</Text>
-                    </View>
-                    <Text style={styles.notesValue}>
-                      {medication.notes}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.notesEditContainer}>
-                    <View style={styles.notesHeaderGroup}>
-                      <Feather name="info" size={14} color={Colors.textSecondary} />
-                      <Text style={styles.notesLabel}>Note :</Text>
-                    </View>
-                    <TextInput
-                      style={styles.notesInput}
-                      value={editedNotes}
-                      onChangeText={setEditedNotes}
-                      placeholder="Add note..."
-                      multiline
-                    />
-                  </View>
-                )}
+          {/* Action Status / Warning Banner */}
+          {isVerified ? (
+            <View style={[styles.verifiedBanner, { marginTop: 8 }]}>
+              <Feather name="check-circle" size={16} color={Colors.success} />
+              <Text style={styles.verifiedText}>Added to tracker</Text>
+            </View>
+          ) : (
+            duplicateOf && (
+              <View style={styles.duplicateWarning}>
+                <Feather name="alert-triangle" size={16} color={Colors.warning} />
+                <Text style={styles.duplicateText}>
+                  Previously prescribed: {duplicateOf.name}
+                </Text>
               </View>
-            </View>
-          )}
-
-          {/* Duplicate Warning */}
-          {duplicateOf && (
-            <View style={styles.duplicateWarning}>
-              <Feather name="alert-triangle" size={16} color={Colors.warning} />
-              <Text style={styles.duplicateText}>
-                Previously prescribed: {duplicateOf.name}
-              </Text>
-            </View>
+            )
           )}
         </>
       )}
@@ -792,7 +817,6 @@ export default function MedicationVerificationCard({
         backgroundColor="#BFDBFE"
         textColor="#000000"
       />
-
     </View>
   );
 }
@@ -805,7 +829,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    overflow: 'hidden',
   },
   divider: {
     height: 1,
@@ -927,8 +950,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 20,
-    borderWidth: 0.5,
-    borderColor: 'rgba(59, 130, 246, 0.15)',
+    borderWidth: 1,
+    borderColor: '#93C5FD', // Darker blue border (Blue-300) for visibility
+    backgroundColor: '#F0F9FF', // Slight blue tint (Sky-50) solid background
     gap: 4,
     ...Platform.select({
       ios: {

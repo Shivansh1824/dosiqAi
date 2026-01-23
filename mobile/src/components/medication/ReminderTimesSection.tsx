@@ -37,6 +37,7 @@ interface ReminderTimesSectionProps {
     shouldAnimate?: boolean; // New prop to control animation
     inactiveReminderTimes?: string[]; // New: Track inactive custom times
     onDeleteCustomReminder?: (time: string) => void; // New: Explicit delete handler
+    isVerified?: boolean;
 }
 
 /**
@@ -176,7 +177,8 @@ export function ReminderTimesSection({
     originalInterval,
     shouldAnimate = false, // Default to false if not provided
     inactiveReminderTimes = [], // Default empty
-    onDeleteCustomReminder
+    onDeleteCustomReminder,
+    isVerified = false,
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -266,11 +268,17 @@ export function ReminderTimesSection({
 
         let rows: any[] = [];
 
-        // 1. Generate standard batches based on dosage
+        // 1. Generate standard batches based on dosage (3 batches: Morning, Afternoon, Night)
         if (totalTimesPerDay && totalTimesPerDay <= 3 && timingDosage) {
             const parts = timingDosage.split('-').map(Number);
             if (parts.length === 3) {
+                // Standard 3-batch pattern: Morning-Afternoon-Night
                 rows = batches.filter((_, index) => parts[index] > 0);
+            } else if (parts.length === 4) {
+                // Handle 4-part dosage by mapping to 3 batches (skip evening, index 2)
+                // Map: [0]=morning, [1]=afternoon, [3]=night (evening at [2] is ignored)
+                const mappedParts = [parts[0], parts[1], parts[3]];
+                rows = batches.filter((_, index) => mappedParts[index] > 0);
             } else {
                 rows = batches; // Fallback
             }
@@ -278,12 +286,7 @@ export function ReminderTimesSection({
             rows = [...batches];
             const extrasNeeded = totalTimesPerDay - 3;
             for (let i = 0; i < extrasNeeded; i++) {
-                // Cyclical Logic: 
-                // i=0 -> Morning + 1h
-                // i=1 -> Afternoon + 1h
-                // i=2 -> Night + 1h
-                // i=3 -> Morning + 2h
-                const cycleIndex = i % 3; // 0, 1, 2
+                const cycleIndex = i % 3; // 0, 1, 2 (Morning, Afternoon, Night)
                 const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
                 const baseBatch = batches[cycleIndex];
 
@@ -574,6 +577,7 @@ export function ReminderTimesSection({
                                                     trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                     thumbColor={Colors.white}
                                                     style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                    disabled={isVerified}
                                                 />
 
                                                 <TouchableOpacity
@@ -593,12 +597,13 @@ export function ReminderTimesSection({
                                         {expandedNotes[batch.id] && (
                                             <View style={styles.noteSection}>
                                                 <View style={styles.noteInputContainer}>
-                                                    <TouchableOpacity style={styles.noteInputIcon}>
-                                                        <Feather name="edit-3" size={14} color={Colors.gray400} />
+                                                    <TouchableOpacity style={styles.noteInputIcon} disabled={isVerified}>
+                                                        {!isVerified && <Feather name="edit-3" size={14} color={Colors.gray400} />}
                                                     </TouchableOpacity>
                                                     <TextInput
                                                         style={styles.noteInput}
                                                         value={defaultNotes[batch.defaultTime] || ''}
+                                                        editable={!isVerified}
                                                         onChangeText={(text) => {
                                                             if (text.length <= 150) {
                                                                 onDefaultNoteChange?.(batch.defaultTime, text);
@@ -685,6 +690,7 @@ export function ReminderTimesSection({
                                                             trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                             thumbColor={Colors.white}
                                                             style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                            disabled={isVerified}
                                                         />
 
                                                         <TouchableOpacity
@@ -750,6 +756,7 @@ export function ReminderTimesSection({
                                                             trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                             thumbColor={Colors.white}
                                                             style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                            disabled={isVerified}
                                                         />
 
                                                         <TouchableOpacity
@@ -913,7 +920,7 @@ export function ReminderTimesSection({
                         >
                             <Swipeable
                                 ref={swipeableRef}
-                                renderRightActions={renderRightActions}
+                                renderRightActions={isVerified ? undefined : renderRightActions}
                                 containerStyle={{ marginBottom: 8 }} // Margin moved here to exclude from swipe height
                                 childrenContainerStyle={{}}
                                 onSwipeableOpen={() => setSwipedOpenBatchId(batch.id)}
@@ -926,7 +933,7 @@ export function ReminderTimesSection({
                 })}
 
                 {/* Always show Add Custom Time Button in Grouped View */}
-                {onAddPress && (
+                {onAddPress && !isVerified && (
                     <View style={styles.numberedRowContainer}>
                         {/* Empty Number Column for alignment */}
                         <View style={styles.numberColumn} />

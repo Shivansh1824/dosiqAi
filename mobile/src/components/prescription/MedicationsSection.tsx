@@ -26,6 +26,7 @@ interface MedicationsSectionProps {
     familyMemberId: string;
     onVerifyAndAdd: (medication: ParsedMedication, startDate: string) => Promise<void>;
     onDismiss: (index: number) => void;
+    onRestore: (index: number) => void;
 }
 
 /**
@@ -44,8 +45,9 @@ export function MedicationsSection({
     familyMemberId,
     onVerifyAndAdd,
     onDismiss,
+    onRestore,
 }: MedicationsSectionProps) {
-    const visibleMedicationsCount = medicines.length - dismissedMedicationIds.size;
+    const visibleMedicationsCount = medicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${documentId}_`)).length;
     const [isVerifyingAll, setIsVerifyingAll] = useState(false);
 
     // Get all unverified medications for the "Verify & Add All" action
@@ -54,11 +56,12 @@ export function MedicationsSection({
             .map((medicine, index) => ({ medicine, index }))
             .filter(({ index }) => {
                 const dismissId = `${documentId}_${index}`;
-                return !dismissedMedicationIds.has(dismissId);
-            })
-            .filter(({ medicine }) => {
-                const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
-                return !verifiedMedications.has(parsedMed.name);
+                const isDismissed = dismissedMedicationIds.has(dismissId);
+                const parsedMed = parseAIMedication(medicines[index], documentId, documentTitle);
+                const isVerified = verifiedMedications.has(parsedMed.name);
+                
+                // Only include in "Verify All" if it's NOT verified AND NOT dismissed
+                return !isVerified && !isDismissed;
             })
             .map(({ medicine }) => parseAIMedication(medicine, documentId, documentTitle));
     };
@@ -135,10 +138,6 @@ export function MedicationsSection({
                 let unverifiedCardIndex = 0;
                 return medicines
                     .map((medicine, index) => ({ medicine, index }))
-                    .filter(({ index }) => {
-                        const dismissId = `${documentId}_${index}`;
-                        return !dismissedMedicationIds.has(dismissId);
-                    })
                     .filter(({ medicine }) => {
                         const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
                         return !verifiedMedications.has(parsedMed.name);
@@ -168,6 +167,8 @@ export function MedicationsSection({
                                     duplicateOf={duplicateOf || undefined}
                                     medicineIndex={index}
                                     onDismiss={() => onDismiss(index)}
+                                    onRestore={() => onRestore(index)}
+                                    isDismissed={dismissedMedicationIds.has(`${documentId}_${index}`)}
                                     isFirstItem={isFirstUnverifiedCard}
                                     isVerified={false}
                                 />

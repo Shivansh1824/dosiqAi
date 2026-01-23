@@ -19,6 +19,15 @@ export interface MedicationLogEntry {
 type LogMedicationCallback = (entry: MedicationLogEntry) => Promise<void>;
 
 let logMedicationCallback: LogMedicationCallback | null = null;
+let navigationCallback: ((screen: string, params: any) => void) | null = null;
+
+/**
+ * Set the callback for navigation
+ * This allows the service to navigate even when app is in background/quit state
+ */
+export function setNavigationCallback(callback: (screen: string, params: any) => void) {
+  navigationCallback = callback;
+}
 
 /**
  * Set the callback for logging medication actions
@@ -34,7 +43,13 @@ export function setLogMedicationCallback(callback: LogMedicationCallback) {
  */
 export function setupForegroundEventHandler() {
   return notifee.onForegroundEvent(async ({ type, detail }) => {
-    console.log('[Notifications] Foreground event:', EventType[type], detail);
+    console.log('='.repeat(60));
+    console.log('[Notifications] 📱 FOREGROUND EVENT RECEIVED');
+    console.log('[Notifications] Event Type:', EventType[type]);
+    console.log('[Notifications] Notification ID:', detail.notification?.id);
+    console.log('[Notifications] Has fullScreenAction:', !!detail.notification?.android?.fullScreenAction);
+    console.log('[Notifications] Full Details:', JSON.stringify(detail, null, 2));
+    console.log('='.repeat(60));
     await handleNotificationEvent(type, detail);
   });
 }
@@ -45,7 +60,13 @@ export function setupForegroundEventHandler() {
  */
 export function setupBackgroundEventHandler() {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
-    console.log('[Notifications] Background event:', EventType[type], detail);
+    console.log('='.repeat(60));
+    console.log('[Notifications] 🔔 BACKGROUND EVENT RECEIVED');
+    console.log('[Notifications] Event Type:', EventType[type]);
+    console.log('[Notifications] Notification ID:', detail.notification?.id);
+    console.log('[Notifications] Has fullScreenAction:', !!detail.notification?.android?.fullScreenAction);
+    console.log('[Notifications] Press Action:', detail.pressAction?.id);
+    console.log('='.repeat(60));
     await handleNotificationEvent(type, detail);
   });
 }
@@ -87,6 +108,14 @@ async function handleNotificationEvent(type: EventType, detail: any) {
     case 'default':
       // User just tapped the notification - open app
       console.log('[Notifications] Notification tapped, opening app');
+      
+      // Navigate to MedicineAlarmScreen if we have data
+      if (navigationCallback) {
+        console.log('[Notifications] Triggering navigation callback to MedicineAlarm');
+        navigationCallback('MedicineAlarm', medicationData);
+      } else {
+        console.log('[Notifications] No navigation callback registered');
+      }
       break;
   }
   

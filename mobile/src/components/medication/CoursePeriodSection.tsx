@@ -11,6 +11,7 @@ interface CoursePeriodSectionProps {
     onStartDatePress: () => void;
     onEndDatePress: () => void;
     onIntervalChange?: (days: number) => void;
+    isVerified?: boolean;
 }
 
 /**
@@ -33,6 +34,7 @@ export function CoursePeriodSection({
     onStartDatePress,
     onEndDatePress,
     onIntervalChange,
+    isVerified = false,
 }: CoursePeriodSectionProps) {
     const [showIntervalPicker, setShowIntervalPicker] = useState(false);
 
@@ -49,7 +51,10 @@ export function CoursePeriodSection({
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
                 </View>
                 {onIntervalChange && (
-                    <TouchableOpacity onPress={() => setShowIntervalPicker(true)}>
+                    <TouchableOpacity 
+                        onPress={() => setShowIntervalPicker(true)}
+                        disabled={isVerified}
+                    >
                         <Text style={styles.placeholderButton}>{getIntervalLabel()}</Text>
                     </TouchableOpacity>
                 )}
@@ -60,12 +65,13 @@ export function CoursePeriodSection({
                     style={[styles.dateCard, styles.startDateCard]}
                     onPress={onStartDatePress}
                     activeOpacity={0.7}
+                    disabled={isVerified}
                 >
                     <View style={styles.dateCardContent}>
                         <Text style={[styles.dateCardLabel, styles.startDateLabel]}>START DATE</Text>
                         <Text style={styles.dateCardValue}>{formatDateDisplay(startDate)}</Text>
                     </View>
-                    <Feather name="edit-2" size={12} color={Colors.success} style={styles.dateCardEditIcon} />
+                    {!isVerified && <Feather name="edit-2" size={12} color={Colors.success} style={styles.dateCardEditIcon} />}
                 </TouchableOpacity>
 
                 {/* Arrow */}
@@ -76,12 +82,13 @@ export function CoursePeriodSection({
                     style={[styles.dateCard, styles.endDateCard]}
                     onPress={onEndDatePress}
                     activeOpacity={0.7}
+                    disabled={isVerified}
                 >
                     <View style={styles.dateCardContent}>
                         <Text style={[styles.dateCardLabel, styles.endDateLabel]}>END DATE</Text>
                         <Text style={styles.dateCardValue}>{formatDateDisplay(endDate)}</Text>
                     </View>
-                    <Feather name="edit-2" size={12} color={Colors.error} style={styles.dateCardEditIcon} />
+                    {!isVerified && <Feather name="edit-2" size={12} color={Colors.error} style={styles.dateCardEditIcon} />}
                 </TouchableOpacity>
             </View>
 

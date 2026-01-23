@@ -20,7 +20,7 @@ export type MedicineType =
 export type MedicationStatus = 'pending' | 'taken' | 'missed' | 'skipped';
 
 // Time of day categories
-export type TimeOfDayCategory = 'morning' | 'afternoon' | 'night';
+export type TimeOfDayCategory = 'morning' | 'afternoon' | 'evening' | 'night';
 
 // Instruction types
 export type MedicationInstruction =
@@ -104,6 +104,7 @@ export interface DailyMedicationView {
     date: string; // ISO date string
     morning: MedicationWithStatus[];
     afternoon: MedicationWithStatus[];
+    evening: MedicationWithStatus[];
     night: MedicationWithStatus[];
 }
 
@@ -190,14 +191,16 @@ export const getInstructionText = (instruction: MedicationInstruction): string =
     }
 };
 
-// Helper function to categorize time into time of day (3 categories)
+// Helper function to categorize time into time of day (4 categories)
 export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
     const hour = parseInt(time.split(':')[0]);
 
-    if (hour >= 5 && hour < 12) {
+    if (hour >= 4 && hour < 12) {
         return 'morning';
-    } else if (hour >= 12 && hour < 18) {
+    } else if (hour >= 12 && hour < 16) {
         return 'afternoon';
+    } else if (hour >= 16 && hour < 20) {
+        return 'evening';
     } else {
         return 'night';
     }
@@ -210,6 +213,8 @@ export const getTimeOfDayText = (category: TimeOfDayCategory): string => {
             return 'Morning Dose';
         case 'afternoon':
             return 'Afternoon Dose';
+        case 'evening':
+            return 'Evening Dose';
         case 'night':
             return 'Night Dose';
     }
@@ -222,6 +227,8 @@ export const getTimeOfDayIcon = (category: TimeOfDayCategory): string => {
             return 'sunrise';
         case 'afternoon':
             return 'sun';
+        case 'evening':
+            return 'sunset';
         case 'night':
             return 'moon';
     }
@@ -235,7 +242,7 @@ export const getTimeOfDayIcon = (category: TimeOfDayCategory): string => {
  * Logic ensures compatibility with ReminderTimesSection to prevent duplicate bars.
  */
 export const generateCyclicReminderTimes = (totalTimesPerDay: number): string[] => {
-    // Base times are Morning, Afternoon, Night
+    // Base times are Morning, Afternoon, Night (3 groups for verification screen)
     // These match the default times in ReminderTimesSection
     const morning = '08:00';
     const afternoon = '14:00';
@@ -248,14 +255,14 @@ export const generateCyclicReminderTimes = (totalTimesPerDay: number): string[] 
     if (totalTimesPerDay === 2) return [morning, night];
     if (totalTimesPerDay === 3) return [morning, afternoon, night];
 
-    // For > 3
+    // For > 3, start with base 3 times and add extras cyclically
     const baseTimes = [morning, afternoon, night];
     const result = [...baseTimes];
     const extrasNeeded = totalTimesPerDay - 3;
 
     for (let i = 0; i < extrasNeeded; i++) {
-        const cycleIndex = i % 3; // 0, 1, 2
-        const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1...
+        const cycleIndex = i % 3; // 0, 1, 2 (Morning, Afternoon, Night)
+        const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
 
         const baseTime = baseTimes[cycleIndex];
         const [h, m] = baseTime.split(':').map(Number);

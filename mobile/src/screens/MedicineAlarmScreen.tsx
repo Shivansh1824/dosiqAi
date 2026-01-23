@@ -1,8 +1,6 @@
 /**
  * Full-Screen Medicine Alarm Screen (Android)
- * 
- * Launched when medication reminder notification fires
- * Provides large, touch-friendly buttons for Taken/Snooze/Skip
+ * Redesigned with Premium '2026 Standard' Aesthetic
  */
 
 import React, { useEffect, useState } from 'react';
@@ -12,13 +10,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   Vibration,
-  Dimensions,
   StatusBar,
+  Dimensions,
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import notifee from '@notifee/react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { cancelReminder, snoozeReminder, MedicineReminderData } from '../services/notificationService';
+import SponsoredSpace from '../components/notification/SponsoredSpace';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,34 +36,44 @@ interface Props {
   };
 }
 
-export default function MedicineAlarmScreen({ notification }: Props) {
+export default function MedicineAlarmScreen({ notification, route }: any) {
+  console.log('='.repeat(60));
+  console.log('[MedicineAlarmScreen] 🚨 COMPONENT RENDERING');
+  console.log('[MedicineAlarmScreen] notification prop:', JSON.stringify(notification));
+  console.log('[MedicineAlarmScreen] route prop:', JSON.stringify(route));
+  console.log('='.repeat(60));
+  
   const [isActionTaken, setIsActionTaken] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Extract medication data from notification
-  const medicationData: NotificationData = notification?.data || {
-    medicationName: 'Medication',
-    dosage: '',
+  // Extract medication data from notification or use fallbacks for preview
+  // Priority: 
+  // 1. Notifee notification prop (Full Screen Intent)
+  // 2. React Navigation route params (Deep Link / Manual Navigation)
+  const medicationData: NotificationData = notification?.data || route?.params || {
+    medicationName: 'Metformin',
+    dosage: '500mg',
     scheduleId: '',
     medicationId: '',
+    instructions: 'Take with food'
   };
+  
+  console.log('[MedicineAlarmScreen] Resolved medicationData:', JSON.stringify(medicationData));
   
   // Update time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-    
     return () => clearInterval(timer);
   }, []);
   
   // Start vibration pattern on mount
   useEffect(() => {
     if (Platform.OS === 'android') {
-      const pattern = [0, 500, 300, 500, 300, 500];
+      const pattern = [0, 500, 300, 500, 300, 500]; // Heartbeat vibration
       Vibration.vibrate(pattern, true);
     }
-    
     return () => Vibration.cancel();
   }, []);
   
@@ -74,12 +84,10 @@ export default function MedicineAlarmScreen({ notification }: Props) {
     
     console.log('[MedicineAlarm] Marking as taken:', medicationData.medicationName);
     
-    // Cancel the notification
     if (medicationData.scheduleId) {
       await cancelReminder(medicationData.scheduleId);
     }
     
-    // Show confirmation notification
     await notifee.displayNotification({
       title: '✓ Medication Taken',
       body: `Great job! You took ${medicationData.medicationName}`,
@@ -88,6 +96,7 @@ export default function MedicineAlarmScreen({ notification }: Props) {
         autoCancel: true,
         timeoutAfter: 5000,
         pressAction: { id: 'default' },
+        lightUpScreen: true,
       },
     });
   };
@@ -109,14 +118,9 @@ export default function MedicineAlarmScreen({ notification }: Props) {
         scheduledTime: new Date(),
       };
       
-      await snoozeReminder(
-        medicationData.scheduleId,
-        reminderData,
-        10 // 10 minutes
-      );
+      await snoozeReminder(medicationData.scheduleId, reminderData, 10);
     }
     
-    // Show snooze confirmation
     await notifee.displayNotification({
       title: '⏰ Snoozed',
       body: `Reminder for ${medicationData.medicationName} in 10 minutes`,
@@ -125,6 +129,7 @@ export default function MedicineAlarmScreen({ notification }: Props) {
         autoCancel: true,
         timeoutAfter: 3000,
         pressAction: { id: 'default' },
+        lightUpScreen: true,
       },
     });
   };
@@ -141,86 +146,102 @@ export default function MedicineAlarmScreen({ notification }: Props) {
     }
   };
   
-  const formattedTime = currentTime.toLocaleTimeString([], { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: true
-  });
-  
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       
-      {/* Header - Current Time */}
+      {/* Premium Gradient Background */}
+      <LinearGradient
+        colors={['#FEF9C3', '#E0F2FE', '#C7D2FE', '#4338CA']}
+        locations={[0, 0.4, 0.7, 1]}
+        style={styles.background}
+      />
+
+      {/* Top Header Section */}
       <View style={styles.header}>
-        <Text style={styles.timeText}>{formattedTime}</Text>
+        <Text style={styles.appTitle}>FamilyCare Health</Text>
+        <Text style={styles.subtitle}>Medication Reminder</Text>
+      </View>
+
+      {/* Main Card Container */}
+      <View style={styles.cardContainer}>
+        {/* Floating Icon Halo */}
+        <View style={styles.iconHalo}>
+          <View style={styles.iconCircle}>
+            <MaterialCommunityIcons name="pill" size={32} color="#1E293B" />
+          </View>
+        </View>
+
+        {/* Card Content */}
+        <View style={styles.card}>
+          <Text style={styles.medicationName} numberOfLines={2}>
+            {medicationData.medicationName}
+          </Text>
+          
+          <View style={styles.detailsRow}>
+            <MaterialCommunityIcons name="bottle-tonic-plus" size={16} color="#64748B" />
+            <Text style={styles.dosageText}>{medicationData.dosage}</Text>
+          </View>
+          
+          {medicationData.instructions && (
+             <View style={styles.detailsRow}>
+              <MaterialCommunityIcons name="text-box-outline" size={16} color="#64748B" />
+              <Text style={styles.instructionText} numberOfLines={2}>{medicationData.instructions}</Text>
+            </View>
+          )}
+
+          {/* Sponsored Space inside the card */}
+          <SponsoredSpace />
+          
+          {/* Action Buttons Row */}
+          <View style={styles.actionsRow}>
+            {/* Skip / Deny */}
+            <View style={styles.actionItem}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.skipButton]}
+                onPress={handleSkip}
+                disabled={isActionTaken}
+              >
+                <MaterialCommunityIcons name="close" size={28} color="#EF4444" />
+              </TouchableOpacity>
+              <Text style={styles.actionLabel}>Skip</Text>
+            </View>
+
+            {/* Snooze / Leave at Gate */}
+            <View style={styles.actionItem}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.snoozeButton]}
+                onPress={handleSnooze}
+                disabled={isActionTaken}
+              >
+                <MaterialCommunityIcons name="clock-outline" size={28} color="#1E293B" />
+              </TouchableOpacity>
+              <Text style={styles.actionLabel}>Snooze</Text>
+            </View>
+
+            {/* Taken / Approve */}
+            <View style={styles.actionItem}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.takenButton]}
+                onPress={handleTaken}
+                disabled={isActionTaken}
+              >
+                <MaterialCommunityIcons name="check" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.actionLabel}>Taken</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Bottom Time Display */}
+      <View style={styles.footer}>
+        <Text style={styles.timeText}>
+          {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
         <Text style={styles.dateText}>
           {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
-      </View>
-      
-      {/* Pill Icon */}
-      <View style={styles.iconSection}>
-        <View style={styles.pillIconContainer}>
-          <MaterialCommunityIcons name="pill" size={80} color="#4F46E5" />
-        </View>
-        <Text style={styles.title}>Medication Reminder</Text>
-      </View>
-      
-      {/* Medication Info */}
-      <View style={styles.medicationInfo}>
-        <Text style={styles.medicationName}>
-          {medicationData.medicationName || 'Medication'}
-        </Text>
-        {medicationData.dosage && (
-          <Text style={styles.dosage}>{medicationData.dosage}</Text>
-        )}
-        {medicationData.instructions && (
-          <Text style={styles.instructions}>{medicationData.instructions}</Text>
-        )}
-      </View>
-      
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        {/* Taken Button */}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.takenButton, isActionTaken && styles.disabledButton]}
-          onPress={handleTaken}
-          disabled={isActionTaken}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="check-circle" size={36} color="#fff" />
-          <Text style={styles.actionButtonText}>Mark as Taken</Text>
-        </TouchableOpacity>
-        
-        {/* Snooze Button */}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.snoozeButton, isActionTaken && styles.disabledButton]}
-          onPress={handleSnooze}
-          disabled={isActionTaken}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="alarm-snooze" size={36} color="#fff" />
-          <Text style={styles.actionButtonText}>Snooze 10 min</Text>
-        </TouchableOpacity>
-        
-        {/* Skip Button */}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.skipButton, isActionTaken && styles.disabledSkipButton]}
-          onPress={handleSkip}
-          disabled={isActionTaken}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="close-circle-outline" size={36} color="#6B7280" />
-          <Text style={[styles.actionButtonText, styles.skipButtonText]}>
-            Skip This Dose
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>FamilyCare Health</Text>
       </View>
     </View>
   );
@@ -229,125 +250,146 @@ export default function MedicineAlarmScreen({ notification }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 40 : 60,
-    paddingBottom: 40,
-    paddingHorizontal: 24,
-  },
-  header: {
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -1,
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  iconSection: {
-    alignItems: 'center',
-  },
-  pillIconContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+  },
+  background: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  header: {
+    position: 'absolute',
+    top: 60,
+    alignItems: 'center',
+  },
+  appTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  cardContainer: {
+    width: width * 0.85,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  iconHalo: {
+    zIndex: 10,
+    marginBottom: -24, // Pull card up to float behind icon
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FDE047', // Yellow-400
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingTop: 40, // Space for floating icon
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 8,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  medicationInfo: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
   medicationName: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#0F172A',
     textAlign: 'center',
     marginBottom: 8,
+    lineHeight: 32,
   },
-  dosage: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: '#4B5563',
-    marginBottom: 12,
-  },
-  instructions: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontStyle: 'italic',
-    paddingHorizontal: 20,
-  },
-  actionsContainer: {
-    width: '100%',
-    gap: 16,
-  },
-  actionButton: {
+  detailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  dosageText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  instructionText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 24,
+    paddingHorizontal: 10,
+  },
+  actionItem: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 22,
-    paddingHorizontal: 24,
-    borderRadius: 20,
-    gap: 14,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  takenButton: {
-    backgroundColor: '#10B981', // Green
-    shadowColor: '#10B981',
+  skipButton: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
   },
   snoozeButton: {
-    backgroundColor: '#F59E0B', // Orange
-    shadowColor: '#F59E0B',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  skipButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    shadowOpacity: 0,
-    elevation: 0,
+  takenButton: {
+    backgroundColor: '#22C55E', // Green-500
   },
-  actionButtonText: {
-    fontSize: 22,
+  actionLabel: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
-  },
-  skipButtonText: {
-    color: '#6B7280',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  disabledSkipButton: {
-    opacity: 0.5,
+    color: '#475569',
   },
   footer: {
+    position: 'absolute',
+    bottom: 50,
     alignItems: 'center',
   },
-  footerText: {
+  timeText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+  },
+  dateText: {
     fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '500',
+    color: '#E0E7FF',
+    marginTop: 4,
   },
 });

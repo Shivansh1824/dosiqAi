@@ -341,7 +341,7 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency): string
       return ['08:00', '14:00', '21:00']; // Morning, afternoon, night
 
     case 'four_times_daily':
-      return ['08:00', '14:00', '21:00', '02:00']; // Every 6-7 hours
+      return ['08:00', '12:00', '17:00', '21:00']; // Every 4-5 hours distribution
 
     case 'as_needed':
       return []; // No fixed schedule
@@ -386,6 +386,11 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
   }
 
 
+  // Evening (18:00 - 6 PM)
+  if (normalized.includes('EVENING')) {
+    slots.push('18:00');
+  }
+
   // Night (21:00 - 9 PM)
   if (normalized.includes('NIGHT')) {
     slots.push('21:00'); // 9 PM as requested
@@ -406,7 +411,26 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
 
     if (morning > 0) slots.push('08:00');
     if (afternoon > 0) slots.push('14:00');
-    if (night > 0) slots.push('21:00'); // Use 9 PM for 1-0-1 night slot too
+    // If we have a 4th slot in X-X-X-X format, we need to handle it. 
+    // But tripleMatch only handles X-X-X. 
+    // Let's add a quadrupleMatch.
+    if (night > 0) slots.push('21:00'); 
+
+    if (slots.length > 0) return slots;
+  }
+
+  // X-X-X-X pattern (Morning-Afternoon-Evening-Night)
+  const quadMatch = normalized.match(/^(\d+)-(\d+)-(\d+)-(\d+)$/);
+  if (quadMatch) {
+    const m = parseInt(quadMatch[1]);
+    const a = parseInt(quadMatch[2]);
+    const e = parseInt(quadMatch[3]);
+    const n = parseInt(quadMatch[4]);
+
+    if (m > 0) slots.push('08:00');
+    if (a > 0) slots.push('14:00');
+    if (e > 0) slots.push('18:00');
+    if (n > 0) slots.push('21:00');
 
     if (slots.length > 0) return slots;
   }
