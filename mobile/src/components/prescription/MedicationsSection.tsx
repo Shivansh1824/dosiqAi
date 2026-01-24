@@ -175,6 +175,7 @@ export function MedicationsSection({
                                     isDismissed={dismissedMedicationIds.has(`${documentId}_${index}`)}
                                     isFirstItem={isFirstUnverifiedCard}
                                     isVerified={false}
+                                    familyMember={familyMember}
                                 />
                                 {!isLastItem && <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />}
                             </View>

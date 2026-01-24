@@ -1,14 +1,14 @@
 export default {
   expo: {
-    name: "FamilyCare Health",
-    slug: "familycare-health",
-    scheme: "familyhealth",
+    name: "dosiqAi",
+    slug: "dosiqai",
+    scheme: "dosiqai",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    description: "Your family's health journey, simplified and secure",
+    description: "Your health journey, simplified and secure",
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -16,7 +16,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.shivanshrana.familycare.health",
+      bundleIdentifier: "com.shivanshrana.dosiqai",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         UIBackgroundModes: ["remote-notification"],
@@ -33,7 +33,7 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.familycare.health"
+      package: "com.dosiqai"
     },
     web: {
       favicon: "./assets/favicon.png"

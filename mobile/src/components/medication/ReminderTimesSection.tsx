@@ -112,7 +112,7 @@ const getMealLabel = (
             'night': 'Dinner'
         };
 
-        const mealName = mealMap[timeCategory];
+        const mealName = timeCategory ? mealMap[timeCategory] : undefined;
 
         if (mealName) {
             return `${prefix} ${mealName}`;
@@ -277,9 +277,9 @@ export function ReminderTimesSection({
     // Helper to render Grouped Batches
     const renderGroupedView = () => {
         const batches = [
-            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning || '' },
-            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon || '' },
-            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night || '' },
+            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning },
+            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon },
+            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night },
         ];
 
         let rows: any[] = [];
@@ -305,6 +305,7 @@ export function ReminderTimesSection({
                 const cycleIndex = i % 3; // 0, 1, 2 (Morning, Afternoon, Night)
                 const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
                 const baseBatch = batches[cycleIndex];
+                if (!baseBatch.defaultTime) continue; // Skip if base time is not defined
 
                 const [h, m] = baseBatch.defaultTime.split(':').map(Number);
                 let newHour = h + offsetPass;
@@ -323,6 +324,9 @@ export function ReminderTimesSection({
             rows = batches;
         }
 
+        // Filter out rows that don't have a valid time (from family settings)
+        rows = rows.filter(r => r.defaultTime);
+
         // 2. Add extra rows for any active reminder times that aren't covered by the generated rows
         const coveredTimes = new Set(rows.map(r => normalizeTime(r.defaultTime)));
 
@@ -340,7 +344,7 @@ export function ReminderTimesSection({
             if (!coveredTimes.has(normalizedTime)) {
 
                 // Check if this time matches a standard batch
-                const standardBatch = batches.find(b => normalizeTime(b.defaultTime) === normalizedTime);
+                const standardBatch = batches.find(b => b.defaultTime && normalizeTime(b.defaultTime) === normalizedTime);
 
                 if (standardBatch) {
                     rows.push({
@@ -380,11 +384,21 @@ export function ReminderTimesSection({
         const rows = renderGroupedView();
         const rowTimes = rows.map(r => normalizeTime(r.defaultTime));
         const normalizedReminderTimes = reminderTimes.map(normalizeTime);
-        const missingTimes = rowTimes.filter(t => !normalizedReminderTimes.includes(t));
+        const normalizedInactiveTimes = inactiveReminderTimes.map(normalizeTime);
+
+        // Filter out times that are already active OR explicitly inactive
+        const missingTimes = rowTimes.filter(t => 
+            !normalizedReminderTimes.includes(t) && !normalizedInactiveTimes.includes(t)
+        );
 
         if (missingTimes.length > 0) {
             if (onUpdateReminderTimes) {
-                const newTimes = Array.from(new Set([...reminderTimes, ...rows.map(r => r.defaultTime)]));
+                // Only add times that are NOT in inactiveReminderTimes
+                const timesToAdd = rows
+                    .map(r => r.defaultTime)
+                    .filter(t => !normalizedInactiveTimes.includes(normalizeTime(t)));
+                
+                const newTimes = Array.from(new Set([...reminderTimes, ...timesToAdd]));
                 newTimes.sort((a, b) => {
                     const ta = parseInt(normalizeTime(a).replace(':', ''));
                     const tb = parseInt(normalizeTime(b).replace(':', ''));

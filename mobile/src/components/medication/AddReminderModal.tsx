@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Typography } from '../../constants';
 import { AndroidTimePicker } from './AndroidTimePicker';
+import { getTimeOfDayCategory } from '../../types/medicationSchedule';
 
 interface AddReminderModalProps {
     visible: boolean;
@@ -15,13 +16,21 @@ interface AddReminderModalProps {
         afternoon?: string;
         night?: string;
     };
+    timingDosage?: string;
 }
 
 /**
  * AddReminderModal - Specific modal to add a new reminder time
  * User picks a time and selects a meal relationship
  */
-export default function AddReminderModal({ visible, onClose, onAdd, existingTimes = [], preferredTimes }: AddReminderModalProps) {
+export default function AddReminderModal({ 
+    visible, 
+    onClose, 
+    onAdd, 
+    existingTimes = [], 
+    preferredTimes,
+    timingDosage 
+}: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
@@ -70,14 +79,31 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
 
     // Dynamic context options based on time could be cool, but keeping it simple for now as requested
     // Maybe adding specific meals if needed?
+    // Standard Dose Groups with their IDs and icons
+    // Using preferred times from family_members exclusively
     const DOSE_GROUPS = [
-        { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning || '' },
-        { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon || '' },
-        { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night || '' },
+        { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning || '08:00' },
+        { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon || '14:00' },
+        { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night || '21:00' },
     ];
 
-    // Filter out groups that are already in existingTimes
-    const availableGroups = DOSE_GROUPS.filter(group => !existingTimes.includes(group.defaultTime));
+    // Filter out groups that are already in existingTimes based on category
+    // This makes the section fully dynamic based on available preferred times
+    const availableGroups = DOSE_GROUPS.filter(group => {
+        // Ensure defaultTime is present (TypeScript check, though filtered above)
+        if (!group.defaultTime) return false;
+
+        // Check if a reminder in this category (Morning, Afternoon, Night) already exists
+        const groupCategory = getTimeOfDayCategory(group.defaultTime);
+        if (!groupCategory) return false;
+
+        const hasExistingInCategory = existingTimes.some(time => {
+            const cat = getTimeOfDayCategory(time);
+            return cat === groupCategory;
+        });
+
+        return !hasExistingInCategory;
+    });
 
     const handleGroupSelect = (timeStr: string) => {
         const [hours, minutes] = timeStr.split(':').map(Number);
@@ -178,27 +204,27 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
                                             key={group.id}
                                             style={[
                                                 styles.optionChip,
-                                                selectedTime.getHours() === parseInt(group.defaultTime.split(':')[0]) &&
-                                                selectedTime.getMinutes() === parseInt(group.defaultTime.split(':')[1]) &&
+                                                selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
+                                                selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1]) &&
                                                 styles.optionChipSelected
                                             ]}
-                                            onPress={() => handleGroupSelect(group.defaultTime)}
+                                            onPress={() => handleGroupSelect(group.defaultTime!)}
                                         >
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                                 <Feather
                                                     name={group.icon as any}
                                                     size={14}
                                                     color={
-                                                        selectedTime.getHours() === parseInt(group.defaultTime.split(':')[0]) &&
-                                                            selectedTime.getMinutes() === parseInt(group.defaultTime.split(':')[1])
+                                                        selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
+                                                            selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1])
                                                             ? Colors.primary
                                                             : Colors.gray500
                                                     }
                                                 />
                                                 <Text style={[
                                                     styles.optionText,
-                                                    selectedTime.getHours() === parseInt(group.defaultTime.split(':')[0]) &&
-                                                    selectedTime.getMinutes() === parseInt(group.defaultTime.split(':')[1]) &&
+                                                    selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
+                                                    selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1]) &&
                                                     styles.optionTextSelected
                                                 ]}>
                                                     {group.label}

@@ -191,9 +191,24 @@ export const getInstructionText = (instruction: MedicationInstruction): string =
     }
 };
 
+// Helper function to normalize time strings to HH:mm format
+export const normalizeTime = (time: string): string => {
+    if (!time) return '';
+    const parts = time.split(':');
+    if (parts.length < 2) return '';
+    const hours = parts[0].padStart(2, '0');
+    const minutes = parts[1].padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+
 // Helper function to categorize time into time of day (4 categories)
-export const getTimeOfDayCategory = (time: string): TimeOfDayCategory => {
-    const hour = parseInt(time.split(':')[0]);
+export const getTimeOfDayCategory = (time: string): TimeOfDayCategory | null => {
+    if (!time) return null;
+    const parts = time.split(':');
+    if (parts.length === 0) return null;
+    const hour = parseInt(parts[0]);
+
+    if (isNaN(hour)) return null;
 
     if (hour >= 4 && hour < 12) {
         return 'morning';

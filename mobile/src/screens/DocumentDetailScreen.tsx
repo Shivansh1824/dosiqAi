@@ -1676,6 +1676,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                             onRestore={() => handleRestoreMedication(index)}
                             isFirstItem={arrayIndex === 0}
                             isVerified={false}
+                            familyMember={familyMember}
                           />
                           {arrayIndex < unverifiedMedsIdx.length - 1 && (
                             <View style={[styles.medicationDivider, { marginHorizontal: 16 }]} />
