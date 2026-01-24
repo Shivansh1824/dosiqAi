@@ -156,7 +156,9 @@ export default function PreferenceOnboardingScreen() {
     };
 
     const handleTimeChange = (event: any, selectedDate: Date | undefined, setter: (date: Date) => void, visibilitySetter: (v: boolean) => void) => {
-        visibilitySetter(false);
+        if (Platform.OS === 'android') {
+            visibilitySetter(false);
+        }
         if (selectedDate) {
             setter(selectedDate);
         }
@@ -435,13 +437,38 @@ export default function PreferenceOnboardingScreen() {
                                 </View>
                             </View>
                         </TouchableOpacity>
-                        {showMorningPicker && Platform.OS === 'android' && (
-                            <DateTimePicker
-                                value={morningTime}
-                                mode="time"
-                                display="default"
-                                onChange={(e, d) => handleTimeChange(e, d, setMorningTime, setShowMorningPicker)}
-                            />
+                        {showMorningPicker && (
+                            Platform.OS === 'ios' ? (
+                                <Modal
+                                    visible={showMorningPicker}
+                                    transparent={true}
+                                    animationType="slide"
+                                    onRequestClose={() => setShowMorningPicker(false)}
+                                >
+                                    <View style={styles.iosPickerModalOverlay}>
+                                        <View style={styles.iosPickerContainer}>
+                                            <View style={styles.iosPickerHeader}>
+                                                <TouchableOpacity onPress={() => setShowMorningPicker(false)}>
+                                                    <Text style={styles.iosPickerDoneText}>Done</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                            <DateTimePicker
+                                                value={morningTime}
+                                                mode="time"
+                                                display="spinner"
+                                                onChange={(e, d) => handleTimeChange(e, d, setMorningTime, setShowMorningPicker)}
+                                            />
+                                        </View>
+                                    </View>
+                                </Modal>
+                            ) : (
+                                <DateTimePicker
+                                    value={morningTime}
+                                    mode="time"
+                                    display="default"
+                                    onChange={(e, d) => handleTimeChange(e, d, setMorningTime, setShowMorningPicker)}
+                                />
+                            )
                         )}
 
                         {/* Afternoon */}
@@ -480,13 +507,38 @@ export default function PreferenceOnboardingScreen() {
                                 </View>
                             </View>
                         </TouchableOpacity>
-                        {showAfternoonPicker && Platform.OS === 'android' && (
-                            <DateTimePicker
-                                value={afternoonTime}
-                                mode="time"
-                                display="default"
-                                onChange={(e, d) => handleTimeChange(e, d, setAfternoonTime, setShowAfternoonPicker)}
-                            />
+                        {showAfternoonPicker && (
+                            Platform.OS === 'ios' ? (
+                                <Modal
+                                    visible={showAfternoonPicker}
+                                    transparent={true}
+                                    animationType="slide"
+                                    onRequestClose={() => setShowAfternoonPicker(false)}
+                                >
+                                    <View style={styles.iosPickerModalOverlay}>
+                                        <View style={styles.iosPickerContainer}>
+                                            <View style={styles.iosPickerHeader}>
+                                                <TouchableOpacity onPress={() => setShowAfternoonPicker(false)}>
+                                                    <Text style={styles.iosPickerDoneText}>Done</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                            <DateTimePicker
+                                                value={afternoonTime}
+                                                mode="time"
+                                                display="spinner"
+                                                onChange={(e, d) => handleTimeChange(e, d, setAfternoonTime, setShowAfternoonPicker)}
+                                            />
+                                        </View>
+                                    </View>
+                                </Modal>
+                            ) : (
+                                <DateTimePicker
+                                    value={afternoonTime}
+                                    mode="time"
+                                    display="default"
+                                    onChange={(e, d) => handleTimeChange(e, d, setAfternoonTime, setShowAfternoonPicker)}
+                                />
+                            )
                         )}
 
                         {/* Night */}
@@ -518,13 +570,38 @@ export default function PreferenceOnboardingScreen() {
                                 </View>
                             </View>
                         </TouchableOpacity>
-                        {showNightPicker && Platform.OS === 'android' && (
-                            <DateTimePicker
-                                value={nightTime}
-                                mode="time"
-                                display="default"
-                                onChange={(e, d) => handleTimeChange(e, d, setNightTime, setShowNightPicker)}
-                            />
+                        {showNightPicker && (
+                            Platform.OS === 'ios' ? (
+                                <Modal
+                                    visible={showNightPicker}
+                                    transparent={true}
+                                    animationType="slide"
+                                    onRequestClose={() => setShowNightPicker(false)}
+                                >
+                                    <View style={styles.iosPickerModalOverlay}>
+                                        <View style={styles.iosPickerContainer}>
+                                            <View style={styles.iosPickerHeader}>
+                                                <TouchableOpacity onPress={() => setShowNightPicker(false)}>
+                                                    <Text style={styles.iosPickerDoneText}>Done</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                            <DateTimePicker
+                                                value={nightTime}
+                                                mode="time"
+                                                display="spinner"
+                                                onChange={(e, d) => handleTimeChange(e, d, setNightTime, setShowNightPicker)}
+                                            />
+                                        </View>
+                                    </View>
+                                </Modal>
+                            ) : (
+                                <DateTimePicker
+                                    value={nightTime}
+                                    mode="time"
+                                    display="default"
+                                    onChange={(e, d) => handleTimeChange(e, d, setNightTime, setShowNightPicker)}
+                                />
+                            )
                         )}
                     </View>
 
@@ -1148,5 +1225,30 @@ const styles = StyleSheet.create({
         fontWeight: '800', // Heavy weight to match summary primary action
         fontSize: 16,
         letterSpacing: 0.5,
+    },
+    // iOS Picker Modal Styles
+    iosPickerModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    iosPickerContainer: {
+        backgroundColor: Colors.white,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: Sizes.xl,
+    },
+    iosPickerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingHorizontal: Sizes.lg,
+        paddingVertical: Sizes.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.gray100,
+    },
+    iosPickerDoneText: {
+        color: Colors.primary,
+        fontSize: 16,
+        fontWeight: '700',
     },
 });

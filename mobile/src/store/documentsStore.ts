@@ -321,17 +321,25 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    * Shows progress updates and handles the complete analysis flow
    */
   triggerAnalysis: async (documentId: string, localFilePath: string, customPrompt?: string) => {
+    let progressInterval: NodeJS.Timeout | null = null;
     try {
       console.log('[DocumentsStore] Triggering analysis for:', documentId);
 
-      // Set analyzing state
       set((state) => ({
         isAnalyzing: true,
         analysisProgress: { ...state.analysisProgress, [documentId]: 10 },
       }));
 
+      // Update status to 'processing' in database immediately
+      if (isSupabaseConfigured()) {
+        await supabase
+          .from('documents')
+          .update({ ai_analysis_status: 'processing' })
+          .eq('id', documentId);
+      }
+
       // Simulate progress updates
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         set((state) => ({
           analysisProgress: {
             ...state.analysisProgress,
@@ -347,9 +355,6 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         customPrompt,
       });
 
-      // Clear progress interval
-      clearInterval(progressInterval);
-
       // Update progress to 100%
       set((state) => ({
         analysisProgress: { ...state.analysisProgress, [documentId]: 100 },
@@ -363,51 +368,36 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       const document = localDocuments.find((doc) => doc.id === documentId);
 
       // Use analysis result directly from the API response (more reliable than refetching)
-      // The Edge Function returns the parsed analysis in result.analysis
       console.log('[DocumentsStore] Full result from Edge Function:', JSON.stringify(result, null, 2));
 
       const analysisResult = result.analysis;
-      console.log('[DocumentsStore] Analysis result object:', analysisResult);
-      console.log('[DocumentsStore] Analysis result type:', typeof analysisResult);
-
-      const aiGeneratedFilename = analysisResult?.file_name;
       const aiDocumentType = analysisResult?.document_type;
-
-      console.log('[DocumentsStore] Extracted values - aiGeneratedFilename:', aiGeneratedFilename, ', aiDocumentType:', aiDocumentType);
 
       // Process lab reports - save to lab_reports and test_results tables
       if (analysisResult && aiDocumentType && (aiDocumentType.toLowerCase() === 'lab_report' || aiDocumentType.toLowerCase() === 'lab report')) {
         console.log('[DocumentsStore] Detected lab report, processing to database...');
         try {
-          const labReportResult = await processLabReport(
+          await processLabReport(
             documentId,
             analysisResult,
             document?.user_id || '',
             document?.family_member_id || ''
           );
-
-          if (labReportResult) {
-            console.log('[DocumentsStore] Lab report processed successfully:', labReportResult.labReportId);
-            console.log('[DocumentsStore] Created', labReportResult.testResultIds.length, 'test results');
-          } else {
-            console.log('[DocumentsStore] Lab report processing returned null (may not be a valid lab report)');
-          }
         } catch (error) {
           console.error('[DocumentsStore] Error processing lab report:', error);
-          // Don't throw - this is not critical, document is still saved
         }
       }
 
       if (document?.user_id) {
-
-        if ((aiDocumentType) && isSupabaseConfigured()) {
+        if (isSupabaseConfigured()) {
           try {
-            const updateFields: any = {};
+            const updateFields: any = {
+              ai_analysis_status: 'completed',
+              ai_analysis_result: analysisResult,
+              ai_analyzed_at: new Date().toISOString()
+            };
 
-            // NOTE: The AI-generated filename is stored in ai_analysis_result.file_name for display purposes
-
-
-            // Map AI document type to DocumentType enum
+            // Map AI document type to DocumentType enum if available
             if (aiDocumentType) {
               const typeMapping: { [key: string]: string } = {
                 'prescription': 'Prescription',
@@ -418,49 +408,25 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
                 'record': 'Record',
                 'other': 'Other',
               };
-              const mappedType = typeMapping[aiDocumentType.toLowerCase()] || 'Other';
-              updateFields.type = mappedType;
-            }
-
-            // HUGE FIX: We must update the analysis status and result in the DB
-            // asking the UI to rely on this rather than just local state for persistence
-            updateFields.ai_analysis_status = 'completed';
-            updateFields.ai_analysis_result = analysisResult;
-
-            // Update document type & analysis in Supabase
-            if (Object.keys(updateFields).length > 0) {
-              console.log('[DocumentsStore] Updating document with analysis results:', JSON.stringify(updateFields, null, 2));
-              const { error: updateError } = await supabase
-                .from('documents')
-                .update(updateFields)
-                .eq('id', documentId);
-
-              if (updateError) {
-                console.error('[DocumentsStore] Error updating document type:', updateError);
-              } else {
-                console.log('[DocumentsStore] Successfully updated document type');
+              const mappedType = typeMapping[aiDocumentType.toLowerCase()];
+              if (mappedType) {
+                updateFields.type = mappedType;
               }
             }
 
+            await supabase
+              .from('documents')
+              .update(updateFields)
+              .eq('id', documentId);
+
           } catch (error) {
             console.error('[DocumentsStore] Error updating document:', error);
-            // Don't throw - update is not critical
           }
         }
 
-        // Always refresh documents after analysis to get the latest state (including ai_analysis_result)
+        // Always refresh documents after analysis to get the latest state
         await get().fetchDocuments(document.user_id, true);
       }
-
-      // Clear analyzing state
-      set((state) => {
-        const newProgress = { ...state.analysisProgress };
-        delete newProgress[documentId];
-        return {
-          isAnalyzing: false,
-          analysisProgress: newProgress,
-        };
-      });
 
       if (!result.success) {
         throw new Error(result.error || 'Analysis failed');
@@ -469,19 +435,19 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       console.log('[DocumentsStore] Analysis completed successfully');
     } catch (error) {
       console.error('[DocumentsStore] Analysis error:', error);
-
-      // Clear analyzing state
+      set({ error: error instanceof Error ? error.message : 'Analysis failed' });
+    } finally {
+      // ALWAYS clear interval and analyzing state
+      if (progressInterval) clearInterval(progressInterval);
+      
       set((state) => {
         const newProgress = { ...state.analysisProgress };
         delete newProgress[documentId];
         return {
           isAnalyzing: false,
           analysisProgress: newProgress,
-          error: error instanceof Error ? error.message : 'Analysis failed',
         };
       });
-
-      throw error;
     }
   },
 

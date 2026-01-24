@@ -195,6 +195,12 @@ function parseAnalysisResult(analysisText: string): Record<string, unknown> {
   }
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, content-type, x-client-info, apikey",
+};
+
 /**
  * Main handler
  */
@@ -307,20 +313,24 @@ serve(async (req: Request) => {
       console.error("[Auth] Document not found or unauthorized:", docError);
       return new Response(
         JSON.stringify({ error: "Document not found or unauthorized" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Update document status to 'processing'
-    // Note: Do NOT save ai_analysis_prompt here - only save it on error (NULL by default for successful analyses)
-    await supabase
+    const { error: processingError } = await supabase
       .from("documents")
       .update({
         ai_analysis_status: "processing",
       })
       .eq("id", documentId);
-
-    console.log("[Status] Document marked as processing");
+    
+    if (processingError) {
+      console.error("[Status] Failed to mark as processing:", processingError);
+      // We continue anyway, but log it
+    } else {
+      console.log("[Status] Document marked as processing");
+    }
 
     // Call OpenRouter API
     const analysisPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
@@ -341,17 +351,21 @@ serve(async (req: Request) => {
     console.log(`[Success] Analysis completed in ${duration}ms, tokens: ${openRouterResponse.usage.total_tokens}`);
 
     // Update document with analysis result
-    // Clear error and prompt fields on success (NULL by default for successful analyses)
-    await supabase
+    const { error: finalUpdateError } = await supabase
       .from("documents")
       .update({
         ai_analysis_status: "completed",
         ai_analysis_result: analysisResult,
         ai_analyzed_at: new Date().toISOString(),
         ai_analysis_tokens_used: openRouterResponse.usage.total_tokens,
-        ai_analysis_error: null, // Clear any previous error
+        ai_analysis_error: null,
       })
       .eq("id", documentId);
+
+    if (finalUpdateError) {
+      console.error("[Status] Failed to save final results:", finalUpdateError);
+      throw new Error(`Failed to save analysis results: ${finalUpdateError.message}`);
+    }
 
     // Return success response
     return new Response(
