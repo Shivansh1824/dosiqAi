@@ -212,6 +212,19 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         throw new Error('Supabase not configured');
       }
 
+      // 0. IMPORTANT: Unlink medications first to prevent Foreign Key constraint errors
+      // We keep the medication schedules but remove the link to the document being deleted
+      const { error: unlinkError } = await supabase
+        .from('medication_schedules')
+        .update({ source_document_id: null })
+        .eq('source_document_id', id);
+
+      if (unlinkError) {
+        console.warn('[DocumentsStore] Failed to unlink medications (non-critical):', unlinkError);
+      } else {
+        console.log('[DocumentsStore] Unlinked medications from document:', id);
+      }
+
       // 1. Get the document first to check for R2 key
       const docToDelete = get().documents.find((d) => d.id === id);
 
@@ -583,6 +596,18 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       console.log('[DocumentsStore] Clearing ALL cloud documents for user:', userId);
+
+      // 0. IMPORTANT: Unlink all medications first to prevent Foreign Key constraint errors
+      // This honors "Clear Cloud Documents" asking to keep meds but remove docs
+      console.log('[DocumentsStore] Unlinking medications from all documents...');
+      const { error: unlinkError } = await supabase
+        .from('medication_schedules')
+        .update({ source_document_id: null })
+        .eq('user_id', userId);
+
+      if (unlinkError) {
+         console.warn('[DocumentsStore] Failed to unlink meds (non-critical):', unlinkError);
+      }
 
       // 1. Fetch all documents for this user to get R2 keys
       const { data: userDocs, error: fetchError } = await supabase
