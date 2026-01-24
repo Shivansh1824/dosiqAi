@@ -330,9 +330,9 @@ export function calculateEndDate(startDate: string, durationDays: number): strin
  * generateDefaultTimeSlots('four_times_daily') // returns ["08:00", "14:00", "20:00", "02:00"]
  */
 export function generateDefaultTimeSlots(frequency: MedicationFrequency, preferences?: { morning_dose_time?: string, afternoon_dose_time?: string, night_dose_time?: string }): string[] {
-  const morning = preferences?.morning_dose_time?.substring(0, 5) || '08:00';
-  const afternoon = preferences?.afternoon_dose_time?.substring(0, 5) || '14:00';
-  const night = preferences?.night_dose_time?.substring(0, 5) || '21:00';
+  const morning = preferences?.morning_dose_time?.substring(0, 5) || '';
+  const afternoon = preferences?.afternoon_dose_time?.substring(0, 5) || '';
+  const night = preferences?.night_dose_time?.substring(0, 5) || '';
 
   switch (frequency) {
     case 'once_daily':
@@ -373,9 +373,9 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency, prefere
 export function generateTimeSlotsFromFrequencyCode(code: string | undefined, frequency: MedicationFrequency, preferences?: { morning_dose_time?: string, afternoon_dose_time?: string, night_dose_time?: string }): string[] {
   if (!code) return generateDefaultTimeSlots(frequency, preferences);
 
-  const morning = preferences?.morning_dose_time?.substring(0, 5) || '08:00';
-  const afternoon = preferences?.afternoon_dose_time?.substring(0, 5) || '14:00';
-  const night = preferences?.night_dose_time?.substring(0, 5) || '21:00';
+  const morning = preferences?.morning_dose_time?.substring(0, 5) || '';
+  const afternoon = preferences?.afternoon_dose_time?.substring(0, 5) || '';
+  const night = preferences?.night_dose_time?.substring(0, 5) || '';
   const evening = '18:00'; // Standard evening fallback
 
   const normalized = code.toUpperCase();

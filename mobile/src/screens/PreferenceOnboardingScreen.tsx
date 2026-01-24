@@ -15,9 +15,9 @@ export default function PreferenceOnboardingScreen() {
     const navigation = useNavigation();
 
     // State for Time Preferences
-    const [morningTime, setMorningTime] = useState(new Date(new Date().setHours(8, 0, 0, 0)));
-    const [afternoonTime, setAfternoonTime] = useState(new Date(new Date().setHours(14, 0, 0, 0)));
-    const [nightTime, setNightTime] = useState(new Date(new Date().setHours(21, 0, 0, 0)));
+    const [morningTime, setMorningTime] = useState(new Date());
+    const [afternoonTime, setAfternoonTime] = useState(new Date());
+    const [nightTime, setNightTime] = useState(new Date());
 
     // State for Snooze Preferences
     const [snoozeDuration, setSnoozeDuration] = useState(10); // default 10 mins
