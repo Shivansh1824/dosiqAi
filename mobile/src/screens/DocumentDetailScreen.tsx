@@ -1558,7 +1558,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
           const unverifiedMedsIdx = innerMedicines
             .map((medicine, index) => ({ medicine, index }))
             .filter(({ medicine }) => {
-              const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+              const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
               return !verifiedMedications.has(parsedMed.name);
             });
           
@@ -1636,7 +1636,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     {/* Verified Group */}
                     {(() => {
                       const verifiedNames = innerMedicines
-                        .map(m => parseAIMedication(m, document.id, displayTitle))
+                        .map(m => parseAIMedication(m, document.id, displayTitle, familyMember))
                         .filter(m => verifiedMedications.has(m.name))
                         .map(m => m.name);
                       
@@ -1650,7 +1650,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
                     {/* Unverified Individual Cards */}
                     {unverifiedMedsIdx.map(({ medicine, index }, arrayIndex) => {
-                      const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+                      const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                       const suggestedStartDate = document.created_at.split('T')[0];
                       const activeMeds = getActiveMedications();
                       const duplicateOf = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, activeMeds);
@@ -1698,7 +1698,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                             setIsVerifyingAll(true);
                             try {
                               const medsToVerify = unverifiedMedsIdx.map(({ medicine }) => 
-                                parseAIMedication(medicine, document.id, displayTitle)
+                                parseAIMedication(medicine, document.id, displayTitle, familyMember)
                               );
                               const startDate = document.created_at.split('T')[0];
 

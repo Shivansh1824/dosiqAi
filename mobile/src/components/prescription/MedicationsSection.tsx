@@ -12,6 +12,7 @@ import { parseAIMedication, detectDuplicateMedication } from '../../utils/medica
 
 import { Alert } from 'react-native';
 import { useMedicationsStore } from '../../store/medicationsStore';
+import { useFamilyMembersStore } from '../../store/familyMembersStore';
 import { supabase } from '../../services/supabaseClient';
 
 interface MedicationsSectionProps {
@@ -47,6 +48,9 @@ export function MedicationsSection({
     onDismiss,
     onRestore,
 }: MedicationsSectionProps) {
+    const { familyMembers } = useFamilyMembersStore();
+    const familyMember = familyMembers.find(m => m.id === familyMemberId);
+
     const visibleMedicationsCount = medicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${documentId}_`)).length;
     const [isVerifyingAll, setIsVerifyingAll] = useState(false);
 
@@ -57,13 +61,13 @@ export function MedicationsSection({
             .filter(({ index }) => {
                 const dismissId = `${documentId}_${index}`;
                 const isDismissed = dismissedMedicationIds.has(dismissId);
-                const parsedMed = parseAIMedication(medicines[index], documentId, documentTitle);
+                const parsedMed = parseAIMedication(medicines[index], documentId, documentTitle, familyMember);
                 const isVerified = verifiedMedications.has(parsedMed.name);
                 
                 // Only include in "Verify All" if it's NOT verified AND NOT dismissed
                 return !isVerified && !isDismissed;
             })
-            .map(({ medicine }) => parseAIMedication(medicine, documentId, documentTitle));
+            .map(({ medicine }) => parseAIMedication(medicine, documentId, documentTitle, familyMember));
     };
 
     const { addMedicationsBatchFromAI, fetchMedications } = useMedicationsStore();
@@ -126,7 +130,7 @@ export function MedicationsSection({
             {/* Verified Medications Group */}
             {(() => {
                 const verifiedMedNames = medicines
-                    .map(medicine => parseAIMedication(medicine, documentId, documentTitle))
+                    .map(medicine => parseAIMedication(medicine, documentId, documentTitle, familyMember))
                     .filter(med => verifiedMedications.has(med.name))
                     .map(med => med.name);
                 
@@ -139,11 +143,11 @@ export function MedicationsSection({
                 return medicines
                     .map((medicine, index) => ({ medicine, index }))
                     .filter(({ medicine }) => {
-                        const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
+                        const parsedMed = parseAIMedication(medicine, documentId, documentTitle, familyMember);
                         return !verifiedMedications.has(parsedMed.name);
                     })
                     .map(({ medicine, index }, arrayIndex, filteredArray) => {
-                        const parsedMed = parseAIMedication(medicine, documentId, documentTitle);
+                        const parsedMed = parseAIMedication(medicine, documentId, documentTitle, familyMember);
                         const suggestedStartDate = documentCreatedAt.split('T')[0];
                         const isLastItem = arrayIndex === filteredArray.length - 1;
 

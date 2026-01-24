@@ -1049,7 +1049,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                     {verifiedMedications.size > 0 && (() => {
                       const verifiedNames = innerMedicines
-                        .map(m => parseAIMedication(m, document.id, displayTitle))
+                        .map(m => parseAIMedication(m, document.id, displayTitle, familyMember))
                         .filter(m => verifiedMedications.has(m.name))
                         .map(m => m.name);
 
@@ -1070,7 +1070,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                       <View>
                         {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
-                          const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+                          const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                           const suggestedStartDate = document.created_at.split('T')[0];
                           // Pass full medications list for history check (parser handles filtering)
                           const duplicateOf = duplicateMedicationsMap.get(index);
@@ -1122,7 +1122,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               if (!currentUser) return;
 
                               const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
-                                const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+                                const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                                 // Merge user edits from live updates
                                 const liveUpdates = medicationLiveUpdates[index];
                                 if (liveUpdates?.current_reminder_times) {
