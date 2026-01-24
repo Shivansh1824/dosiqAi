@@ -9,6 +9,8 @@ import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../services/supabaseClient';
 import Svg, { Path, Line, G, Circle } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
 // blur removed as unused
 
 export default function PreferenceOnboardingScreen() {
@@ -40,6 +42,8 @@ export default function PreferenceOnboardingScreen() {
     const [showNightPicker, setShowNightPicker] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
 
     const snoozeOptions = [5, 10, 15];
 
@@ -76,10 +80,10 @@ export default function PreferenceOnboardingScreen() {
                 setMorningTime(parseTime(data.morning_dose_time));
                 setAfternoonTime(parseTime(data.afternoon_dose_time));
                 setNightTime(parseTime(data.night_dose_time));
-                
+
                 setSnoozeDuration(data.snooze_duration);
                 const presetIndex = snoozeOptions.indexOf(data.snooze_duration);
-                
+
                 if (presetIndex !== -1) {
                     setIsCustomSnooze(false);
                     indicatorPosition.value = presetIndex;
@@ -92,6 +96,7 @@ export default function PreferenceOnboardingScreen() {
                 setIsAggressive(data.reminder_style === 'assurance');
                 setIsPersistentAlert(data.alert_display_mode === 'alert');
             }
+            setTimeout(() => setHasInitialLoaded(true), 1000); // Delay to prevent immediate save on mount
         } catch (err) {
             console.error('Unexpected error fetching preferences:', err);
         } finally {
@@ -99,14 +104,22 @@ export default function PreferenceOnboardingScreen() {
         }
     };
 
-    const handleSave = async () => {
+    // Auto-save effect
+    useEffect(() => {
+        if (!hasInitialLoaded) return;
+
+        const timer = setTimeout(() => {
+            performSave();
+        }, 1500); // 1.5s debounce
+
+        return () => clearTimeout(timer);
+    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, isPersistentAlert, hasInitialLoaded]);
+
+    const performSave = async (silent = true) => {
         try {
-            setIsSaving(true);
+            setSaveStatus('saving');
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                Alert.alert('Error', 'User not authenticated');
-                return;
-            }
+            if (!user) return;
 
             const formatTimeToDB = (date: Date) => {
                 const hours = date.getHours().toString().padStart(2, '0');
@@ -125,7 +138,6 @@ export default function PreferenceOnboardingScreen() {
                 updated_at: new Date().toISOString(),
             };
 
-            // First find the 'Self' member's ID to perform the update
             const { data: memberData, error: memberError } = await supabase
                 .from('family_members')
                 .select('id')
@@ -133,9 +145,7 @@ export default function PreferenceOnboardingScreen() {
                 .eq('relationship', 'Self')
                 .single();
 
-            if (memberError || !memberData) {
-                throw new Error('Could not find primary family profile to save preferences');
-            }
+            if (memberError || !memberData) throw new Error('Could not find primary family profile');
 
             const { error } = await supabase
                 .from('family_members')
@@ -144,16 +154,20 @@ export default function PreferenceOnboardingScreen() {
 
             if (error) throw error;
 
-            Alert.alert('Success', 'Preferences saved successfully', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
-        } catch (error: any) {
-            console.error('Error saving preferences:', error);
-            Alert.alert('Error', error.message || 'Failed to save preferences');
-        } finally {
-            setIsSaving(false);
+            setSaveStatus('saved');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Clear "Saved" status after 3 seconds
+            setTimeout(() => {
+                setSaveStatus(prev => prev === 'saved' ? 'idle' : prev);
+            }, 3000);
+
+        } catch (error) {
+            console.error('Error auto-saving preferences:', error);
+            setSaveStatus('error');
         }
     };
+
 
     const handleTimeChange = (event: any, selectedDate: Date | undefined, setter: (date: Date) => void, visibilitySetter: (v: boolean) => void) => {
         if (Platform.OS === 'android') {
@@ -179,13 +193,13 @@ export default function PreferenceOnboardingScreen() {
         // Precise content width calculation (Container - 2x Padding)
         const contentWidth = Math.max(0, containerWidth.value - 12);
         const stepWidth = contentWidth / 4;
-        
+
         return {
-            transform: [{ 
-                translateX: withTiming(indicatorPosition.value * stepWidth, { 
+            transform: [{
+                translateX: withTiming(indicatorPosition.value * stepWidth, {
                     duration: 400,
                     easing: Easing.out(Easing.exp)
-                }) 
+                })
             }],
             width: stepWidth,
         };
@@ -216,18 +230,18 @@ export default function PreferenceOnboardingScreen() {
                         <Feather name="info" size={20} color={Colors.primary} />
                         <Text style={styles.tooltipTitle}>Reminder Styles Explanation</Text>
                     </View>
-                    
+
                     <View style={styles.tooltipSection}>
                         <Text style={styles.tooltipSectionTitle}>Standard Mode</Text>
                         <Text style={styles.tooltipText}>
-                            Receive a notification at the scheduled time. If no action is taken, we'll send <Text style={{fontWeight: '700'}}>one follow-up reminder</Text> after {effectiveSnooze} minutes. If still no response, the dose is marked as skipped.
+                            Receive a notification at the scheduled time. If no action is taken, we'll send <Text style={{ fontWeight: '700' }}>one follow-up reminder</Text> after {effectiveSnooze} minutes. If still no response, the dose is marked as skipped.
                         </Text>
                     </View>
 
                     <View style={styles.tooltipSection}>
                         <Text style={styles.tooltipSectionTitle}>Assurance Mode</Text>
                         <Text style={styles.tooltipText}>
-                            The golden standard for critical meds. We'll send the initial alert, followed by <Text style={{fontWeight: '700'}}>up to 4 follow-up reminders every {effectiveSnooze} minutes</Text> until your health is confirmed as tracked.
+                            The golden standard for critical meds. We'll send the initial alert, followed by <Text style={{ fontWeight: '700' }}>up to 4 follow-up reminders every {effectiveSnooze} minutes</Text> until your health is confirmed as tracked.
                         </Text>
                     </View>
 
@@ -252,10 +266,10 @@ export default function PreferenceOnboardingScreen() {
                         <Feather name="clock" size={20} color={Colors.primary} />
                         <Text style={styles.tooltipTitle}>Dose Groups Explained</Text>
                     </View>
-                    
+
                     <View style={styles.tooltipSection}>
                         <Text style={styles.tooltipText}>
-                            Setting these times helps us organize your medications into <Text style={{fontWeight: '700'}}>Morning, Afternoon, and Night groups</Text>.
+                            Setting these times helps us organize your medications into <Text style={{ fontWeight: '700' }}>Morning, Afternoon, and Night groups</Text>.
                         </Text>
                     </View>
 
@@ -286,10 +300,10 @@ export default function PreferenceOnboardingScreen() {
                         <Feather name="clock" size={20} color={Colors.primary} />
                         <Text style={styles.tooltipTitle}>Default Snooze Logic</Text>
                     </View>
-                    
+
                     <View style={styles.tooltipSection}>
                         <Text style={styles.tooltipText}>
-                            Your selected duration becomes the <Text style={{fontWeight: '700'}}>default time</Text> for all reminders.
+                            Your selected duration becomes the <Text style={{ fontWeight: '700' }}>default time</Text> for all reminders.
                         </Text>
                     </View>
 
@@ -329,7 +343,7 @@ export default function PreferenceOnboardingScreen() {
                         <Feather name="layout" size={20} color={Colors.primary} />
                         <Text style={styles.tooltipTitle}>Display Modes</Text>
                     </View>
-                    
+
                     <View style={styles.tooltipSection}>
                         <Text style={styles.tooltipSectionTitle}>Banner Mode</Text>
                         <Text style={styles.tooltipText}>
@@ -340,7 +354,7 @@ export default function PreferenceOnboardingScreen() {
                     <View style={styles.tooltipSection}>
                         <Text style={styles.tooltipSectionTitle}>Persistent Mode</Text>
                         <Text style={styles.tooltipText}>
-                            Important alerts that <Text style={{fontWeight: '700'}}>remain on your screen</Text> until you take action. Best for ensuring you never miss a critical medication dose.
+                            Important alerts that <Text style={{ fontWeight: '700' }}>remain on your screen</Text> until you take action. Best for ensuring you never miss a critical medication dose.
                         </Text>
                     </View>
 
@@ -385,7 +399,26 @@ export default function PreferenceOnboardingScreen() {
                         <Text style={styles.headerTitle}>Customize Experience</Text>
                         <View style={styles.headerDot} />
                     </View>
-                    <View style={{ width: 40 }} />
+                    <View style={styles.headerStatusContainer}>
+                        {saveStatus === 'saving' && (
+                            <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.statusIndicator}>
+                                <ActivityIndicator size="small" color={Colors.primary} style={{ transform: [{ scale: 0.8 }] }} />
+                                <Text style={styles.statusText}>Saving...</Text>
+                            </Animated.View>
+                        )}
+                        {saveStatus === 'saved' && (
+                            <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.statusIndicator}>
+                                <Feather name="check-circle" size={14} color="#10B981" />
+                                <Text style={[styles.statusText, { color: '#10B981' }]}>Saved</Text>
+                            </Animated.View>
+                        )}
+                        {saveStatus === 'error' && (
+                            <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.statusIndicator}>
+                                <Feather name="alert-circle" size={14} color="#EF4444" />
+                                <Text style={[styles.statusText, { color: '#EF4444' }]}>Retry</Text>
+                            </Animated.View>
+                        )}
+                    </View>
                 </View>
 
                 <ScrollView
@@ -615,10 +648,10 @@ export default function PreferenceOnboardingScreen() {
                         </View>
                         <Text style={styles.sectionSubtitle}>Set your preferred frequency for follow-up alerts.</Text>
 
-                        <View 
+                        <View
                             style={styles.liquidContainer}
                         >
-                             <View style={[styles.liquidIndicator, { width: '25%', left: `${(snoozeOptions.indexOf(snoozeDuration) * 25)}%` as any }]} />
+                            <View style={[styles.liquidIndicator, { width: '25%', left: `${(snoozeOptions.indexOf(snoozeDuration) * 25)}%` as any }]} />
                             {snoozeOptions.map((option, index) => (
                                 <TouchableOpacity
                                     key={option}
@@ -639,8 +672,8 @@ export default function PreferenceOnboardingScreen() {
                                     styles.liquidChipText,
                                     isCustomSnooze && styles.liquidChipTextActive
                                 ]}>
-                                    {isCustomSnooze && customSnooze && !isEditingCustom 
-                                        ? `${customSnooze} min` 
+                                    {isCustomSnooze && customSnooze && !isEditingCustom
+                                        ? `${customSnooze} min`
                                         : 'Custom'
                                     }
                                 </Text>
@@ -648,7 +681,7 @@ export default function PreferenceOnboardingScreen() {
                         </View>
 
                         {isCustomSnooze && isEditingCustom && (
-                                <View style={styles.customInputContainer}>
+                            <View style={styles.customInputContainer}>
                                 <TextInput
                                     style={styles.customInput}
                                     placeholder="Enter minutes"
@@ -661,13 +694,13 @@ export default function PreferenceOnboardingScreen() {
                                     onSubmitEditing={() => setIsEditingCustom(false)}
                                     blurOnSubmit={true}
                                 />
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => setIsEditingCustom(false)}
                                     style={styles.tickButton}
                                 >
                                     <Feather name="check" size={20} color={Colors.white} />
                                 </TouchableOpacity>
-                                </View>
+                            </View>
                         )}
                     </View>
 
@@ -679,7 +712,7 @@ export default function PreferenceOnboardingScreen() {
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        
+
                         <View style={[styles.reminderCard, !isAggressive && styles.reminderCardActive]}>
                             {!isAggressive && (
                                 <LinearGradient
@@ -761,9 +794,9 @@ export default function PreferenceOnboardingScreen() {
                             <View style={styles.reminderContent}>
                                 <View style={[styles.reminderIcon, { backgroundColor: '#CCFBF1' }]}>
                                     <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                        <Path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V8C20 9.10457 19.1046 10 18 10H6C4.89543 10 4 9.10457 4 8V6Z" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                        <Path d="M4 14H12" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4"/>
-                                        <Path d="M4 18H8" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4"/>
+                                        <Path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V8C20 9.10457 19.1046 10 18 10H6C4.89543 10 4 9.10457 4 8V6Z" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        <Path d="M4 14H12" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
+                                        <Path d="M4 18H8" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
                                     </Svg>
                                 </View>
                                 <View style={styles.reminderTextContent}>
@@ -794,9 +827,9 @@ export default function PreferenceOnboardingScreen() {
                             <View style={styles.reminderContent}>
                                 <View style={[styles.reminderIcon, { backgroundColor: '#E0E7FF' }]}>
                                     <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                        <Circle cx="12" cy="12" r="9" stroke="#4F46E5" strokeWidth="2"/>
-                                        <Path d="M12 8V12L14 14" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                        <Path d="M12 3V5M12 19V21M3 12H5M19 12H21" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
+                                        <Circle cx="12" cy="12" r="9" stroke="#4F46E5" strokeWidth="2" />
+                                        <Path d="M12 8V12L14 14" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        <Path d="M12 3V5M12 19V21M3 12H5M19 12H21" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
                                     </Svg>
                                 </View>
                                 <View style={styles.reminderTextContent}>
@@ -818,31 +851,6 @@ export default function PreferenceOnboardingScreen() {
 
                     <View style={{ height: 32 }} />
 
-                    {/* Footer Action */}
-                    <View style={styles.actionButtonContainer}>
-                        <TouchableOpacity 
-                            style={[styles.saveButton, isSaving && { opacity: 0.7 }]} 
-                            onPress={handleSave}
-                            disabled={isSaving}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={['#3B82F6', '#60A5FA', '#93C5FD']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.saveGradient}
-                            >
-                                {isSaving ? (
-                                    <ActivityIndicator color={Colors.white} />
-                                ) : (
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                        <Feather name="check-circle" size={18} color={Colors.white} />
-                                        <Text style={styles.saveButtonText}>Save Preferences</Text>
-                                    </View>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
                 </ScrollView>
             </SafeAreaView>
         </View>
@@ -863,7 +871,6 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: Sizes.lg,
         paddingVertical: Sizes.md,
     },
@@ -891,6 +898,31 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         marginLeft: 6,
         marginTop: 10,
+    },
+    headerStatusContainer: {
+        width: 70,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+    },
+    statusIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: Colors.gray600,
     },
     scrollView: {
         flex: 1,
@@ -948,7 +980,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingLeft: 52, 
+        paddingLeft: 52,
         paddingRight: 12,
         zIndex: 2,
     },
