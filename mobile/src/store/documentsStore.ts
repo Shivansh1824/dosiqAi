@@ -389,7 +389,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
         if ((aiDocumentType) && isSupabaseConfigured()) {
           try {
-            const updateFields: { type?: string } = {};
+            const updateFields: any = {};
 
             // NOTE: The AI-generated filename is stored in ai_analysis_result.file_name for display purposes
 
@@ -409,9 +409,14 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
               updateFields.type = mappedType;
             }
 
-            // Update document type in Supabase (title remains as UUID)
+            // HUGE FIX: We must update the analysis status and result in the DB
+            // asking the UI to rely on this rather than just local state for persistence
+            updateFields.ai_analysis_status = 'completed';
+            updateFields.ai_analysis_result = analysisResult;
+
+            // Update document type & analysis in Supabase
             if (Object.keys(updateFields).length > 0) {
-              console.log('[DocumentsStore] Updating document type:', updateFields);
+              console.log('[DocumentsStore] Updating document with analysis results:', JSON.stringify(updateFields, null, 2));
               const { error: updateError } = await supabase
                 .from('documents')
                 .update(updateFields)
