@@ -498,10 +498,32 @@ export function ReminderTimesSection({
     };
 
 
+    // Verify and revive deleted batches if they are in reminderTimes
+    useEffect(() => {
+        const activeNormalizedTimes = reminderTimes.map(normalizeTime);
+        const revivedBatches = deletedBatchIds.filter(id => {
+            // Find the batch definition
+            // Simple mapping for verification context
+            let defaultTime: string | undefined;
+            if (id === 'morning') defaultTime = preferredTimes?.morning || '08:00';
+            else if (id === 'afternoon') defaultTime = preferredTimes?.afternoon || '14:00';
+            else if (id === 'night') defaultTime = preferredTimes?.night || '21:00';
+            // Note: Extras are harder to map back from ID alone without reconstructing rows, 
+            // but for standard morning/afternoon/night causing the issue, this is sufficient.
+            
+            if (defaultTime && activeNormalizedTimes.includes(normalizeTime(defaultTime))) {
+                return true;
+            }
+            return false;
+        });
+
+        if (revivedBatches.length > 0) {
+            setDeletedBatchIds(prev => prev.filter(id => !revivedBatches.includes(id)));
+        }
+    }, [reminderTimes, preferredTimes, deletedBatchIds]);
+
     const rowsToRender = renderGroupedView();
     let activeCounter = 0; // Tracking active reminders for dynamic numbering
-
-
 
     return (
         <View style={styles.reminderBarsContainer}>
@@ -548,8 +570,10 @@ export function ReminderTimesSection({
                 {rowsToRender.map((batch, index) => {
                     const normalizedBatchTime = normalizeTime(batch.defaultTime);
                     const isOn = reminderTimes.some(t => normalizeTime(t) === normalizedBatchTime);
-                    // Skip if hidden/deleted
-                    if (deletedBatchIds.includes(batch.id)) return null;
+                    
+                    if (deletedBatchIds.includes(batch.id)) {
+                         return null;
+                    }
 
                     const isCustomReminder = batch.label === 'Reminder' || batch.id.startsWith('extra-');
 

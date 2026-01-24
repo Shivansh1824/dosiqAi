@@ -385,8 +385,9 @@ export default function MedicationVerificationCard({
     const updatedTimes = [...currentTimes, time].sort();
     setCustomReminderTimes(updatedTimes);
     // Remove from inactive if it was there (reactivating implies removing from inactive list)
-    if (inactiveReminders.includes(time)) {
-      setInactiveReminders(prev => prev.filter(t => t !== time));
+    // FIX: Use normalization for robust check
+    if (inactiveReminders.some(t => normalizeTime(t) === normalizedNewTime)) {
+      setInactiveReminders(prev => prev.filter(t => normalizeTime(t) !== normalizedNewTime));
     }
     // Broadcast live update
     onLiveUpdate?.({ current_reminder_times: updatedTimes });
