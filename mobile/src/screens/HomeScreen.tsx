@@ -613,28 +613,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             )}
           </View>
 
-          {/* Preview Section - Temporary */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Preview</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.documentCardNew, { backgroundColor: '#E0F2FE', borderLeftWidth: 4, borderLeftColor: '#0284C7' }]}
-              onPress={() => onNavigate('preferenceOnboarding')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.documentCardContent}>
-                <View style={[styles.documentIconNew, { backgroundColor: '#F0F9FF' }]}>
-                  <Feather name="settings" size={22} color="#0284C7" />
-                </View>
-                <View style={styles.documentInfoNew}>
-                  <Text style={styles.documentTitleNew}>Customize Experience</Text>
-                  <Text style={styles.documentDateNew}>Set your dose & reminder preferences</Text>
-                </View>
-                <Feather name="chevron-right" size={20} color="#0284C7" />
-              </View>
-            </TouchableOpacity>
-          </View>
+
 
           <View style={{ height: 120 }} />
         </ScrollView>

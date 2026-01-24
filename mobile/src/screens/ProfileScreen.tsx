@@ -20,6 +20,7 @@ export default function ProfileScreen() {
         { icon: 'settings', label: 'Settings' },
         { icon: 'help-circle', label: 'Help & Support' },
         { icon: 'shield', label: 'Privacy & Security' },
+        { icon: 'sliders', label: 'Customize Experience' },
         { icon: 'trash-2', label: 'Clear Documents', isDestructive: true },
     ];
 
@@ -34,6 +35,8 @@ export default function ProfileScreen() {
     const handleMenuPress = (label: string) => {
         if (label === 'Clear Documents') {
             setShowClearOptions(true);
+        } else if (label === 'Customize Experience') {
+            navigation.navigate('PreferenceOnboarding' as never);
         } else {
             // Placeholder for other menu items
             console.log(`Pressed ${label}`);
