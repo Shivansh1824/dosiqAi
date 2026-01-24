@@ -10,18 +10,13 @@ interface AddReminderModalProps {
     onClose: () => void;
     onAdd: (time: string, mealLabel: string | null) => void;
     existingTimes?: string[];
-    preferredTimes?: {
-        morning?: string;
-        afternoon?: string;
-        night?: string;
-    };
 }
 
 /**
  * AddReminderModal - Specific modal to add a new reminder time
  * User picks a time and selects a meal relationship
  */
-export default function AddReminderModal({ visible, onClose, onAdd, existingTimes = [], preferredTimes }: AddReminderModalProps) {
+export default function AddReminderModal({ visible, onClose, onAdd, existingTimes = [] }: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
@@ -71,9 +66,9 @@ export default function AddReminderModal({ visible, onClose, onAdd, existingTime
     // Dynamic context options based on time could be cool, but keeping it simple for now as requested
     // Maybe adding specific meals if needed?
     const DOSE_GROUPS = [
-        { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning || '' },
-        { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon || '' },
-        { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night || '' },
+        { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: '08:00' },
+        { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: '14:00' },
+        { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: '21:00' },
     ];
 
     // Filter out groups that are already in existingTimes

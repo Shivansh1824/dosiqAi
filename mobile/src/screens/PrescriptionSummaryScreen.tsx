@@ -1097,7 +1097,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               isFirstItem={arrayIndex === 0}
                               cardIndex={arrayIndex + 1}
                               isVerified={isAlreadyAdded}
-                              familyMember={familyMember}
                             />
                           );
                         })}

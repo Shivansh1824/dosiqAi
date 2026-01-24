@@ -38,11 +38,6 @@ interface ReminderTimesSectionProps {
     inactiveReminderTimes?: string[]; // New: Track inactive custom times
     onDeleteCustomReminder?: (time: string) => void; // New: Explicit delete handler
     isVerified?: boolean;
-    preferredTimes?: {
-        morning?: string;
-        afternoon?: string;
-        night?: string;
-    };
 }
 
 /**
@@ -55,16 +50,6 @@ const formatTimeDisplay = (time24: string): string => {
     const period = hours >= 12 ? 'PM' : 'AM';
     const hours12 = hours % 12 || 12;
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-};
-
-/**
- * Normalize time string to HH:mm format for reliable comparison
- */
-const normalizeTime = (time: string): string => {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    if (!hours || !minutes) return '';
-    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
 };
 
 // ... helpers getMealLabel, getCleanMedicineName kept as is via context ... Actually I can't skip helpers if I replace a large chunk.
@@ -194,7 +179,6 @@ export function ReminderTimesSection({
     inactiveReminderTimes = [], // Default empty
     onDeleteCustomReminder,
     isVerified = false,
-    preferredTimes,
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -277,9 +261,9 @@ export function ReminderTimesSection({
     // Helper to render Grouped Batches
     const renderGroupedView = () => {
         const batches = [
-            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning || '' },
-            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon || '' },
-            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night || '' },
+            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: '08:00' },
+            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: '14:00' },
+            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: '21:00' },
         ];
 
         let rows: any[] = [];
@@ -324,7 +308,7 @@ export function ReminderTimesSection({
         }
 
         // 2. Add extra rows for any active reminder times that aren't covered by the generated rows
-        const coveredTimes = new Set(rows.map(r => normalizeTime(r.defaultTime)));
+        const coveredTimes = new Set(rows.map(r => r.defaultTime));
 
         // Create a combined list of all custom times (active + inactive) to ensure we render them
         // We use a Set to avoid duplicates if something is weirdly in both
@@ -336,26 +320,26 @@ export function ReminderTimesSection({
         allCustomTimes.sort((a, b) => parseInt(a.replace(':', '')) - parseInt(b.replace(':', '')));
 
         allCustomTimes.forEach((time, index) => {
-            const normalizedTime = normalizeTime(time);
-            if (!coveredTimes.has(normalizedTime)) {
+            if (!coveredTimes.has(time)) {
 
                 // Check if this time matches a standard batch
-                const standardBatch = batches.find(b => normalizeTime(b.defaultTime) === normalizedTime);
+                const standardBatch = batches.find(b => b.defaultTime === time);
 
                 if (standardBatch) {
                     rows.push({
-                        ...standardBatch,
-                        defaultTime: time // Keep the actual time string (including seconds if any)
+                        ...standardBatch
+                        // ID implicitly used from standardBatch (e.g., 'morning')
+                        // This ensures it uses the standard icon and label
                     });
                 } else {
                     rows.push({
-                        id: `custom-${normalizedTime.replace(':', '')}`, // Use time as stable ID part
+                        id: `custom-${time.replace(':', '')}`, // Use time as stable ID part
                         label: 'Reminder',
                         icon: 'clock',
                         defaultTime: time
                     });
                 }
-                coveredTimes.add(normalizedTime);
+                coveredTimes.add(time);
             }
         });
 
@@ -378,29 +362,24 @@ export function ReminderTimesSection({
 
     useEffect(() => {
         const rows = renderGroupedView();
-        const rowTimes = rows.map(r => normalizeTime(r.defaultTime));
-        const normalizedReminderTimes = reminderTimes.map(normalizeTime);
-        const missingTimes = rowTimes.filter(t => !normalizedReminderTimes.includes(t));
+        const rowTimes = rows.map(r => r.defaultTime);
+        const missingTimes = rowTimes.filter(t => !reminderTimes.includes(t));
 
         if (missingTimes.length > 0) {
             if (onUpdateReminderTimes) {
-                const newTimes = Array.from(new Set([...reminderTimes, ...rows.map(r => r.defaultTime)]));
-                newTimes.sort((a, b) => {
-                    const ta = parseInt(normalizeTime(a).replace(':', ''));
-                    const tb = parseInt(normalizeTime(b).replace(':', ''));
-                    return ta - tb;
-                });
+                const newTimes = Array.from(new Set([...reminderTimes, ...rowTimes]));
+                newTimes.sort((a, b) => parseInt(a.replace(':', '')) - parseInt(b.replace(':', '')));
                 onUpdateReminderTimes(newTimes);
             } else {
                 // Fallback
                 missingTimes.forEach(time => {
-                    const row = rows.find(r => normalizeTime(r.defaultTime) === time);
-                    if (row) onBatchToggle?.(row.id, true, row.defaultTime);
+                    const row = rows.find(r => r.defaultTime === time);
+                    if (row) onBatchToggle?.(row.id, true, time);
                 });
             }
         }
         // Removing reminderTimes from dependency array to prevent auto-re-enabling when user toggles off
-    }, [totalTimesPerDay, timingDosage, preferredTimes]); // Added preferredTimes to trigger re-sync when preferences change
+    }, [totalTimesPerDay, timingDosage]);
 
     if (reminderTimes.length === 0 && inactiveReminderTimes.length === 0) return null;
 
@@ -532,8 +511,7 @@ export function ReminderTimesSection({
             {/* Content Body */}
             <View style={styles.batchesContainer}>
                 {rowsToRender.map((batch, index) => {
-                    const normalizedBatchTime = normalizeTime(batch.defaultTime);
-                    const isOn = reminderTimes.some(t => normalizeTime(t) === normalizedBatchTime);
+                    const isOn = reminderTimes.includes(batch.defaultTime);
                     // Skip if hidden/deleted
                     if (deletedBatchIds.includes(batch.id)) return null;
 
