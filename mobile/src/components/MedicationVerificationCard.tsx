@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../constants';
 import { ParsedMedication } from '../types/medicationVerification';
 import { Medication } from '../types/medication';
+import { FamilyMember } from '../types/familyMember';
 import DatePickerModal from './DatePickerModal';
 import { calculateEndDate, isAsNeededFrequency } from '../utils/medicationParser';
 import { generateCyclicReminderTimes } from '../types/medicationSchedule';
@@ -41,6 +42,7 @@ interface MedicationVerificationCardProps {
   isVerified?: boolean; // NEW: Whether medication is already added to tracker
   isDismissed?: boolean; // NEW: Whether medication is dismissed/deleted
   onRestore?: () => void; // NEW: Callback to restore dismissed medication
+  familyMember?: FamilyMember;
 }
 
 /**
@@ -62,6 +64,7 @@ export default function MedicationVerificationCard({
   isVerified = false,
   isDismissed = false,
   onRestore,
+  familyMember,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
   const backgroundColor = '#FFFFFF';
@@ -90,17 +93,46 @@ export default function MedicationVerificationCard({
   // Reminder default notes state (for note feature)
   const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
 
-  // Helper to generate initial times
-  const getInitialTimes = (): string[] => {
-    const timesPerDay = initialMedication.total_times_per_day ?? initialMedication.source_raw?.timing?.total_times_per_day ?? 0;
-    if (initialMedication.time_of_day?.length > 0) {
-      return initialMedication.time_of_day;
-    }
-    if (timesPerDay > 0) {
-      return generateCyclicReminderTimes(timesPerDay);
-    }
-    return [];
-  };
+    const getInitialTimes = (): string[] => {
+        const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
+        
+        // 1. If prescription has explicit times, use them
+        if (medication.time_of_day?.length > 0) {
+            return medication.time_of_day;
+        }
+        
+        // 2. If it has a frequency (times per day), use user's preferred times
+        if (timesPerDay > 0) {
+            const morning = familyMember?.morning_dose_time || '';
+            const afternoon = familyMember?.afternoon_dose_time || '';
+            const night = familyMember?.night_dose_time || '';
+            
+            if (timesPerDay === 1) return [morning];
+            if (timesPerDay === 2) return [morning, night];
+            if (timesPerDay === 3) return [morning, afternoon, night];
+            
+            // For > 3, we can still use generateCyclicReminderTimes but maybe it should be updated?
+            // For now, let's just use the cyclic utility as it handles extras
+            // But actually, generateCyclicReminderTimes is hardcoded. 
+            // I'll manually implement a preference-aware version for > 3 here.
+            const baseTimes = [morning, afternoon, night];
+            const result = [...baseTimes];
+            const extrasNeeded = timesPerDay - 3;
+
+            for (let i = 0; i < extrasNeeded; i++) {
+                const cycleIndex = i % 3;
+                const offsetPass = Math.floor(i / 3) + 1;
+                const baseTime = baseTimes[cycleIndex];
+                const [h, m] = baseTime.split(':').map(Number);
+                let newHour = h + offsetPass;
+                if (newHour >= 24) newHour -= 24;
+                const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                result.push(newTime);
+            }
+            return result.sort();
+        }
+        return [];
+    };
 
   // Custom reminder times state (for time picker changes)
   // Initialize with defaults immediately so empty array is valid "all off" state
@@ -731,6 +763,11 @@ export default function MedicationVerificationCard({
                   inactiveReminderTimes={inactiveReminders}
                   onDeleteCustomReminder={handleDeleteCustomReminder}
                   isVerified={isVerified}
+                  preferredTimes={{
+                    morning: familyMember?.morning_dose_time || undefined,
+                    afternoon: familyMember?.afternoon_dose_time || undefined,
+                    night: familyMember?.night_dose_time || undefined,
+                  }}
                 />
 
                 <AddReminderModal
@@ -738,6 +775,11 @@ export default function MedicationVerificationCard({
                   onClose={() => setShowAddReminderModal(false)}
                   onAdd={handleAddReminderObject}
                   existingTimes={getReminderTimes()}
+                  preferredTimes={{
+                    morning: familyMember?.morning_dose_time || undefined,
+                    afternoon: familyMember?.afternoon_dose_time || undefined,
+                    night: familyMember?.night_dose_time || undefined,
+                  }}
                 />
               </>
             )}

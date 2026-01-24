@@ -243,10 +243,11 @@ export const getTimeOfDayIcon = (category: TimeOfDayCategory): string => {
  */
 export const generateCyclicReminderTimes = (totalTimesPerDay: number): string[] => {
     // Base times are Morning, Afternoon, Night (3 groups for verification screen)
-    // These match the default times in ReminderTimesSection
-    const morning = '08:00';
-    const afternoon = '14:00';
-    const night = '21:00';
+    // We expect these to be passed from the database/preferences layer
+    // Removed hardcoded fallbacks to ensure sync with user preferences
+    const morning = '';
+    const afternoon = '';
+    const night = '';
 
     if (totalTimesPerDay <= 0) return [];
 
