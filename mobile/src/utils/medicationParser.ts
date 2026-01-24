@@ -329,32 +329,36 @@ export function calculateEndDate(startDate: string, durationDays: number): strin
  * generateDefaultTimeSlots('twice_daily') // returns ["08:00", "20:00"]
  * generateDefaultTimeSlots('four_times_daily') // returns ["08:00", "14:00", "20:00", "02:00"]
  */
-export function generateDefaultTimeSlots(frequency: MedicationFrequency): string[] {
+export function generateDefaultTimeSlots(frequency: MedicationFrequency, preferences?: { morning_dose_time?: string, afternoon_dose_time?: string, night_dose_time?: string }): string[] {
+  const morning = preferences?.morning_dose_time?.substring(0, 5) || '08:00';
+  const afternoon = preferences?.afternoon_dose_time?.substring(0, 5) || '14:00';
+  const night = preferences?.night_dose_time?.substring(0, 5) || '21:00';
+
   switch (frequency) {
     case 'once_daily':
-      return ['08:00']; // Morning
+      return [morning]; // Morning
 
     case 'twice_daily':
-      return ['08:00', '21:00']; // Morning and night
+      return [morning, night]; // Morning and night
 
     case 'three_times_daily':
-      return ['08:00', '14:00', '21:00']; // Morning, afternoon, night
+      return [morning, afternoon, night]; // Morning, afternoon, night
 
     case 'four_times_daily':
-      return ['08:00', '12:00', '17:00', '21:00']; // Every 4-5 hours distribution
+      // For 4 times, we need a mid-point. Default to 17:00 or somewhere between afternoon and night
+      return [morning, afternoon, '17:00', night]; 
 
     case 'as_needed':
       return []; // No fixed schedule
 
     case 'weekly':
-      return ['08:00']; // Weekly, default to morning
+      return [morning]; // Weekly, default to morning
 
     case 'monthly':
-      return ['08:00']; // Monthly, default to morning
+      return [morning]; // Monthly, default to morning
 
     default:
-      return ['08:00']; // Safe default
-
+      return [morning]; // Safe default
   }
 }
 
@@ -366,8 +370,13 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency): string
  * @param code - Original frequency code (e.g., "1-0-1")
  * @param frequency - Parsed frequency enum
  */
-export function generateTimeSlotsFromFrequencyCode(code: string | undefined, frequency: MedicationFrequency): string[] {
-  if (!code) return generateDefaultTimeSlots(frequency);
+export function generateTimeSlotsFromFrequencyCode(code: string | undefined, frequency: MedicationFrequency, preferences?: { morning_dose_time?: string, afternoon_dose_time?: string, night_dose_time?: string }): string[] {
+  if (!code) return generateDefaultTimeSlots(frequency, preferences);
+
+  const morning = preferences?.morning_dose_time?.substring(0, 5) || '08:00';
+  const afternoon = preferences?.afternoon_dose_time?.substring(0, 5) || '14:00';
+  const night = preferences?.night_dose_time?.substring(0, 5) || '21:00';
+  const evening = '18:00'; // Standard evening fallback
 
   const normalized = code.toUpperCase();
   const slots: string[] = [];
@@ -375,25 +384,24 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
   // Keywords logic: Check strictly for specific time-of-day mentions
   // Sequence enforced by check order: Morning -> Afternoon -> Evening -> Night
 
-  // Morning (08:00)
+  // Morning
   if (normalized.includes('MORNING')) {
-    slots.push('08:00');
+    slots.push(morning);
   }
 
-  // Afternoon (14:00 - 2 PM)
+  // Afternoon
   if (normalized.includes('AFTERNOON')) {
-    slots.push('14:00');
+    slots.push(afternoon);
   }
 
-
-  // Evening (18:00 - 6 PM)
+  // Evening
   if (normalized.includes('EVENING')) {
-    slots.push('18:00');
+    slots.push(evening);
   }
 
-  // Night (21:00 - 9 PM)
+  // Night
   if (normalized.includes('NIGHT')) {
-    slots.push('21:00'); // 9 PM as requested
+    slots.push(night);
   }
 
   // If we found valid keyword-based slots, return them
@@ -402,19 +410,15 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
   }
 
   // X-X-X pattern (Morning-Afternoon-Night) fallback
-  // e.g. 1-0-1 -> Morning (08:00) and Night (21:00)
   const tripleMatch = normalized.match(/^(\d+)-(\d+)-(\d+)$/);
   if (tripleMatch) {
-    const morning = parseInt(tripleMatch[1]);
-    const afternoon = parseInt(tripleMatch[2]);
-    const night = parseInt(tripleMatch[3]);
+    const m = parseInt(tripleMatch[1]);
+    const a = parseInt(tripleMatch[2]);
+    const n = parseInt(tripleMatch[3]);
 
-    if (morning > 0) slots.push('08:00');
-    if (afternoon > 0) slots.push('14:00');
-    // If we have a 4th slot in X-X-X-X format, we need to handle it. 
-    // But tripleMatch only handles X-X-X. 
-    // Let's add a quadrupleMatch.
-    if (night > 0) slots.push('21:00'); 
+    if (m > 0) slots.push(morning);
+    if (a > 0) slots.push(afternoon);
+    if (n > 0) slots.push(night); 
 
     if (slots.length > 0) return slots;
   }
@@ -427,16 +431,16 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
     const e = parseInt(quadMatch[3]);
     const n = parseInt(quadMatch[4]);
 
-    if (m > 0) slots.push('08:00');
-    if (a > 0) slots.push('14:00');
-    if (e > 0) slots.push('18:00');
-    if (n > 0) slots.push('21:00');
+    if (m > 0) slots.push(morning);
+    if (a > 0) slots.push(afternoon);
+    if (e > 0) slots.push(evening);
+    if (n > 0) slots.push(night);
 
     if (slots.length > 0) return slots;
   }
 
   // Fallback to standard frequency slots
-  return generateDefaultTimeSlots(frequency);
+  return generateDefaultTimeSlots(frequency, preferences);
 }
 
 
@@ -693,7 +697,8 @@ export function cleanMedicationName(exactWrittenName: string): string {
 export function parseAIMedication(
   medicine: MedicineInfo,
   documentId: string,
-  documentTitle: string
+  documentTitle: string,
+  preferences?: { morning_dose_time?: string, afternoon_dose_time?: string, night_dose_time?: string }
 ): ParsedMedication {
   const frequency = parseMedicalFrequency(medicine.frequency);
   const durationDays = parseDuration(medicine.duration);
@@ -701,7 +706,7 @@ export function parseAIMedication(
   // Use code-aware time slot generation to capture 1-0-1 specific times
   // Priority: timing.dosage (e.g. "0-0-1") > frequency (e.g. "Night daily")
   const originalCode = medicine.timing?.dosage || medicine.frequency;
-  const timeSlots = generateTimeSlotsFromFrequencyCode(originalCode, frequency);
+  const timeSlots = generateTimeSlotsFromFrequencyCode(originalCode, frequency, preferences);
   const confidence = determineConfidence(medicine.assumed_enriched_data?.is_identified);
 
   // Build notes from special instructions

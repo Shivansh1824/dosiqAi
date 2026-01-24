@@ -176,7 +176,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     return innerMedicines
       .map((medicine, index) => ({ medicine, index }))
       .filter(({ medicine }) => {
-        const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+        const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
         return !verifiedMedications.has(parsedMed.name);
       });
   }, [innerMedicines, document.id, verifiedMedications]);
@@ -195,7 +195,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     if (!medications || medications.length === 0) return map;
 
     allUnverifiedMedsIdx.forEach(({ medicine, index }) => {
-      const parsedMed = parseAIMedication(medicine, document.id, displayTitle);
+      const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
       const duplicate = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, medications);
       if (duplicate) {
         map.set(index, duplicate);

@@ -57,6 +57,7 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import Onboarding1Screen from './src/screens/Onboarding1Screen';
 import Onboarding2Screen from './src/screens/Onboarding2Screen';
 import Onboarding3Screen from './src/screens/Onboarding3Screen';
+import PreferenceOnboardingScreen from './src/screens/PreferenceOnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -88,6 +89,7 @@ export type RootStackParamList = {
   Onboarding1: undefined;
   Onboarding2: undefined;
   Onboarding3: undefined;
+  PreferenceOnboarding: undefined;
   Login: undefined;
   Signup: undefined;
   Home: undefined;
@@ -372,6 +374,7 @@ export default function App() {
                     <Stack.Screen name="Onboarding1" component={Onboarding1Screen} />
                     <Stack.Screen name="Onboarding2" component={Onboarding2Screen} />
                     <Stack.Screen name="Onboarding3" component={Onboarding3Screen} />
+                    <Stack.Screen name="PreferenceOnboarding" component={PreferenceOnboardingScreen} />
 
                     {/* Login Screen */}
                     <Stack.Screen name="Login" component={LoginScreen} />
@@ -391,7 +394,9 @@ export default function App() {
                             else if (screen === 'medicationList') navigation.navigate('MedicationList');
                             else if (screen === 'health') navigation.navigate('Health');
                             else if (screen === 'profile') navigation.navigate('Profile');
+                            else if (screen === 'profile') navigation.navigate('Profile');
                             else if (screen === 'medicineAlarm') navigation.navigate('MedicineAlarm');
+                            else if (screen === 'preferenceOnboarding') navigation.navigate('PreferenceOnboarding');
                           }}
                           onProfileSwitch={() => setShowProfileModal(true)}
                         />

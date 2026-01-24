@@ -619,19 +619,19 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               <Text style={styles.sectionTitle}>Preview</Text>
             </View>
             <TouchableOpacity
-              style={[styles.documentCardNew, { backgroundColor: '#FEF3C7', borderLeftWidth: 4, borderLeftColor: '#F59E0B' }]}
-              onPress={() => onNavigate('medicineAlarm')}
+              style={[styles.documentCardNew, { backgroundColor: '#E0F2FE', borderLeftWidth: 4, borderLeftColor: '#0284C7' }]}
+              onPress={() => onNavigate('preferenceOnboarding')}
               activeOpacity={0.7}
             >
               <View style={styles.documentCardContent}>
-                <View style={[styles.documentIconNew, { backgroundColor: '#FDE68A' }]}>
-                  <Feather name="bell" size={22} color="#D97706" />
+                <View style={[styles.documentIconNew, { backgroundColor: '#F0F9FF' }]}>
+                  <Feather name="settings" size={22} color="#0284C7" />
                 </View>
                 <View style={styles.documentInfoNew}>
-                  <Text style={styles.documentTitleNew}>View Alarm Screen</Text>
-                  <Text style={styles.documentDateNew}>Preview full-screen notification UI</Text>
+                  <Text style={styles.documentTitleNew}>Customize Experience</Text>
+                  <Text style={styles.documentDateNew}>Set your dose & reminder preferences</Text>
                 </View>
-                <Feather name="chevron-right" size={20} color="#D97706" />
+                <Feather name="chevron-right" size={20} color="#0284C7" />
               </View>
             </TouchableOpacity>
           </View>

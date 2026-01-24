@@ -1,10 +1,17 @@
 export interface FamilyMember {
     id: string;
     user_id: string;
+    linked_user_id?: string;
     name: string;
     relationship?: string;
     gender?: string;
     date_of_birth?: string;
+    morning_dose_time?: string;
+    afternoon_dose_time?: string;
+    night_dose_time?: string;
+    snooze_duration?: number;
+    reminder_style?: 'standard' | 'assurance';
+    alert_display_mode?: 'temporary' | 'alert';
     created_at: string;
     updated_at: string;
 }
