@@ -68,8 +68,8 @@ export interface MedicationsState {
 export interface MedicationsActions {
   loadFromCache: (userId: string) => Promise<boolean>;
   fetchMedications: (userId: string, silent?: boolean) => Promise<void>;
-  addMedication: (med: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
-  updateMedication: (id: string, updates: Partial<Medication>) => Promise<void>;
+  addMedication: (med: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<Medication | null>;
+  updateMedication: (id: string, updates: Partial<Medication>) => Promise<Medication | null>;
   deleteMedication: (id: string) => Promise<void>;
   clearMedications: () => void;
 

@@ -153,7 +153,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   /**
    * Add a new medication to Supabase
    */
-  addMedication: async (med) => {
+  addMedication: async (med): Promise<Medication | null> => {
     set({ isLoading: true, error: null });
 
     try {
@@ -195,6 +195,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       
       set({ isLoading: false });
       console.log('[MedicationsStore] Schedule added:', data.id);
+      return data as Medication;
     } catch (error) {
       console.error('[MedicationsStore] Add error:', error);
       set({ error: error instanceof Error ? error.message : 'Failed to add', isLoading: false });
@@ -205,7 +206,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   /**
    * Update a medication in Supabase
    */
-  updateMedication: async (id: string, updates: Partial<Medication>) => {
+  updateMedication: async (id: string, updates: Partial<Medication>): Promise<Medication | null> => {
     set({ isLoading: true, error: null });
 
     try {
@@ -238,7 +239,9 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       // Refetch to sync state perfectly
       await get().fetchMedications(data.user_id, true);
       
+      
       console.log('[MedicationsStore] Updated:', id);
+      return data as Medication;
     } catch (error) {
       console.error('[MedicationsStore] Update error:', error);
       set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });

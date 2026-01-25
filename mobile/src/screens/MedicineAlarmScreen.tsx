@@ -181,7 +181,10 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
     }
     
     if (medicationData.scheduleId) {
-      await cancelReminder(medicationData.scheduleId);
+      const baseId = medicationData.scheduleId.replace('_followup', '').replace('_manual', '');
+      await cancelReminder(baseId);
+      await cancelReminder(`${baseId}_followup`);
+      await cancelReminder(`${baseId}_manual`);
     }
     
     // Show confirmation toast/notification then CLOSE
@@ -223,16 +226,18 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
     
     // Snooze does NOT update the database - only reschedules the alarm
     if (medicationData.scheduleId) {
+      const baseId = medicationData.scheduleId.replace('_followup', '').replace('_manual', '');
+      
       const reminderData: MedicineReminderData = {
         medicationId: medicationData.medicationId || '',
         medicationName: medicationData.medicationName || '',
         dosage: medicationData.dosage || '',
-        scheduleId: medicationData.scheduleId,
+        scheduleId: baseId, // Use base ID for snooze
         instructions: medicationData.instructions,
         scheduledTime: new Date(),
       };
       
-      await snoozeReminder(medicationData.scheduleId, reminderData, minutes);
+      await snoozeReminder(baseId, reminderData, minutes);
     }
     
     const confirmationId = `confirmed-snooze-${medicationData.scheduleId || Date.now()}`;
@@ -287,7 +292,10 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
     }
     
     if (medicationData.scheduleId) {
-      await cancelReminder(medicationData.scheduleId);
+      const baseId = medicationData.scheduleId.replace('_followup', '').replace('_manual', '');
+      await cancelReminder(baseId);
+      await cancelReminder(`${baseId}_followup`);
+      await cancelReminder(`${baseId}_manual`);
     }
 
     // Close the alarm screen

@@ -19,6 +19,8 @@ import notifee, {
 } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import { Medication } from '../types/medication';
+import { logDebug } from './debugLogger';
+import { useFamilyMembersStore } from '../store/familyMembersStore';
 
 // Notification channel ID for Android
 const MEDICATION_CHANNEL_ID = 'medication-reminders';
@@ -34,6 +36,10 @@ export interface MedicineReminderData {
   instructions?: string;
   scheduleId: string;
   scheduledTime: Date;
+  // New fields for advanced logic
+  reminderStyle?: 'standard' | 'assurance';
+  alertMode?: 'temporary' | 'alert';
+  snoozeDuration?: number;
 }
 
 /**
@@ -140,75 +146,75 @@ export async function scheduleMedicineReminder(
   reminder: MedicineReminderData
 ): Promise<string | null> {
   try {
+    const { 
+      reminderStyle = 'standard', 
+      alertMode = 'temporary', 
+      snoozeDuration = 10 
+    } = reminder;
+
+    const isAlarmMode = alertMode === 'alert';
+
     console.log('='.repeat(60));
-    console.log('[Notifications] 📋 SCHEDULING MEDICATION REMINDER');
+    console.log(`[Notifications] 📋 SCHEDULING MEDICATION REMINDER (${reminderStyle}/${alertMode})`);
     console.log('[Notifications] Medication:', reminder.medicationName);
-    console.log('[Notifications] Dosage:', reminder.dosage);
     console.log('[Notifications] Schedule ID:', reminder.scheduleId);
     console.log('[Notifications] Scheduled Time:', reminder.scheduledTime.toLocaleString());
-    console.log('[Notifications] Instructions:', reminder.instructions || 'None');
     console.log('='.repeat(60));
 
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: reminder.scheduledTime.getTime(),
       alarmManager: {
-        allowWhileIdle: true, // Fire even in Doze mode
+        allowWhileIdle: true,
       },
     };
-
-    console.log('[Notifications] ⏰ Trigger Config:', JSON.stringify(trigger, null, 2));
 
     const notificationId = await notifee.createTriggerNotification(
       {
         id: reminder.scheduleId,
-        title: '💊 Medication Reminder',
+        title: isAlarmMode ? '💊 Medication Alarm' : '💊 Medication Reminder',
         body: `Time to take ${reminder.medicationName} ${reminder.dosage}`,
         data: {
-          medicationId: reminder.medicationId,
-          medicationName: reminder.medicationName,
-          dosage: reminder.dosage,
-          scheduleId: reminder.scheduleId,
-          instructions: reminder.instructions || '',
+          ...reminder,
           type: 'medication_reminder',
+          scheduledTime: reminder.scheduledTime.toISOString(),
         },
         
         // Android configuration
         android: {
           channelId: MEDICATION_CHANNEL_ID,
-          category: AndroidCategory.ALARM,
-          importance: AndroidImportance.HIGH,
+          category: isAlarmMode ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
+          importance: isAlarmMode ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           visibility: AndroidVisibility.PUBLIC,
-          lightUpScreen: true, // Wake screen for full-screen alarm
+          lightUpScreen: true,
           pressAction: {
             id: 'default',
           },
           
-          // Full-screen alarm UI - launches MedicineAlarmScreen
+          tag: reminder.scheduleId, // Use scheduleId as tag to group/replace on Android
+          
+          // Full-screen alarm UI - Always enabled to handle "Locked Screen" state on Android
           fullScreenAction: {
             id: 'default',
             mainComponent: 'MedicineAlarmScreen',
           },
           
-          // Action buttons
+          // Mode-specific persistence settings
+          ...(isAlarmMode ? {
+            autoCancel: false,
+            ongoing: true,
+            asForegroundService: true,
+          } : {
+            autoCancel: true,
+            ongoing: false,
+          }),
+          
           actions: [
-            {
-              title: '✓ Taken',
-              pressAction: { id: 'taken' },
-            },
-            {
-              title: '⏰ Snooze',
-              pressAction: { id: 'snooze' },
-            },
-            {
-              title: '✕ Skip',
-              pressAction: { id: 'skip' },
-            },
+            { title: '✓ Taken', pressAction: { id: 'taken' } },
+            { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
+            { title: '✕ Skip', pressAction: { id: 'skip' } },
           ],
           
-          // Alarm-style notification
-          autoCancel: false,
-          ongoing: true,
           showTimestamp: true,
           timestamp: reminder.scheduledTime.getTime(),
         },
@@ -216,14 +222,64 @@ export async function scheduleMedicineReminder(
         // iOS configuration
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
-          interruptionLevel: 'timeSensitive', // Breaks through Focus mode
+          interruptionLevel: isAlarmMode ? 'timeSensitive' : 'active',
           sound: 'default',
-          // critical: true, // Enable after Apple approval
-          // criticalVolume: 1.0,
+          threadId: reminder.scheduleId, // Use threadId to group on iOS
         },
       },
       trigger
     );
+
+    await logDebug(`[NotificationService] Primary scheduled: ${notificationId} for ${reminder.scheduledTime.toISOString()}`);
+
+    // --- STANDARD MODE FOLLOW-UP LOGIC ---
+    if (reminderStyle === 'standard') {
+      const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000));
+      
+      const followUpTrigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: followUpTime.getTime(),
+        alarmManager: { allowWhileIdle: true },
+      };
+
+      // CRITICAL: We use a different ID for scheduling to avoid overwriting the primary trigger,
+      // but we use the same 'tag' on Android and 'threadId' on iOS to group them.
+      // To strictly "replace", the event handler will clear the primary when the follow-up is interacted with.
+      const followUpId = `${reminder.scheduleId}_followup`;
+
+      await notifee.createTriggerNotification(
+        {
+          id: followUpId,
+          title: `🔔 Follow-up: ${reminder.medicationName}`,
+          body: `Don't forget: ${reminder.medicationName} ${reminder.dosage}`,
+          data: {
+            ...reminder,
+            type: 'medication_reminder',
+            isFollowUp: 'true',
+            scheduledTime: followUpTime.toISOString(),
+          },
+          android: {
+            channelId: MEDICATION_CHANNEL_ID,
+            importance: AndroidImportance.HIGH,
+            tag: reminder.scheduleId, // SAME TAG as primary to replace in the tray on some Android versions
+            pressAction: { id: 'default' },
+            actions: [
+              { title: '✓ Taken', pressAction: { id: 'taken' } },
+              { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
+              { title: '✕ Skip', pressAction: { id: 'skip' } },
+            ],
+          },
+          ios: {
+            categoryId: MEDICATION_CATEGORY_ID,
+            interruptionLevel: 'active',
+            sound: 'default',
+            threadId: reminder.scheduleId, // SAME THREAD ID to stack on iOS
+          },
+        },
+        followUpTrigger
+      );
+      await logDebug(`[NotificationService] Follow-up scheduled: ${followUpId} for ${followUpTime.toISOString()}`);
+    }
 
     return notificationId;
   } catch (error) {
@@ -244,7 +300,16 @@ export async function scheduleAllRemindersForMedication(
       return false;
     }
 
-    console.log(`[Notifications] Scheduling ${medication.time_of_day.length} doses for ${medication.name}`);
+    const { familyMembers } = useFamilyMembersStore.getState();
+    const familyMember = familyMembers.find(m => m.id === medication.family_member_id);
+
+    await logDebug(`[NotificationService] Scheduling reminders for ${medication.name}. Member: ${familyMember?.name || 'Unknown'}`);
+
+    const settings = {
+      reminderStyle: familyMember?.reminder_style || 'standard',
+      alertMode: familyMember?.alert_display_mode || 'temporary',
+      snoozeDuration: familyMember?.snooze_duration || 10,
+    };
 
     for (let i = 0; i < medication.time_of_day.length; i++) {
       const timeStr = medication.time_of_day[i];
@@ -265,10 +330,10 @@ export async function scheduleAllRemindersForMedication(
         instructions: medication.notes || '',
         scheduleId: `${medication.id}_dose_${i}`,
         scheduledTime,
+        ...settings, // Pass the fetched settings!
       };
 
       // For daily reminders (interval_days = 1), use repeating
-      // For others, we schedule a single trigger (app will refresh/reschedule on launch or when taken)
       if (medication.interval_days === 1) {
         await scheduleRepeatingReminder(reminderData, 'daily');
       } else {
@@ -283,102 +348,6 @@ export async function scheduleAllRemindersForMedication(
   }
 }
 
-/**
- * Display immediate notification (for testing)
- * @param medicationName Name of medication
- * @param dosage Dosage string
- * @param mode 'alarm' for full-screen UI (Android), 'banner' for standard notification
- */
-export async function displayTestNotification(
-  medicationName: string = 'Test Medication',
-  dosage: string = '500mg',
-  mode: 'alarm' | 'banner' = 'alarm',
-  delaySeconds: number = 0
-): Promise<string | null> {
-  try {
-    const isAlarmMode = mode === 'alarm';
-    const trigger: TimestampTrigger | undefined = delaySeconds > 0 ? {
-      type: TriggerType.TIMESTAMP,
-      timestamp: Date.now() + (delaySeconds * 1000),
-    } : undefined;
-
-    const notificationConfig: any = {
-      id: `test-${mode}-${Date.now()}`,
-      title: isAlarmMode ? '💊 Medication Alarm' : '📱 New Prescription',
-      body: `Time to take ${medicationName} ${dosage}`,
-      data: {
-        medicationId: 'test-id',
-        medicationName,
-        dosage,
-        scheduleId: `test-${Date.now()}`,
-        type: 'medication_reminder',
-      },
-      
-      // Android configuration
-      android: {
-        channelId: MEDICATION_CHANNEL_ID,
-        category: AndroidCategory.ALARM,
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        lightUpScreen: isAlarmMode, // Wake screen only for alarm
-        pressAction: {
-          id: 'default',
-          launchActivity: 'default',
-        },
-        
-        // Full-screen alarm UI - only if mode is alarm
-        ...(isAlarmMode ? {
-          fullScreenAction: {
-            id: 'default',
-            mainComponent: 'MedicineAlarmScreen',
-          },
-        } : {}),
-        
-        // Action buttons
-        actions: [
-          {
-            title: '✓ Taken',
-            pressAction: { id: 'taken' },
-          },
-          {
-            title: '⏰ Snooze',
-            pressAction: { id: 'snooze' },
-          },
-          {
-            title: '✕ Skip',
-            pressAction: { id: 'skip' },
-          },
-        ],
-        
-        autoCancel: !isAlarmMode, 
-        ongoing: isAlarmMode,
-        // Use foreground service for call-like behavior (recommended by Notifee for full-screen)
-        asForegroundService: isAlarmMode,
-      },
-      
-      // iOS configuration
-      ios: {
-        categoryId: MEDICATION_CATEGORY_ID,
-        interruptionLevel: 'timeSensitive',
-        sound: 'default',
-      },
-    };
-
-    let notificationId;
-    if (trigger) {
-      notificationId = await notifee.createTriggerNotification(notificationConfig, trigger);
-      console.log(`[Notifications] Scheduled delayed ${mode} notification:`, notificationId);
-    } else {
-      notificationId = await notifee.displayNotification(notificationConfig);
-      console.log(`[Notifications] Displayed immediate ${mode} notification:`, notificationId);
-    }
-
-    return notificationId;
-  } catch (error) {
-    console.error('[Notifications] Display error:', error);
-    return null;
-  }
-}
 
 /**
  * Schedule repeating daily reminder
@@ -388,6 +357,13 @@ export async function scheduleRepeatingReminder(
   repeatFrequency: 'daily' | 'weekly' = 'daily'
 ): Promise<string | null> {
   try {
+    const { 
+      reminderStyle = 'standard', 
+      alertMode = 'temporary', 
+    } = reminder;
+
+    const isAlarmMode = alertMode === 'alert';
+
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: reminder.scheduledTime.getTime(),
@@ -402,47 +378,106 @@ export async function scheduleRepeatingReminder(
     const notificationId = await notifee.createTriggerNotification(
       {
         id: reminder.scheduleId,
-        title: '💊 Medication Reminder',
+        title: isAlarmMode ? '💊 Medication Alarm' : '💊 Medication Reminder',
         body: `Time to take ${reminder.medicationName} ${reminder.dosage}`,
         data: {
-          medicationId: reminder.medicationId,
-          medicationName: reminder.medicationName,
-          dosage: reminder.dosage,
-          scheduleId: reminder.scheduleId,
-          instructions: reminder.instructions || '',
+          ...reminder,
           type: 'medication_reminder',
+          scheduledTime: reminder.scheduledTime.toISOString(),
         },
         
         android: {
           channelId: MEDICATION_CHANNEL_ID,
-          category: AndroidCategory.ALARM,
-          importance: AndroidImportance.HIGH,
+          category: isAlarmMode ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
+          importance: isAlarmMode ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           visibility: AndroidVisibility.PUBLIC,
-          lightUpScreen: true, // Wake screen for full-screen alarm
+          lightUpScreen: true,
           pressAction: { id: 'default' },
+          tag: reminder.scheduleId,
+          
           fullScreenAction: {
             id: 'default',
             mainComponent: 'MedicineAlarmScreen',
           },
+          
           actions: [
             { title: '✓ Taken', pressAction: { id: 'taken' } },
             { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
             { title: '✕ Skip', pressAction: { id: 'skip' } },
           ],
-          autoCancel: false,
-          ongoing: true,
+          
+          ...(isAlarmMode ? {
+            autoCancel: false,
+            ongoing: true,
+            asForegroundService: true,
+          } : {
+            autoCancel: true,
+            ongoing: false,
+          }),
         },
         
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
-          interruptionLevel: 'timeSensitive',
+          interruptionLevel: isAlarmMode ? 'timeSensitive' : 'active',
           sound: 'default',
+          threadId: reminder.scheduleId,
         },
       },
       trigger
     );
 
-    console.log('[Notifications] Scheduled repeating reminder:', notificationId);
+    await logDebug(`[NotificationService] Repeating (${repeatFrequency}) scheduled: ${notificationId}`);
+
+    // --- STANDARD MODE REPEATING FOLLOW-UP LOGIC ---
+    if (reminderStyle === 'standard') {
+      const snoozeDuration = reminder.snoozeDuration || 10;
+      const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000));
+      
+      const followUpTrigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: followUpTime.getTime(),
+        repeatFrequency: repeatFrequency === 'daily' 
+          ? RepeatFrequency.DAILY 
+          : RepeatFrequency.WEEKLY,
+        alarmManager: { allowWhileIdle: true },
+      };
+
+      const followUpId = `${reminder.scheduleId}_followup`;
+
+      await notifee.createTriggerNotification(
+        {
+          id: followUpId,
+          title: `🔔 Follow-up: ${reminder.medicationName}`,
+          body: `Don't forget: ${reminder.medicationName} ${reminder.dosage}`,
+          data: {
+            ...reminder,
+            type: 'medication_reminder',
+            isFollowUp: 'true',
+            scheduledTime: followUpTime.toISOString(),
+          },
+          android: {
+            channelId: MEDICATION_CHANNEL_ID,
+            importance: AndroidImportance.HIGH,
+            tag: reminder.scheduleId, // SAME TAG as primary to replace it
+            pressAction: { id: 'default' },
+            actions: [
+              { title: '✓ Taken', pressAction: { id: 'taken' } },
+              { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
+              { title: '✕ Skip', pressAction: { id: 'skip' } },
+            ],
+          },
+          ios: {
+            categoryId: MEDICATION_CATEGORY_ID,
+            interruptionLevel: 'active',
+            sound: 'default',
+            threadId: reminder.scheduleId, // SAME THREAD ID to group on iOS
+          },
+        },
+        followUpTrigger
+      );
+      await logDebug(`[NotificationService] Repeating follow-up scheduled: ${followUpId} at T + ${snoozeDuration}m`);
+    }
+
     return notificationId;
   } catch (error) {
     console.error('[Notifications] Repeating schedule error:', error);
@@ -490,10 +525,14 @@ export async function snoozeReminder(
     const snoozeTime = new Date();
     snoozeTime.setMinutes(snoozeTime.getMinutes() + snoozeMinutes);
     
+    // Use a predictable ID for manual snooze to avoid cluttering the OS
+    const manualSnoozeId = `${scheduleId}_manual`;
+    
     return await scheduleMedicineReminder({
       ...medicationData,
-      scheduleId: `${scheduleId}_snoozed_${Date.now()}`,
+      scheduleId: manualSnoozeId,
       scheduledTime: snoozeTime,
+      reminderStyle: 'assurance', // Bypass 'standard' auto-followup logic for manual snoozes
     });
   } catch (error) {
     console.error('[Notifications] Snooze error:', error);
@@ -551,4 +590,58 @@ export async function incrementBadgeCount(): Promise<void> {
  */
 export async function decrementBadgeCount(): Promise<void> {
   await notifee.decrementBadgeCount();
+}
+
+/**
+ * Dump debug logs to console (for development)
+ */
+/**
+ * Generate a comprehensive debug report
+ * Lists all permissions, channels, and pending notifications (triggers)
+ */
+export async function generateDebugReport(): Promise<string> {
+    const { getLogs, LOG_FILE_PATH } = require('./debugLogger');
+    
+    const settings = await notifee.getNotificationSettings();
+    const channels = Platform.OS === 'android' ? await notifee.getChannels() : [];
+    const pending = await notifee.getTriggerNotifications();
+    const logs = await getLogs();
+
+    const report = {
+        generatedAt: new Date().toISOString(),
+        device: {
+            os: Platform.OS,
+            version: Platform.Version,
+        },
+        permissions: {
+            authorized: settings.authorizationStatus >= AuthorizationStatus.AUTHORIZED,
+            settings,
+        },
+        androidChannels: channels,
+        pendingTriggersCount: pending.length,
+        pendingTriggers: pending.map(p => ({
+            id: p.notification.id,
+            title: p.notification.title,
+            body: p.notification.body,
+            nextTrigger: p.trigger.type === TriggerType.TIMESTAMP ? new Date(p.trigger.timestamp).toISOString() : 'Interval',
+            repeatFrequency: p.trigger.type === TriggerType.TIMESTAMP ? (p.trigger as TimestampTrigger).repeatFrequency : undefined,
+            data: p.notification.data,
+            androidTag: p.notification.android?.tag,
+        })),
+        recentLogs: logs.split('\n').slice(-100), // Last 100 logs
+    };
+
+    const reportBlob = JSON.stringify(report, null, 2);
+    console.log('--- NOTIFICATION DEBUG REPORT ---');
+    console.log(reportBlob);
+    console.log('--- END REPORT ---');
+    
+    return reportBlob;
+}
+
+/**
+ * Dump debug logs to console (for development)
+ */
+export async function dumpLogs(): Promise<void> {
+  await generateDebugReport();
 }
