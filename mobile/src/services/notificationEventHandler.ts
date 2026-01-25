@@ -65,6 +65,10 @@ export function setupBackgroundEventHandler() {
     console.log('[Notifications] 🔔 BACKGROUND EVENT RECEIVED');
     console.log('[Notifications] Event Type:', EventType[type]);
     console.log('[Notifications] Notification ID:', detail.notification?.id);
+    
+    // Explicitly log for debugging
+    await logDebug('[BackgroundEvent] Received', { type: EventType[type], id: detail.notification?.id });
+
     console.log('[Notifications] Has fullScreenAction:', !!detail.notification?.android?.fullScreenAction);
     console.log('[Notifications] Press Action:', detail.pressAction?.id);
     console.log('='.repeat(60));
@@ -83,7 +87,42 @@ async function handleNotificationEvent(type: EventType, detail: any) {
   
   await logDebug('[NotificationHandler] Event Received', { type: EventType[type], action: pressAction?.id, id: notification?.id });
 
-  // Ignore non-press events (like DELIVERED)
+  // --- ACTIVE CLEANUP STRATEGY ---
+  // If a Follow-up is delivered, immediately search for and remove the Primary notification
+  // to create a "Replacement" effect on iOS and Android.
+  if (type === EventType.DELIVERED) {
+      logDebug(`[NotificationHandler] Delivered event for ID: ${notification?.id}`);
+  }
+
+  if (type === EventType.DELIVERED && notification?.id?.endsWith('_followup')) {
+      const followUpId = notification.id;
+      const baseId = followUpId.replace('_followup', '');
+      
+      await logDebug(`[NotificationHandler] Follow-up arrived (${followUpId}). Attempting to replace primary: ${baseId}`);
+      
+      try {
+          // Get all currently visible notifications
+          const displayed = await notifee.getDisplayedNotifications();
+          await logDebug(`[NotificationHandler] Currently displayed notifications: ${displayed.map(n => n.id).join(', ')}`);
+          
+          // Find the primary one
+          const primaryExists = displayed.find(n => n.id === baseId);
+          
+          if (primaryExists) {
+              await logDebug(`[NotificationHandler] Found primary '${baseId}' in tray. Removing it to stack properly.`);
+              // Force remove the old one
+              await notifee.cancelDisplayedNotification(baseId);
+          } else {
+              await logDebug(`[NotificationHandler] Primary '${baseId}' not found in tray. No cleanup needed.`);
+          }
+      } catch (error) {
+          console.error('[NotificationHandler] Active Cleanup Failed:', error);
+          await logDebug(`[NotificationHandler] Active Cleanup Failed: ${error}`);
+      }
+      return; 
+  }
+
+  // Ignore non-press events (like DELIVERED for non-replacements)
   if (type !== EventType.ACTION_PRESS && type !== EventType.PRESS) {
     return;
   }

@@ -207,6 +207,9 @@ export async function scheduleMedicineReminder(
           } : {
             autoCancel: true,
             ongoing: false,
+            // Auto-cancel the primary notification when the follow-up is scheduled to arrive
+            // This prevents "clustering" on Android by removing the old one automatically
+            timeoutAfter: snoozeDuration * 60 * 1000, 
           }),
           
           actions: [
@@ -637,6 +640,39 @@ export async function generateDebugReport(): Promise<string> {
     console.log('--- END REPORT ---');
     
     return reportBlob;
+}
+
+/**
+ * Reconcile notifications with active medications
+ * - Cancels ALL existing reminders
+ * - Reschedules reminders for all active medications
+ * - Safe to call on app startup to flush "ghost" reminders
+ */
+export async function reconcileReminders(medications: Medication[]): Promise<void> {
+  console.log('='.repeat(60));
+  console.log(`[Notifications] 🔄 STARTING RECONCILIATION for ${medications.length} medications`);
+  
+  try {
+    // 1. Cancel everything (Nuclear option to ensure no ghosts remain)
+    await notifee.cancelAllNotifications();
+    console.log('[Notifications] 🗑️  Cancelled ALL existing notifications');
+
+    // 2. Filter for active only
+    const activeMeds = medications.filter(m => m.is_active);
+    console.log(`[Notifications] Found ${activeMeds.length} active medications to schedule`);
+
+    // 3. Reschedule one by one
+    let scheduledCount = 0;
+    for (const med of activeMeds) {
+      const success = await scheduleAllRemindersForMedication(med);
+      if (success) scheduledCount++;
+    }
+
+    console.log(`[Notifications] ✅ RECONCILIATION COMPLETE. Scheduled for ${scheduledCount} meds.`);
+    console.log('='.repeat(60));
+  } catch (error) {
+    console.error('[Notifications] ❌ Reconciliation failed:', error);
+  }
 }
 
 /**
