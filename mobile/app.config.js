@@ -5,7 +5,7 @@ export default {
     scheme: "dosiqai",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/app-icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     description: "Your health journey, simplified and secure",
@@ -28,7 +28,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: "./assets/app-icon.png",
         backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
