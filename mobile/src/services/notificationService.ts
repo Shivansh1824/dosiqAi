@@ -53,7 +53,7 @@ export async function initializeNotifications(): Promise<boolean> {
       sound: true,
       alert: true,
       badge: true,
-      criticalAlert: true, // Request Critical Alerts (requires Apple approval)
+
     });
 
     if (settings.authorizationStatus < AuthorizationStatus.AUTHORIZED) {
@@ -225,7 +225,8 @@ export async function scheduleMedicineReminder(
         // iOS configuration
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
-          interruptionLevel: isAlarmMode ? 'timeSensitive' : 'active',
+          // ALWAYS use timeSensitive for medication reminders to ensure they stay prominent on lock screen
+          interruptionLevel: 'timeSensitive', 
           sound: 'default',
           threadId: reminder.scheduleId, // Use threadId to group on iOS
         },
@@ -274,7 +275,7 @@ export async function scheduleMedicineReminder(
           },
           ios: {
             categoryId: MEDICATION_CATEGORY_ID,
-            interruptionLevel: 'active',
+            interruptionLevel: 'timeSensitive', // Also follow-ups should be time sensitive
             sound: 'default',
             threadId: reminder.scheduleId, // SAME THREAD ID to stack on iOS
           },
@@ -421,7 +422,7 @@ export async function scheduleRepeatingReminder(
         
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
-          interruptionLevel: isAlarmMode ? 'timeSensitive' : 'active',
+          interruptionLevel: 'timeSensitive',
           sound: 'default',
           threadId: reminder.scheduleId,
         },
@@ -471,7 +472,7 @@ export async function scheduleRepeatingReminder(
           },
           ios: {
             categoryId: MEDICATION_CATEGORY_ID,
-            interruptionLevel: 'active',
+            interruptionLevel: 'timeSensitive',
             sound: 'default',
             threadId: reminder.scheduleId, // SAME THREAD ID to group on iOS
           },
@@ -562,7 +563,6 @@ export async function checkPermissions() {
   const settings = await notifee.getNotificationSettings();
   return {
     authorized: settings.authorizationStatus >= AuthorizationStatus.AUTHORIZED,
-    criticalAlertEnabled: settings.ios?.criticalAlert === 1,
     settings,
   };
 }

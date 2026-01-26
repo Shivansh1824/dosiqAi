@@ -21,10 +21,9 @@ export default {
         ITSAppUsesNonExemptEncryption: false,
         UIBackgroundModes: ["remote-notification"],
       },
-      // Enable after Apple Critical Alerts approval:
-      // entitlements: {
-      //   "com.apple.developer.usernotifications.critical-alerts": true
-      // }
+      entitlements: {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      }
     },
     android: {
       adaptiveIcon: {
