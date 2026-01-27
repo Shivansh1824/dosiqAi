@@ -43,7 +43,8 @@
       "Bash(kill:*)",
       "Bash(cd:*)",
       "Bash(xcodebuild:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(sips:*)"
     ],
     "deny": [],
     "ask": []
