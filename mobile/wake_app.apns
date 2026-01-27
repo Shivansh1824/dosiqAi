@@ -1,0 +1,19 @@
+{
+  "Simulator Target Bundle": "com.shivanshrana.dosiqai",
+  "aps": {
+    "alert": {
+      "title": "Background Wake Test",
+      "body": "Checking if this wakes the app..."
+    },
+    "content-available": 1,
+    "sound": "default",
+    "priority": 10
+  },
+  "data": {
+    "type": "medication_reminder",
+    "scheduleId": "test_background_wake_alert_01",
+    "medicationName": "Alert Wake Test",
+    "dosage": "500mg",
+    "isFollowUp": true
+  }
+}
