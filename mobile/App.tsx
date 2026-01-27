@@ -171,7 +171,7 @@ export default function App() {
   }, []);
 
   const linking = {
-    prefixes: [prefix, 'familyhealth://'],
+    prefixes: [prefix, 'dosiqai://'],
     // Custom getInitialURL to handle Notifee initial notification
     getInitialURL: async () => {
       // Check if opened via deep link

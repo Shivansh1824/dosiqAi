@@ -10,21 +10,34 @@ import {
   scheduleAllRemindersForMedication,
   cancelReminder,
   cancelAllReminders,
-  displayTestNotification,
   getPendingReminders,
   checkPermissions,
   MedicineReminderData,
 } from '../services/notificationService';
+import { useFamilyMembersStore } from '../store/familyMembersStore';
+import { Medication } from '../types/medication';
 
 export function useNotifications() {
+  const { activeMember } = useFamilyMembersStore();
+
   /**
    * Schedule a one-time medicine reminder
    */
   const scheduleReminder = useCallback(
     async (data: MedicineReminderData) => {
-      return await scheduleMedicineReminder(data);
+      // Inject family member settings if not provided
+      const settings = {
+        reminderStyle: data.reminderStyle || activeMember?.reminder_style || 'standard',
+        alertMode: data.alertMode || activeMember?.alert_display_mode || 'temporary',
+        snoozeDuration: data.snoozeDuration || activeMember?.snooze_duration || 10,
+      };
+
+      return await scheduleMedicineReminder({
+        ...data,
+        ...settings,
+      });
     },
-    []
+    [activeMember]
   );
 
   /**
@@ -32,9 +45,18 @@ export function useNotifications() {
    */
   const scheduleDailyReminder = useCallback(
     async (data: MedicineReminderData) => {
-      return await scheduleRepeatingReminder(data, 'daily');
+      const settings = {
+        reminderStyle: data.reminderStyle || activeMember?.reminder_style || 'standard',
+        alertMode: data.alertMode || activeMember?.alert_display_mode || 'temporary',
+        snoozeDuration: data.snoozeDuration || activeMember?.snooze_duration || 10,
+      };
+
+      return await scheduleRepeatingReminder({
+        ...data,
+        ...settings,
+      }, 'daily');
     },
-    []
+    [activeMember]
   );
 
   /**
@@ -42,9 +64,18 @@ export function useNotifications() {
    */
   const scheduleWeeklyReminder = useCallback(
     async (data: MedicineReminderData) => {
-      return await scheduleRepeatingReminder(data, 'weekly');
+      const settings = {
+        reminderStyle: data.reminderStyle || activeMember?.reminder_style || 'standard',
+        alertMode: data.alertMode || activeMember?.alert_display_mode || 'temporary',
+        snoozeDuration: data.snoozeDuration || activeMember?.snooze_duration || 10,
+      };
+
+      return await scheduleRepeatingReminder({
+        ...data,
+        ...settings,
+      }, 'weekly');
     },
-    []
+    [activeMember]
   );
 
   /**
@@ -60,16 +91,6 @@ export function useNotifications() {
   const cancelAll = useCallback(async () => {
     await cancelAllReminders();
   }, []);
-
-  /**
-   * Display a test notification (for development)
-   */
-  const testNotification = useCallback(
-    async (medicationName?: string, dosage?: string) => {
-      return await displayTestNotification(medicationName, dosage);
-    },
-    []
-  );
 
   /**
    * Get all pending/scheduled reminders
@@ -102,7 +123,6 @@ export function useNotifications() {
     scheduleAllForMedication,
     cancel,
     cancelAll,
-    testNotification,
     getPending,
     checkNotificationPermissions,
   };

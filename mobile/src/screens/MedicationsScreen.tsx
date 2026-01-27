@@ -12,16 +12,19 @@ import { MedicationWithStatus, getTimeOfDayCategory } from '../types/medicationS
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useMedicationLogsStore } from '../store/medicationLogsStore';
 import { useAuthStore } from '../store/authStore';
+import { cancelReminder } from '../services/notificationService';
 import { Medication, getFrequencyText } from '../types/medication';
 import { toLocalDateString, fromLocalDateString, getTodayLocal } from '../utils/dateUtils';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function MedicationsScreen() {
     const navigation = useNavigation();
     const { user } = useAuthStore();
     const { medications, fetchMedications, isLoading } = useMedicationsStore();
     const { logs, fetchLogsForDate, markAsTaken } = useMedicationLogsStore();
+    const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
     const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -113,12 +116,15 @@ export default function MedicationsScreen() {
 
         scheduledMeds.forEach((med) => {
             const category = getTimeOfDayCategory(med.scheduled_time);
-            grouped[category].push(med);
+            if (category) {
+                grouped[category].push(med);
+            }
         });
 
         // Sort by time within each category
         Object.keys(grouped).forEach((key) => {
-            grouped[key as keyof typeof grouped].sort((a, b) =>
+            const typedKey = key as keyof typeof grouped;
+            grouped[typedKey].sort((a, b) =>
                 a.scheduled_time.localeCompare(b.scheduled_time)
             );
         });
@@ -214,7 +220,21 @@ export default function MedicationsScreen() {
             // Mark as taken in database
             await markAsTaken(user.id, medicationId, selectedDateStr, scheduledTime);
 
-            console.log('✅ Medication taken:', medicationId, 'at', scheduledTime);
+            // Attempt to cancel any pending notifications for this dose
+            // Heuristic: MedicationsScreen doesn't usually have the dose index easily available,
+            // but we can try common ID patterns or at least log the attempt.
+            // For now, we attempt to find the ID by finding the index in the medication's time_of_day array
+            const med = medications.find(m => m.id === medicationId);
+            if (med) {
+                const doseIndex = med.time_of_day.indexOf(scheduledTime);
+                if (doseIndex !== -1) {
+                    const baseId = `${medicationId}_dose_${doseIndex}`;
+                    await cancelReminder(baseId);
+                    await cancelReminder(`${baseId}_followup`);
+                }
+            }
+
+            console.log('✅ Medication taken and notifications cleared:', medicationId, 'at', scheduledTime);
         } catch (error) {
             console.error('Failed to mark medication as taken:', error);
         }
@@ -242,9 +262,14 @@ export default function MedicationsScreen() {
                     t === reschedulingMed.scheduled_time ? timeString : t
                 );
                 
-                await useMedicationsStore.getState().updateMedication(reschedulingMed.id, {
+                const updatedMed = await useMedicationsStore.getState().updateMedication(reschedulingMed.id, {
                     time_of_day: updatedTimes.sort()
                 });
+
+                if (updatedMed) {
+                    await scheduleAllForMedication(updatedMed);
+                    console.log('✅ Rescheduled notifications for:', updatedMed.name);
+                }
                 
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (error) {
@@ -276,7 +301,13 @@ export default function MedicationsScreen() {
     // Handle save medication
     const handleSaveMedication = async (medication: any) => {
         try {
-            await useMedicationsStore.getState().addMedication(medication);
+            const newMed = await useMedicationsStore.getState().addMedication(medication);
+            
+            if (newMed) {
+                await scheduleAllForMedication(newMed);
+                console.log('✅ Scheduled notifications for new med:', newMed.name);
+            }
+
             setShowAddModal(false);
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (error) {

@@ -19,6 +19,7 @@ import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import FilePreviewModal from '../components/FilePreviewModal';
+import { reconcileReminders } from '../services/notificationService';
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -83,6 +84,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         fetchAppointments(user.id, true),
         fetchFamilyMembers(user.id, true),
       ]);
+
+      // Reconcile notifications with the latest fetched medications
+      // This fixes the "Ghost Reminder" issue by clearing old ones and resetting valid ones
+      const currentMeds = useMedicationsStore.getState().medications;
+      await reconcileReminders(currentMeds);
     }
   }, [user?.id, user?.name, fetchDocuments, fetchMedications, fetchAppointments, fetchFamilyMembers]);
 

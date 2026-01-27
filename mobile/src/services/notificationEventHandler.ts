@@ -5,6 +5,7 @@
 
 import notifee, { EventType } from '@notifee/react-native';
 import { snoozeReminder, cancelReminder, MedicineReminderData } from './notificationService';
+import { logDebug } from './debugLogger';
 
 // Type for medication log entry
 export interface MedicationLogEntry {
@@ -64,6 +65,10 @@ export function setupBackgroundEventHandler() {
     console.log('[Notifications] 🔔 BACKGROUND EVENT RECEIVED');
     console.log('[Notifications] Event Type:', EventType[type]);
     console.log('[Notifications] Notification ID:', detail.notification?.id);
+    
+    // Explicitly log for debugging
+    await logDebug('[BackgroundEvent] Received', { type: EventType[type], id: detail.notification?.id });
+
     console.log('[Notifications] Has fullScreenAction:', !!detail.notification?.android?.fullScreenAction);
     console.log('[Notifications] Press Action:', detail.pressAction?.id);
     console.log('='.repeat(60));
@@ -80,7 +85,44 @@ export function setupBackgroundEventHandler() {
 async function handleNotificationEvent(type: EventType, detail: any) {
   const { notification, pressAction } = detail;
   
-  // Ignore non-press events (like DELIVERED)
+  await logDebug('[NotificationHandler] Event Received', { type: EventType[type], action: pressAction?.id, id: notification?.id });
+
+  // --- ACTIVE CLEANUP STRATEGY ---
+  // If a Follow-up is delivered, immediately search for and remove the Primary notification
+  // to create a "Replacement" effect on iOS and Android.
+  if (type === EventType.DELIVERED) {
+      logDebug(`[NotificationHandler] Delivered event for ID: ${notification?.id}`);
+  }
+
+  if (type === EventType.DELIVERED && notification?.id?.endsWith('_followup')) {
+      const followUpId = notification.id;
+      const baseId = followUpId.replace('_followup', '');
+      
+      await logDebug(`[NotificationHandler] Follow-up arrived (${followUpId}). Attempting to replace primary: ${baseId}`);
+      
+      try {
+          // Get all currently visible notifications
+          const displayed = await notifee.getDisplayedNotifications();
+          await logDebug(`[NotificationHandler] Currently displayed notifications: ${displayed.map(n => n.id).join(', ')}`);
+          
+          // Find the primary one
+          const primaryExists = displayed.find(n => n.id === baseId);
+          
+          if (primaryExists) {
+              await logDebug(`[NotificationHandler] Found primary '${baseId}' in tray. Removing it to stack properly.`);
+              // Force remove the old one
+              await notifee.cancelDisplayedNotification(baseId);
+          } else {
+              await logDebug(`[NotificationHandler] Primary '${baseId}' not found in tray. No cleanup needed.`);
+          }
+      } catch (error) {
+          console.error('[NotificationHandler] Active Cleanup Failed:', error);
+          await logDebug(`[NotificationHandler] Active Cleanup Failed: ${error}`);
+      }
+      return; 
+  }
+
+  // Ignore non-press events (like DELIVERED for non-replacements)
   if (type !== EventType.ACTION_PRESS && type !== EventType.PRESS) {
     return;
   }
@@ -93,48 +135,32 @@ async function handleNotificationEvent(type: EventType, detail: any) {
   const medicationData = notification.data || {};
   const actionId = pressAction?.id || 'default';
   
-  console.log('[DEBUG] [NotificationHandler] Action Received:', actionId);
-  console.log('[DEBUG] [NotificationHandler] Medication Name:', medicationData.medicationName || 'Unknown');
-  console.log('[DEBUG] [NotificationHandler] Notification ID:', notification?.id);
-  console.log('[DEBUG] [NotificationHandler] Schedule ID:', medicationData.scheduleId);
-  
+  const primaryId = notification?.id || medicationData.scheduleId;
+  const followUpId = primaryId.endsWith('_followup') ? primaryId : `${primaryId}_followup`;
+  const baseId = primaryId.replace('_followup', '');
+
+  await logDebug('[NotificationHandler] Processing Action', { actionId, baseId, isFollowUp: medicationData.isFollowUp });
+
   // Consolidate cancellation logic: 
-  // We cancel the reminder ONCE for actionable items (taken, skip, snooze)
-  // to remove the triggering notification.
   if (actionId !== 'default') {
-    const idToCancel = notification?.id || medicationData.scheduleId;
-    if (idToCancel) {
-      console.log('[DEBUG] [NotificationHandler] One-time cancellation for:', idToCancel);
-      await cancelReminder(idToCancel);
-    }
+    await logDebug(`[NotificationHandler] Global cancel for: ${baseId}`);
+    await cancelReminder(baseId);
+    await cancelReminder(`${baseId}_followup`);
   }
 
   switch (actionId) {
     case 'taken':
-      console.log('[DEBUG] [NotificationHandler] Routing to handleTakenAction');
       await handleTakenAction(medicationData);
       break;
-      
     case 'snooze':
-      console.log('[DEBUG] [NotificationHandler] Routing to handleSnoozeAction');
       await handleSnoozeAction(medicationData);
       break;
-      
     case 'skip':
-      console.log('[DEBUG] [NotificationHandler] Routing to handleSkipAction');
       await handleSkipAction(medicationData);
       break;
-      
     case 'default':
-      // User just tapped the notification - open app
-      console.log('[DEBUG] [NotificationHandler] User tapped notification (default press)');
-      
-      // Navigate to MedicineAlarmScreen if we have data
       if (navigationCallback) {
-        console.log('[DEBUG] [NotificationHandler] Triggering navigation callback to MedicineAlarm');
         navigationCallback('MedicineAlarm', medicationData);
-      } else {
-        console.log('[DEBUG] [NotificationHandler] No navigation callback registered');
       }
       break;
   }
@@ -163,7 +189,8 @@ async function handleTakenAction(data: any) {
   }
 
   // Show confirmation notification
-  const confirmationId = `confirmed-taken-${data.scheduleId || Date.now()}`;
+  const baseScheduleId = data.scheduleId || Date.now();
+  const confirmationId = `confirmed-taken-${baseScheduleId}`.replace('_followup', '');
   console.log('[DEBUG] [NotificationHandler] Displaying confirmation notification:', confirmationId);
   
   await notifee.displayNotification({
@@ -208,7 +235,8 @@ async function handleSnoozeAction(data: any) {
   console.log('[DEBUG] [NotificationHandler] Snoozed reminder ID:', snoozedId);
   
   // Show snooze confirmation
-  const confirmationId = `confirmed-snooze-${data.scheduleId || Date.now()}`;
+  const baseScheduleId = data.scheduleId || Date.now();
+  const confirmationId = `confirmed-snooze-${baseScheduleId}`.replace('_followup', '');
   console.log('[DEBUG] [NotificationHandler] Displaying confirmation notification:', confirmationId);
 
   await notifee.displayNotification({
