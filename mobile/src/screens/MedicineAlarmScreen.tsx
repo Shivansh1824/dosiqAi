@@ -355,16 +355,16 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
           
           {/* Action Buttons Row */}
           <View style={styles.actionsRow}>
-            {/* Skip / Deny */}
+            {/* Taken / Approve */}
             <View style={styles.actionItem}>
               <TouchableOpacity
-                style={[styles.actionButton, styles.skipButton]}
-                onPress={handleSkip}
+                style={[styles.actionButton, styles.takenButton]}
+                onPress={handleTaken}
                 disabled={isActionTaken}
               >
-                <MaterialCommunityIcons name="close" size={28} color="#EF4444" />
+                <MaterialCommunityIcons name="check" size={28} color="#FFFFFF" />
               </TouchableOpacity>
-              <Text style={styles.actionLabel}>Skip</Text>
+              <Text style={styles.actionLabel}>Taken</Text>
             </View>
 
             {/* Snooze / Leave at Gate */}
@@ -379,16 +379,16 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
               <Text style={styles.actionLabel}>Snooze</Text>
             </View>
 
-            {/* Taken / Approve */}
+            {/* Skip / Deny */}
             <View style={styles.actionItem}>
               <TouchableOpacity
-                style={[styles.actionButton, styles.takenButton]}
-                onPress={handleTaken}
+                style={[styles.actionButton, styles.skipButton]}
+                onPress={handleSkip}
                 disabled={isActionTaken}
               >
-                <MaterialCommunityIcons name="check" size={28} color="#FFFFFF" />
+                <MaterialCommunityIcons name="close" size={28} color="#EF4444" />
               </TouchableOpacity>
-              <Text style={styles.actionLabel}>Taken</Text>
+              <Text style={styles.actionLabel}>Skip</Text>
             </View>
           </View>
         </View>

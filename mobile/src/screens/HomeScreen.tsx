@@ -19,6 +19,7 @@ import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import FilePreviewModal from '../components/FilePreviewModal';
+import MockLiveActivity from '../components/MockLiveActivity';
 import { reconcileReminders } from '../services/notificationService';
 
 interface HomeScreenProps {
@@ -58,6 +59,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   // New State for Preview Modal
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
+  const [showDebugWidget, setShowDebugWidget] = useState(false);
 
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
@@ -483,6 +485,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
           }
         >
+
           {/* Family Member Card - Full Width */}
           <View style={styles.profileCardContainer}>
             <TouchableOpacity
@@ -619,7 +622,25 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             )}
           </View>
 
-
+          {/* Dev Tools Section */}
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={styles.debugButton} 
+              onPress={() => setShowDebugWidget(!showDebugWidget)}
+              activeOpacity={0.7}
+            >
+              <Feather name={showDebugWidget ? "eye-off" : "eye"} size={16} color={Colors.primary} />
+              <Text style={styles.debugButtonText}>
+                {showDebugWidget ? "Hide Live Activity Preview" : "Preview Live Activity Widget"}
+              </Text>
+            </TouchableOpacity>
+            
+            {showDebugWidget && (
+              <View style={styles.debugWidgetContainer}>
+                <MockLiveActivity />
+              </View>
+            )}
+          </View>
 
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -1355,5 +1376,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     ...Typography.fontWeights.semibold,
     color: Colors.primary,
+  },
+
+  // Debug/Dev Styles
+  debugButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#EBF5FF',
+    marginHorizontal: Sizes.lg,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderStyle: 'dashed',
+  },
+  debugButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  debugWidgetContainer: {
+    marginBottom: 24,
   },
 });
