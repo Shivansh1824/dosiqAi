@@ -39,6 +39,7 @@ export default {
     },
     plugins: [
       "expo-font",
+      "expo-live-activity",
       [
         "expo-media-library",
         {

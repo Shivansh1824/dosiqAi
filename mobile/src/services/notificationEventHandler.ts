@@ -6,6 +6,7 @@
 import notifee, { EventType } from '@notifee/react-native';
 import { snoozeReminder, cancelReminder, MedicineReminderData } from './notificationService';
 import { logDebug } from './debugLogger';
+import { LiveActivityService } from './LiveActivityService';
 
 // Type for medication log entry
 export interface MedicationLogEntry {
@@ -119,6 +120,24 @@ async function handleNotificationEvent(type: EventType, detail: any) {
           console.error('[NotificationHandler] Active Cleanup Failed:', error);
           await logDebug(`[NotificationHandler] Active Cleanup Failed: ${error}`);
       }
+      return; 
+  }
+
+  // --- LIVE ACTIVITY TRIGGER ---
+  // If a follow-up notification is delivered (foreground or background), start the Live Activity
+  if (type === EventType.DELIVERED && notification?.data?.isFollowUp === true) {
+      await logDebug(`[NotificationHandler] Follow-up delivered. Starting Live Activity for ${notification.data.medicationName}`);
+      
+      const { medicationName, dosage, scheduleId } = notification.data;
+      
+      await LiveActivityService.startMedicationActivity(
+          medicationName, 
+          dosage, 
+          scheduleId
+      );
+      
+      // We continue processing to allow standard notification handling if needed
+      // But typically DELIVERED doesn't do more.
       return; 
   }
 

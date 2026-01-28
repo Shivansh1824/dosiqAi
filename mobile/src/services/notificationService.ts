@@ -259,7 +259,7 @@ export async function scheduleMedicineReminder(
           data: {
             ...reminder,
             type: 'medication_reminder',
-            isFollowUp: 'true',
+            isFollowUp: true,
             scheduledTime: followUpTime.toISOString(),
           },
           android: {
@@ -456,7 +456,7 @@ export async function scheduleRepeatingReminder(
           data: {
             ...reminder,
             type: 'medication_reminder',
-            isFollowUp: 'true',
+            isFollowUp: true,
             scheduledTime: followUpTime.toISOString(),
           },
           android: {
