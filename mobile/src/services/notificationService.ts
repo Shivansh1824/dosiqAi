@@ -178,6 +178,11 @@ export async function scheduleMedicineReminder(
           ...reminder,
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
+          // Add follow-up metadata for Live Activity triggering (only in standard mode)
+          ...(reminderStyle === 'standard' ? {
+            followUpDuration: snoozeDuration,
+            followUpTime: new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000)).toISOString(),
+          } : {}),
         },
         
         // Android configuration
@@ -236,53 +241,12 @@ export async function scheduleMedicineReminder(
 
     await logDebug(`[NotificationService] Primary scheduled: ${notificationId} for ${reminder.scheduledTime.toISOString()}`);
 
-    // --- STANDARD MODE FOLLOW-UP LOGIC ---
+    // --- STANDARD MODE: Store follow-up metadata for Live Activity ---
     if (reminderStyle === 'standard') {
       const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000));
-      
-      const followUpTrigger: TimestampTrigger = {
-        type: TriggerType.TIMESTAMP,
-        timestamp: followUpTime.getTime(),
-        alarmManager: { allowWhileIdle: true },
-      };
-
-      // CRITICAL: We use a different ID for scheduling to avoid overwriting the primary trigger,
-      // but we use the same 'tag' on Android and 'threadId' on iOS to group them.
-      // To strictly "replace", the event handler will clear the primary when the follow-up is interacted with.
-      const followUpId = `${reminder.scheduleId}_followup`;
-
-      await notifee.createTriggerNotification(
-        {
-          id: followUpId,
-          title: `🔔 Follow-up: ${reminder.medicationName}`,
-          body: `Don't forget: ${reminder.medicationName} ${reminder.dosage}`,
-          data: {
-            ...reminder,
-            type: 'medication_reminder',
-            isFollowUp: 'true',
-            scheduledTime: followUpTime.toISOString(),
-          },
-          android: {
-            channelId: MEDICATION_CHANNEL_ID,
-            importance: AndroidImportance.HIGH,
-            tag: reminder.scheduleId, // SAME TAG as primary to replace in the tray on some Android versions
-            pressAction: { id: 'default' },
-            actions: [
-              { title: '✓ Taken', pressAction: { id: 'taken' } },
-              { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
-              { title: '✕ Skip', pressAction: { id: 'skip' } },
-            ],
-          },
-          ios: {
-            categoryId: MEDICATION_CATEGORY_ID,
-            interruptionLevel: 'timeSensitive', // Also follow-ups should be time sensitive
-            sound: 'default',
-            threadId: reminder.scheduleId, // SAME THREAD ID to stack on iOS
-          },
-        },
-        followUpTrigger
-      );
-      await logDebug(`[NotificationService] Follow-up scheduled: ${followUpId} for ${followUpTime.toISOString()}`);
+      await logDebug(`[NotificationService] Follow-up will trigger Live Activity at: ${followUpTime.toISOString()}`);
+      // Note: Follow-up is now handled via Live Activity trigger in event handler
+      // No separate notification is scheduled
     }
 
     return notificationId;
@@ -388,6 +352,11 @@ export async function scheduleRepeatingReminder(
           ...reminder,
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
+          // Add follow-up metadata for Live Activity triggering (only in standard mode)
+          ...(reminderStyle === 'standard' ? {
+            followUpDuration: reminder.snoozeDuration || 10,
+            followUpTime: new Date(reminder.scheduledTime.getTime() + ((reminder.snoozeDuration || 10) * 60000)).toISOString(),
+          } : {}),
         },
         
         android: {
@@ -432,54 +401,12 @@ export async function scheduleRepeatingReminder(
 
     await logDebug(`[NotificationService] Repeating (${repeatFrequency}) scheduled: ${notificationId}`);
 
-    // --- STANDARD MODE REPEATING FOLLOW-UP LOGIC ---
+    // --- STANDARD MODE: Store follow-up metadata for Live Activity ---
     if (reminderStyle === 'standard') {
       const snoozeDuration = reminder.snoozeDuration || 10;
       const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000));
-      
-      const followUpTrigger: TimestampTrigger = {
-        type: TriggerType.TIMESTAMP,
-        timestamp: followUpTime.getTime(),
-        repeatFrequency: repeatFrequency === 'daily' 
-          ? RepeatFrequency.DAILY 
-          : RepeatFrequency.WEEKLY,
-        alarmManager: { allowWhileIdle: true },
-      };
-
-      const followUpId = `${reminder.scheduleId}_followup`;
-
-      await notifee.createTriggerNotification(
-        {
-          id: followUpId,
-          title: `🔔 Follow-up: ${reminder.medicationName}`,
-          body: `Don't forget: ${reminder.medicationName} ${reminder.dosage}`,
-          data: {
-            ...reminder,
-            type: 'medication_reminder',
-            isFollowUp: 'true',
-            scheduledTime: followUpTime.toISOString(),
-          },
-          android: {
-            channelId: MEDICATION_CHANNEL_ID,
-            importance: AndroidImportance.HIGH,
-            tag: reminder.scheduleId, // SAME TAG as primary to replace it
-            pressAction: { id: 'default' },
-            actions: [
-              { title: '✓ Taken', pressAction: { id: 'taken' } },
-              { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
-              { title: '✕ Skip', pressAction: { id: 'skip' } },
-            ],
-          },
-          ios: {
-            categoryId: MEDICATION_CATEGORY_ID,
-            interruptionLevel: 'timeSensitive',
-            sound: 'default',
-            threadId: reminder.scheduleId, // SAME THREAD ID to group on iOS
-          },
-        },
-        followUpTrigger
-      );
-      await logDebug(`[NotificationService] Repeating follow-up scheduled: ${followUpId} at T + ${snoozeDuration}m`);
+      await logDebug(`[NotificationService] Repeating follow-up will trigger Live Activity at T + ${snoozeDuration}m`);
+      // Note: Follow-up is now handled via Live Activity trigger in event handler
     }
 
     return notificationId;

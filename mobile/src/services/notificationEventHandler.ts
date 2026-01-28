@@ -6,6 +6,8 @@
 import notifee, { EventType } from '@notifee/react-native';
 import { snoozeReminder, cancelReminder, MedicineReminderData } from './notificationService';
 import { logDebug } from './debugLogger';
+import { LiveActivityService } from './LiveActivityService';
+import { Platform } from 'react-native';
 
 // Type for medication log entry
 export interface MedicationLogEntry {
@@ -85,41 +87,38 @@ export function setupBackgroundEventHandler() {
 async function handleNotificationEvent(type: EventType, detail: any) {
   const { notification, pressAction } = detail;
   
+
   await logDebug('[NotificationHandler] Event Received', { type: EventType[type], action: pressAction?.id, id: notification?.id });
 
-  // --- ACTIVE CLEANUP STRATEGY ---
-  // If a Follow-up is delivered, immediately search for and remove the Primary notification
-  // to create a "Replacement" effect on iOS and Android.
-  if (type === EventType.DELIVERED) {
-      logDebug(`[NotificationHandler] Delivered event for ID: ${notification?.id}`);
-  }
-
-  if (type === EventType.DELIVERED && notification?.id?.endsWith('_followup')) {
-      const followUpId = notification.id;
-      const baseId = followUpId.replace('_followup', '');
-      
-      await logDebug(`[NotificationHandler] Follow-up arrived (${followUpId}). Attempting to replace primary: ${baseId}`);
+  // --- LIVE ACTIVITY TRIGGER FOR FOLLOW-UP ---
+  // When the primary notification is delivered, schedule a Live Activity to start after the follow-up duration
+  if (type === EventType.DELIVERED && 
+      notification?.data?.type === 'medication_reminder' && 
+      notification?.data?.followUpDuration &&
+      notification?.data?.followUpTime) {
+    
+    const { medicationName, dosage, scheduleId, followUpDuration, followUpTime } = notification.data;
+    const followUpMs = Number(followUpDuration) * 60 * 1000;
+    
+    await logDebug(`[NotificationHandler] Primary notification delivered. Will trigger Live Activity in ${followUpDuration}min at ${followUpTime}`);
+    
+    // Schedule Live Activity to start after follow-up duration
+    setTimeout(async () => {
+      await logDebug(`[NotificationHandler] Follow-up time reached. Starting Live Activity for ${medicationName}`);
       
       try {
-          // Get all currently visible notifications
-          const displayed = await notifee.getDisplayedNotifications();
-          await logDebug(`[NotificationHandler] Currently displayed notifications: ${displayed.map(n => n.id).join(', ')}`);
-          
-          // Find the primary one
-          const primaryExists = displayed.find(n => n.id === baseId);
-          
-          if (primaryExists) {
-              await logDebug(`[NotificationHandler] Found primary '${baseId}' in tray. Removing it to stack properly.`);
-              // Force remove the old one
-              await notifee.cancelDisplayedNotification(baseId);
-          } else {
-              await logDebug(`[NotificationHandler] Primary '${baseId}' not found in tray. No cleanup needed.`);
-          }
+        await LiveActivityService.startMedicationActivity(
+          medicationName,
+          dosage,
+          scheduleId
+        );
+        await logDebug(`[NotificationHandler] Live Activity started successfully`);
       } catch (error) {
-          console.error('[NotificationHandler] Active Cleanup Failed:', error);
-          await logDebug(`[NotificationHandler] Active Cleanup Failed: ${error}`);
+        await logDebug(`[NotificationHandler] Failed to start Live Activity: ${error}`);
       }
-      return; 
+    }, followUpMs);
+    
+    return;
   }
 
   // Ignore non-press events (like DELIVERED for non-replacements)
@@ -188,6 +187,19 @@ async function handleTakenAction(data: any) {
     }
   }
 
+  // End any active Live Activity for this medication (iOS only)
+  if (Platform.OS === 'ios') {
+    try {
+      const activityId = LiveActivityService.getActivityId(data.scheduleId);
+      if (activityId) {
+        await LiveActivityService.endActivity(activityId);
+        await logDebug(`[NotificationHandler] Ended Live Activity: ${activityId}`);
+      }
+    } catch (error) {
+      await logDebug(`[NotificationHandler] Error ending Live Activity: ${error}`);
+    }
+  }
+
   // Show confirmation notification
   const baseScheduleId = data.scheduleId || Date.now();
   const confirmationId = `confirmed-taken-${baseScheduleId}`.replace('_followup', '');
@@ -234,6 +246,19 @@ async function handleSnoozeAction(data: any) {
   
   console.log('[DEBUG] [NotificationHandler] Snoozed reminder ID:', snoozedId);
   
+  // End any active Live Activity for this medication (iOS only)
+  if (Platform.OS === 'ios') {
+    try {
+      const activityId = LiveActivityService.getActivityId(data.scheduleId);
+      if (activityId) {
+        await LiveActivityService.endActivity(activityId);
+        await logDebug(`[NotificationHandler] Ended Live Activity on snooze: ${activityId}`);
+      }
+    } catch (error) {
+      await logDebug(`[NotificationHandler] Error ending Live Activity: ${error}`);
+    }
+  }
+  
   // Show snooze confirmation
   const baseScheduleId = data.scheduleId || Date.now();
   const confirmationId = `confirmed-snooze-${baseScheduleId}`.replace('_followup', '');
@@ -277,5 +302,19 @@ async function handleSkipAction(data: any) {
       console.error('[DEBUG] [NotificationHandler] Error logging skip action:', error);
     }
   }
+  
+  // End any active Live Activity for this medication (iOS only)
+  if (Platform.OS === 'ios') {
+    try {
+      const activityId = LiveActivityService.getActivityId(data.scheduleId);
+      if (activityId) {
+        await LiveActivityService.endActivity(activityId);
+        await logDebug(`[NotificationHandler] Ended Live Activity on skip: ${activityId}`);
+      }
+    } catch (error) {
+      await logDebug(`[NotificationHandler] Error ending Live Activity: ${error}`);
+    }
+  }
+  
   console.log('[DEBUG] [NotificationHandler] handleSkipAction complete');
 }
