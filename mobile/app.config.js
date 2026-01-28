@@ -22,7 +22,8 @@ export default {
         UIBackgroundModes: ["remote-notification"],
       },
       entitlements: {
-        "com.apple.developer.usernotifications.time-sensitive": true
+        "com.apple.developer.usernotifications.time-sensitive": true,
+        "com.apple.security.application-groups": ["group.com.shivanshrana.dosiqai"]
       }
     },
     android: {
@@ -39,7 +40,12 @@ export default {
     },
     plugins: [
       "expo-font",
-      "expo-live-activity",
+      [
+        "expo-live-activity",
+        {
+          "appGroupIdentifier": "group.com.shivanshrana.dosiqai"
+        }
+      ],
       [
         "expo-media-library",
         {

@@ -13,6 +13,9 @@ interface MedicationActivityState {
   timeRemaining?: number;
 }
 
+// Track active Live Activities by schedule ID
+const activeActivities = new Map<string, string>(); // scheduleId -> activityId
+
 export const LiveActivityService = {
   async startMedicationActivity(
     medicationName: string,
@@ -51,6 +54,13 @@ export const LiveActivityService = {
       await logDebug(`[LiveActivityService] ✓ SUCCESS! Activity ID: ${activityId}`);
       await logDebug(`[LiveActivityService] Type: ${typeof activityId}`);
       await logDebug(`[LiveActivityService] ========================================`);
+      
+      // Store the activity ID for later cleanup
+      if (activityId) {
+        activeActivities.set(scheduleId, activityId);
+        await logDebug(`[LiveActivityService] Stored activity mapping: ${scheduleId} -> ${activityId}`);
+      }
+      
       return activityId || null;
     } catch (error) {
       await logDebug('[LiveActivityService] ✗ FAILED');
@@ -103,9 +113,33 @@ export const LiveActivityService = {
       await stopActivity(activityId, {
         title: 'Ended' 
       });
+      
+      // Clean up from tracking map
+      for (const [scheduleId, storedActivityId] of activeActivities.entries()) {
+        if (storedActivityId === activityId) {
+          activeActivities.delete(scheduleId);
+          await logDebug(`[LiveActivityService] Removed activity mapping for: ${scheduleId}`);
+          break;
+        }
+      }
+      
       console.log('[LiveActivity] Ended:', activityId);
     } catch (error) {
       console.error('[LiveActivity] Error ending activity:', error);
     }
+  },
+
+  /**
+   * Get the active Live Activity ID for a given schedule ID
+   */
+  getActivityId(scheduleId: string): string | null {
+    return activeActivities.get(scheduleId) || null;
+  },
+
+  /**
+   * Clear all tracked activities (useful for cleanup)
+   */
+  clearAllActivities() {
+    activeActivities.clear();
   }
 };
