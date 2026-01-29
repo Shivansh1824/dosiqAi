@@ -11,7 +11,9 @@ import { supabase } from '../services/supabaseClient';
 import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-// blur removed as unused
+import { TuneSelectionModal } from '../components/TuneSelectionModal';
+import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
+
 
 export default function PreferenceOnboardingScreen() {
     const navigation = useNavigation();
@@ -34,7 +36,11 @@ export default function PreferenceOnboardingScreen() {
     const [showSnoozeTooltip, setShowSnoozeTooltip] = useState(false);
     const [showDoseTooltip, setShowDoseTooltip] = useState(false);
 
-    const [isPersistentAlert, setIsPersistentAlert] = useState(false);
+    const [selectedTune, setSelectedTune] = useState<Tune>(getDefaultTune());
+    const [systemTunesCache, setSystemTunesCache] = useState<Tune[]>([]);
+    const [showTuneModal, setShowTuneModal] = useState(false);
+    const [showTuneTooltip, setShowTuneTooltip] = useState(false);
+
 
     // Picker visibility states (for Android mainly, but useful for logic separation)
     const [showMorningPicker, setShowMorningPicker] = useState(false);
@@ -94,7 +100,22 @@ export default function PreferenceOnboardingScreen() {
                 }
 
                 setIsAggressive(data.reminder_style === 'assurance');
-                setIsPersistentAlert(data.alert_display_mode === 'alert');
+                // Load tune preference (need to fetch system tunes first for matching)
+                if (data.notification_tune) {
+                    // First try to find in app tunes
+                    let savedTune = findTuneByFilename(data.notification_tune);
+                    if (savedTune) {
+                        setSelectedTune(savedTune);
+                    } else {
+                        // Fetch system tunes to find match
+                        const systemTunes = await getSystemTunes();
+                        setSystemTunesCache(systemTunes);
+                        savedTune = findTuneByFilename(data.notification_tune, systemTunes);
+                        if (savedTune) {
+                            setSelectedTune(savedTune);
+                        }
+                    }
+                }
             }
             setTimeout(() => setHasInitialLoaded(true), 1000); // Delay to prevent immediate save on mount
         } catch (err) {
@@ -113,7 +134,7 @@ export default function PreferenceOnboardingScreen() {
         }, 1500); // 1.5s debounce
 
         return () => clearTimeout(timer);
-    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, isPersistentAlert, hasInitialLoaded]);
+    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, selectedTune, hasInitialLoaded]);
 
     const performSave = async (silent = true) => {
         try {
@@ -134,7 +155,7 @@ export default function PreferenceOnboardingScreen() {
                 night_dose_time: formatTimeToDB(nightTime),
                 snooze_duration: effectiveSnooze,
                 reminder_style: isAggressive ? 'assurance' : 'standard',
-                alert_display_mode: isPersistentAlert ? 'alert' : 'temporary',
+                notification_tune: selectedTune.filename,
                 updated_at: new Date().toISOString(),
             };
 
@@ -194,11 +215,16 @@ export default function PreferenceOnboardingScreen() {
         const contentWidth = Math.max(0, containerWidth.value - 12);
         const stepWidth = contentWidth / 4;
 
+        // If layout hasn't happened yet, hide logic to avoid jump
+        if (contentWidth === 0) return { opacity: 0 };
+
         return {
+            opacity: 1,
             transform: [{
-                translateX: withTiming(indicatorPosition.value * stepWidth, {
-                    duration: 400,
-                    easing: Easing.out(Easing.exp)
+                translateX: withSpring(indicatorPosition.value * stepWidth, {
+                    damping: 15,
+                    stiffness: 150,
+                    mass: 0.8
                 })
             }],
             width: stepWidth,
@@ -206,7 +232,9 @@ export default function PreferenceOnboardingScreen() {
     });
 
     const updateSnooze = (index: number) => {
+        // Directly set shared value for responsiveness
         indicatorPosition.value = index;
+        
         if (index < 3) {
             setSnoozeDuration(snoozeOptions[index]);
             setIsCustomSnooze(false);
@@ -330,35 +358,27 @@ export default function PreferenceOnboardingScreen() {
         </Modal>
     );
 
-    const renderAlertTooltip = () => (
+    const renderTuneTooltip = () => (
         <Modal
-            visible={showAlertTooltip}
+            visible={showTuneTooltip}
             transparent={true}
             animationType="fade"
-            onRequestClose={() => setShowAlertTooltip(false)}
+            onRequestClose={() => setShowTuneTooltip(false)}
         >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowAlertTooltip(false)}>
+            <Pressable style={styles.tooltipOverlay} onPress={() => setShowTuneTooltip(false)}>
                 <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
                     <View style={styles.tooltipHeader}>
-                        <Feather name="layout" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Display Modes</Text>
+                        <Feather name="music" size={20} color={Colors.primary} />
+                        <Text style={styles.tooltipTitle}>Medication Tune</Text>
                     </View>
 
                     <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipSectionTitle}>Banner Mode</Text>
                         <Text style={styles.tooltipText}>
-                            Quick, non-intrusive notifications that appear briefly at the top. Perfect for regular updates that don't need to stay on screen.
+                            Select a notification sound that will play for all your medication reminders. Choose from different tune durations to suit your preference.
                         </Text>
                     </View>
 
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipSectionTitle}>Persistent Mode</Text>
-                        <Text style={styles.tooltipText}>
-                            Important alerts that <Text style={{ fontWeight: '700' }}>remain on your screen</Text> until you take action. Best for ensuring you never miss a critical medication dose.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowAlertTooltip(false)}>
+                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowTuneTooltip(false)}>
                         <Text style={styles.closeTooltipButtonText}>Got it</Text>
                     </TouchableOpacity>
                 </Animated.View>
@@ -386,7 +406,13 @@ export default function PreferenceOnboardingScreen() {
             </View>
 
             {renderTooltip()}
-            {renderAlertTooltip()}
+            {renderTuneTooltip()}
+            <TuneSelectionModal 
+                visible={showTuneModal}
+                onClose={() => setShowTuneModal(false)}
+                selectedTune={selectedTune}
+                onSelectTune={setSelectedTune}
+            />
             {renderSnoozeTooltip()}
             {renderDoseTooltip()}
 
@@ -648,10 +674,13 @@ export default function PreferenceOnboardingScreen() {
                         </View>
                         <Text style={styles.sectionSubtitle}>Set your preferred frequency for follow-up alerts.</Text>
 
-                        <View
+                        <View 
                             style={styles.liquidContainer}
+                            onLayout={(e) => {
+                                containerWidth.value = e.nativeEvent.layout.width;
+                            }}
                         >
-                            <View style={[styles.liquidIndicator, { width: '25%', left: `${(snoozeOptions.indexOf(snoozeDuration) * 25)}%` as any }]} />
+                            <Animated.View style={[styles.liquidIndicator, animatedIndicatorStyle]} />
                             {snoozeOptions.map((option, index) => (
                                 <TouchableOpacity
                                     key={option}
@@ -772,81 +801,31 @@ export default function PreferenceOnboardingScreen() {
                         </View>
                     </View>
 
-                    {/* Alert Mode Section */}
+                    {/* Tune Selection Section */}
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>Notification Style</Text>
-                            <TouchableOpacity onPress={() => setShowAlertTooltip(true)} style={styles.infoButton}>
+                            <Text style={styles.sectionTitle}>Tune Selection</Text>
+                            <TouchableOpacity onPress={() => setShowTuneTooltip(true)} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Choose how you want to be notified of pending doses.</Text>
+                        <Text style={styles.sectionSubtitle}>Choose the sound for your medication reminders.</Text>
 
-                        <View style={[styles.reminderCard, !isPersistentAlert && styles.reminderCardActive]}>
-                            {!isPersistentAlert && (
-                                <LinearGradient
-                                    colors={['#99F6E4', '#F0FDFA']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                            )}
-                            <View style={styles.reminderContent}>
-                                <View style={[styles.reminderIcon, { backgroundColor: '#CCFBF1' }]}>
-                                    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                        <Path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V8C20 9.10457 19.1046 10 18 10H6C4.89543 10 4 9.10457 4 8V6Z" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                        <Path d="M4 14H12" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
-                                        <Path d="M4 18H8" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
-                                    </Svg>
-                                </View>
-                                <View style={styles.reminderTextContent}>
-                                    <Text style={styles.reminderTitle}>Banner Mode</Text>
-                                    <Text style={styles.reminderDesc}>Temporary alerts that vanish automatically</Text>
+                        <TouchableOpacity
+                            style={[styles.verificationBar, { height: 64, marginBottom: 8, backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}
+                            onPress={() => setShowTuneModal(true)}
+                            activeOpacity={0.9}
+                        >
+                             <View style={[styles.reminderIcon, { marginLeft: 12, backgroundColor: '#E0F2FE' }]}>
+                                <Feather name="music" size={24} color={Colors.primary} />
+                            </View>
+                            <View style={[styles.barContent, { paddingLeft: 12 }]}>
+                                <Text style={[styles.barLabel, { color: Colors.gray800, fontSize: 16 }]}>{selectedTune.name}</Text>
+                                <View style={styles.barRight}>
+                                    <Feather name="chevron-right" size={20} color={Colors.primary} opacity={0.8} />
                                 </View>
                             </View>
-                            <Switch
-                                trackColor={{ false: "#D1D5DB", true: "#0D9488" }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(val) => {
-                                    setIsPersistentAlert(!val);
-                                }}
-                                value={!isPersistentAlert}
-                            />
-                        </View>
-
-                        <View style={[styles.reminderCard, isPersistentAlert && { borderColor: '#A5B4FC50' }, { marginTop: Sizes.md }]}>
-                            {isPersistentAlert && (
-                                <LinearGradient
-                                    colors={['#C7D2FE', '#EEF2FF']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                            )}
-                            <View style={styles.reminderContent}>
-                                <View style={[styles.reminderIcon, { backgroundColor: '#E0E7FF' }]}>
-                                    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                        <Circle cx="12" cy="12" r="9" stroke="#4F46E5" strokeWidth="2" />
-                                        <Path d="M12 8V12L14 14" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                        <Path d="M12 3V5M12 19V21M3 12H5M19 12H21" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
-                                    </Svg>
-                                </View>
-                                <View style={styles.reminderTextContent}>
-                                    <Text style={styles.reminderTitle}>Persistent Mode</Text>
-                                    <Text style={styles.reminderDesc}>Always-on alerts that stay until confirmed</Text>
-                                </View>
-                            </View>
-                            <Switch
-                                trackColor={{ false: "#D1D5DB", true: "#4F46E5" }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(val) => {
-                                    setIsPersistentAlert(val);
-                                }}
-                                value={isPersistentAlert}
-                            />
-                        </View>
+                        </TouchableOpacity>
                     </View>
 
                     <View style={{ height: 32 }} />
@@ -1272,7 +1251,8 @@ const styles = StyleSheet.create({
     },
     iosPickerHeader: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: Sizes.lg,
         paddingVertical: Sizes.md,
         borderBottomWidth: 1,

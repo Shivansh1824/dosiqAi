@@ -41,6 +41,7 @@ export interface NotificationSequenceData {
   reminderStyle: 'standard' | 'assurance';
   snoozeDuration: number;
   scheduledTime: string; // ISO string
+  notification_tune?: string;
 }
 
 /**
@@ -123,7 +124,8 @@ function generateTriggerId(baseId: string, step: number): string {
  */
 function getUserPreferences(familyMemberId: string): { 
   reminderStyle: 'standard' | 'assurance'; 
-  snoozeDuration: number 
+  snoozeDuration: number;
+  notificationTune: string;
 } {
   const { familyMembers } = useFamilyMembersStore.getState();
   const member = familyMembers.find(m => m.id === familyMemberId);
@@ -131,6 +133,7 @@ function getUserPreferences(familyMemberId: string): {
   return {
     reminderStyle: member?.reminder_style || 'standard',
     snoozeDuration: member?.snooze_duration || 10,
+    notificationTune: member?.notification_tune || 'notification_6sec',
   };
 }
 
@@ -157,7 +160,7 @@ export async function scheduleNotificationSequence(
   if (Platform.OS !== 'android') return null;
 
   try {
-    const { reminderStyle, snoozeDuration } = getUserPreferences(familyMemberId);
+    const { reminderStyle, snoozeDuration, notificationTune } = getUserPreferences(familyMemberId);
     const baseNotificationId = generateNotificationId(medicationId, familyMemberId);
     
     // Determine total steps based on mode
@@ -199,6 +202,7 @@ export async function scheduleNotificationSequence(
         reminderStyle,
         snoozeDuration,
         scheduledTime: triggerTime.toISOString(),
+        notification_tune: notificationTune,
       };
 
       if (isFullScreen) {
@@ -248,6 +252,7 @@ async function scheduleNormalNotification(
         step: data.step.toString(),
         totalSteps: data.totalSteps.toString(),
         snoozeDuration: data.snoozeDuration.toString(),
+        notification_tune: data.notification_tune,
       } as any,
       android: {
         channelId: CHANNEL_REMINDERS,
@@ -274,7 +279,7 @@ async function scheduleNormalNotification(
         autoCancel: true,
         showTimestamp: true,
         timestamp: triggerTime.getTime(),
-        sound: 'default',
+        sound: data.notification_tune || 'default',
       },
     },
     trigger
@@ -312,6 +317,7 @@ async function scheduleFullScreenNotification(
         step: data.step.toString(),
         totalSteps: data.totalSteps.toString(),
         snoozeDuration: data.snoozeDuration.toString(),
+        notification_tune: data.notification_tune,
       } as any,
       android: {
         channelId: CHANNEL_ALARMS,
@@ -343,7 +349,8 @@ async function scheduleFullScreenNotification(
         autoCancel: false,
         showTimestamp: true,
         timestamp: triggerTime.getTime(),
-        sound: 'default',
+        sound: data.notification_tune || 'default',
+        loopSound: true,
       },
     },
     trigger
