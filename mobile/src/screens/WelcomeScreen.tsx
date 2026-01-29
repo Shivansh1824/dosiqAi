@@ -19,18 +19,17 @@ export default function WelcomeScreen() {
   // Determine what to show
   const showGetStartedButton = !isAuthenticated;
   const showSignInLink = !isAuthenticated;
+  const showValueProps = !isAuthenticated;
 
-  // Auto-navigation after splash delay (2.5 seconds)
+  // Auto-navigation for authenticated users to Home screen
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isAuthenticated) {
+    if (isAuthenticated) {
+      const timer = setTimeout(() => {
         navigation.replace('Home');
-      } else {
-        navigation.replace('Onboarding1');
-      }
-    }, Sizes.animation.splash);
+      }, 500); // Small delay to show logo but move quickly
 
-    return () => clearTimeout(timer);
+      return () => clearTimeout(timer);
+    }
   }, [isAuthenticated, navigation]);
 
   // For now, disable animations to ensure screen is always visible
@@ -76,27 +75,29 @@ export default function WelcomeScreen() {
             </Text>
           </View>
 
-          {/* Value Propositions */}
-          <View style={styles.valuePropsContainer}>
-            <ValueProposition
-              icon="lock"
-              text="Bank-level security for all records"
-              index={0}
-              staggerDelay={150}
-            />
-            <ValueProposition
-              icon="users"
-              text="Manage entire family in one place"
-              index={1}
-              staggerDelay={150}
-            />
-            <ValueProposition
-              icon="trending-up"
-              text="Track health trends with AI insights"
-              index={2}
-              staggerDelay={150}
-            />
-          </View>
+          {/* Value Propositions - Only show if not authenticated */}
+          {showValueProps && (
+            <View style={styles.valuePropsContainer}>
+              <ValueProposition
+                icon="lock"
+                text="Bank-level security for all records"
+                index={0}
+                staggerDelay={150}
+              />
+              <ValueProposition
+                icon="users"
+                text="Manage entire family in one place"
+                index={1}
+                staggerDelay={150}
+              />
+              <ValueProposition
+                icon="trending-up"
+                text="Track health trends with AI insights"
+                index={2}
+                staggerDelay={150}
+              />
+            </View>
+          )}
         </View>
 
         {/* CTA Section */}
