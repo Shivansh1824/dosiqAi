@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Logo from '../components/Logo';
 import { Button, ValueProposition } from '../components';
@@ -14,34 +13,22 @@ type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welc
 
 export default function WelcomeScreen() {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
-  const { isAuthenticated, hasSeenOnboarding } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-  // Determine what to show
   const showGetStartedButton = !isAuthenticated;
   const showSignInLink = !isAuthenticated;
   const showValueProps = !isAuthenticated;
 
-  // Auto-navigation for authenticated users to Home screen
+  // Auto-navigation for authenticated users
   useEffect(() => {
     if (isAuthenticated) {
       const timer = setTimeout(() => {
         navigation.replace('Home');
-      }, 500); // Small delay to show logo but move quickly
-
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated, navigation]);
 
-  // For now, disable animations to ensure screen is always visible
-  // TODO: Re-enable animations once Reanimated is properly configured
-  const logoStyle = { opacity: 1, transform: [{ scale: 1 }] };
-  const appNameStyle = { opacity: 1 };
-  const taglineStyle = { opacity: 1, transform: [{ translateY: 0 }] };
-  const buttonStyle = { opacity: 1, transform: [{ translateY: 0 }] };
-  const signInStyle = { opacity: 1 };
-  const versionStyle = { opacity: 1 };
-
-  // Handle navigation
   const handleGetStarted = () => {
     navigation.navigate('Onboarding1');
   };
@@ -50,75 +37,72 @@ export default function WelcomeScreen() {
     navigation.navigate('Login');
   };
 
-  // Get app version from package.json
-  const appVersion = '1.0.0';
+  // Modern, clean background color instead of generic gradient
+  // Using a very subtle off-white/gray for a premium feel
+  const backgroundColor = '#F8F9FA';
 
   return (
-    <LinearGradient colors={Colors.gradients.welcome} style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          {/* Logo */}
-          <View style={[styles.logoContainer, logoStyle]}>
-            <Logo size={Sizes.logoSize} />
-          </View>
+    <View style={[styles.container, { backgroundColor }]}>
+      <SafeAreaView style={styles.safeArea}>
 
-          {/* App Name */}
-          <View style={appNameStyle}>
-            <Text style={styles.appName}>FamilyCare Health</Text>
-          </View>
+        {/* Main Content Area */}
+        <View style={styles.contentContainer}>
 
-          {/* Tagline */}
-          <View style={taglineStyle}>
+          {/* Header Section */}
+          <View style={styles.headerSection}>
+            <View style={styles.logoWrapper}>
+              <Logo size={Sizes.xxl * 1.5} />
+            </View>
+
             <Text style={styles.tagline}>
-              Your family's health journey, simplified and secure
+              Track Medicines with the power of Ai
             </Text>
           </View>
 
-          {/* Value Propositions - Only show if not authenticated */}
+          {/* Features / Value Props */}
           {showValueProps && (
-            <View style={styles.valuePropsContainer}>
+            <View style={styles.featuresContainer}>
               <ValueProposition
-                icon="lock"
-                text="Bank-level security for all records"
+                icon="file-text"
+                text="AI-Powered Report Analysis"
+                subText="Extract insights from labs & prescriptions"
                 index={0}
-                staggerDelay={150}
+                staggerDelay={100}
               />
               <ValueProposition
-                icon="users"
-                text="Manage entire family in one place"
+                icon="bell"
+                text="Smart Medication Management"
+                subText="Never miss a dose with intelligent reminders"
                 index={1}
-                staggerDelay={150}
+                staggerDelay={100}
               />
               <ValueProposition
-                icon="trending-up"
-                text="Track health trends with AI insights"
+                icon="activity"
+                text="Health Trends & Insights"
+                subText="Visualize your recovery metrics over time"
                 index={2}
-                staggerDelay={150}
+                staggerDelay={100}
               />
             </View>
           )}
         </View>
 
-        {/* CTA Section */}
-        <View style={styles.ctaSection}>
-          {/* Get Started Button */}
+        {/* Bottom Actions */}
+        <View style={styles.bottomSection}>
           {showGetStartedButton && (
-            <View style={[styles.buttonContainer, buttonStyle]}>
-              <Button
-                variant="primary"
-                size="lg"
-                onPress={handleGetStarted}
-                fullWidth
-              >
-                Get Started
-              </Button>
-            </View>
+            <Button
+              variant="primary"
+              size="lg"
+              onPress={handleGetStarted}
+              fullWidth
+              style={styles.mainButton}
+            >
+              Get Started
+            </Button>
           )}
 
-          {/* Sign In Link */}
           {showSignInLink && (
-            <View style={[styles.signInContainer, signInStyle]}>
+            <View style={styles.signInContainer}>
               <Text style={styles.signInText}>
                 Already have an account?{' '}
                 <Text style={styles.signInLink} onPress={handleSignIn}>
@@ -127,14 +111,10 @@ export default function WelcomeScreen() {
               </Text>
             </View>
           )}
-
-          {/* Version Number */}
-          <View style={[styles.versionContainer, versionStyle]}>
-            <Text style={styles.versionText}>v{appVersion}</Text>
-          </View>
         </View>
+
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -144,60 +124,53 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Sizes.contentPadding,
+    marginHorizontal: Sizes.contentPadding,
   },
-  heroSection: {
+  contentContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
     paddingTop: Sizes.xl,
   },
-  logoContainer: {
-    marginBottom: Sizes.lg,
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: Sizes.xxl,
   },
-  appName: {
-    ...Typography.styles.h2,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: Sizes.md,
+  logoWrapper: {
+    marginBottom: Sizes.lg,
+    // Add a subtle shadow for depth if needed, or keep flat
   },
   tagline: {
-    ...Typography.styles.tagline,
-    color: Colors.textSecondary,
+    ...Typography.styles.h3,
+    color: Colors.gray600,
     textAlign: 'center',
-    maxWidth: 320,
+    maxWidth: 300,
+    marginTop: Sizes.sm,
+    fontWeight: '500',
+  },
+  featuresContainer: {
+    marginTop: Sizes.md,
+    gap: Sizes.md,
+  },
+  bottomSection: {
     marginBottom: Sizes.xl,
   },
-  valuePropsContainer: {
-    width: '100%',
-    maxWidth: 360,
-    marginTop: Sizes.sm,
-  },
-  ctaSection: {
-    paddingBottom: Sizes.xl,
-  },
-  buttonContainer: {
-    marginBottom: Sizes.md,
+  mainButton: {
+    marginBottom: Sizes.lg,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   signInContainer: {
     alignItems: 'center',
-    marginBottom: Sizes.lg,
   },
   signInText: {
     ...Typography.styles.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+    color: Colors.gray500,
   },
   signInLink: {
     color: Colors.primary,
-    fontWeight: Typography.semibold,
-    textDecorationLine: 'underline',
-  },
-  versionContainer: {
-    alignItems: 'center',
-  },
-  versionText: {
-    ...Typography.styles.small,
-    color: Colors.gray400,
+    fontWeight: '700',
   },
 });

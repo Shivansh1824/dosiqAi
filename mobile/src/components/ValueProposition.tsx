@@ -10,6 +10,7 @@ import { useStaggerFadeIn } from '../utils/animations';
 interface ValuePropositionProps {
   icon: keyof typeof Feather.glyphMap;
   text: string;
+  subText?: string;
   index: number; // For stagger animation
   staggerDelay?: number;
 }
@@ -17,6 +18,7 @@ interface ValuePropositionProps {
 export const ValueProposition: React.FC<ValuePropositionProps> = ({
   icon,
   text,
+  subText,
   index,
   staggerDelay = 150,
 }) => {
@@ -27,7 +29,10 @@ export const ValueProposition: React.FC<ValuePropositionProps> = ({
       <View style={styles.iconContainer}>
         <Feather name={icon} size={20} color={Colors.primary} />
       </View>
-      <Text style={styles.text}>{text}</Text>
+      <View style={styles.textContainer}>
+        <Text style={styles.text}>{text}</Text>
+        {subText && <Text style={styles.subText}>{subText}</Text>}
+      </View>
     </Animated.View>
   );
 };
@@ -35,7 +40,7 @@ export const ValueProposition: React.FC<ValuePropositionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Align to top for multiline
     marginBottom: Sizes.md,
     paddingHorizontal: Sizes.xs,
   },
@@ -47,10 +52,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Sizes.md,
+    marginTop: 2, // Minor optical adjustment
+  },
+  textContainer: {
+    flex: 1,
+    gap: 2,
   },
   text: {
-    ...Typography.styles.bodySmall,
-    color: Colors.textSecondary,
-    flex: 1,
+    ...Typography.styles.body,
+    fontWeight: '600',
+    color: Colors.gray800,
+  },
+  subText: {
+    ...Typography.styles.caption,
+    color: Colors.gray500,
+    lineHeight: 18,
   },
 });

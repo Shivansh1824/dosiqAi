@@ -39,6 +39,7 @@ interface ButtonProps {
   socialProvider?: SocialProvider;
   fullWidth?: boolean;
   hapticFeedback?: boolean;
+  style?: ViewStyle;
 }
 
 const socialConfig = {
@@ -77,6 +78,7 @@ export const Button: React.FC<ButtonProps> = ({
   socialProvider,
   fullWidth = true,
   hapticFeedback = true,
+  style,
 }) => {
   const { animatedStyle, onPressIn, onPressOut } = useButtonPress();
 
@@ -165,7 +167,7 @@ export const Button: React.FC<ButtonProps> = ({
   if (variant === 'primary') {
     return (
       <AnimatedTouchable
-        style={[containerStyle, animatedStyle]}
+        style={[containerStyle, style, animatedStyle]}
         onPress={handlePress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
@@ -196,6 +198,7 @@ export const Button: React.FC<ButtonProps> = ({
         variant === 'secondary' && styles.buttonSecondary,
         variant === 'text' && styles.buttonText,
         variant === 'social' && styles.buttonSocial,
+        style,
         animatedStyle,
       ]}
       onPress={handlePress}
