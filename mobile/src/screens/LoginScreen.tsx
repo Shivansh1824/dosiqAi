@@ -70,7 +70,7 @@ export default function LoginScreen() {
       await login(email, password);
 
       // Navigate to home after successful login
-      navigation.replace('Welcome'); // Will auto-navigate to Home
+      navigation.replace('Home');
     } catch (error) {
       console.error('Login error:', error);
       setEmailError(error instanceof Error ? error.message : 'Login failed. Please try again.');
@@ -98,8 +98,8 @@ export default function LoginScreen() {
   };
 
   const handlePhoneLoginSuccess = () => {
-    // Navigate to Welcome screen which will auto-redirect to Home
-    navigation.replace('Welcome');
+    // Navigate directly to Home
+    navigation.replace('Home');
   };
 
   const handleForgotPassword = () => {

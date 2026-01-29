@@ -99,7 +99,7 @@ export default function SignupScreen() {
             await signup(email, password, name);
 
             // Navigate to home after successful signup
-            navigation.replace('Welcome'); // Will auto-navigate to Home
+            navigation.replace('Home');
         } catch (error) {
             console.error('Signup error:', error);
             setEmailError(error instanceof Error ? error.message : 'Signup failed. Please try again.');
