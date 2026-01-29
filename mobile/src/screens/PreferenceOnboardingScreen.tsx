@@ -12,17 +12,7 @@ import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { TuneSelectionModal } from '../components/TuneSelectionModal';
-
-// Audio Assets
-const TUNE_3S = require('../../assets/sounds/dosiqai_alert_3s.mp3');
-const TUNE_6S = require('../../assets/sounds/dosiqai_alert_6s.mp3');
-const TUNE_12S = require('../../assets/sounds/dosiqai_alert_12s.mp3');
-
-const TUNES = [
-    { id: '3s', name: 'dosiqAi Alert - 3s', duration: '3s', filename: 'dosiqai_alert_3s.mp3', file: TUNE_3S },
-    { id: '6s', name: 'dosiqAi Alert - 6s', duration: '6s', filename: 'dosiqai_alert_6s.mp3', file: TUNE_6S },
-    { id: '12s', name: 'dosiqAi Alert - 12s', duration: '12s', filename: 'dosiqai_alert_12s.mp3', file: TUNE_12S },
-];
+import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
 
 
 export default function PreferenceOnboardingScreen() {
@@ -46,7 +36,8 @@ export default function PreferenceOnboardingScreen() {
     const [showSnoozeTooltip, setShowSnoozeTooltip] = useState(false);
     const [showDoseTooltip, setShowDoseTooltip] = useState(false);
 
-    const [selectedTune, setSelectedTune] = useState(TUNES[0]);
+    const [selectedTune, setSelectedTune] = useState<Tune>(getDefaultTune());
+    const [systemTunesCache, setSystemTunesCache] = useState<Tune[]>([]);
     const [showTuneModal, setShowTuneModal] = useState(false);
     const [showTuneTooltip, setShowTuneTooltip] = useState(false);
 
@@ -109,11 +100,20 @@ export default function PreferenceOnboardingScreen() {
                 }
 
                 setIsAggressive(data.reminder_style === 'assurance');
-                // Load tune preference
+                // Load tune preference (need to fetch system tunes first for matching)
                 if (data.notification_tune) {
-                    const savedTune = TUNES.find(t => t.filename === data.notification_tune);
+                    // First try to find in app tunes
+                    let savedTune = findTuneByFilename(data.notification_tune);
                     if (savedTune) {
                         setSelectedTune(savedTune);
+                    } else {
+                        // Fetch system tunes to find match
+                        const systemTunes = await getSystemTunes();
+                        setSystemTunesCache(systemTunes);
+                        savedTune = findTuneByFilename(data.notification_tune, systemTunes);
+                        if (savedTune) {
+                            setSelectedTune(savedTune);
+                        }
                     }
                 }
             }
@@ -412,7 +412,6 @@ export default function PreferenceOnboardingScreen() {
                 onClose={() => setShowTuneModal(false)}
                 selectedTune={selectedTune}
                 onSelectTune={setSelectedTune}
-                tunes={TUNES}
             />
             {renderSnoozeTooltip()}
             {renderDoseTooltip()}
