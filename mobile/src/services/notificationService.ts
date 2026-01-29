@@ -21,9 +21,11 @@ import { Platform } from 'react-native';
 import { Medication } from '../types/medication';
 import { logDebug } from './debugLogger';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
-
-// Notification channel ID for Android
-const MEDICATION_CHANNEL_ID = 'medication-reminders';
+import { 
+  initializeAndroidNotifications, 
+  scheduleNotificationSequence as scheduleAndroidSequence,
+  generateNotificationId,
+} from './androidNotificationService';
 
 // iOS category ID for action buttons
 const MEDICATION_CATEGORY_ID = 'medication-actions';
@@ -36,10 +38,15 @@ export interface MedicineReminderData {
   instructions?: string;
   scheduleId: string;
   scheduledTime: Date;
-  // New fields for advanced logic
+  // Family member ID for fetching preferences
+  familyMemberId?: string;
+  // Fields for advanced notification logic
   reminderStyle?: 'standard' | 'assurance';
   alertMode?: 'temporary' | 'alert';
   snoozeDuration?: number;
+  // Step tracking for Android escalation
+  step?: number;
+  totalSteps?: number;
 }
 
 /**
@@ -61,43 +68,36 @@ export async function initializeNotifications(): Promise<boolean> {
       return false;
     }
 
-    // Create Android notification channel
+    // Initialize Android-specific channels and permissions
     if (Platform.OS === 'android') {
-      await notifee.createChannel({
-        id: MEDICATION_CHANNEL_ID,
-        name: 'Medication Reminders',
-        description: 'Reminders to take your medications',
-        importance: AndroidImportance.HIGH,
-        sound: 'default',
-        vibration: true,
-        vibrationPattern: [300, 500, 300, 500],
-        lights: true,
-        lightColor: '#4F46E5',
-      });
+      await initializeAndroidNotifications();
+      console.log('[Notifications] Android channels initialized');
     }
 
     // Set up iOS notification categories with actions
-    await notifee.setNotificationCategories([
-      {
-        id: MEDICATION_CATEGORY_ID,
-        actions: [
-          {
-            id: 'taken',
-            title: '✓ Taken',
-            foreground: true,
-          },
-          {
-            id: 'snooze',
-            title: '⏰ Snooze',
-          },
-          {
-            id: 'skip',
-            title: '✕ Skip',
-            destructive: true,
-          },
-        ],
-      },
-    ]);
+    if (Platform.OS === 'ios') {
+      await notifee.setNotificationCategories([
+        {
+          id: MEDICATION_CATEGORY_ID,
+          actions: [
+            {
+              id: 'taken',
+              title: '✓ Taken',
+              foreground: true,
+            },
+            {
+              id: 'snooze',
+              title: '⏰ Snooze',
+            },
+            {
+              id: 'skip',
+              title: '✕ Skip',
+              destructive: true,
+            },
+          ],
+        },
+      ]);
+    }
 
     console.log('[Notifications] Initialized successfully');
     return true;
@@ -107,37 +107,6 @@ export async function initializeNotifications(): Promise<boolean> {
   }
 }
 
-/**
- * Check if full-screen notifications are allowed (Android 14+)
- * On Android 14+, the USE_FULL_SCREEN_INTENT permission is not automatically granted
- */
-export async function checkFullScreenIntentPermission(): Promise<boolean> {
-  if (Platform.OS !== 'android') return true;
-  
-  try {
-    const settings = await notifee.getNotificationSettings();
-    // Check if full-screen intents are allowed
-    // @ts-ignore - canDisplayFullScreenIntent may not be in older type definitions
-    return settings.android?.canDisplayFullScreenIntent !== false;
-  } catch (error) {
-    console.error('[Notifications] Error checking full-screen intent permission:', error);
-    return false;
-  }
-}
-
-/**
- * Request full-screen intent permission (opens system settings on Android 14+)
- */
-export async function requestFullScreenIntentPermission(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-  
-  try {
-    // @ts-ignore - openFullScreenIntentSettings may not be in older type definitions
-    await notifee.openFullScreenIntentSettings();
-  } catch (error) {
-    console.error('[Notifications] Error opening full-screen intent settings:', error);
-  }
-}
 
 /**
  * Schedule a medicine reminder notification
@@ -152,15 +121,36 @@ export async function scheduleMedicineReminder(
       snoozeDuration = 10 
     } = reminder;
 
-    const isAlarmMode = alertMode === 'alert';
-
     console.log('='.repeat(60));
-    console.log(`[Notifications] 📋 SCHEDULING MEDICATION REMINDER (${reminderStyle}/${alertMode})`);
+    console.log(`[Notifications] 📋 SCHEDULING MEDICATION REMINDER (${reminderStyle})`);
     console.log('[Notifications] Medication:', reminder.medicationName);
     console.log('[Notifications] Schedule ID:', reminder.scheduleId);
     console.log('[Notifications] Scheduled Time:', reminder.scheduledTime.toLocaleString());
+    console.log('[Notifications] Platform:', Platform.OS);
+    console.log('[Notifications] familyMemberId:', reminder.familyMemberId);
+    console.log('[Notifications] Has familyMemberId:', !!reminder.familyMemberId);
     console.log('='.repeat(60));
 
+    // --- ANDROID: Delegate to Android notification service with escalation logic ---
+    if (Platform.OS === 'android' && reminder.familyMemberId) {
+      console.log('[Notifications] ✅ Using ANDROID notification service with escalation');
+      const notificationId = await scheduleAndroidSequence(
+        reminder.medicationId,
+        reminder.medicationName,
+        reminder.dosage,
+        reminder.familyMemberId,
+        reminder.scheduledTime,
+        reminder.instructions,
+        reminder.step || 1
+      );
+      console.log('[Notifications] ✅ Android escalation sequence scheduled:', notificationId);
+      await logDebug(`[NotificationService] Android sequence scheduled: ${notificationId}`);
+      return notificationId;
+    }
+
+    console.log('[Notifications] ⚠️ Using iOS/fallback notification path (familyMemberId missing or not Android)');
+
+    // --- iOS/FALLBACK: Use existing time-sensitive notification + Live Activity logic ---
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: reminder.scheduledTime.getTime(),
@@ -172,59 +162,17 @@ export async function scheduleMedicineReminder(
     const notificationId = await notifee.createTriggerNotification(
       {
         id: reminder.scheduleId,
-        title: isAlarmMode ? '💊 Medication Alarm' : '💊 Medication Reminder',
+        title: '💊 Medication Reminder',
         body: `Time to take ${reminder.medicationName} ${reminder.dosage}`,
         data: {
           ...reminder,
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
-          // Add follow-up metadata for Live Activity triggering (only in standard mode)
-          ...(reminderStyle === 'standard' ? {
-            followUpDuration: snoozeDuration,
+          // Add follow-up metadata for Live Activity triggering (only in standard mode on iOS)
+          ...(Platform.OS === 'ios' && reminderStyle === 'standard' ? {
+            followUpDuration: snoozeDuration.toString(),
             followUpTime: new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000)).toISOString(),
           } : {}),
-        },
-        
-        // Android configuration
-        android: {
-          channelId: MEDICATION_CHANNEL_ID,
-          category: isAlarmMode ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
-          importance: isAlarmMode ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
-          visibility: AndroidVisibility.PUBLIC,
-          lightUpScreen: true,
-          pressAction: {
-            id: 'default',
-          },
-          
-          tag: reminder.scheduleId, // Use scheduleId as tag to group/replace on Android
-          
-          // Full-screen alarm UI - Always enabled to handle "Locked Screen" state on Android
-          fullScreenAction: {
-            id: 'default',
-            mainComponent: 'MedicineAlarmScreen',
-          },
-          
-          // Mode-specific persistence settings
-          ...(isAlarmMode ? {
-            autoCancel: false,
-            ongoing: true,
-            asForegroundService: true,
-          } : {
-            autoCancel: true,
-            ongoing: false,
-            // Auto-cancel the primary notification when the follow-up is scheduled to arrive
-            // This prevents "clustering" on Android by removing the old one automatically
-            timeoutAfter: snoozeDuration * 60 * 1000, 
-          }),
-          
-          actions: [
-            { title: '✓ Taken', pressAction: { id: 'taken' } },
-            { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
-            { title: '✕ Skip', pressAction: { id: 'skip' } },
-          ],
-          
-          showTimestamp: true,
-          timestamp: reminder.scheduledTime.getTime(),
         },
         
         // iOS configuration
@@ -235,11 +183,23 @@ export async function scheduleMedicineReminder(
           sound: 'default',
           threadId: reminder.scheduleId, // Use threadId to group on iOS
         },
+        
+        // Android configuration (fallback when familyMemberId is missing)
+        android: {
+          channelId: 'medication-reminders',
+          importance: AndroidImportance.HIGH,
+          pressAction: {
+            id: 'default',
+            launchActivity: 'default',
+          },
+          sound: 'default',
+          autoCancel: true,
+        },
       },
       trigger
     );
 
-    await logDebug(`[NotificationService] Primary scheduled: ${notificationId} for ${reminder.scheduledTime.toISOString()}`);
+    await logDebug(`[NotificationService] iOS notification scheduled: ${notificationId} for ${reminder.scheduledTime.toISOString()}`);
 
     // --- STANDARD MODE: Store follow-up metadata for Live Activity ---
     if (reminderStyle === 'standard') {
@@ -298,6 +258,7 @@ export async function scheduleAllRemindersForMedication(
         instructions: medication.notes || '',
         scheduleId: `${medication.id}_dose_${i}`,
         scheduledTime,
+        familyMemberId: medication.family_member_id, // Required for Android notification service
         ...settings, // Pass the fetched settings!
       };
 
@@ -330,6 +291,35 @@ export async function scheduleRepeatingReminder(
       alertMode = 'temporary', 
     } = reminder;
 
+    console.log('='.repeat(60));
+    console.log(`[Notifications] 📋 SCHEDULING REPEATING REMINDER (${repeatFrequency})`);
+    console.log('[Notifications] Medication:', reminder.medicationName);
+    console.log('[Notifications] Platform:', Platform.OS);
+    console.log('[Notifications] familyMemberId:', reminder.familyMemberId);
+    console.log('='.repeat(60));
+
+    // --- ANDROID: For repeating reminders, schedule the escalation sequence ---
+    // Note: Android doesn't support native repeating triggers with our escalation logic,
+    // so we schedule a single sequence. The app will reschedule when it reopens.
+    if (Platform.OS === 'android' && reminder.familyMemberId) {
+      console.log('[Notifications] ✅ Using ANDROID notification service for repeating reminder');
+      const notificationId = await scheduleAndroidSequence(
+        reminder.medicationId,
+        reminder.medicationName,
+        reminder.dosage,
+        reminder.familyMemberId,
+        reminder.scheduledTime,
+        reminder.instructions,
+        reminder.step || 1
+      );
+      console.log('[Notifications] ✅ Android repeating sequence scheduled:', notificationId);
+      await logDebug(`[NotificationService] Android repeating sequence scheduled: ${notificationId}`);
+      return notificationId;
+    }
+
+    console.log('[Notifications] ⚠️ Using iOS/fallback repeating notification path');
+
+    // --- iOS/FALLBACK: Use native repeating trigger ---
     const isAlarmMode = alertMode === 'alert';
 
     const trigger: TimestampTrigger = {
@@ -352,41 +342,11 @@ export async function scheduleRepeatingReminder(
           ...reminder,
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
-          // Add follow-up metadata for Live Activity triggering (only in standard mode)
-          ...(reminderStyle === 'standard' ? {
-            followUpDuration: reminder.snoozeDuration || 10,
+          // Add follow-up metadata for Live Activity triggering (only in standard mode on iOS)
+          ...(Platform.OS === 'ios' && reminderStyle === 'standard' ? {
+            followUpDuration: (reminder.snoozeDuration || 10).toString(),
             followUpTime: new Date(reminder.scheduledTime.getTime() + ((reminder.snoozeDuration || 10) * 60000)).toISOString(),
           } : {}),
-        },
-        
-        android: {
-          channelId: MEDICATION_CHANNEL_ID,
-          category: isAlarmMode ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
-          importance: isAlarmMode ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
-          visibility: AndroidVisibility.PUBLIC,
-          lightUpScreen: true,
-          pressAction: { id: 'default' },
-          tag: reminder.scheduleId,
-          
-          fullScreenAction: {
-            id: 'default',
-            mainComponent: 'MedicineAlarmScreen',
-          },
-          
-          actions: [
-            { title: '✓ Taken', pressAction: { id: 'taken' } },
-            { title: '⏰ Snooze', pressAction: { id: 'snooze' } },
-            { title: '✕ Skip', pressAction: { id: 'skip' } },
-          ],
-          
-          ...(isAlarmMode ? {
-            autoCancel: false,
-            ongoing: true,
-            asForegroundService: true,
-          } : {
-            autoCancel: true,
-            ongoing: false,
-          }),
         },
         
         ios: {
@@ -395,9 +355,22 @@ export async function scheduleRepeatingReminder(
           sound: 'default',
           threadId: reminder.scheduleId,
         },
+        
+        // Android configuration (fallback when familyMemberId is missing)
+        android: {
+          channelId: 'medication-reminders',
+          importance: AndroidImportance.HIGH,
+          pressAction: {
+            id: 'default',
+            launchActivity: 'default',
+          },
+          sound: 'default',
+          autoCancel: true,
+        },
       },
       trigger
     );
+
 
     await logDebug(`[NotificationService] Repeating (${repeatFrequency}) scheduled: ${notificationId}`);
 
@@ -533,7 +506,7 @@ export async function generateDebugReport(): Promise<string> {
     const { getLogs, LOG_FILE_PATH } = require('./debugLogger');
     
     const settings = await notifee.getNotificationSettings();
-    const channels = Platform.OS === 'android' ? await notifee.getChannels() : [];
+    const channels: any[] = [];
     const pending = await notifee.getTriggerNotifications();
     const logs = await getLogs();
 
@@ -556,7 +529,6 @@ export async function generateDebugReport(): Promise<string> {
             nextTrigger: p.trigger.type === TriggerType.TIMESTAMP ? new Date(p.trigger.timestamp).toISOString() : 'Interval',
             repeatFrequency: p.trigger.type === TriggerType.TIMESTAMP ? (p.trigger as TimestampTrigger).repeatFrequency : undefined,
             data: p.notification.data,
-            androidTag: p.notification.android?.tag,
         })),
         recentLogs: logs.split('\n').slice(-100), // Last 100 logs
     };

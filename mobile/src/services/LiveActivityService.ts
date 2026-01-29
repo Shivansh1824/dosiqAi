@@ -39,6 +39,13 @@ export const LiveActivityService = {
       const contentState = {
         title: medicationName,
         subtitle: dosage,
+        // New fields for Rich Design
+        medicationName: medicationName,
+        doseStrength: dosage,
+        doseTime: "Now", // Logic to be refined
+        doseNote: "Tap to view details",
+        currentDose: 1, 
+        totalDoses: 1
       };
 
       const attributes = {
