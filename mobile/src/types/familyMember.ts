@@ -12,6 +12,7 @@ export interface FamilyMember {
     snooze_duration?: number;
     reminder_style?: 'standard' | 'assurance';
     alert_display_mode?: 'temporary' | 'alert';
+    notification_tune?: string;
     created_at: string;
     updated_at: string;
 }
