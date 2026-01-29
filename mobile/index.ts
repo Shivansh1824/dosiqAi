@@ -20,10 +20,7 @@ console.log('[DEBUG] [index.ts] App component imported successfully');
 import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
 import { setupBackgroundEventHandler } from './src/services/notificationEventHandler';
 
-// Register the full-screen alarm component for Android
-// This is launched when a medication notification fires with fullScreenAction
-AppRegistry.registerComponent('MedicineAlarmScreen', () => MedicineAlarmScreen);
-console.log('[DEBUG] [index.ts] MedicineAlarmScreen registered');
+// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 
 // Set up background notification handler
 // This handles notification actions when app is in background/killed

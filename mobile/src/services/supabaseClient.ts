@@ -49,6 +49,11 @@ export const supabase = createClient(EFFECTIVE_SUPABASE_URL, EFFECTIVE_SUPABASE_
   },
 });
 
+// Test connectivity immediately
+fetch(EFFECTIVE_SUPABASE_URL)
+  .then(res => console.log('[DEBUG] [Supabase] Connectivity Check: Status', res.status))
+  .catch(err => console.error('[DEBUG] [Supabase] Connectivity Check: FAILED', err.message));
+
 /**
  * Helper function to check if Supabase is properly configured
  */
@@ -57,10 +62,11 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 // Log configuration status (always log for debugging)
+console.log('[DEBUG] [Supabase] Client initialization URL:', EFFECTIVE_SUPABASE_URL); 
 console.log('[DEBUG] [Supabase] Client initialization:', {
   hasUrl: !!SUPABASE_URL,
   hasAnonKey: !!SUPABASE_ANON_KEY,
   configured: isConfigured,
-  effectiveUrl: EFFECTIVE_SUPABASE_URL?.substring(0, 40) + '...',
+  effectiveUrl: EFFECTIVE_SUPABASE_URL,
   timestamp: new Date().toISOString(),
 });

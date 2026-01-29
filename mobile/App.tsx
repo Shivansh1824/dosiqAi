@@ -77,6 +77,7 @@ import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
 import { useAuthStore } from './src/store/authStore';
 import { useMedicationLogsStore } from './src/store/medicationLogsStore';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
+import { useMedicineAlarmCheck } from './src/hooks/useMedicineAlarmCheck';
 import { Document } from './src/types/document';
 
 // Constants
@@ -132,6 +133,9 @@ export default function App() {
 
   const { isAuthenticated, hasSeenOnboarding } = useAuthStore();
   console.log('[DEBUG] [App] Auth state:', { isAuthenticated, hasSeenOnboarding });
+
+  // Check for full-screen alarms and navigate if needed
+  useMedicineAlarmCheck(navigationRef);
 
   // Fallback: Force navigation ready after timeout if onReady doesn't fire
   useEffect(() => {

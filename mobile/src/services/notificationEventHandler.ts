@@ -8,6 +8,11 @@ import { snoozeReminder, cancelReminder, MedicineReminderData } from './notifica
 import { logDebug } from './debugLogger';
 import { LiveActivityService } from './LiveActivityService';
 import { Platform } from 'react-native';
+import { 
+  handleAndroidSnooze, 
+  cancelPendingSequence,
+  NotificationSequenceData,
+} from './androidNotificationService';
 
 // Type for medication log entry
 export interface MedicationLogEntry {
@@ -46,13 +51,6 @@ export function setLogMedicationCallback(callback: LogMedicationCallback) {
  */
 export function setupForegroundEventHandler() {
   return notifee.onForegroundEvent(async ({ type, detail }) => {
-    console.log('='.repeat(60));
-    console.log('[Notifications] 📱 FOREGROUND EVENT RECEIVED');
-    console.log('[Notifications] Event Type:', EventType[type]);
-    console.log('[Notifications] Notification ID:', detail.notification?.id);
-    console.log('[Notifications] Has fullScreenAction:', !!detail.notification?.android?.fullScreenAction);
-    console.log('[Notifications] Full Details:', JSON.stringify(detail, null, 2));
-    console.log('='.repeat(60));
     await handleNotificationEvent(type, detail);
   });
 }
@@ -63,17 +61,7 @@ export function setupForegroundEventHandler() {
  */
 export function setupBackgroundEventHandler() {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
-    console.log('='.repeat(60));
-    console.log('[Notifications] 🔔 BACKGROUND EVENT RECEIVED');
-    console.log('[Notifications] Event Type:', EventType[type]);
-    console.log('[Notifications] Notification ID:', detail.notification?.id);
-    
-    // Explicitly log for debugging
     await logDebug('[BackgroundEvent] Received', { type: EventType[type], id: detail.notification?.id });
-
-    console.log('[Notifications] Has fullScreenAction:', !!detail.notification?.android?.fullScreenAction);
-    console.log('[Notifications] Press Action:', detail.pressAction?.id);
-    console.log('='.repeat(60));
     await handleNotificationEvent(type, detail);
   });
 }
@@ -90,9 +78,11 @@ async function handleNotificationEvent(type: EventType, detail: any) {
 
   await logDebug('[NotificationHandler] Event Received', { type: EventType[type], action: pressAction?.id, id: notification?.id });
 
-  // --- LIVE ACTIVITY TRIGGER FOR FOLLOW-UP ---
+  // --- LIVE ACTIVITY TRIGGER FOR FOLLOW-UP (iOS ONLY) ---
   // When the primary notification is delivered, schedule a Live Activity to start after the follow-up duration
-  if (type === EventType.DELIVERED && 
+  // NOTE: On Android, the escalation is handled by androidNotificationService with scheduled triggers
+  if (Platform.OS === 'ios' &&
+      type === EventType.DELIVERED && 
       notification?.data?.type === 'medication_reminder' && 
       notification?.data?.followUpDuration &&
       notification?.data?.followUpTime) {
@@ -100,7 +90,7 @@ async function handleNotificationEvent(type: EventType, detail: any) {
     const { medicationName, dosage, scheduleId, followUpDuration, followUpTime } = notification.data;
     const followUpMs = Number(followUpDuration) * 60 * 1000;
     
-    await logDebug(`[NotificationHandler] Primary notification delivered. Will trigger Live Activity in ${followUpDuration}min at ${followUpTime}`);
+    await logDebug(`[NotificationHandler] iOS: Primary notification delivered. Will trigger Live Activity in ${followUpDuration}min at ${followUpTime}`);
     
     // Schedule Live Activity to start after follow-up duration
     setTimeout(async () => {
@@ -119,6 +109,25 @@ async function handleNotificationEvent(type: EventType, detail: any) {
     }, followUpMs);
     
     return;
+  }
+
+  // --- ANDROID STEP REPLACEMENT LOGIC ---
+  // When Step N is delivered, cancel Step N-1 to simulate "replacement" behavior
+  // This is required because we use unique notification IDs for reliability
+  if (Platform.OS === 'android' &&
+      type === EventType.DELIVERED &&
+      notification?.data?.type === 'medication_reminder' &&
+      notification?.data?.step) {
+      
+      const currentStep = Number(notification.data.step);
+      if (currentStep > 1) {
+        const baseId = notification.data.scheduleId; // This is the base ID
+        const prevStepId = `${baseId}-step${currentStep - 1}`;
+        
+        await logDebug(`[NotificationHandler] Step ${currentStep} delivered. Cancelling previous step: ${prevStepId}`);
+        await notifee.cancelNotification(prevStepId);
+      }
+      return;
   }
 
   // Ignore non-press events (like DELIVERED for non-replacements)
@@ -187,8 +196,14 @@ async function handleTakenAction(data: any) {
     }
   }
 
-  // End any active Live Activity for this medication (iOS only)
-  if (Platform.OS === 'ios') {
+  // Cancel all remaining notifications in the sequence
+  if (Platform.OS === 'android' && data.familyMemberId) {
+    // Android: Cancel the entire pending sequence
+    const totalSteps = Number(data.totalSteps || 4);
+    await cancelPendingSequence(data.scheduleId, totalSteps);
+    await logDebug(`[NotificationHandler] Android: Cancelled pending sequence for ${data.scheduleId}`);
+  } else if (Platform.OS === 'ios') {
+    // iOS: End any active Live Activity
     try {
       const activityId = LiveActivityService.getActivityId(data.scheduleId);
       if (activityId) {
@@ -209,14 +224,13 @@ async function handleTakenAction(data: any) {
     id: confirmationId,
     title: '✓ Medication Taken',
     body: `Great job! You took ${data.medicationName}`,
-    android: {
-      channelId: 'medication-reminders',
-      autoCancel: true,
-      // timeoutAfter removed to ensure persistence until manual dismissal
-      pressAction: { id: 'default' },
-    },
     ios: {
       sound: 'default',
+    },
+    android: {
+      channelId: 'medication-reminders',
+      importance: 3, // HIGH
+      autoCancel: true,
     },
   });
   console.log('[DEBUG] [NotificationHandler] handleTakenAction complete');
@@ -224,30 +238,54 @@ async function handleTakenAction(data: any) {
 
 /**
  * Handle "Snooze" action (Default 10 mins for Banner)
+ * Android: Continues from current step in the escalation sequence
+ * iOS: Reschedules with snoozeReminder
  */
 async function handleSnoozeAction(data: any) {
   console.log('[DEBUG] [NotificationHandler] Executing handleSnoozeAction for:', data.medicationName);
   
-  const reminderData: MedicineReminderData = {
-    medicationId: data.medicationId,
-    medicationName: data.medicationName,
-    dosage: data.dosage,
-    scheduleId: data.scheduleId,
-    instructions: data.instructions,
-    scheduledTime: new Date(), // This will be overwritten by snoozeReminder
-  };
+  // Get snooze duration from notification data or fallback to 10 minutes
+  const snoozeDuration = Number(data.snoozeDuration || 10);
   
-  console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...');
-  const snoozedId = await snoozeReminder(
-    data.scheduleId,
-    reminderData,
-    10 // Snooze for 10 minutes (Default for banner action)
-  );
-  
-  console.log('[DEBUG] [NotificationHandler] Snoozed reminder ID:', snoozedId);
-  
-  // End any active Live Activity for this medication (iOS only)
-  if (Platform.OS === 'ios') {
+  // Android: Use Android-specific snooze that continues from current step
+  if (Platform.OS === 'android' && data.familyMemberId) {
+    const sequenceData: NotificationSequenceData = {
+      medicationId: data.medicationId,
+      medicationName: data.medicationName,
+      dosage: data.dosage,
+      instructions: data.instructions,
+      scheduleId: data.scheduleId,
+      familyMemberId: data.familyMemberId,
+      step: Number(data.step || 1),
+      totalSteps: Number(data.totalSteps || 2),
+      reminderStyle: data.reminderStyle || 'standard',
+      snoozeDuration: snoozeDuration,
+      scheduledTime: new Date().toISOString(),
+    };
+    
+    await handleAndroidSnooze(sequenceData);
+    console.log(`[DEBUG] [NotificationHandler] Android snooze: continuing from step ${sequenceData.step}`);
+  } else {
+    // iOS: Use existing snooze logic
+    const reminderData: MedicineReminderData = {
+      medicationId: data.medicationId,
+      medicationName: data.medicationName,
+      dosage: data.dosage,
+      scheduleId: data.scheduleId,
+      instructions: data.instructions,
+      scheduledTime: new Date(), // This will be overwritten by snoozeReminder
+    };
+    
+    console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...');
+    const snoozedId = await snoozeReminder(
+      data.scheduleId,
+      reminderData,
+      10 // Snooze for 10 minutes (Default for banner action)
+    );
+    
+    console.log('[DEBUG] [NotificationHandler] Snoozed reminder ID:', snoozedId);
+    
+    // End any active Live Activity for this medication (iOS only)
     try {
       const activityId = LiveActivityService.getActivityId(data.scheduleId);
       if (activityId) {
@@ -267,15 +305,14 @@ async function handleSnoozeAction(data: any) {
   await notifee.displayNotification({
     id: confirmationId,
     title: '⏰ Snoozed',
-    body: `Reminder for ${data.medicationName} in 10 minutes`,
-    android: {
-      channelId: 'medication-reminders',
-      autoCancel: true,
-      // timeoutAfter removed for persistence
-      pressAction: { id: 'default' },
-    },
+    body: `Reminder for ${data.medicationName} in ${snoozeDuration} minutes`,
     ios: {
       sound: 'default',
+    },
+    android: {
+      channelId: 'medication-reminders',
+      importance: 3, // HIGH
+      autoCancel: true,
     },
   });
   console.log('[DEBUG] [NotificationHandler] handleSnoozeAction complete');
@@ -303,8 +340,14 @@ async function handleSkipAction(data: any) {
     }
   }
   
-  // End any active Live Activity for this medication (iOS only)
-  if (Platform.OS === 'ios') {
+  // Cancel all remaining notifications in the sequence
+  if (Platform.OS === 'android' && data.familyMemberId) {
+    // Android: Cancel the entire pending sequence
+    const totalSteps = Number(data.totalSteps || 4);
+    await cancelPendingSequence(data.scheduleId, totalSteps);
+    await logDebug(`[NotificationHandler] Android: Cancelled pending sequence on skip for ${data.scheduleId}`);
+  } else if (Platform.OS === 'ios') {
+    // iOS: End any active Live Activity
     try {
       const activityId = LiveActivityService.getActivityId(data.scheduleId);
       if (activityId) {
