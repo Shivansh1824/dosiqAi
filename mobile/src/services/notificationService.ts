@@ -18,6 +18,7 @@ import notifee, {
   AuthorizationStatus,
 } from '@notifee/react-native';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Medication } from '../types/medication';
 import { logDebug } from './debugLogger';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
@@ -48,6 +49,137 @@ export interface MedicineReminderData {
   // Step tracking for Android escalation
   step?: number;
   totalSteps?: number;
+  // iOS Follow-up count (0-3)
+  iosFollowUpCount?: number;
+}
+
+// Key generator for iOS notification storage
+const getIOSFollowUpStorageKey = (scheduleId: string) => `ios_followups_${scheduleId}`;
+
+/**
+ * Store iOS follow-up notification IDs for later cancellation
+ */
+async function storeIOSFollowUpIds(scheduleId: string, ids: string[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(getIOSFollowUpStorageKey(scheduleId), JSON.stringify(ids));
+    await logDebug(`[NotificationService] Stored ${ids.length} iOS follow-up IDs for: ${scheduleId}`);
+  } catch (error) {
+    console.error('[NotificationService] Failed to store iOS follow-up IDs:', error);
+  }
+}
+
+/**
+ * Retrieve and clear iOS follow-up notification IDs
+ */
+async function getAndClearIOSFollowUpIds(scheduleId: string): Promise<string[]> {
+  try {
+    const key = getIOSFollowUpStorageKey(scheduleId);
+    const stored = await AsyncStorage.getItem(key);
+    if (stored) {
+      await AsyncStorage.removeItem(key);
+      const ids = JSON.parse(stored) as string[];
+      await logDebug(`[NotificationService] Retrieved ${ids.length} iOS follow-up IDs for: ${scheduleId}`);
+      return ids;
+    }
+  } catch (error) {
+    console.error('[NotificationService] Failed to retrieve iOS follow-up IDs:', error);
+  }
+  return [];
+}
+
+/**
+ * Cancel all iOS follow-up notifications for a given schedule
+ * Call this when user taps Taken, Skip, or Snooze
+ */
+export async function cancelIOSFollowUps(scheduleId: string): Promise<void> {
+  // Get base schedule ID (remove any _followup suffixes)
+  const baseId = scheduleId.replace(/_followup_\d+$/, '');
+  
+  const ids = await getAndClearIOSFollowUpIds(baseId);
+  for (const id of ids) {
+    try {
+      await notifee.cancelNotification(id);
+      await logDebug(`[NotificationService] Cancelled iOS follow-up: ${id}`);
+    } catch (error) {
+      // Silent fail - notification may have already fired
+    }
+  }
+}
+
+/**
+ * Schedule iOS follow-ups from DELIVERED event
+ * Called by event handler when primary notification fires (for repeating notifications)
+ */
+export async function scheduleIOSFollowUpsFromEvent(
+  primaryId: string,
+  medicationName: string,
+  dosage: string,
+  snoozeDuration: number,
+  followUpCount: number,
+  notificationTune?: string
+): Promise<void> {
+  try {
+    // Determine iOS sound
+    let iosSound: string | undefined = 'default';
+    if (!notificationTune || notificationTune.trim() === '') {
+      iosSound = undefined;
+    } else if (notificationTune !== 'default') {
+      const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
+      iosSound = `${baseName}.wav`;
+    }
+
+    const followUpIds: string[] = [];
+    const now = Date.now();
+
+    for (let i = 1; i <= followUpCount; i++) {
+      const followUpTime = new Date(now + (snoozeDuration * i * 60000));
+      const followUpId = `${primaryId}_followup_${i}`;
+
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: followUpTime.getTime(),
+        alarmManager: { allowWhileIdle: true },
+      };
+
+      await notifee.createTriggerNotification(
+        {
+          id: followUpId,
+          title: `💊 Follow-up Reminder (${i}/${followUpCount})`,
+          body: `Did you take ${medicationName} ${dosage}?`,
+          data: {
+            type: 'medication_reminder',
+            medicationName,
+            dosage,
+            scheduleId: primaryId,
+            isFollowUp: 'true',
+            followUpNumber: i,
+          },
+          ios: {
+            categoryId: MEDICATION_CATEGORY_ID,
+            interruptionLevel: 'timeSensitive',
+            sound: iosSound,
+            threadId: primaryId,
+          },
+          android: {
+            channelId: 'medication-notifications-default',
+            importance: AndroidImportance.HIGH,
+            pressAction: { id: 'default', launchActivity: 'default' },
+            sound: 'default',
+            autoCancel: true,
+          },
+        },
+        trigger
+      );
+
+      followUpIds.push(followUpId);
+      await logDebug(`[NotificationService] iOS follow-up ${i} scheduled: ${followUpId} at ${followUpTime.toISOString()}`);
+    }
+
+    await storeIOSFollowUpIds(primaryId, followUpIds);
+    await logDebug(`[NotificationService] Event: Stored ${followUpIds.length} follow-up IDs for ${primaryId}`);
+  } catch (error) {
+    console.error('[NotificationService] Error scheduling follow-ups from event:', error);
+  }
 }
 
 /**
@@ -120,7 +252,8 @@ export async function scheduleMedicineReminder(
       reminderStyle = 'standard', 
       alertMode = 'temporary', 
       snoozeDuration = 10,
-      notificationTune 
+      notificationTune,
+      iosFollowUpCount = 0,
     } = reminder;
 
     console.log('='.repeat(60));
@@ -131,6 +264,7 @@ export async function scheduleMedicineReminder(
     console.log('[Notifications] Platform:', Platform.OS);
     console.log('[Notifications] familyMemberId:', reminder.familyMemberId);
     console.log('[Notifications] Tune:', notificationTune || 'Default');
+    console.log('[Notifications] iOS Follow-up Count:', iosFollowUpCount);
     console.log('='.repeat(60));
 
     // --- ANDROID: Delegate to Android notification service with escalation logic ---
@@ -188,6 +322,10 @@ export async function scheduleMedicineReminder(
           ...reminder,
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
+          // Explicitly include iOS follow-up count for DELIVERED handler
+          iosFollowUpCount: iosFollowUpCount,
+          snoozeDuration: snoozeDuration,
+          notificationTune: notificationTune || 'default',
           // Add follow-up metadata for Live Activity triggering (only in standard mode on iOS)
           ...(Platform.OS === 'ios' && reminderStyle === 'standard' ? {
             followUpDuration: snoozeDuration.toString(),
@@ -221,12 +359,60 @@ export async function scheduleMedicineReminder(
 
     await logDebug(`[NotificationService] iOS notification scheduled: ${notificationId} for ${reminder.scheduledTime.toISOString()}`);
 
-    // --- STANDARD MODE: Store follow-up metadata for Live Activity ---
-    if (reminderStyle === 'standard') {
-      const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000));
-      await logDebug(`[NotificationService] Follow-up will trigger Live Activity at: ${followUpTime.toISOString()}`);
-      // Note: Follow-up is now handled via Live Activity trigger in event handler
-      // No separate notification is scheduled
+    // --- iOS FOLLOW-UP SCHEDULING ---
+    // Schedule additional follow-up notifications based on iosFollowUpCount (0-3)
+    if (Platform.OS === 'ios' && iosFollowUpCount > 0) {
+      const followUpIds: string[] = [];
+      
+      for (let i = 1; i <= iosFollowUpCount; i++) {
+        const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * i * 60000));
+        const followUpId = `${reminder.scheduleId}_followup_${i}`;
+        
+        const followUpTrigger: TimestampTrigger = {
+          type: TriggerType.TIMESTAMP,
+          timestamp: followUpTime.getTime(),
+          alarmManager: {
+            allowWhileIdle: true,
+          },
+        };
+        
+        await notifee.createTriggerNotification(
+          {
+            id: followUpId,
+            title: `💊 Follow-up Reminder (${i}/${iosFollowUpCount})`,
+            body: `Did you take ${reminder.medicationName} ${reminder.dosage}?`,
+            data: {
+              ...reminder,
+              type: 'medication_reminder',
+              scheduledTime: followUpTime.toISOString(),
+              isFollowUp: 'true', // String for notification data compatibility
+              followUpNumber: i,
+              originalScheduleId: reminder.scheduleId,
+            },
+            ios: {
+              categoryId: MEDICATION_CATEGORY_ID,
+              interruptionLevel: 'timeSensitive',
+              sound: iosSound,
+              threadId: reminder.scheduleId, // Group with primary notification
+            },
+            android: {
+              channelId: 'medication-notifications-default',
+              importance: AndroidImportance.HIGH,
+              pressAction: { id: 'default', launchActivity: 'default' },
+              sound: 'default',
+              autoCancel: true,
+            },
+          },
+          followUpTrigger
+        );
+        
+        followUpIds.push(followUpId);
+        await logDebug(`[NotificationService] iOS follow-up ${i} scheduled: ${followUpId} at ${followUpTime.toISOString()}`);
+      }
+      
+      // Store follow-up IDs for later cancellation
+      await storeIOSFollowUpIds(reminder.scheduleId, followUpIds);
+      await logDebug(`[NotificationService] Stored ${followUpIds.length} iOS follow-up IDs for cancellation`);
     }
 
     return notificationId;
@@ -258,6 +444,7 @@ export async function scheduleAllRemindersForMedication(
       alertMode: familyMember?.alert_display_mode || 'temporary',
       snoozeDuration: familyMember?.snooze_duration || 10,
       notificationTune: familyMember?.notification_tune,
+      iosFollowUpCount: familyMember?.ios_followup_count ?? 2, // Default: 2 follow-ups
     };
 
     for (let i = 0; i < medication.time_of_day.length; i++) {
@@ -310,7 +497,9 @@ export async function scheduleRepeatingReminder(
     const { 
       reminderStyle = 'standard', 
       alertMode = 'temporary', 
-      notificationTune
+      notificationTune,
+      iosFollowUpCount = 0,
+      snoozeDuration = 10,
     } = reminder;
 
     console.log('='.repeat(60));
@@ -378,10 +567,14 @@ export async function scheduleRepeatingReminder(
           ...reminder,
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
-          // Add follow-up metadata for Live Activity triggering (only in standard mode on iOS)
+          // Explicitly include iOS follow-up count for DELIVERED handler
+          iosFollowUpCount: iosFollowUpCount,
+          snoozeDuration: snoozeDuration,
+          notificationTune: notificationTune || 'default',
+          // Add follow-up metadata
           ...(Platform.OS === 'ios' && reminderStyle === 'standard' ? {
-            followUpDuration: (reminder.snoozeDuration || 10).toString(),
-            followUpTime: new Date(reminder.scheduledTime.getTime() + ((reminder.snoozeDuration || 10) * 60000)).toISOString(),
+            followUpDuration: snoozeDuration.toString(),
+            followUpTime: new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000)).toISOString(),
           } : {}),
         },
         

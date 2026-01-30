@@ -13,6 +13,7 @@ export interface FamilyMember {
     reminder_style?: 'standard' | 'assurance';
     alert_display_mode?: 'temporary' | 'alert';
     notification_tune?: string;
+    ios_followup_count?: number; // 0-3, iOS only - number of follow-up reminders
     created_at: string;
     updated_at: string;
 }

@@ -4,9 +4,8 @@
  */
 
 import notifee, { EventType } from '@notifee/react-native';
-import { snoozeReminder, cancelReminder, MedicineReminderData } from './notificationService';
+import { snoozeReminder, cancelReminder, cancelIOSFollowUps, MedicineReminderData } from './notificationService';
 import { logDebug } from './debugLogger';
-import { LiveActivityService } from './LiveActivityService';
 import { Platform } from 'react-native';
 import { 
   handleAndroidSnooze, 
@@ -69,47 +68,12 @@ export function setupBackgroundEventHandler() {
 /**
  * Core event handler for all notification actions
  */
-/**
- * Core event handler for all notification actions
- */
 async function handleNotificationEvent(type: EventType, detail: any) {
   const { notification, pressAction } = detail;
   
 
   await logDebug('[NotificationHandler] Event Received', { type: EventType[type], action: pressAction?.id, id: notification?.id });
 
-  // --- LIVE ACTIVITY TRIGGER FOR FOLLOW-UP (iOS ONLY) ---
-  // When the primary notification is delivered, schedule a Live Activity to start after the follow-up duration
-  // NOTE: On Android, the escalation is handled by androidNotificationService with scheduled triggers
-  if (Platform.OS === 'ios' &&
-      type === EventType.DELIVERED && 
-      notification?.data?.type === 'medication_reminder' && 
-      notification?.data?.followUpDuration &&
-      notification?.data?.followUpTime) {
-    
-    const { medicationName, dosage, scheduleId, followUpDuration, followUpTime } = notification.data;
-    const followUpMs = Number(followUpDuration) * 60 * 1000;
-    
-    await logDebug(`[NotificationHandler] iOS: Primary notification delivered. Will trigger Live Activity in ${followUpDuration}min at ${followUpTime}`);
-    
-    // Schedule Live Activity to start after follow-up duration
-    setTimeout(async () => {
-      await logDebug(`[NotificationHandler] Follow-up time reached. Starting Live Activity for ${medicationName}`);
-      
-      try {
-        await LiveActivityService.startMedicationActivity(
-          medicationName,
-          dosage,
-          scheduleId
-        );
-        await logDebug(`[NotificationHandler] Live Activity started successfully`);
-      } catch (error) {
-        await logDebug(`[NotificationHandler] Failed to start Live Activity: ${error}`);
-      }
-    }, followUpMs);
-    
-    return;
-  }
 
   // --- ANDROID STEP REPLACEMENT LOGIC ---
   // When Step N is delivered, cancel Step N-1 to simulate "replacement" behavior
@@ -130,6 +94,40 @@ async function handleNotificationEvent(type: EventType, detail: any) {
       return;
   }
 
+  // --- iOS DELIVERED: Schedule follow-ups for repeating notifications ---
+  // When the primary notification fires, schedule its follow-ups dynamically
+  if (Platform.OS === 'ios' &&
+      type === EventType.DELIVERED &&
+      notification?.data?.type === 'medication_reminder' &&
+      notification?.data?.isFollowUp !== 'true') {
+      
+      console.log('[DEBUG] iOS DELIVERED handler triggered!');
+      console.log('[DEBUG] Notification data:', JSON.stringify(notification.data, null, 2));
+      
+      const { scheduleIOSFollowUpsFromEvent } = require('./notificationService');
+      const data = notification.data;
+      
+      console.log('[DEBUG] iosFollowUpCount in data:', data.iosFollowUpCount);
+      
+      // Only schedule follow-ups if not already a follow-up notification
+      if (data.iosFollowUpCount && Number(data.iosFollowUpCount) > 0) {
+        console.log(`[DEBUG] Scheduling ${data.iosFollowUpCount} iOS follow-ups...`);
+        await logDebug(`[NotificationHandler] iOS: Primary delivered, scheduling ${data.iosFollowUpCount} follow-ups`);
+        await scheduleIOSFollowUpsFromEvent(
+          notification.id,
+          data.medicationName,
+          data.dosage,
+          Number(data.snoozeDuration || 10),
+          Number(data.iosFollowUpCount),
+          data.notificationTune
+        );
+        console.log('[DEBUG] Follow-ups scheduled successfully!');
+      } else {
+        console.log('[DEBUG] No follow-ups to schedule (iosFollowUpCount is 0 or missing)');
+      }
+      return;
+  }
+
   // Ignore non-press events (like DELIVERED for non-replacements)
   if (type !== EventType.ACTION_PRESS && type !== EventType.PRESS) {
     return;
@@ -144,7 +142,6 @@ async function handleNotificationEvent(type: EventType, detail: any) {
   const actionId = pressAction?.id || 'default';
   
   const primaryId = notification?.id || medicationData.scheduleId;
-  const followUpId = primaryId.endsWith('_followup') ? primaryId : `${primaryId}_followup`;
   const baseId = primaryId.replace('_followup', '');
 
   await logDebug('[NotificationHandler] Processing Action', { actionId, baseId, isFollowUp: medicationData.isFollowUp });
@@ -203,16 +200,9 @@ async function handleTakenAction(data: any) {
     await cancelPendingSequence(data.scheduleId, totalSteps);
     await logDebug(`[NotificationHandler] Android: Cancelled pending sequence for ${data.scheduleId}`);
   } else if (Platform.OS === 'ios') {
-    // iOS: End any active Live Activity
-    try {
-      const activityId = LiveActivityService.getActivityId(data.scheduleId);
-      if (activityId) {
-        await LiveActivityService.endActivity(activityId);
-        await logDebug(`[NotificationHandler] Ended Live Activity: ${activityId}`);
-      }
-    } catch (error) {
-      await logDebug(`[NotificationHandler] Error ending Live Activity: ${error}`);
-    }
+    // iOS: Cancel all remaining follow-up notifications
+    await cancelIOSFollowUps(data.scheduleId);
+    await logDebug(`[NotificationHandler] iOS: Cancelled follow-ups for ${data.scheduleId}`);
   }
 
   // Show confirmation notification
@@ -285,17 +275,12 @@ async function handleSnoozeAction(data: any) {
     );
     
     console.log('[DEBUG] [NotificationHandler] Snoozed reminder ID:', snoozedId);
-    
-    // End any active Live Activity for this medication (iOS only)
-    try {
-      const activityId = LiveActivityService.getActivityId(data.scheduleId);
-      if (activityId) {
-        await LiveActivityService.endActivity(activityId);
-        await logDebug(`[NotificationHandler] Ended Live Activity on snooze: ${activityId}`);
-      }
-    } catch (error) {
-      await logDebug(`[NotificationHandler] Error ending Live Activity: ${error}`);
-    }
+  }
+  
+  // iOS: Cancel remaining follow-ups (snooze starts fresh)
+  if (Platform.OS === 'ios') {
+    await cancelIOSFollowUps(data.scheduleId);
+    await logDebug(`[NotificationHandler] iOS: Cancelled follow-ups on snooze for ${data.scheduleId}`);
   }
   
   // Show snooze confirmation
@@ -348,16 +333,9 @@ async function handleSkipAction(data: any) {
     await cancelPendingSequence(data.scheduleId, totalSteps);
     await logDebug(`[NotificationHandler] Android: Cancelled pending sequence on skip for ${data.scheduleId}`);
   } else if (Platform.OS === 'ios') {
-    // iOS: End any active Live Activity
-    try {
-      const activityId = LiveActivityService.getActivityId(data.scheduleId);
-      if (activityId) {
-        await LiveActivityService.endActivity(activityId);
-        await logDebug(`[NotificationHandler] Ended Live Activity on skip: ${activityId}`);
-      }
-    } catch (error) {
-      await logDebug(`[NotificationHandler] Error ending Live Activity: ${error}`);
-    }
+    // iOS: Cancel all remaining follow-up notifications
+    await cancelIOSFollowUps(data.scheduleId);
+    await logDebug(`[NotificationHandler] iOS: Cancelled follow-ups on skip for ${data.scheduleId}`);
   }
   
   console.log('[DEBUG] [NotificationHandler] handleSkipAction complete');

@@ -12,6 +12,7 @@ import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { TuneSelectionModal } from '../components/TuneSelectionModal';
+import { FollowUpRemindersSection } from '../components/FollowUpRemindersSection';
 import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
 
 
@@ -29,12 +30,15 @@ export default function PreferenceOnboardingScreen() {
     const [isCustomSnooze, setIsCustomSnooze] = useState(false);
     const [isEditingCustom, setIsEditingCustom] = useState(false);
 
-    // State for Reminder Style
+    // State for Reminder Style (Android)
     const [isAggressive, setIsAggressive] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
     const [showAlertTooltip, setShowAlertTooltip] = useState(false);
     const [showSnoozeTooltip, setShowSnoozeTooltip] = useState(false);
     const [showDoseTooltip, setShowDoseTooltip] = useState(false);
+
+    // State for iOS Follow-Up Reminders (iOS only)
+    const [iosFollowUpCount, setIosFollowUpCount] = useState(2); // Default: 2 follow-ups
 
     const [selectedTune, setSelectedTune] = useState<Tune>(getDefaultTune());
     const [systemTunesCache, setSystemTunesCache] = useState<Tune[]>([]);
@@ -100,6 +104,11 @@ export default function PreferenceOnboardingScreen() {
                 }
 
                 setIsAggressive(data.reminder_style === 'assurance');
+                
+                // iOS Follow-Up Count
+                if (typeof data.ios_followup_count === 'number') {
+                    setIosFollowUpCount(data.ios_followup_count);
+                }
                 // Load tune preference (need to fetch system tunes first for matching)
                 if (data.notification_tune) {
                     // First try to find in app tunes
@@ -134,7 +143,7 @@ export default function PreferenceOnboardingScreen() {
         }, 1500); // 1.5s debounce
 
         return () => clearTimeout(timer);
-    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, selectedTune, hasInitialLoaded]);
+    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, iosFollowUpCount, selectedTune, hasInitialLoaded]);
 
     const performSave = async (silent = true) => {
         try {
@@ -156,6 +165,7 @@ export default function PreferenceOnboardingScreen() {
                 snooze_duration: effectiveSnooze,
                 reminder_style: isAggressive ? 'assurance' : 'standard',
                 notification_tune: selectedTune.filename,
+                ios_followup_count: iosFollowUpCount,
                 updated_at: new Date().toISOString(),
             };
 
@@ -733,73 +743,83 @@ export default function PreferenceOnboardingScreen() {
                         )}
                     </View>
 
-                    {/* Reminder Style Section */}
-                    <View style={styles.sectionContainer}>
-                        <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>Reminder Style</Text>
-                            <TouchableOpacity onPress={() => setShowTooltip(true)} style={styles.infoButton}>
-                                <Feather name="info" size={18} color={Colors.primary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={[styles.reminderCard, !isAggressive && styles.reminderCardActive]}>
-                            {!isAggressive && (
-                                <LinearGradient
-                                    colors={['#BAE6FD', '#F0F9FF']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                            )}
-                            <View style={styles.reminderContent}>
-                                <View style={styles.reminderIcon}>
-                                    <Feather name="bell" size={24} color="#0284C7" />
-                                </View>
-                                <View style={styles.reminderTextContent}>
-                                    <Text style={styles.reminderTitle}>Standard Mode</Text>
-                                    <Text style={styles.reminderDesc}>Two gentle reminders before auto-skip</Text>
-                                </View>
+                    {/* Reminder Style / Follow-Up Section - Platform Specific */}
+                    {Platform.OS === 'android' ? (
+                        // Android: Keep existing Reminder Style toggle
+                        <View style={styles.sectionContainer}>
+                            <View style={styles.sectionHeaderRow}>
+                                <Text style={styles.sectionTitle}>Reminder Style</Text>
+                                <TouchableOpacity onPress={() => setShowTooltip(true)} style={styles.infoButton}>
+                                    <Feather name="info" size={18} color={Colors.primary} />
+                                </TouchableOpacity>
                             </View>
-                            <Switch
-                                trackColor={{ false: "#D1D5DB", true: Colors.primary }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(val) => {
-                                    setIsAggressive(!val);
-                                }}
-                                value={!isAggressive}
-                            />
-                        </View>
 
-                        <View style={[styles.reminderCard, isAggressive && styles.reminderCardActiveAssurance, { marginTop: Sizes.md }]}>
-                            {isAggressive && (
-                                <LinearGradient
-                                    colors={['#C7D2FE', '#F5F3FF']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
+                            <View style={[styles.reminderCard, !isAggressive && styles.reminderCardActive]}>
+                                {!isAggressive && (
+                                    <LinearGradient
+                                        colors={['#BAE6FD', '#F0F9FF']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                )}
+                                <View style={styles.reminderContent}>
+                                    <View style={styles.reminderIcon}>
+                                        <Feather name="bell" size={24} color="#0284C7" />
+                                    </View>
+                                    <View style={styles.reminderTextContent}>
+                                        <Text style={styles.reminderTitle}>Standard Mode</Text>
+                                        <Text style={styles.reminderDesc}>Two gentle reminders before auto-skip</Text>
+                                    </View>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#D1D5DB", true: Colors.primary }}
+                                    thumbColor="#FFFFFF"
+                                    ios_backgroundColor="#D1D5DB"
+                                    onValueChange={(val) => {
+                                        setIsAggressive(!val);
+                                    }}
+                                    value={!isAggressive}
                                 />
-                            )}
-                            <View style={styles.reminderContent}>
-                                <View style={styles.reminderIcon}>
-                                    <Feather name="shield" size={24} color="#6366F1" />
-                                </View>
-                                <View style={styles.reminderTextContent}>
-                                    <Text style={styles.reminderTitle}>Assurance Mode</Text>
-                                    <Text style={styles.reminderDesc}>Five persistent reminders for complete safety</Text>
-                                </View>
                             </View>
-                            <Switch
-                                trackColor={{ false: "#D1D5DB", true: "#6366F1" }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(val) => {
-                                    setIsAggressive(val);
-                                }}
-                                value={isAggressive}
-                            />
+
+                            <View style={[styles.reminderCard, isAggressive && styles.reminderCardActiveAssurance, { marginTop: Sizes.md }]}>
+                                {isAggressive && (
+                                    <LinearGradient
+                                        colors={['#C7D2FE', '#F5F3FF']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                )}
+                                <View style={styles.reminderContent}>
+                                    <View style={styles.reminderIcon}>
+                                        <Feather name="shield" size={24} color="#6366F1" />
+                                    </View>
+                                    <View style={styles.reminderTextContent}>
+                                        <Text style={styles.reminderTitle}>Assurance Mode</Text>
+                                        <Text style={styles.reminderDesc}>Five persistent reminders for complete safety</Text>
+                                    </View>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#D1D5DB", true: "#6366F1" }}
+                                    thumbColor="#FFFFFF"
+                                    ios_backgroundColor="#D1D5DB"
+                                    onValueChange={(val) => {
+                                        setIsAggressive(val);
+                                    }}
+                                    value={isAggressive}
+                                />
+                            </View>
                         </View>
-                    </View>
+                    ) : (
+                        // iOS: Show Follow-Up Reminders picker
+                        <FollowUpRemindersSection
+                            value={iosFollowUpCount}
+                            onChange={setIosFollowUpCount}
+                            snoozeDuration={effectiveSnooze}
+                        />
+                    )}
 
                     {/* Tune Selection Section */}
                     <View style={styles.sectionContainer}>
