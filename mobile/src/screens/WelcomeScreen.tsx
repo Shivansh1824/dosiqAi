@@ -1,15 +1,35 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Feather } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import Logo from '../components/Logo';
-import { Button, ValueProposition } from '../components';
 import { Colors, Sizes, Typography } from '../constants';
 import { useAuthStore } from '../store/authStore';
 import { RootStackParamList } from '../../App';
 
 type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
+
+const { width, height } = Dimensions.get('window');
+
+const FeatureCard = ({ icon, title, description, index }: { icon: keyof typeof Feather.glyphMap, title: string, description: string, index: number }) => (
+  <Animated.View
+    entering={FadeInDown.delay(300 + (index * 100)).springify()}
+    style={styles.featureCard}
+  >
+    <View style={styles.iconCircle}>
+      <Feather name={icon} size={24} color={Colors.primary} />
+    </View>
+    <View style={styles.featureTextContent}>
+      <Text style={styles.featureTitle}>{title}</Text>
+      <Text style={styles.featureDescription}>{description}</Text>
+    </View>
+  </Animated.View>
+);
 
 export default function WelcomeScreen() {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
@@ -37,82 +57,98 @@ export default function WelcomeScreen() {
     navigation.navigate('Login');
   };
 
-  // Modern, clean background color instead of generic gradient
-  // Using a very subtle off-white/gray for a premium feel
-  const backgroundColor = '#F8F9FA';
-
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={styles.container}>
+      {/* Background with Gradient Mesh Effect */}
+      <LinearGradient
+        colors={['#FFFFFF', '#F0F9FF', '#E0F2FE']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+
+      {/* Decorative blurred circles for depth */}
+      <View style={[styles.decorativeCircle, styles.circle1]} />
+      <View style={[styles.decorativeCircle, styles.circle2]} />
+      <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+
       <SafeAreaView style={styles.safeArea}>
-
-        {/* Main Content Area */}
-        <View style={styles.contentContainer}>
-
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header Section */}
-          <View style={styles.headerSection}>
+          <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.headerSection}>
             <View style={styles.logoWrapper}>
-              <Logo size={Sizes.xxl * 1.65} />
+              <Logo size={Sizes.xxl * 1.8} />
             </View>
-
-            <Text style={styles.tagline}>
-              Never Miss a Dose. Mastered by AI.
+            <Text style={styles.headline}>
+              Your Personal
+              {'\n'}
+              <Text style={{ color: Colors.primary }}>Health Companion</Text>
             </Text>
-          </View>
+            <Text style={styles.subheadline}>
+              Manage medications, track prescriptions, and stay healthy with the power of AI.
+            </Text>
+          </Animated.View>
 
-          {/* Features / Value Props */}
+          {/* Features Section */}
           {showValueProps && (
-            <View style={styles.featuresContainer}>
-              <ValueProposition
-                icon="file-text"
-                text="AI-Powered Report Analysis"
-                subText="Extract insights from labs & prescriptions"
+            <View style={styles.featuresSection}>
+              <FeatureCard
+                icon="camera"
+                title="Scan Prescriptions"
+                description="Instantly digitize your meds with a photo."
                 index={0}
-                staggerDelay={100}
               />
-              <ValueProposition
+              <FeatureCard
                 icon="bell"
-                text="Smart Medication Management"
-                subText="Never miss a dose with intelligent reminders"
+                title="Smart Reminders"
+                description="Never miss a dose with timely alerts."
                 index={1}
-                staggerDelay={100}
               />
-              <ValueProposition
+              <FeatureCard
                 icon="activity"
-                text="Health Trends & Insights"
-                subText="Visualize your recovery metrics over time"
+                title="Track Progress"
+                description="Monitor your health journey over time."
                 index={2}
-                staggerDelay={100}
               />
             </View>
           )}
-        </View>
 
-        {/* Bottom Actions */}
-        <View style={styles.bottomSection}>
-          {showGetStartedButton && (
-            <Button
-              variant="primary"
-              size="lg"
-              onPress={handleGetStarted}
-              fullWidth
-              style={styles.mainButton}
-            >
-              Get Started
-            </Button>
-          )}
+          {/* Spacer to push buttons to bottom on large screens */}
+          <View style={{ flex: 1 }} />
 
-          {showSignInLink && (
-            <View style={styles.signInContainer}>
-              <Text style={styles.signInText}>
-                Already have an account?{' '}
-                <Text style={styles.signInLink} onPress={handleSignIn}>
-                  Sign In
-                </Text>
-              </Text>
-            </View>
-          )}
-        </View>
+          {/* Bottom Actions */}
+          <Animated.View entering={FadeInUp.delay(600).springify()} style={styles.bottomSection}>
+            {showGetStartedButton && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleGetStarted}
+                style={styles.primaryButton}
+              >
+                <LinearGradient
+                  colors={[Colors.primary, '#0D9488']} // Example gradient
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientButton}
+                >
+                  <Text style={styles.primaryButtonText}>Get Started</Text>
+                  <Feather name="arrow-right" size={20} color="white" />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
 
+            {showSignInLink && (
+              <View style={styles.signInContainer}>
+                <Text style={styles.signInText}>Already have an account?</Text>
+                <TouchableOpacity onPress={handleSignIn}>
+                  <Text style={styles.signInLink}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -121,56 +157,149 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   safeArea: {
     flex: 1,
-    marginHorizontal: Sizes.contentPadding,
   },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: Sizes.lg,
     paddingTop: Sizes.xl,
+    paddingBottom: Sizes.xxl,
+  },
+  decorativeCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    opacity: 0.6,
+  },
+  circle1: {
+    width: width * 0.8,
+    height: width * 0.8,
+    backgroundColor: '#CCFBF1', // Light teal
+    top: -width * 0.2,
+    right: -width * 0.2,
+  },
+  circle2: {
+    width: width * 0.6,
+    height: width * 0.6,
+    backgroundColor: '#E0E7FF', // Light indigo
+    bottom: -width * 0.1,
+    left: -width * 0.2,
   },
   headerSection: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: Sizes.xxl,
+    marginTop: Sizes.md,
+    paddingHorizontal: Sizes.xs,
   },
   logoWrapper: {
-    marginBottom: 0,
-    // Add a subtle shadow for depth if needed, or keep flat
+    marginBottom: Sizes.lg,
+    marginLeft: -Sizes.sm, // Slight negative margin to offset logo's internal padding if any
+    // Add shadow to logo for depth
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  tagline: {
-    ...Typography.styles.bodyLarge,
-    color: Colors.gray600,
-    textAlign: 'center',
-    marginTop: -8,
-    marginHorizontal: Sizes.lg,
-    fontWeight: '500',
+  headline: {
+    fontSize: 32,
+    ...Typography.fontWeights.extrabold,
+    color: '#111827',
+    textAlign: 'left',
+    lineHeight: 40,
+    marginBottom: Sizes.sm,
+    letterSpacing: -0.5,
   },
-  featuresContainer: {
-    marginTop: Sizes.md,
+  subheadline: {
+    fontSize: 16,
+    ...Typography.fontWeights.regular,
+    color: '#6B7280',
+    textAlign: 'left',
+    lineHeight: 24,
+    maxWidth: '100%',
+  },
+  featuresSection: {
+    marginBottom: Sizes.xl,
     gap: Sizes.md,
   },
-  bottomSection: {
-    marginBottom: Sizes.xl,
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: Sizes.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 1)',
   },
-  mainButton: {
-    marginBottom: Sizes.lg,
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F0FDFA', // Light teal bg
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Sizes.md,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  featureTextContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 16,
+    ...Typography.fontWeights.bold,
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  featureDescription: {
+    fontSize: 14,
+    ...Typography.fontWeights.regular,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  bottomSection: {
+    marginTop: 'auto',
+    alignItems: 'center',
+    gap: Sizes.md,
+  },
+  primaryButton: {
+    width: '100%',
+    borderRadius: 16,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  gradientButton: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    ...Typography.fontWeights.bold,
+    letterSpacing: 0.5,
   },
   signInContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   signInText: {
-    ...Typography.styles.body,
-    color: Colors.gray500,
+    fontSize: 15,
+    color: '#6B7280',
   },
   signInLink: {
-    color: Colors.primary,
+    fontSize: 15,
     fontWeight: '700',
+    color: Colors.primary,
   },
 });
