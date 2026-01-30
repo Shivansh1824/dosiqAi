@@ -51,11 +51,11 @@ export default function WelcomeScreen() {
           {/* Header Section */}
           <View style={styles.headerSection}>
             <View style={styles.logoWrapper}>
-              <Logo size={Sizes.xxl * 1.5} />
+              <Logo size={Sizes.xxl * 1.65} />
             </View>
 
             <Text style={styles.tagline}>
-              Track Medicines with the power of Ai
+              Never Miss a Dose. Mastered by AI.
             </Text>
           </View>
 

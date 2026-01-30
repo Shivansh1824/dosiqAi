@@ -38,8 +38,8 @@ export const Sizes = {
   contentPadding: 24, // Standard screen horizontal padding
 
   // Logo
-  logoSize: 120, // Welcome Screen logo
-  logoSizeSm: 80, // Smaller logo variant
+  logoSize: 132, // Welcome Screen logo
+  logoSizeSm: 88, // Smaller logo variant
 
   // Touch Targets (iOS HIG & Material Design)
   minTouchTarget: 44, // Minimum interactive element size
