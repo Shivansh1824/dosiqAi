@@ -136,15 +136,15 @@ const styles = StyleSheet.create({
     marginBottom: Sizes.xxl,
   },
   logoWrapper: {
-    marginBottom: Sizes.lg,
+    marginBottom: 0,
     // Add a subtle shadow for depth if needed, or keep flat
   },
   tagline: {
-    ...Typography.styles.h3,
+    ...Typography.styles.bodyLarge,
     color: Colors.gray600,
     textAlign: 'center',
-    maxWidth: 300,
-    marginTop: Sizes.sm,
+    marginTop: -8,
+    marginHorizontal: Sizes.lg,
     fontWeight: '500',
   },
   featuresContainer: {
