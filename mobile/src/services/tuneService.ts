@@ -111,7 +111,8 @@ export async function getSystemTunes(): Promise<Tune[]> {
                 id: `system_${index}_${sound.soundID || sound.url}`,
                 name: sound.title || sound.name || `System Sound ${index + 1}`,
                 duration: 'System',
-                filename: sound.soundID?.toString() || sound.url || `system_${index}`,
+                // Prefer URL/URI as the filename (identifier) so it can be used for Channel creation
+                filename: sound.url || sound.soundID?.toString() || `system_${index}`,
                 type: 'system' as TuneType,
                 uri: sound.url,
             }));

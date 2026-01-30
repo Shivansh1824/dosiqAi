@@ -44,6 +44,7 @@ export interface MedicineReminderData {
   reminderStyle?: 'standard' | 'assurance';
   alertMode?: 'temporary' | 'alert';
   snoozeDuration?: number;
+  notificationTune?: string;
   // Step tracking for Android escalation
   step?: number;
   totalSteps?: number;
@@ -118,7 +119,8 @@ export async function scheduleMedicineReminder(
     const { 
       reminderStyle = 'standard', 
       alertMode = 'temporary', 
-      snoozeDuration = 10 
+      snoozeDuration = 10,
+      notificationTune 
     } = reminder;
 
     console.log('='.repeat(60));
@@ -128,7 +130,7 @@ export async function scheduleMedicineReminder(
     console.log('[Notifications] Scheduled Time:', reminder.scheduledTime.toLocaleString());
     console.log('[Notifications] Platform:', Platform.OS);
     console.log('[Notifications] familyMemberId:', reminder.familyMemberId);
-    console.log('[Notifications] Has familyMemberId:', !!reminder.familyMemberId);
+    console.log('[Notifications] Tune:', notificationTune || 'Default');
     console.log('='.repeat(60));
 
     // --- ANDROID: Delegate to Android notification service with escalation logic ---
@@ -159,6 +161,24 @@ export async function scheduleMedicineReminder(
       },
     };
 
+    // Determine sound configuration for iOS
+    // - Silent: no sound prop
+    // - Default: 'default'
+    // - Custom: filename.wav (iOS requires extension, Android does not)
+    
+    let iosSound: string | undefined = 'default';
+    
+    // Case 1: Silent (Empty or null tune) - User requested silent if no tune is set
+    if (!notificationTune || notificationTune.trim() === '') {
+        iosSound = undefined; // No sound property = silent
+        console.log('[Notifications] iOS: Configuring as SILENT');
+    }
+    // Case 2: Custom Tune
+    else if (notificationTune !== 'default') {
+        const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
+        iosSound = `${baseName}.wav`; // Force .wav extension for iOS resources
+    }
+
     const notificationId = await notifee.createTriggerNotification(
       {
         id: reminder.scheduleId,
@@ -180,13 +200,13 @@ export async function scheduleMedicineReminder(
           categoryId: MEDICATION_CATEGORY_ID,
           // ALWAYS use timeSensitive for medication reminders to ensure they stay prominent on lock screen
           interruptionLevel: 'timeSensitive', 
-          sound: 'default',
+          sound: iosSound,
           threadId: reminder.scheduleId, // Use threadId to group on iOS
         },
         
         // Android configuration (fallback when familyMemberId is missing)
         android: {
-          channelId: 'medication-reminders',
+          channelId: 'medication-notifications-default',
           importance: AndroidImportance.HIGH,
           pressAction: {
             id: 'default',
@@ -237,6 +257,7 @@ export async function scheduleAllRemindersForMedication(
       reminderStyle: familyMember?.reminder_style || 'standard',
       alertMode: familyMember?.alert_display_mode || 'temporary',
       snoozeDuration: familyMember?.snooze_duration || 10,
+      notificationTune: familyMember?.notification_tune,
     };
 
     for (let i = 0; i < medication.time_of_day.length; i++) {
@@ -289,6 +310,7 @@ export async function scheduleRepeatingReminder(
     const { 
       reminderStyle = 'standard', 
       alertMode = 'temporary', 
+      notificationTune
     } = reminder;
 
     console.log('='.repeat(60));
@@ -296,6 +318,7 @@ export async function scheduleRepeatingReminder(
     console.log('[Notifications] Medication:', reminder.medicationName);
     console.log('[Notifications] Platform:', Platform.OS);
     console.log('[Notifications] familyMemberId:', reminder.familyMemberId);
+    console.log('[Notifications] Tune:', notificationTune || 'Default');
     console.log('='.repeat(60));
 
     // --- ANDROID: For repeating reminders, schedule the escalation sequence ---
@@ -333,6 +356,19 @@ export async function scheduleRepeatingReminder(
       },
     };
 
+    // Determine sound configuration for iOS
+    let iosSound: string | undefined = 'default';
+        
+    // Case 1: Silent
+    if (!notificationTune || notificationTune.trim() === '') {
+        iosSound = undefined;
+    }
+    // Case 2: Custom
+    else if (notificationTune !== 'default') {
+        const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
+        iosSound = `${baseName}.wav`;
+    }
+
     const notificationId = await notifee.createTriggerNotification(
       {
         id: reminder.scheduleId,
@@ -352,13 +388,13 @@ export async function scheduleRepeatingReminder(
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
           interruptionLevel: 'timeSensitive',
-          sound: 'default',
+          sound: iosSound,
           threadId: reminder.scheduleId,
         },
         
         // Android configuration (fallback when familyMemberId is missing)
         android: {
-          channelId: 'medication-reminders',
+          channelId: 'medication-notifications-default',
           importance: AndroidImportance.HIGH,
           pressAction: {
             id: 'default',
