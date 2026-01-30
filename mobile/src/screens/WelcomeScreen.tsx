@@ -205,8 +205,7 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontSize: 32,
-    fontFamily: 'System', // Use system font but bold
-    fontWeight: '800',
+    ...Typography.fontWeights.extrabold,
     color: '#111827',
     textAlign: 'left',
     lineHeight: 40,
@@ -215,6 +214,7 @@ const styles = StyleSheet.create({
   },
   subheadline: {
     fontSize: 16,
+    ...Typography.fontWeights.regular,
     color: '#6B7280',
     textAlign: 'left',
     lineHeight: 24,
@@ -227,16 +227,11 @@ const styles = StyleSheet.create({
   featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: Colors.white,
     borderRadius: 20,
     padding: Sizes.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    borderColor: 'rgba(255, 255, 255, 1)',
   },
   iconCircle: {
     width: 48,
@@ -254,12 +249,13 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     color: '#1F2937',
     marginBottom: 2,
   },
   featureDescription: {
     fontSize: 14,
+    ...Typography.fontWeights.regular,
     color: '#6B7280',
     lineHeight: 18,
   },
@@ -289,7 +285,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
+    ...Typography.fontWeights.bold,
     letterSpacing: 0.5,
   },
   signInContainer: {
