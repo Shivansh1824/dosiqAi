@@ -274,6 +274,7 @@ async function handleSnoozeAction(data: any) {
       scheduleId: data.scheduleId,
       instructions: data.instructions,
       scheduledTime: new Date(), // This will be overwritten by snoozeReminder
+      notificationTune: data.notificationTune || data.notification_tune, // Preserve tune (handle both casing)
     };
     
     console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...');
