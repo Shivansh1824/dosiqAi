@@ -51,11 +51,11 @@ export default function WelcomeScreen() {
           {/* Header Section */}
           <View style={styles.headerSection}>
             <View style={styles.logoWrapper}>
-              <Logo size={Sizes.xxl * 1.5} />
+              <Logo size={Sizes.xxl * 1.65} />
             </View>
 
             <Text style={styles.tagline}>
-              Track Medicines with the power of Ai
+              Never Miss a Dose. Mastered by AI.
             </Text>
           </View>
 
@@ -136,15 +136,15 @@ const styles = StyleSheet.create({
     marginBottom: Sizes.xxl,
   },
   logoWrapper: {
-    marginBottom: Sizes.lg,
+    marginBottom: 0,
     // Add a subtle shadow for depth if needed, or keep flat
   },
   tagline: {
-    ...Typography.styles.h3,
+    ...Typography.styles.bodyLarge,
     color: Colors.gray600,
     textAlign: 'center',
-    maxWidth: 300,
-    marginTop: Sizes.sm,
+    marginTop: -8,
+    marginHorizontal: Sizes.lg,
     fontWeight: '500',
   },
   featuresContainer: {
