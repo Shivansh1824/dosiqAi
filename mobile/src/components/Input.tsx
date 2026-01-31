@@ -177,8 +177,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     ...Typography.styles.input,
+    lineHeight: undefined,
+    height: '100%',
+    textAlignVertical: 'center',
     color: Colors.textPrimary,
-    paddingVertical: 0, // Remove default padding for better control
+    // paddingVertical: 0, // Removed to allow native text layout
   },
   inputWithLeftIcon: {
     marginLeft: 0,
