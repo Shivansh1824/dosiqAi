@@ -25,7 +25,7 @@ export default function PreferenceOnboardingScreen() {
     const [nightTime, setNightTime] = useState(new Date());
 
     // State for Snooze Preferences
-    const [snoozeDuration, setSnoozeDuration] = useState(10); // default 10 mins
+    const [snoozeDuration, setSnoozeDuration] = useState(5); // default 5 mins
     const [customSnooze, setCustomSnooze] = useState('');
     const [isCustomSnooze, setIsCustomSnooze] = useState(false);
     const [isEditingCustom, setIsEditingCustom] = useState(false);
@@ -38,7 +38,7 @@ export default function PreferenceOnboardingScreen() {
     const [showDoseTooltip, setShowDoseTooltip] = useState(false);
 
     // State for iOS Follow-Up Reminders (iOS only)
-    const [iosFollowUpCount, setIosFollowUpCount] = useState(2); // Default: 2 follow-ups
+    const [iosFollowUpCount, setIosFollowUpCount] = useState(0); // Default: 0 follow-ups
 
     const [selectedTune, setSelectedTune] = useState<Tune>(getDefaultTune());
     const [systemTunesCache, setSystemTunesCache] = useState<Tune[]>([]);
@@ -104,7 +104,7 @@ export default function PreferenceOnboardingScreen() {
                 }
 
                 setIsAggressive(data.reminder_style === 'assurance');
-                
+
                 // iOS Follow-Up Count
                 if (typeof data.ios_followup_count === 'number') {
                     setIosFollowUpCount(data.ios_followup_count);
@@ -244,7 +244,7 @@ export default function PreferenceOnboardingScreen() {
     const updateSnooze = (index: number) => {
         // Directly set shared value for responsiveness
         indicatorPosition.value = index;
-        
+
         if (index < 3) {
             setSnoozeDuration(snoozeOptions[index]);
             setIsCustomSnooze(false);
@@ -417,7 +417,7 @@ export default function PreferenceOnboardingScreen() {
 
             {renderTooltip()}
             {renderTuneTooltip()}
-            <TuneSelectionModal 
+            <TuneSelectionModal
                 visible={showTuneModal}
                 onClose={() => setShowTuneModal(false)}
                 selectedTune={selectedTune}
@@ -684,7 +684,7 @@ export default function PreferenceOnboardingScreen() {
                         </View>
                         <Text style={styles.sectionSubtitle}>Set your preferred frequency for follow-up alerts.</Text>
 
-                        <View 
+                        <View
                             style={styles.liquidContainer}
                             onLayout={(e) => {
                                 containerWidth.value = e.nativeEvent.layout.width;
@@ -836,7 +836,7 @@ export default function PreferenceOnboardingScreen() {
                             onPress={() => setShowTuneModal(true)}
                             activeOpacity={0.9}
                         >
-                             <View style={[styles.reminderIcon, { marginLeft: 12, backgroundColor: '#E0F2FE' }]}>
+                            <View style={[styles.reminderIcon, { marginLeft: 12, backgroundColor: '#E0F2FE' }]}>
                                 <Feather name="music" size={24} color={Colors.primary} />
                             </View>
                             <View style={[styles.barContent, { paddingLeft: 12 }]}>
