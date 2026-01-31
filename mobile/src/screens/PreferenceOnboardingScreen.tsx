@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, TextInput, Switch, Modal, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, TextInput, Switch, Modal, Pressable, ActivityIndicator, Alert, LayoutAnimation, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -64,6 +64,11 @@ export default function PreferenceOnboardingScreen() {
     const snoozeOptions = [5, 10, 15];
 
     useEffect(() => {
+        if (Platform.OS === 'android') {
+            if (UIManager.setLayoutAnimationEnabledExperimental) {
+                UIManager.setLayoutAnimationEnabledExperimental(true);
+            }
+        }
         fetchPreferences();
     }, []);
 
@@ -115,17 +120,22 @@ export default function PreferenceOnboardingScreen() {
                 if (typeof data.ios_followup_count === 'number') {
                     setIosFollowUpCount(data.ios_followup_count);
                 }
-                // Load tune preference (need to fetch system tunes first for matching)
-                if (data.notification_tune) {
+                // Load tune preference (Platform Specific)
+                // iOS reads ios_notification_tune, Android reads android_notification_tune
+                const tuneToLoad = Platform.OS === 'ios' 
+                    ? data.ios_notification_tune 
+                    : data.android_notification_tune;
+
+                if (tuneToLoad) {
                     // First try to find in app tunes
-                    let savedTune = findTuneByFilename(data.notification_tune);
+                    let savedTune = findTuneByFilename(tuneToLoad);
                     if (savedTune) {
                         setSelectedTune(savedTune);
                     } else {
-                        // Fetch system tunes to find match
+                        // Fetch system tunes to find match (mostly for Android custom URIs)
                         const systemTunes = await getSystemTunes();
                         setSystemTunesCache(systemTunes);
-                        savedTune = findTuneByFilename(data.notification_tune, systemTunes);
+                        savedTune = findTuneByFilename(tuneToLoad, systemTunes);
                         if (savedTune) {
                             setSelectedTune(savedTune);
                         }
@@ -163,6 +173,16 @@ export default function PreferenceOnboardingScreen() {
                 return `${hours}:${minutes}:00`;
             };
 
+            // Determine Tune Value
+            let finalTuneValue = 'default';
+            if(selectedTune.filename && selectedTune.filename !== 'none') {
+                 finalTuneValue = selectedTune.filename;
+            }
+             // Helper to handle "System Default" selection explicitly
+            if (selectedTune.id === 'default' || selectedTune.filename === 'default') {
+                finalTuneValue = 'default';
+            }
+
             const preferences = {
                 user_id: user.id,
                 morning_dose_time: formatTimeToDB(morningTime),
@@ -170,7 +190,12 @@ export default function PreferenceOnboardingScreen() {
                 night_dose_time: formatTimeToDB(nightTime),
                 snooze_duration: effectiveSnooze,
                 reminder_style: (isAggressive ? 'assurance' : 'standard') as 'assurance' | 'standard',
-                notification_tune: selectedTune.filename,
+                // PLATFORM SPECIFIC SAVE:
+                // Only update the field for the current device.
+                ...(Platform.OS === 'ios' 
+                    ? { ios_notification_tune: finalTuneValue } 
+                    : { android_notification_tune: finalTuneValue }
+                ),
                 ios_followup_count: iosFollowUpCount,
                 updated_at: new Date().toISOString(),
             };
@@ -700,7 +725,7 @@ export default function PreferenceOnboardingScreen() {
                                     </View>
                                     <View style={styles.reminderTextContent}>
                                         <Text style={styles.reminderTitle}>Standard Mode</Text>
-                                        <Text style={styles.reminderDesc}>Two gentle reminders before auto-skip</Text>
+                                        <Text style={styles.reminderDesc}>One follow-up reminder for added safety</Text>
                                     </View>
                                 </View>
                                 <Switch
@@ -729,7 +754,7 @@ export default function PreferenceOnboardingScreen() {
                                     </View>
                                     <View style={styles.reminderTextContent}>
                                         <Text style={styles.reminderTitle}>Assurance Mode</Text>
-                                        <Text style={styles.reminderDesc}>Five persistent reminders for complete safety</Text>
+                                        <Text style={styles.reminderDesc}>Three follow-up reminders for complete safety</Text>
                                     </View>
                                 </View>
                                 <Switch
@@ -972,17 +997,20 @@ const styles = StyleSheet.create({
     // Liquid Chips
     liquidContainer: {
         flexDirection: 'row',
-        backgroundColor: 'rgba(255,255,255,0.8)',
+
         borderRadius: 20,
         padding: 6,
         alignItems: 'center',
         borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.8)',
+        // Brighter border for Android to pop against light background
+        borderColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
+        // Simulating glass on Android with higher opacity + elevation
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
         shadowColor: '#3B82F6',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
-        elevation: 1,
+        elevation: 2, // Slight bump for Android depth
     },
     liquidChip: {
         flex: 1,
@@ -1057,14 +1085,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 14,
         borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.8)',
-        backgroundColor: 'rgba(255,255,255,0.8)',
+        borderColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
         minHeight: 54,
         shadowColor: '#3B82F6',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
-        elevation: 1,
+        elevation: 2,
         overflow: 'hidden',
     },
     reminderCardActive: {

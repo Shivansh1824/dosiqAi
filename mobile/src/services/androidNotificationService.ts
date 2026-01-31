@@ -284,7 +284,7 @@ function getUserPreferences(familyMemberId: string): {
   return {
     reminderStyle: member?.reminder_style || 'standard',
     snoozeDuration: member?.snooze_duration || 10,
-    notificationTune: member?.notification_tune || 'notification_6sec',
+    notificationTune: member?.android_notification_tune || 'notification_6sec',
   };
 }
 

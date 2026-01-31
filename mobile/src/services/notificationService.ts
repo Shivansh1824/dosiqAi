@@ -48,21 +48,28 @@ function resolveIOSSoundName(notificationTune: string | undefined): string | und
 
   // Map App Tunes (MP3) -> iOS Native Resources (CAF)
   // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
+  // Map App Tunes (MP3) -> iOS Native Resources (CAF)
+  // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
   const mapping: Record<string, string> = {
     'dosiqai_alert_3s.mp3': 'notification_3sec.caf',
     'dosiqai_alert_6s.mp3': 'notification_6sec.caf',
     'dosiqai_alert_12s.mp3': 'notification_12sec.caf',
+    // Legacy support for raw names
+    'notification_3sec': 'notification_3sec.caf',
+    'notification_6sec': 'notification_6sec.caf',
+    'notification_12sec': 'notification_12sec.caf',
   };
 
   if (mapping[notificationTune]) {
     return mapping[notificationTune];
   }
 
-  // Fallback: If it's a loose filename (e.g. custom upload), ensure extension is compatible
-  // But strictly speaking, for this app, we only support the preset tunes above for now.
-  // We'll return the input if it doesn't match, assuming advanced users might have added files manually.
-  // Converting .mp3 to .wav for legacy support if needed, but per instruction we prefer .caf map above.
-  return notificationTune.replace(/\.mp3$/, '.wav');
+  // STRICT SAFEGUARD:
+  // If we receive an Android URI (e.g. "content://...") or any unknown filename,
+  // we MUST fallback to 'default' for iOS to prevent silence or errors.
+  // We do NOT try to guess extensions (wav/mp3) anymore.
+  console.log(`[NotificationService] Tune '${notificationTune}' not found in iOS mapping. Fallback to 'default'.`);
+  return 'default';
 }
 
 // Types
@@ -487,13 +494,18 @@ export async function scheduleAllRemindersForMedication(
     const { familyMembers } = useFamilyMembersStore.getState();
     const familyMember = familyMembers.find(m => m.id === medication.family_member_id);
 
-    await logDebug(`[NotificationService] Scheduling reminders for ${medication.name}. Member: ${familyMember?.name || 'Unknown'}`);
+    // Determine effective tune based on Platform using Split-Field Strategy
+    const effectiveTune = Platform.OS === 'ios'
+        ? familyMember?.ios_notification_tune
+        : familyMember?.android_notification_tune;
+
+    await logDebug(`[NotificationService] Scheduling reminders for ${medication.name}. Member: ${familyMember?.name || 'Unknown'}, Tune: ${effectiveTune}`);
 
     const settings = {
       reminderStyle: familyMember?.reminder_style || 'standard',
       alertMode: familyMember?.alert_display_mode || 'temporary',
       snoozeDuration: familyMember?.snooze_duration || 10,
-      notificationTune: familyMember?.notification_tune,
+      notificationTune: effectiveTune,
       iosFollowUpCount: familyMember?.ios_followup_count ?? 2, // Default: 2 follow-ups
     };
 

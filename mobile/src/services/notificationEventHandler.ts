@@ -238,7 +238,7 @@ async function handleSnoozeAction(data: any) {
       scheduleId: data.scheduleId,
       instructions: data.instructions,
       scheduledTime: new Date(), // This will be overwritten by snoozeReminder
-      notificationTune: data.notificationTune || data.notification_tune, // Preserve tune (handle both casing)
+      notificationTune: data.notificationTune || data.notification_tune, // Handle both iOS (camel) and Android (snake) payload keys
     };
 
     console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...');
