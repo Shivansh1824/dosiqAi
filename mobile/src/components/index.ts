@@ -10,3 +10,4 @@ export { Input } from './Input';
 export { ValueProposition } from './ValueProposition';
 export { Divider } from './Divider';
 export { PhoneLoginModal } from './PhoneLoginModal';
+export { FollowUpRemindersSection } from './FollowUpRemindersSection';

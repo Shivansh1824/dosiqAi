@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, TextInput, Switch, Modal, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, TextInput, Switch, Modal, Pressable, ActivityIndicator, Alert, LayoutAnimation, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,11 @@ import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { TuneSelectionModal } from '../components/TuneSelectionModal';
+import { FollowUpRemindersSection } from '../components/FollowUpRemindersSection';
+import { InfoModal, InfoSection } from '../components/InfoModal';
 import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
+import { useFamilyMembersStore } from '../store/familyMembersStore';
+import { rescheduleAllNotificationsForMember } from '../services/notificationService';
 
 
 export default function PreferenceOnboardingScreen() {
@@ -24,22 +28,28 @@ export default function PreferenceOnboardingScreen() {
     const [nightTime, setNightTime] = useState(new Date());
 
     // State for Snooze Preferences
-    const [snoozeDuration, setSnoozeDuration] = useState(10); // default 10 mins
+    const [snoozeDuration, setSnoozeDuration] = useState(5); // default 5 mins
     const [customSnooze, setCustomSnooze] = useState('');
     const [isCustomSnooze, setIsCustomSnooze] = useState(false);
     const [isEditingCustom, setIsEditingCustom] = useState(false);
 
-    // State for Reminder Style
+    // State for Reminder Style (Android)
     const [isAggressive, setIsAggressive] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(false);
-    const [showAlertTooltip, setShowAlertTooltip] = useState(false);
-    const [showSnoozeTooltip, setShowSnoozeTooltip] = useState(false);
-    const [showDoseTooltip, setShowDoseTooltip] = useState(false);
+
+    // Info Modal State
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [infoModalConfig, setInfoModalConfig] = useState<{ title: string; content: InfoSection[]; icon?: any }>({
+        title: '',
+        content: [],
+        icon: 'info'
+    });
+
+    // State for iOS Follow-Up Reminders (iOS only)
+    const [iosFollowUpCount, setIosFollowUpCount] = useState(0); // Default: 0 follow-ups
 
     const [selectedTune, setSelectedTune] = useState<Tune>(getDefaultTune());
     const [systemTunesCache, setSystemTunesCache] = useState<Tune[]>([]);
     const [showTuneModal, setShowTuneModal] = useState(false);
-    const [showTuneTooltip, setShowTuneTooltip] = useState(false);
 
 
     // Picker visibility states (for Android mainly, but useful for logic separation)
@@ -54,6 +64,11 @@ export default function PreferenceOnboardingScreen() {
     const snoozeOptions = [5, 10, 15];
 
     useEffect(() => {
+        if (Platform.OS === 'android') {
+            if (UIManager.setLayoutAnimationEnabledExperimental) {
+                UIManager.setLayoutAnimationEnabledExperimental(true);
+            }
+        }
         fetchPreferences();
     }, []);
 
@@ -100,17 +115,27 @@ export default function PreferenceOnboardingScreen() {
                 }
 
                 setIsAggressive(data.reminder_style === 'assurance');
-                // Load tune preference (need to fetch system tunes first for matching)
-                if (data.notification_tune) {
+
+                // iOS Follow-Up Count
+                if (typeof data.ios_followup_count === 'number') {
+                    setIosFollowUpCount(data.ios_followup_count);
+                }
+                // Load tune preference (Platform Specific)
+                // iOS reads ios_notification_tune, Android reads android_notification_tune
+                const tuneToLoad = Platform.OS === 'ios' 
+                    ? data.ios_notification_tune 
+                    : data.android_notification_tune;
+
+                if (tuneToLoad) {
                     // First try to find in app tunes
-                    let savedTune = findTuneByFilename(data.notification_tune);
+                    let savedTune = findTuneByFilename(tuneToLoad);
                     if (savedTune) {
                         setSelectedTune(savedTune);
                     } else {
-                        // Fetch system tunes to find match
+                        // Fetch system tunes to find match (mostly for Android custom URIs)
                         const systemTunes = await getSystemTunes();
                         setSystemTunesCache(systemTunes);
-                        savedTune = findTuneByFilename(data.notification_tune, systemTunes);
+                        savedTune = findTuneByFilename(tuneToLoad, systemTunes);
                         if (savedTune) {
                             setSelectedTune(savedTune);
                         }
@@ -134,7 +159,7 @@ export default function PreferenceOnboardingScreen() {
         }, 1500); // 1.5s debounce
 
         return () => clearTimeout(timer);
-    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, selectedTune, hasInitialLoaded]);
+    }, [morningTime, afternoonTime, nightTime, snoozeDuration, customSnooze, isCustomSnooze, isAggressive, iosFollowUpCount, selectedTune, hasInitialLoaded]);
 
     const performSave = async (silent = true) => {
         try {
@@ -148,14 +173,30 @@ export default function PreferenceOnboardingScreen() {
                 return `${hours}:${minutes}:00`;
             };
 
+            // Determine Tune Value
+            let finalTuneValue = 'default';
+            if(selectedTune.filename && selectedTune.filename !== 'none') {
+                 finalTuneValue = selectedTune.filename;
+            }
+             // Helper to handle "System Default" selection explicitly
+            if (selectedTune.id === 'default' || selectedTune.filename === 'default') {
+                finalTuneValue = 'default';
+            }
+
             const preferences = {
                 user_id: user.id,
                 morning_dose_time: formatTimeToDB(morningTime),
                 afternoon_dose_time: formatTimeToDB(afternoonTime),
                 night_dose_time: formatTimeToDB(nightTime),
                 snooze_duration: effectiveSnooze,
-                reminder_style: isAggressive ? 'assurance' : 'standard',
-                notification_tune: selectedTune.filename,
+                reminder_style: (isAggressive ? 'assurance' : 'standard') as 'assurance' | 'standard',
+                // PLATFORM SPECIFIC SAVE:
+                // Only update the field for the current device.
+                ...(Platform.OS === 'ios' 
+                    ? { ios_notification_tune: finalTuneValue } 
+                    : { android_notification_tune: finalTuneValue }
+                ),
+                ios_followup_count: iosFollowUpCount,
                 updated_at: new Date().toISOString(),
             };
 
@@ -174,6 +215,18 @@ export default function PreferenceOnboardingScreen() {
                 .eq('id', memberData.id);
 
             if (error) throw error;
+
+            // Update local store state immediately
+            try {
+                await useFamilyMembersStore.getState().updateFamilyMember(memberData.id, preferences);
+                console.log('Local store updated with new preferences');
+                
+                // Reschedule all notifications for this member with new settings
+                await rescheduleAllNotificationsForMember(memberData.id);
+            } catch (localError) {
+                console.warn('Failed to update local state/reschedule:', localError);
+                // We don't throw here to avoid failing the "Save" UI feedback since DB save worked
+            }
 
             setSaveStatus('saved');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -234,7 +287,7 @@ export default function PreferenceOnboardingScreen() {
     const updateSnooze = (index: number) => {
         // Directly set shared value for responsiveness
         indicatorPosition.value = index;
-        
+
         if (index < 3) {
             setSnoozeDuration(snoozeOptions[index]);
             setIsCustomSnooze(false);
@@ -245,146 +298,54 @@ export default function PreferenceOnboardingScreen() {
         }
     };
 
-    const renderTooltip = () => (
-        <Modal
-            visible={showTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="info" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Reminder Styles Explanation</Text>
-                    </View>
+    const showInfo = (type: 'dose' | 'snooze' | 'style' | 'tune') => {
+        let config = { title: '', content: [] as InfoSection[], icon: 'info' as any };
 
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipSectionTitle}>Standard Mode</Text>
-                        <Text style={styles.tooltipText}>
-                            Receive a notification at the scheduled time. If no action is taken, we'll send <Text style={{ fontWeight: '700' }}>one follow-up reminder</Text> after {effectiveSnooze} minutes. If still no response, the dose is marked as skipped.
-                        </Text>
-                    </View>
+        switch (type) {
+            case 'dose':
+                config = {
+                    title: 'Dose Groups Explained',
+                    icon: 'clock',
+                    content: [
+                        { label: 'What is this?', text: 'These times categorize your meds into Morning, Afternoon, and Night groups.', icon: 'layers' },
+                        { label: 'Why it matters', text: 'New medications added to these groups will automatically default to these times.', icon: 'zap' }
+                    ]
+                };
+                break;
+            case 'snooze':
+                config = {
+                    title: 'Default Snooze Logic',
+                    icon: 'clock',
+                    content: [
+                        { label: 'What is this?', text: 'The specific time interval between follow-up reminders.', icon: 'clock' },
+                        { label: 'Behavior', text: 'This applies to both full-screen alarms and banner notifications.', icon: 'bell' }
+                    ]
+                };
+                break;
+            case 'style':
+                config = {
+                    title: 'Reminder Styles Explanation',
+                    icon: 'bell',
+                    content: [
+                        { label: 'Standard Mode', text: 'Gentle reminders. One follow-up tone after the snooze interval.', icon: 'bell' },
+                        { label: 'Assurance Mode', text: 'Persistent reminders. Up to 4 follow-ups until you mark the dose as taken.', icon: 'shield' }
+                    ]
+                };
+                break;
+            case 'tune':
+                config = {
+                    title: 'Medication Tune',
+                    icon: 'music',
+                    content: [
+                        { label: 'Selection', text: 'Select a notification sound that will play for all your medication reminders.', icon: 'music' }
+                    ]
+                };
+                break;
+        }
 
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipSectionTitle}>Assurance Mode</Text>
-                        <Text style={styles.tooltipText}>
-                            The golden standard for critical meds. We'll send the initial alert, followed by <Text style={{ fontWeight: '700' }}>up to 4 follow-up reminders every {effectiveSnooze} minutes</Text> until your health is confirmed as tracked.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
-
-    const renderDoseTooltip = () => (
-        <Modal
-            visible={showDoseTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowDoseTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowDoseTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="clock" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Dose Groups Explained</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            Setting these times helps us organize your medications into <Text style={{ fontWeight: '700' }}>Morning, Afternoon, and Night groups</Text>.
-                        </Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            These will be the <Text style={{ fontWeight: '700' }}>default times</Text> for any medication assigned to these groups in your verification card.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowDoseTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
-
-    const renderSnoozeTooltip = () => (
-        <Modal
-            visible={showSnoozeTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowSnoozeTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowSnoozeTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="clock" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Default Snooze Logic</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            Your selected duration becomes the <Text style={{ fontWeight: '700' }}>default time</Text> for all reminders.
-                        </Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <Feather name="alert-circle" size={16} color={Colors.primary} style={{ marginTop: 2, marginRight: 8 }} />
-                            <Text style={[styles.tooltipText, { flex: 1 }]}>
-                                <Text style={{ fontWeight: '700' }}>Alarm Screen:</Text> You can quickly adjust the snooze time when the alarm rings.
-                            </Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 12 }}>
-                            <Feather name="bell" size={16} color={Colors.primary} style={{ marginTop: 2, marginRight: 8 }} />
-                            <Text style={[styles.tooltipText, { flex: 1 }]}>
-                                <Text style={{ fontWeight: '700' }}>Notifications:</Text> Simple banner alerts will use this default time as they don't support custom adjustments.
-                            </Text>
-                        </View>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowSnoozeTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
-
-    const renderTuneTooltip = () => (
-        <Modal
-            visible={showTuneTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowTuneTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowTuneTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="music" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Medication Tune</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            Select a notification sound that will play for all your medication reminders. Choose from different tune durations to suit your preference.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowTuneTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
+        setInfoModalConfig(config);
+        setInfoModalVisible(true);
+    };
 
     if (isLoading) {
         return (
@@ -397,24 +358,28 @@ export default function PreferenceOnboardingScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Soft Ambient Background */}
+            {/* Soft Ambient Background - Modified for Modern Clean Look */}
             <View style={StyleSheet.absoluteFillObject}>
                 <LinearGradient
-                    colors={['#FFFFFF', '#F0F9FF', '#E0F2FE']}
+                    colors={['#FFFFFF', '#F8FAFC', '#EFF6FF']} // Subtler, cleaner gradient
                     style={StyleSheet.absoluteFillObject}
                 />
             </View>
 
-            {renderTooltip()}
-            {renderTuneTooltip()}
-            <TuneSelectionModal 
+            <InfoModal 
+                visible={infoModalVisible}
+                onClose={() => setInfoModalVisible(false)}
+                title={infoModalConfig.title}
+                content={infoModalConfig.content}
+                icon={infoModalConfig.icon}
+            />
+
+            <TuneSelectionModal
                 visible={showTuneModal}
                 onClose={() => setShowTuneModal(false)}
                 selectedTune={selectedTune}
                 onSelectTune={setSelectedTune}
             />
-            {renderSnoozeTooltip()}
-            {renderDoseTooltip()}
 
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
@@ -456,11 +421,11 @@ export default function PreferenceOnboardingScreen() {
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Preferred Dose Times</Text>
-                            <TouchableOpacity onPress={() => setShowDoseTooltip(true)} style={styles.infoButton}>
+                            <TouchableOpacity onPress={() => showInfo('dose')} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Define your daily routine for automated dose grouping.</Text>
+                        <Text style={styles.sectionSubtitle}>Automates your schedule by grouping meds naturally.</Text>
 
                         {/* Morning */}
                         <TouchableOpacity
@@ -668,13 +633,13 @@ export default function PreferenceOnboardingScreen() {
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Snooze Duration</Text>
-                            <TouchableOpacity onPress={() => setShowSnoozeTooltip(true)} style={styles.infoButton}>
+                            <TouchableOpacity onPress={() => showInfo('snooze')} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Set your preferred frequency for follow-up alerts.</Text>
+                        <Text style={styles.sectionSubtitle}>Frequency of reminders for missed doses.</Text>
 
-                        <View 
+                        <View
                             style={styles.liquidContainer}
                             onLayout={(e) => {
                                 containerWidth.value = e.nativeEvent.layout.width;
@@ -733,90 +698,101 @@ export default function PreferenceOnboardingScreen() {
                         )}
                     </View>
 
-                    {/* Reminder Style Section */}
-                    <View style={styles.sectionContainer}>
-                        <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>Reminder Style</Text>
-                            <TouchableOpacity onPress={() => setShowTooltip(true)} style={styles.infoButton}>
-                                <Feather name="info" size={18} color={Colors.primary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={[styles.reminderCard, !isAggressive && styles.reminderCardActive]}>
-                            {!isAggressive && (
-                                <LinearGradient
-                                    colors={['#BAE6FD', '#F0F9FF']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                            )}
-                            <View style={styles.reminderContent}>
-                                <View style={styles.reminderIcon}>
-                                    <Feather name="bell" size={24} color="#0284C7" />
-                                </View>
-                                <View style={styles.reminderTextContent}>
-                                    <Text style={styles.reminderTitle}>Standard Mode</Text>
-                                    <Text style={styles.reminderDesc}>Two gentle reminders before auto-skip</Text>
-                                </View>
+                    {/* Reminder Style / Follow-Up Section - Platform Specific */}
+                    {Platform.OS === 'android' ? (
+                        // Android: Keep existing Reminder Style toggle
+                        <View style={styles.sectionContainer}>
+                            <View style={styles.sectionHeaderRow}>
+                                <Text style={styles.sectionTitle}>Reminder Style</Text>
+                                <TouchableOpacity onPress={() => showInfo('style')} style={styles.infoButton}>
+                                    <Feather name="info" size={18} color={Colors.primary} />
+                                </TouchableOpacity>
                             </View>
-                            <Switch
-                                trackColor={{ false: "#D1D5DB", true: Colors.primary }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(val) => {
-                                    setIsAggressive(!val);
-                                }}
-                                value={!isAggressive}
-                            />
-                        </View>
+                            <Text style={styles.sectionSubtitle}>Choose the intensity of your notifications.</Text>
 
-                        <View style={[styles.reminderCard, isAggressive && styles.reminderCardActiveAssurance, { marginTop: Sizes.md }]}>
-                            {isAggressive && (
-                                <LinearGradient
-                                    colors={['#C7D2FE', '#F5F3FF']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
+                            <View style={[styles.reminderCard, !isAggressive && styles.reminderCardActive]}>
+                                {!isAggressive && (
+                                    <LinearGradient
+                                        colors={['#BAE6FD', '#F0F9FF']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                )}
+                                <View style={styles.reminderContent}>
+                                    <View style={styles.reminderIcon}>
+                                        <Feather name="bell" size={24} color="#0284C7" />
+                                    </View>
+                                    <View style={styles.reminderTextContent}>
+                                        <Text style={styles.reminderTitle}>Standard Mode</Text>
+                                        <Text style={styles.reminderDesc}>One follow-up reminder for added safety</Text>
+                                    </View>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#D1D5DB", true: Colors.primary }}
+                                    thumbColor="#FFFFFF"
+                                    ios_backgroundColor="#D1D5DB"
+                                    onValueChange={(val) => {
+                                        setIsAggressive(!val);
+                                    }}
+                                    value={!isAggressive}
                                 />
-                            )}
-                            <View style={styles.reminderContent}>
-                                <View style={styles.reminderIcon}>
-                                    <Feather name="shield" size={24} color="#6366F1" />
-                                </View>
-                                <View style={styles.reminderTextContent}>
-                                    <Text style={styles.reminderTitle}>Assurance Mode</Text>
-                                    <Text style={styles.reminderDesc}>Five persistent reminders for complete safety</Text>
-                                </View>
                             </View>
-                            <Switch
-                                trackColor={{ false: "#D1D5DB", true: "#6366F1" }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(val) => {
-                                    setIsAggressive(val);
-                                }}
-                                value={isAggressive}
-                            />
+
+                            <View style={[styles.reminderCard, isAggressive && styles.reminderCardActiveAssurance, { marginTop: Sizes.md }]}>
+                                {isAggressive && (
+                                    <LinearGradient
+                                        colors={['#C7D2FE', '#F5F3FF']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                )}
+                                <View style={styles.reminderContent}>
+                                    <View style={styles.reminderIcon}>
+                                        <Feather name="shield" size={24} color="#6366F1" />
+                                    </View>
+                                    <View style={styles.reminderTextContent}>
+                                        <Text style={styles.reminderTitle}>Assurance Mode</Text>
+                                        <Text style={styles.reminderDesc}>Three follow-up reminders for complete safety</Text>
+                                    </View>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#D1D5DB", true: "#6366F1" }}
+                                    thumbColor="#FFFFFF"
+                                    ios_backgroundColor="#D1D5DB"
+                                    onValueChange={(val) => {
+                                        setIsAggressive(val);
+                                    }}
+                                    value={isAggressive}
+                                />
+                            </View>
                         </View>
-                    </View>
+                    ) : (
+                        // iOS: Show Follow-Up Reminders picker
+                        <FollowUpRemindersSection
+                            value={iosFollowUpCount}
+                            onChange={setIosFollowUpCount}
+                            snoozeDuration={effectiveSnooze}
+                        />
+                    )}
 
                     {/* Tune Selection Section */}
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Tune Selection</Text>
-                            <TouchableOpacity onPress={() => setShowTuneTooltip(true)} style={styles.infoButton}>
+                            <TouchableOpacity onPress={() => showInfo('tune')} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Choose the sound for your medication reminders.</Text>
+                        <Text style={styles.sectionSubtitle}>Sound played for all medication alerts.</Text>
 
                         <TouchableOpacity
                             style={[styles.verificationBar, { height: 64, marginBottom: 8, backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}
                             onPress={() => setShowTuneModal(true)}
                             activeOpacity={0.9}
                         >
-                             <View style={[styles.reminderIcon, { marginLeft: 12, backgroundColor: '#E0F2FE' }]}>
+                            <View style={[styles.reminderIcon, { marginLeft: 12, backgroundColor: '#E0F2FE' }]}>
                                 <Feather name="music" size={24} color={Colors.primary} />
                             </View>
                             <View style={[styles.barContent, { paddingLeft: 12 }]}>
@@ -1021,17 +997,20 @@ const styles = StyleSheet.create({
     // Liquid Chips
     liquidContainer: {
         flexDirection: 'row',
-        backgroundColor: 'rgba(255,255,255,0.8)',
+
         borderRadius: 20,
         padding: 6,
         alignItems: 'center',
         borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.8)',
+        // Brighter border for Android to pop against light background
+        borderColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
+        // Simulating glass on Android with higher opacity + elevation
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
         shadowColor: '#3B82F6',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
-        elevation: 1,
+        elevation: 2, // Slight bump for Android depth
     },
     liquidChip: {
         flex: 1,
@@ -1106,14 +1085,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 14,
         borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.8)',
-        backgroundColor: 'rgba(255,255,255,0.8)',
+        borderColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
         minHeight: 54,
         shadowColor: '#3B82F6',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
-        elevation: 1,
+        elevation: 2,
         overflow: 'hidden',
     },
     reminderCardActive: {
@@ -1152,59 +1131,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         marginTop: 0,
     },
-    // Tooltip Styles
-    tooltipOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: Sizes.xl,
-    },
-    tooltipContent: {
-        backgroundColor: Colors.white,
-        borderRadius: Sizes.radiusLg,
-        padding: Sizes.xl,
-        width: '100%',
-        maxWidth: 340,
-        ...Sizes.shadows.xl,
-    },
-    tooltipHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Sizes.lg,
-    },
-    tooltipTitle: {
-        fontSize: Typography.h5,
-        fontWeight: '700',
-        color: Colors.gray800,
-        marginLeft: Sizes.sm,
-    },
-    tooltipSection: {
-        marginBottom: Sizes.lg,
-    },
-    tooltipSectionTitle: {
-        fontSize: Typography.bodyLarge,
-        fontWeight: '700',
-        color: Colors.primary,
-        marginBottom: 6,
-    },
-    tooltipText: {
-        fontSize: Typography.bodySmall,
-        color: Colors.gray600,
-        lineHeight: 20,
-    },
-    closeTooltipButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 12,
-        borderRadius: Sizes.radiusFull,
-        alignItems: 'center',
-        marginTop: Sizes.sm,
-    },
-    closeTooltipButtonText: {
-        color: Colors.white,
-        fontSize: Typography.body,
-        fontWeight: '600',
-    },
+
     // Action Button Patterns (Redesigned to match Prescription Summary)
     actionButtonContainer: {
         alignItems: 'center',

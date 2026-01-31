@@ -41,12 +41,6 @@ export default {
     plugins: [
       "expo-font",
       [
-        "expo-live-activity",
-        {
-          "appGroupIdentifier": "group.com.shivanshrana.dosiqai"
-        }
-      ],
-      [
         "expo-media-library",
         {
           "photosPermission": "Allow FamilyCare Health to save documents and images to your photo library.",

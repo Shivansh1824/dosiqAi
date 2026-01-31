@@ -21,6 +21,7 @@ export default function ProfileScreen() {
         { icon: 'help-circle', label: 'Help & Support' },
         { icon: 'shield', label: 'Privacy & Security' },
         { icon: 'sliders', label: 'Customize Experience' },
+        { icon: 'terminal', label: 'Export Debug Logs' },
         { icon: 'trash-2', label: 'Clear Documents', isDestructive: true },
     ];
 
@@ -37,9 +38,25 @@ export default function ProfileScreen() {
             setShowClearOptions(true);
         } else if (label === 'Customize Experience') {
             navigation.navigate('PreferenceOnboarding' as never);
+        } else if (label === 'Export Debug Logs') {
+            handleExportLogs();
         } else {
             // Placeholder for other menu items
             console.log(`Pressed ${label}`);
+        }
+    };
+
+    const handleExportLogs = async () => {
+        try {
+            const { getLogs } = require('../services/debugLogger');
+            const { Share } = require('react-native');
+            const logs = await getLogs();
+            await Share.share({
+                title: 'Dosiq Debug Logs',
+                message: logs || 'No logs found.',
+            });
+        } catch (error) {
+            Alert.alert('Error', 'Failed to share logs');
         }
     };
 
