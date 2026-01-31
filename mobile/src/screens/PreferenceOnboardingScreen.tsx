@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { TuneSelectionModal } from '../components/TuneSelectionModal';
 import { FollowUpRemindersSection } from '../components/FollowUpRemindersSection';
+import { InfoModal, InfoSection } from '../components/InfoModal';
 import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { rescheduleAllNotificationsForMember } from '../services/notificationService';
@@ -34,10 +35,14 @@ export default function PreferenceOnboardingScreen() {
 
     // State for Reminder Style (Android)
     const [isAggressive, setIsAggressive] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(false);
-    const [showAlertTooltip, setShowAlertTooltip] = useState(false);
-    const [showSnoozeTooltip, setShowSnoozeTooltip] = useState(false);
-    const [showDoseTooltip, setShowDoseTooltip] = useState(false);
+
+    // Info Modal State
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [infoModalConfig, setInfoModalConfig] = useState<{ title: string; content: InfoSection[]; icon?: any }>({
+        title: '',
+        content: [],
+        icon: 'info'
+    });
 
     // State for iOS Follow-Up Reminders (iOS only)
     const [iosFollowUpCount, setIosFollowUpCount] = useState(0); // Default: 0 follow-ups
@@ -45,7 +50,6 @@ export default function PreferenceOnboardingScreen() {
     const [selectedTune, setSelectedTune] = useState<Tune>(getDefaultTune());
     const [systemTunesCache, setSystemTunesCache] = useState<Tune[]>([]);
     const [showTuneModal, setShowTuneModal] = useState(false);
-    const [showTuneTooltip, setShowTuneTooltip] = useState(false);
 
 
     // Picker visibility states (for Android mainly, but useful for logic separation)
@@ -269,146 +273,54 @@ export default function PreferenceOnboardingScreen() {
         }
     };
 
-    const renderTooltip = () => (
-        <Modal
-            visible={showTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="info" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Reminder Styles Explanation</Text>
-                    </View>
+    const showInfo = (type: 'dose' | 'snooze' | 'style' | 'tune') => {
+        let config = { title: '', content: [] as InfoSection[], icon: 'info' as any };
 
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipSectionTitle}>Standard Mode</Text>
-                        <Text style={styles.tooltipText}>
-                            Receive a notification at the scheduled time. If no action is taken, we'll send <Text style={{ fontWeight: '700' }}>one follow-up reminder</Text> after {effectiveSnooze} minutes. If still no response, the dose is marked as skipped.
-                        </Text>
-                    </View>
+        switch (type) {
+            case 'dose':
+                config = {
+                    title: 'Dose Groups Explained',
+                    icon: 'clock',
+                    content: [
+                        { label: 'What is this?', text: 'These times categorize your meds into Morning, Afternoon, and Night groups.', icon: 'layers' },
+                        { label: 'Why it matters', text: 'New medications added to these groups will automatically default to these times.', icon: 'zap' }
+                    ]
+                };
+                break;
+            case 'snooze':
+                config = {
+                    title: 'Default Snooze Logic',
+                    icon: 'clock',
+                    content: [
+                        { label: 'What is this?', text: 'The specific time interval between follow-up reminders.', icon: 'clock' },
+                        { label: 'Behavior', text: 'This applies to both full-screen alarms and banner notifications.', icon: 'bell' }
+                    ]
+                };
+                break;
+            case 'style':
+                config = {
+                    title: 'Reminder Styles Explanation',
+                    icon: 'bell',
+                    content: [
+                        { label: 'Standard Mode', text: 'Gentle reminders. One follow-up tone after the snooze interval.', icon: 'bell' },
+                        { label: 'Assurance Mode', text: 'Persistent reminders. Up to 4 follow-ups until you mark the dose as taken.', icon: 'shield' }
+                    ]
+                };
+                break;
+            case 'tune':
+                config = {
+                    title: 'Medication Tune',
+                    icon: 'music',
+                    content: [
+                        { label: 'Selection', text: 'Select a notification sound that will play for all your medication reminders.', icon: 'music' }
+                    ]
+                };
+                break;
+        }
 
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipSectionTitle}>Assurance Mode</Text>
-                        <Text style={styles.tooltipText}>
-                            The golden standard for critical meds. We'll send the initial alert, followed by <Text style={{ fontWeight: '700' }}>up to 4 follow-up reminders every {effectiveSnooze} minutes</Text> until your health is confirmed as tracked.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
-
-    const renderDoseTooltip = () => (
-        <Modal
-            visible={showDoseTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowDoseTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowDoseTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="clock" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Dose Groups Explained</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            Setting these times helps us organize your medications into <Text style={{ fontWeight: '700' }}>Morning, Afternoon, and Night groups</Text>.
-                        </Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            These will be the <Text style={{ fontWeight: '700' }}>default times</Text> for any medication assigned to these groups in your verification card.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowDoseTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
-
-    const renderSnoozeTooltip = () => (
-        <Modal
-            visible={showSnoozeTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowSnoozeTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowSnoozeTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="clock" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Default Snooze Logic</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            Your selected duration becomes the <Text style={{ fontWeight: '700' }}>default time</Text> for all reminders.
-                        </Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <Feather name="alert-circle" size={16} color={Colors.primary} style={{ marginTop: 2, marginRight: 8 }} />
-                            <Text style={[styles.tooltipText, { flex: 1 }]}>
-                                <Text style={{ fontWeight: '700' }}>Alarm Screen:</Text> You can quickly adjust the snooze time when the alarm rings.
-                            </Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 12 }}>
-                            <Feather name="bell" size={16} color={Colors.primary} style={{ marginTop: 2, marginRight: 8 }} />
-                            <Text style={[styles.tooltipText, { flex: 1 }]}>
-                                <Text style={{ fontWeight: '700' }}>Notifications:</Text> Simple banner alerts will use this default time as they don't support custom adjustments.
-                            </Text>
-                        </View>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowSnoozeTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
-
-    const renderTuneTooltip = () => (
-        <Modal
-            visible={showTuneTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowTuneTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowTuneTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="music" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Medication Tune</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            Select a notification sound that will play for all your medication reminders. Choose from different tune durations to suit your preference.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowTuneTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
-    );
+        setInfoModalConfig(config);
+        setInfoModalVisible(true);
+    };
 
     if (isLoading) {
         return (
@@ -421,24 +333,28 @@ export default function PreferenceOnboardingScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Soft Ambient Background */}
+            {/* Soft Ambient Background - Modified for Modern Clean Look */}
             <View style={StyleSheet.absoluteFillObject}>
                 <LinearGradient
-                    colors={['#FFFFFF', '#F0F9FF', '#E0F2FE']}
+                    colors={['#FFFFFF', '#F8FAFC', '#EFF6FF']} // Subtler, cleaner gradient
                     style={StyleSheet.absoluteFillObject}
                 />
             </View>
 
-            {renderTooltip()}
-            {renderTuneTooltip()}
+            <InfoModal 
+                visible={infoModalVisible}
+                onClose={() => setInfoModalVisible(false)}
+                title={infoModalConfig.title}
+                content={infoModalConfig.content}
+                icon={infoModalConfig.icon}
+            />
+
             <TuneSelectionModal
                 visible={showTuneModal}
                 onClose={() => setShowTuneModal(false)}
                 selectedTune={selectedTune}
                 onSelectTune={setSelectedTune}
             />
-            {renderSnoozeTooltip()}
-            {renderDoseTooltip()}
 
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
@@ -480,11 +396,11 @@ export default function PreferenceOnboardingScreen() {
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Preferred Dose Times</Text>
-                            <TouchableOpacity onPress={() => setShowDoseTooltip(true)} style={styles.infoButton}>
+                            <TouchableOpacity onPress={() => showInfo('dose')} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Define your daily routine for automated dose grouping.</Text>
+                        <Text style={styles.sectionSubtitle}>Automates your schedule by grouping meds naturally.</Text>
 
                         {/* Morning */}
                         <TouchableOpacity
@@ -692,11 +608,11 @@ export default function PreferenceOnboardingScreen() {
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Snooze Duration</Text>
-                            <TouchableOpacity onPress={() => setShowSnoozeTooltip(true)} style={styles.infoButton}>
+                            <TouchableOpacity onPress={() => showInfo('snooze')} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Set your preferred frequency for follow-up alerts.</Text>
+                        <Text style={styles.sectionSubtitle}>Frequency of reminders for missed doses.</Text>
 
                         <View
                             style={styles.liquidContainer}
@@ -763,10 +679,11 @@ export default function PreferenceOnboardingScreen() {
                         <View style={styles.sectionContainer}>
                             <View style={styles.sectionHeaderRow}>
                                 <Text style={styles.sectionTitle}>Reminder Style</Text>
-                                <TouchableOpacity onPress={() => setShowTooltip(true)} style={styles.infoButton}>
+                                <TouchableOpacity onPress={() => showInfo('style')} style={styles.infoButton}>
                                     <Feather name="info" size={18} color={Colors.primary} />
                                 </TouchableOpacity>
                             </View>
+                            <Text style={styles.sectionSubtitle}>Choose the intensity of your notifications.</Text>
 
                             <View style={[styles.reminderCard, !isAggressive && styles.reminderCardActive]}>
                                 {!isAggressive && (
@@ -839,11 +756,11 @@ export default function PreferenceOnboardingScreen() {
                     <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Tune Selection</Text>
-                            <TouchableOpacity onPress={() => setShowTuneTooltip(true)} style={styles.infoButton}>
+                            <TouchableOpacity onPress={() => showInfo('tune')} style={styles.infoButton}>
                                 <Feather name="info" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.sectionSubtitle}>Choose the sound for your medication reminders.</Text>
+                        <Text style={styles.sectionSubtitle}>Sound played for all medication alerts.</Text>
 
                         <TouchableOpacity
                             style={[styles.verificationBar, { height: 64, marginBottom: 8, backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}
@@ -1186,59 +1103,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         marginTop: 0,
     },
-    // Tooltip Styles
-    tooltipOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: Sizes.xl,
-    },
-    tooltipContent: {
-        backgroundColor: Colors.white,
-        borderRadius: Sizes.radiusLg,
-        padding: Sizes.xl,
-        width: '100%',
-        maxWidth: 340,
-        ...Sizes.shadows.xl,
-    },
-    tooltipHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Sizes.lg,
-    },
-    tooltipTitle: {
-        fontSize: Typography.h5,
-        fontWeight: '700',
-        color: Colors.gray800,
-        marginLeft: Sizes.sm,
-    },
-    tooltipSection: {
-        marginBottom: Sizes.lg,
-    },
-    tooltipSectionTitle: {
-        fontSize: Typography.bodyLarge,
-        fontWeight: '700',
-        color: Colors.primary,
-        marginBottom: 6,
-    },
-    tooltipText: {
-        fontSize: Typography.bodySmall,
-        color: Colors.gray600,
-        lineHeight: 20,
-    },
-    closeTooltipButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 12,
-        borderRadius: Sizes.radiusFull,
-        alignItems: 'center',
-        marginTop: Sizes.sm,
-    },
-    closeTooltipButtonText: {
-        color: Colors.white,
-        fontSize: Typography.body,
-        fontWeight: '600',
-    },
+
     // Action Button Patterns (Redesigned to match Prescription Summary)
     actionButtonContainer: {
         alignItems: 'center',

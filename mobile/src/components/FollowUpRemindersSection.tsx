@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Sizes, Typography } from '../constants';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { FollowUpSelectionModal } from './FollowUpSelectionModal';
+import { InfoModal } from './InfoModal';
 
 interface FollowUpRemindersSectionProps {
     value: number;
@@ -13,7 +14,7 @@ interface FollowUpRemindersSectionProps {
 }
 
 export const FollowUpRemindersSection: React.FC<FollowUpRemindersSectionProps> = ({ value, onChange, snoozeDuration }) => {
-    const [showTooltip, setShowTooltip] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
     const [showModal, setShowModal] = useState(false);
 
     const getSelectedLabel = () => {
@@ -26,43 +27,22 @@ export const FollowUpRemindersSection: React.FC<FollowUpRemindersSectionProps> =
         }
     };
 
-    const renderTooltip = () => (
-        <Modal
-            visible={showTooltip}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowTooltip(false)}
-        >
-            <Pressable style={styles.tooltipOverlay} onPress={() => setShowTooltip(false)}>
-                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.tooltipContent}>
-                    <View style={styles.tooltipHeader}>
-                        <Feather name="bell" size={20} color={Colors.primary} />
-                        <Text style={styles.tooltipTitle}>Follow-Up Reminders</Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            On iOS, we can schedule a fixed number of follow-up notifications to ensure you don't miss your dose.
-                        </Text>
-                    </View>
-
-                    <View style={styles.tooltipSection}>
-                        <Text style={styles.tooltipText}>
-                            If you mark a medication as <Text style={{ fontWeight: '700' }}>Taken</Text> or <Text style={{ fontWeight: '700' }}>Skipped</Text>, all remaining follow-ups for that dose will be automatically cancelled.
-                        </Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.closeTooltipButton} onPress={() => setShowTooltip(false)}>
-                        <Text style={styles.closeTooltipButtonText}>Got it</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </Pressable>
-        </Modal>
+    const renderInfoModal = () => (
+        <InfoModal
+            visible={showInfo}
+            onClose={() => setShowInfo(false)}
+            title="Follow-Up Reminders"
+            icon="bell"
+            content={[
+                { text: "On iOS, we can schedule a fixed number of follow-up notifications to ensure you don't miss your dose.", icon: 'info' },
+                { text: "If you mark a medication as Taken or Skipped, all remaining follow-ups for that dose will be automatically cancelled.", icon: 'check-circle' }
+            ]}
+        />
     );
 
     return (
         <View style={styles.sectionContainer}>
-            {renderTooltip()}
+            {renderInfoModal()}
             <FollowUpSelectionModal 
                 visible={showModal}
                 onClose={() => setShowModal(false)}
@@ -73,11 +53,11 @@ export const FollowUpRemindersSection: React.FC<FollowUpRemindersSectionProps> =
 
             <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Follow-Up Reminders</Text>
-                <TouchableOpacity onPress={() => setShowTooltip(true)} style={styles.infoButton}>
+                <TouchableOpacity onPress={() => setShowInfo(true)} style={styles.infoButton}>
                     <Feather name="info" size={18} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
-            <Text style={styles.sectionSubtitle}>How many times should we remind you if you miss a dose?</Text>
+            <Text style={styles.sectionSubtitle}>Maximum number of reminders for missed doses.</Text>
 
             <TouchableOpacity
                 style={[styles.verificationBar, { height: 64, marginBottom: 8, backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}
@@ -162,56 +142,5 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 10,
-    },
-    // Tooltip Styles
-    tooltipOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: Sizes.xl,
-    },
-    tooltipContent: {
-        backgroundColor: Colors.white,
-        borderRadius: Sizes.radiusLg,
-        padding: Sizes.xl,
-        width: '100%',
-        maxWidth: 340,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 20,
-        elevation: 10,
-    },
-    tooltipHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Sizes.lg,
-    },
-    tooltipTitle: {
-        fontSize: Typography.h5,
-        fontWeight: '700',
-        color: Colors.gray800,
-        marginLeft: Sizes.sm,
-    },
-    tooltipSection: {
-        marginBottom: Sizes.lg,
-    },
-    tooltipText: {
-        fontSize: Typography.bodySmall,
-        color: Colors.gray600,
-        lineHeight: 20,
-    },
-    closeTooltipButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 12,
-        borderRadius: Sizes.radiusFull,
-        alignItems: 'center',
-        marginTop: Sizes.sm,
-    },
-    closeTooltipButtonText: {
-        color: Colors.white,
-        fontSize: Typography.body,
-        fontWeight: '600',
     },
 });
