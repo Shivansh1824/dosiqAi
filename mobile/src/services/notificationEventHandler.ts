@@ -171,6 +171,7 @@ async function handleTakenAction(data: any) {
     await logDebug(`[NotificationHandler] Android: Cancelled pending sequence for ${data.scheduleId}`);
   } else if (Platform.OS === 'ios') {
     // iOS: Hybrid Architecture Cancellation (Cluster Kill)
+    console.log(`[NotificationHandler] 🛑 TAKEN Action detected. Initiating Cluster Kill for: ${data.scheduleId}`);
     await cancelIOSFollowUps(data.scheduleId);
     await logDebug(`[NotificationHandler] iOS: Cluster Kill completed for ${data.scheduleId}`);
 

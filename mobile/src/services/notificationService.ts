@@ -561,6 +561,7 @@ export async function scheduleRepeatingReminder(
     // --- iOS HYBRID STRATEGY: Shield + Rolling Window ---
     console.log('[Notifications] 🛡️ Deploying Hybrid Architecture (Shield + Rolling Window)');
     console.log('[Notifications] iOS Follow-up Count:', iosFollowUpCount);
+    await logDebug(`[NotificationService] Scheduling Repeating: ${reminder.scheduleId}, FollowUps: ${iosFollowUpCount}, Tune: ${notificationTune}`);
 
     // Determine iOS sound
     let iosSound: string | undefined = 'default';
@@ -610,6 +611,7 @@ export async function scheduleRepeatingReminder(
       primaryTrigger
     );
     console.log(`[Notifications] ✅ Shield Deployed: Native Daily Trigger for ${reminder.scheduleId}`);
+    await logDebug(`[NotificationService] Shield Deployed: ${reminder.scheduleId}`);
 
     // B. SCHEDULE THE SMART LAYER (Rolling Follow-ups)
     // We only schedule follow-ups for the next 3 days to save slots.
@@ -617,10 +619,12 @@ export async function scheduleRepeatingReminder(
 
     // If NO follow-ups needed, we are done!
     if (iosFollowUpCount <= 0) {
+      console.log('[Notifications] No follow-ups requested, skipping smart layer.');
       return reminder.scheduleId;
     }
 
     const DAYS_TO_SCHEDULE = 3;
+    console.log(`[Notifications] Scheduling follow-ups for next ${DAYS_TO_SCHEDULE} days. SnoozeDuration: ${snoozeDuration}m`);
 
     for (let dayOffset = 0; dayOffset < DAYS_TO_SCHEDULE; dayOffset++) {
       // Calculate the base time for this day's instance
@@ -628,7 +632,9 @@ export async function scheduleRepeatingReminder(
       dayTime.setDate(dayTime.getDate() + dayOffset);
 
       // If time passed (> 24h ago), skip
+      // We allow "today" even if slightly passed, but check individual follow-ups
       if (dayTime.getTime() < Date.now() - (24 * 60 * 60 * 1000)) {
+        console.log(`[Notifications] Skipping day ${dayOffset} (Date: ${dayTime.toLocaleDateString()}) - too old`);
         continue;
       }
 
@@ -636,13 +642,15 @@ export async function scheduleRepeatingReminder(
       const pendingIds = await notifee.getTriggerNotificationIds();
       if (pendingIds.length >= 60) {
         console.log('[Notifications] 🛑 Safety Valve triggered! Approaching 64 limit. Stopping scheduling.');
-        // TODO: Schedule a refill reminder?
+        await logDebug('[NotificationService] Safety Valve Triggered (60+ notifications)');
         break;
       }
 
       // Derived ID for grouping (Local date - avoids UTC boundary issues)
       const dateStr = `${dayTime.getFullYear()}-${String(dayTime.getMonth() + 1).padStart(2, '0')}-${String(dayTime.getDate()).padStart(2, '0')}`;
       const dayScheduleId = `${reminder.scheduleId}_${dateStr}`; // Virtual ID needed for linking
+      
+      console.log(`[Notifications] Day ${dayOffset}: ${dateStr} (Base: ${dayTime.toLocaleTimeString()})`);
 
       // Schedule FOLLOW-UP notifications for this day
       const followUpIds: string[] = [];
@@ -652,8 +660,10 @@ export async function scheduleRepeatingReminder(
         const followUpId = `${reminder.scheduleId}_followup_${i}_${dateStr}`; // e.g. med_123_followup_1_2023-10-27
 
         // Skip if this follow-up time has already passed
-        if (followUpTime.getTime() < Date.now()) {
-          continue;
+        // Strict check: follow-up must be in the future
+        if (followUpTime.getTime() <= Date.now()) {
+            console.log(`[Notifications] ⏭️ Skipping past follow-up: ${followUpId} at ${followUpTime.toLocaleTimeString()}`);
+            continue;
         }
 
         const followUpTrigger: TimestampTrigger = {
@@ -695,37 +705,8 @@ export async function scheduleRepeatingReminder(
         );
 
         followUpIds.push(followUpId);
-        console.log(`[Notifications] Follow-up ${i} scheduled: ${followUpId}`);
-      }
-
-      // Store follow-up IDs for cancellation (Grouped by the *Main Schedule ID*)
-      // We append to the existing list for this main schedule
-      if (followUpIds.length > 0) {
-        // We use a simpler storage approach: store by Primary ID. 
-        // We need to fetch existing, append, and save.
-        // Actually, the helper storeIOSFollowUpIds overwrites. We should update check it. 
-        // For now, let's keep it simple. If we overwrite receiving day's follow-ups, we might lose track of yesterday's.
-        // Better to use a unique key per day?
-        // Or just store ALL follow-up IDs for this med in one big list.
-
-        // Let's modify storeIOSFollowUpIds to APPEND or use a list.
-        // For now, assuming storeIOSFollowUpIds handles it or we accept the limitation (likely needing fix).
-        // Let's assume we want to store them all under the Primary ID key.
-        const currentStored = await getAndClearIOSFollowUpIds(reminder.scheduleId); // This clears them! Not good for loop.
-        // We need a non-clearing get.
-        // Let's just create a new helper or modify the existing one in a separate step if needed. 
-        // For now, let's use a specific key per day to be safe? 
-        // `storeIOSFollowUpIds` takes strictly `scheduleId`.
-        // Let's stick to the plan: The "Refill" logic re-calculates everything anyway.
-        // So overwriting might be okay if we refill often. 
-        // BUT, if we have 3 days scheduled, we want to know about ALL of them to cancel them on "Taken".
-
-        // Fix: We will rely on the "Cluster Kill" which calculates IDs deterministically instead of using storage, 
-        // OR we improve storage. 
-        // The Strategy Doc says: "Calculate all potential IDs: [primaryId, f1_today, f2_today...]".
-        // So we don't strictly need storage if we use deterministic naming!
-        // ID Format: `${scheduleId}_followup_${index}_${dateStr}`
-        // This is perfect. We can generate these IDs on the fly to cancel them.
+        console.log(`[Notifications] ✅ Follow-up ${i} scheduled: ${followUpId} at ${followUpTime.toLocaleTimeString()}`);
+        await logDebug(`[NotificationService] Scheduled Follow-up: ${followUpId} @ ${followUpTime.toISOString()}`);
       }
     }
 
@@ -733,6 +714,7 @@ export async function scheduleRepeatingReminder(
 
   } catch (error) {
     console.error('[Notifications] Repeating schedule error:', error);
+    await logDebug('[NotificationService] Error scheduling repeating:', error);
     return null;
   }
 }
