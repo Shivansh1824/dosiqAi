@@ -14,6 +14,8 @@ import { BlurView } from 'expo-blur';
 import { TuneSelectionModal } from '../components/TuneSelectionModal';
 import { FollowUpRemindersSection } from '../components/FollowUpRemindersSection';
 import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
+import { useFamilyMembersStore } from '../store/familyMembersStore';
+import { rescheduleAllNotificationsForMember } from '../services/notificationService';
 
 
 export default function PreferenceOnboardingScreen() {
@@ -163,7 +165,7 @@ export default function PreferenceOnboardingScreen() {
                 afternoon_dose_time: formatTimeToDB(afternoonTime),
                 night_dose_time: formatTimeToDB(nightTime),
                 snooze_duration: effectiveSnooze,
-                reminder_style: isAggressive ? 'assurance' : 'standard',
+                reminder_style: (isAggressive ? 'assurance' : 'standard') as 'assurance' | 'standard',
                 notification_tune: selectedTune.filename,
                 ios_followup_count: iosFollowUpCount,
                 updated_at: new Date().toISOString(),
@@ -184,6 +186,18 @@ export default function PreferenceOnboardingScreen() {
                 .eq('id', memberData.id);
 
             if (error) throw error;
+
+            // Update local store state immediately
+            try {
+                await useFamilyMembersStore.getState().updateFamilyMember(memberData.id, preferences);
+                console.log('Local store updated with new preferences');
+                
+                // Reschedule all notifications for this member with new settings
+                await rescheduleAllNotificationsForMember(memberData.id);
+            } catch (localError) {
+                console.warn('Failed to update local state/reschedule:', localError);
+                // We don't throw here to avoid failing the "Save" UI feedback since DB save worked
+            }
 
             setSaveStatus('saved');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

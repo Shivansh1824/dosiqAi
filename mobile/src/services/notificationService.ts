@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Medication } from '../types/medication';
 import { logDebug } from './debugLogger';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
+import { useMedicationsStore } from '../store/medicationsStore';
 import {
   initializeAndroidNotifications,
   scheduleNotificationSequence as scheduleAndroidSequence,
@@ -30,6 +31,39 @@ import {
 
 // iOS category ID for action buttons
 const MEDICATION_CATEGORY_ID = 'medication-actions';
+
+/**
+ * Helper to resolve the correct sound filename for iOS
+ * Maps internal app tune defaults (MP3) to iOS native resources (CAF/WAV)
+ */
+function resolveIOSSoundName(notificationTune: string | undefined): string | undefined {
+  if (!notificationTune || notificationTune.trim() === '') {
+    return undefined; // Silent
+  }
+
+  // System default
+  if (notificationTune === 'default') {
+    return 'default';
+  }
+
+  // Map App Tunes (MP3) -> iOS Native Resources (CAF)
+  // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
+  const mapping: Record<string, string> = {
+    'dosiqai_alert_3s.mp3': 'notification_3sec.caf',
+    'dosiqai_alert_6s.mp3': 'notification_6sec.caf',
+    'dosiqai_alert_12s.mp3': 'notification_12sec.caf',
+  };
+
+  if (mapping[notificationTune]) {
+    return mapping[notificationTune];
+  }
+
+  // Fallback: If it's a loose filename (e.g. custom upload), ensure extension is compatible
+  // But strictly speaking, for this app, we only support the preset tunes above for now.
+  // We'll return the input if it doesn't match, assuming advanced users might have added files manually.
+  // Converting .mp3 to .wav for legacy support if needed, but per instruction we prefer .caf map above.
+  return notificationTune.replace(/\.mp3$/, '.wav');
+}
 
 // Types
 export interface MedicineReminderData {
@@ -152,13 +186,7 @@ export async function scheduleIOSFollowUpsFromEvent(
 ): Promise<void> {
   try {
     // Determine iOS sound
-    let iosSound: string | undefined = 'default';
-    if (!notificationTune || notificationTune.trim() === '') {
-      iosSound = undefined;
-    } else if (notificationTune !== 'default') {
-      const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
-      iosSound = `${baseName}.wav`;
-    }
+    const iosSound = resolveIOSSoundName(notificationTune);
 
     const followUpIds: string[] = [];
     const now = Date.now();
@@ -330,20 +358,10 @@ export async function scheduleMedicineReminder(
     // Determine sound configuration for iOS
     // - Silent: no sound prop
     // - Default: 'default'
-    // - Custom: filename.wav (iOS requires extension, Android does not)
+    // - Custom: Mapped via resolveIOSSoundName (e.g. .mp3 -> .caf)
 
-    let iosSound: string | undefined = 'default';
-
-    // Case 1: Silent (Empty or null tune) - User requested silent if no tune is set
-    if (!notificationTune || notificationTune.trim() === '') {
-      iosSound = undefined; // No sound property = silent
-      console.log('[Notifications] iOS: Configuring as SILENT');
-    }
-    // Case 2: Custom Tune
-    else if (notificationTune !== 'default') {
-      const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
-      iosSound = `${baseName}.wav`; // Force .wav extension for iOS resources
-    }
+    const iosSound = resolveIOSSoundName(notificationTune);
+    console.log(`[Notifications] iOS Sound Resolution: Input='${notificationTune}' -> Resolved='${iosSound}'`);
 
     const notificationId = await notifee.createTriggerNotification(
       {
@@ -564,13 +582,7 @@ export async function scheduleRepeatingReminder(
     await logDebug(`[NotificationService] Scheduling Repeating: ${reminder.scheduleId}, FollowUps: ${iosFollowUpCount}, Tune: ${notificationTune}`);
 
     // Determine iOS sound
-    let iosSound: string | undefined = 'default';
-    if (!notificationTune || notificationTune.trim() === '') {
-      iosSound = undefined;
-    } else if (notificationTune !== 'default') {
-      const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
-      iosSound = `${baseName}.wav`;
-    }
+    const iosSound = resolveIOSSoundName(notificationTune);
 
     // A. SCHEDULE THE SHIELD (Primary Native Repeating Trigger)
     // This ensures that even if the app dies or slots full, the main alarm RINGS.
@@ -928,4 +940,32 @@ export async function reconcileReminders(medications: Medication[]): Promise<voi
  */
 export async function dumpLogs(): Promise<void> {
   await generateDebugReport();
+}
+
+/**
+ * Reschedule all notifications for a specific family member
+ * Used when preferences (sound, snooze, etc.) change
+ */
+export async function rescheduleAllNotificationsForMember(familyMemberId: string): Promise<void> {
+  console.log(`[Notifications] 🔄 Rescheduling all for member: ${familyMemberId}`);
+  try {
+    const { medications } = useMedicationsStore.getState();
+    
+    // Filter for active medications belonging to this member
+    const memberMedications = medications.filter(
+      med => med.family_member_id === familyMemberId && med.is_active
+    );
+
+    console.log(`[Notifications] Found ${memberMedications.length} active medications to reschedule.`);
+
+    // Re-schedule each medication
+    // This will overwrite existing notification IDs with the new preferences (e.g. sound)
+    for (const med of memberMedications) {
+      await scheduleAllRemindersForMedication(med);
+    }
+    
+    console.log(`[Notifications] ✅ Reschedule complete for member: ${familyMemberId}`);
+  } catch (error) {
+    console.error('[Notifications] Error rescheduling for member:', error);
+  }
 }
