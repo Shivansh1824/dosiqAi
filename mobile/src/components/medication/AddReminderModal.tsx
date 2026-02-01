@@ -232,7 +232,7 @@ export default function AddReminderModal({
                             {isDuplicate && (
                                 <View style={styles.errorContainer}>
                                     <Feather name="alert-circle" size={14} color={Colors.error} />
-                                    <Text style={styles.errorText}>Reminder already exists for this time</Text>
+                                    <Text style={styles.errorText}>This time is already set for this medicine</Text>
                                 </View>
                             )}
 
