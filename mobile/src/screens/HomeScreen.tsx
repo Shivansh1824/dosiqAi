@@ -20,6 +20,7 @@ import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import FilePreviewModal from '../components/FilePreviewModal';
 import MockLiveActivity from '../components/MockLiveActivity';
+import MedicineNotificationBanner from '../components/MedicineNotificationBanner';
 import { reconcileReminders } from '../services/notificationService';
 
 interface HomeScreenProps {
@@ -637,7 +638,17 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             
             {showDebugWidget && (
               <View style={styles.debugWidgetContainer}>
-                <MockLiveActivity />
+                <MedicineNotificationBanner 
+                  medication="Vitamin D3"
+                  time="11:00 AM"
+                  strength="500mg"
+                  note="Take with food"
+                  currentDose={2}
+                  totalDoses={3}
+                  onTake={() => console.log('Taken pressed')}
+                  onSnooze={() => console.log('Snooze pressed')}
+                  onSkip={() => console.log('Skip pressed')}
+                />
               </View>
             )}
           </View>
