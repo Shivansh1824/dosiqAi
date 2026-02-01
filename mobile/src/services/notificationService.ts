@@ -925,9 +925,9 @@ export async function reconcileReminders(medications: Medication[]): Promise<voi
   console.log(`[Notifications] 🔄 STARTING RECONCILIATION for ${medications.length} medications`);
 
   try {
-    // 1. Cancel everything (Nuclear option to ensure no ghosts remain)
-    await notifee.cancelAllNotifications();
-    console.log('[Notifications] 🗑️  Cancelled ALL existing notifications');
+    // 1. Cancel only future triggers (Preserve delivered notifications in tray)
+    await notifee.cancelTriggerNotifications();
+    console.log('[Notifications] 🗑️  Cancelled ALL pending triggers (preserved delivered)');
 
     // 2. Filter for active only
     const activeMeds = medications.filter(m => m.is_active);
