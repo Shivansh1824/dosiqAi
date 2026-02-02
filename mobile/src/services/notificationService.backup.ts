@@ -22,8 +22,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Medication } from '../types/medication';
 import { logDebug } from './debugLogger';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { 
-  initializeAndroidNotifications, 
+import {
+  initializeAndroidNotifications,
   scheduleNotificationSequence as scheduleAndroidSequence,
   generateNotificationId,
 } from './androidNotificationService';
@@ -94,7 +94,7 @@ async function getAndClearIOSFollowUpIds(scheduleId: string): Promise<string[]> 
 export async function cancelIOSFollowUps(scheduleId: string): Promise<void> {
   // Get base schedule ID (remove any _followup suffixes)
   const baseId = scheduleId.replace(/_followup_\d+$/, '');
-  
+
   const ids = await getAndClearIOSFollowUpIds(baseId);
   for (const id of ids) {
     try {
@@ -248,9 +248,9 @@ export async function scheduleMedicineReminder(
   reminder: MedicineReminderData
 ): Promise<string | null> {
   try {
-    const { 
-      reminderStyle = 'standard', 
-      alertMode = 'temporary', 
+    const {
+      reminderStyle = 'standard',
+      alertMode = 'temporary',
       snoozeDuration = 5,
       notificationTune,
       iosFollowUpCount = 0,
@@ -272,6 +272,7 @@ export async function scheduleMedicineReminder(
       console.log('[Notifications] ✅ Using ANDROID notification service with escalation');
       const notificationId = await scheduleAndroidSequence(
         reminder.medicationId,
+        reminder.scheduleId,
         reminder.medicationName,
         reminder.dosage,
         reminder.familyMemberId,
@@ -299,18 +300,18 @@ export async function scheduleMedicineReminder(
     // - Silent: no sound prop
     // - Default: 'default'
     // - Custom: filename.wav (iOS requires extension, Android does not)
-    
+
     let iosSound: string | undefined = 'default';
-    
+
     // Case 1: Silent (Empty or null tune) - User requested silent if no tune is set
     if (!notificationTune || notificationTune.trim() === '') {
-        iosSound = undefined; // No sound property = silent
-        console.log('[Notifications] iOS: Configuring as SILENT');
+      iosSound = undefined; // No sound property = silent
+      console.log('[Notifications] iOS: Configuring as SILENT');
     }
     // Case 2: Custom Tune
     else if (notificationTune !== 'default') {
-        const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
-        iosSound = `${baseName}.wav`; // Force .wav extension for iOS resources
+      const baseName = notificationTune.replace(/\.(mp3|wav)$/, '');
+      iosSound = `${baseName}.wav`; // Force .wav extension for iOS resources
     }
 
     const notificationId = await notifee.createTriggerNotification(
@@ -332,16 +333,16 @@ export async function scheduleMedicineReminder(
             followUpTime: new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000)).toISOString(),
           } : {}),
         },
-        
+
         // iOS configuration
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
           // ALWAYS use timeSensitive for medication reminders to ensure they stay prominent on lock screen
-          interruptionLevel: 'timeSensitive', 
+          interruptionLevel: 'timeSensitive',
           sound: iosSound,
           threadId: reminder.scheduleId, // Use threadId to group on iOS
         },
-        
+
         // Android configuration (fallback when familyMemberId is missing)
         android: {
           channelId: 'medication-notifications-default',
@@ -363,11 +364,11 @@ export async function scheduleMedicineReminder(
     // Schedule additional follow-up notifications based on iosFollowUpCount (0-3)
     if (Platform.OS === 'ios' && iosFollowUpCount > 0) {
       const followUpIds: string[] = [];
-      
+
       for (let i = 1; i <= iosFollowUpCount; i++) {
         const followUpTime = new Date(reminder.scheduledTime.getTime() + (snoozeDuration * i * 60000));
         const followUpId = `${reminder.scheduleId}_followup_${i}`;
-        
+
         const followUpTrigger: TimestampTrigger = {
           type: TriggerType.TIMESTAMP,
           timestamp: followUpTime.getTime(),
@@ -375,7 +376,7 @@ export async function scheduleMedicineReminder(
             allowWhileIdle: true,
           },
         };
-        
+
         await notifee.createTriggerNotification(
           {
             id: followUpId,
@@ -405,11 +406,11 @@ export async function scheduleMedicineReminder(
           },
           followUpTrigger
         );
-        
+
         followUpIds.push(followUpId);
         await logDebug(`[NotificationService] iOS follow-up ${i} scheduled: ${followUpId} at ${followUpTime.toISOString()}`);
       }
-      
+
       // Store follow-up IDs for later cancellation
       await storeIOSFollowUpIds(reminder.scheduleId, followUpIds);
       await logDebug(`[NotificationService] Stored ${followUpIds.length} iOS follow-up IDs for cancellation`);
@@ -443,17 +444,19 @@ export async function scheduleAllRemindersForMedication(
       reminderStyle: familyMember?.reminder_style || 'standard',
       alertMode: familyMember?.alert_display_mode || 'temporary',
       snoozeDuration: familyMember?.snooze_duration || 10,
-      notificationTune: familyMember?.notification_tune,
+      notificationTune: Platform.OS === 'ios'
+        ? familyMember?.ios_notification_tune
+        : familyMember?.android_notification_tune,
       iosFollowUpCount: familyMember?.ios_followup_count ?? 2, // Default: 2 follow-ups
     };
 
     for (let i = 0; i < medication.time_of_day.length; i++) {
       const timeStr = medication.time_of_day[i];
       const [hours, minutes] = timeStr.split(':').map(Number);
-      
+
       const scheduledTime = new Date();
       scheduledTime.setHours(hours, minutes, 0, 0);
-      
+
       // If time has already passed today, schedule for tomorrow
       if (scheduledTime.getTime() < Date.now()) {
         scheduledTime.setDate(scheduledTime.getDate() + 1);
@@ -494,9 +497,9 @@ export async function scheduleRepeatingReminder(
   repeatFrequency: 'daily' | 'weekly' = 'daily'
 ): Promise<string | null> {
   try {
-    const { 
-      reminderStyle = 'standard', 
-      alertMode = 'temporary', 
+    const {
+      reminderStyle = 'standard',
+      alertMode = 'temporary',
       notificationTune,
       iosFollowUpCount = 0,
       snoozeDuration = 5,
@@ -517,6 +520,7 @@ export async function scheduleRepeatingReminder(
       console.log('[Notifications] ✅ Using ANDROID notification service for repeating reminder');
       const notificationId = await scheduleAndroidSequence(
         reminder.medicationId,
+        reminder.scheduleId,
         reminder.medicationName,
         reminder.dosage,
         reminder.familyMemberId,
@@ -535,7 +539,7 @@ export async function scheduleRepeatingReminder(
     console.log('[Notifications] ✅ Using iOS MANUAL multi-day scheduling with follow-ups');
     console.log('[Notifications] iOS Follow-up Count:', iosFollowUpCount);
     console.log('[Notifications] Snooze Duration:', snoozeDuration, 'minutes');
-    
+
     // Determine iOS sound
     let iosSound: string | undefined = 'default';
     if (!notificationTune || notificationTune.trim() === '') {
@@ -550,29 +554,29 @@ export async function scheduleRepeatingReminder(
     // If iosFollowUpCount > 0 (2-4 notifications/day), we schedule 3 days to avoid hitting limit
     const DAYS_TO_SCHEDULE = iosFollowUpCount === 0 ? 7 : 3;
     const allScheduledIds: string[] = [];
-    
+
     console.log(`[Notifications] Scheduling ${DAYS_TO_SCHEDULE} days ahead (Follow-ups: ${iosFollowUpCount})`);
-    
+
     for (let dayOffset = 0; dayOffset < DAYS_TO_SCHEDULE; dayOffset++) {
       // Calculate the scheduled time for this day
       const dayTime = new Date(reminder.scheduledTime);
       dayTime.setDate(dayTime.getDate() + dayOffset);
-      
+
       // Skip if this time has already passed
       if (dayTime.getTime() < Date.now()) {
         console.log(`[Notifications] Skipping day ${dayOffset} - time already passed`);
         continue;
       }
-      
+
       const dayScheduleId = `${reminder.scheduleId}_day${dayOffset}`;
-      
+
       // Schedule the PRIMARY notification for this day
       const primaryTrigger: TimestampTrigger = {
         type: TriggerType.TIMESTAMP,
         timestamp: dayTime.getTime(),
         alarmManager: { allowWhileIdle: true },
       };
-      
+
       await notifee.createTriggerNotification(
         {
           id: dayScheduleId,
@@ -603,29 +607,29 @@ export async function scheduleRepeatingReminder(
         },
         primaryTrigger
       );
-      
+
       allScheduledIds.push(dayScheduleId);
       console.log(`[Notifications] Day ${dayOffset} primary scheduled: ${dayScheduleId} at ${dayTime.toISOString()}`);
-      
+
       // Schedule FOLLOW-UP notifications for this day
       if (iosFollowUpCount > 0) {
         const followUpIds: string[] = [];
-        
+
         for (let i = 1; i <= iosFollowUpCount; i++) {
           const followUpTime = new Date(dayTime.getTime() + (snoozeDuration * i * 60000));
           const followUpId = `${dayScheduleId}_followup_${i}`;
-          
+
           // Skip if this follow-up time has already passed
           if (followUpTime.getTime() < Date.now()) {
             continue;
           }
-          
+
           const followUpTrigger: TimestampTrigger = {
             type: TriggerType.TIMESTAMP,
             timestamp: followUpTime.getTime(),
             alarmManager: { allowWhileIdle: true },
           };
-          
+
           await notifee.createTriggerNotification(
             {
               id: followUpId,
@@ -657,21 +661,21 @@ export async function scheduleRepeatingReminder(
             },
             followUpTrigger
           );
-          
+
           followUpIds.push(followUpId);
           console.log(`[Notifications] Day ${dayOffset} follow-up ${i} scheduled: ${followUpId}`);
         }
-        
+
         // Store follow-up IDs for cancellation
         if (followUpIds.length > 0) {
           await storeIOSFollowUpIds(dayScheduleId, followUpIds);
         }
       }
     }
-    
+
     await logDebug(`[NotificationService] iOS: Scheduled ${allScheduledIds.length} days of notifications with follow-ups`);
     console.log(`[Notifications] ✅ iOS multi-day scheduling complete: ${allScheduledIds.length} primary notifications`);
-    
+
     return allScheduledIds[0] || reminder.scheduleId;
   } catch (error) {
     console.error('[Notifications] Repeating schedule error:', error);
@@ -714,14 +718,14 @@ export async function snoozeReminder(
   try {
     // Cancel current notification
     await cancelReminder(scheduleId);
-    
+
     // Schedule new notification after snooze duration
     const snoozeTime = new Date();
     snoozeTime.setMinutes(snoozeTime.getMinutes() + snoozeMinutes);
-    
+
     // Use a predictable ID for manual snooze to avoid cluttering the OS
     const manualSnoozeId = `${scheduleId}_manual`;
-    
+
     return await scheduleMedicineReminder({
       ...medicationData,
       scheduleId: manualSnoozeId,
@@ -793,42 +797,42 @@ export async function decrementBadgeCount(): Promise<void> {
  * Lists all permissions, channels, and pending notifications (triggers)
  */
 export async function generateDebugReport(): Promise<string> {
-    const { getLogs, LOG_FILE_PATH } = require('./debugLogger');
-    
-    const settings = await notifee.getNotificationSettings();
-    const channels: any[] = [];
-    const pending = await notifee.getTriggerNotifications();
-    const logs = await getLogs();
+  const { getLogs, LOG_FILE_PATH } = require('./debugLogger');
 
-    const report = {
-        generatedAt: new Date().toISOString(),
-        device: {
-            os: Platform.OS,
-            version: Platform.Version,
-        },
-        permissions: {
-            authorized: settings.authorizationStatus >= AuthorizationStatus.AUTHORIZED,
-            settings,
-        },
-        androidChannels: channels,
-        pendingTriggersCount: pending.length,
-        pendingTriggers: pending.map(p => ({
-            id: p.notification.id,
-            title: p.notification.title,
-            body: p.notification.body,
-            nextTrigger: p.trigger.type === TriggerType.TIMESTAMP ? new Date(p.trigger.timestamp).toISOString() : 'Interval',
-            repeatFrequency: p.trigger.type === TriggerType.TIMESTAMP ? (p.trigger as TimestampTrigger).repeatFrequency : undefined,
-            data: p.notification.data,
-        })),
-        recentLogs: logs.split('\n').slice(-100), // Last 100 logs
-    };
+  const settings = await notifee.getNotificationSettings();
+  const channels: any[] = [];
+  const pending = await notifee.getTriggerNotifications();
+  const logs = await getLogs();
 
-    const reportBlob = JSON.stringify(report, null, 2);
-    console.log('--- NOTIFICATION DEBUG REPORT ---');
-    console.log(reportBlob);
-    console.log('--- END REPORT ---');
-    
-    return reportBlob;
+  const report = {
+    generatedAt: new Date().toISOString(),
+    device: {
+      os: Platform.OS,
+      version: Platform.Version,
+    },
+    permissions: {
+      authorized: settings.authorizationStatus >= AuthorizationStatus.AUTHORIZED,
+      settings,
+    },
+    androidChannels: channels,
+    pendingTriggersCount: pending.length,
+    pendingTriggers: pending.map(p => ({
+      id: p.notification.id,
+      title: p.notification.title,
+      body: p.notification.body,
+      nextTrigger: p.trigger.type === TriggerType.TIMESTAMP ? new Date(p.trigger.timestamp).toISOString() : 'Interval',
+      repeatFrequency: p.trigger.type === TriggerType.TIMESTAMP ? (p.trigger as TimestampTrigger).repeatFrequency : undefined,
+      data: p.notification.data,
+    })),
+    recentLogs: logs.split('\n').slice(-100), // Last 100 logs
+  };
+
+  const reportBlob = JSON.stringify(report, null, 2);
+  console.log('--- NOTIFICATION DEBUG REPORT ---');
+  console.log(reportBlob);
+  console.log('--- END REPORT ---');
+
+  return reportBlob;
 }
 
 /**
@@ -840,14 +844,24 @@ export async function generateDebugReport(): Promise<string> {
 export async function reconcileReminders(medications: Medication[]): Promise<void> {
   console.log('='.repeat(60));
   console.log(`[Notifications] 🔄 STARTING RECONCILIATION for ${medications.length} medications`);
-  
+
   try {
     // 1. Cancel everything (Nuclear option to ensure no ghosts remain)
     await notifee.cancelAllNotifications();
     console.log('[Notifications] 🗑️  Cancelled ALL existing notifications');
 
     // 2. Filter for active only
-    const activeMeds = medications.filter(m => m.is_active);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeMeds = medications.filter(m => {
+      if (m.end_date) {
+        const endDate = new Date(m.end_date);
+        endDate.setHours(0, 0, 0, 0);
+        if (endDate < today) return false;
+      }
+      return true;
+    });
     console.log(`[Notifications] Found ${activeMeds.length} active medications to schedule`);
 
     // 3. Reschedule one by one

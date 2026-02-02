@@ -36,7 +36,10 @@ export default function AddReminderModal({
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
     const [suggestion, setSuggestion] = useState<{ time: string, matchingMedName: string } | null>(null);
 
-    const medications = useMedicationsStore(state => state.medications);
+    const { medications, getActiveMedications } = useMedicationsStore(state => ({
+        medications: state.medications,
+        getActiveMedications: state.getActiveMedications
+    }));
 
     // Reset state when modal opens
     useEffect(() => {
@@ -59,7 +62,7 @@ export default function AddReminderModal({
     // Calculate suggestion based on other active medications
     useEffect(() => {
         // Find all active medications and their reminder times
-        const otherMedications = medications.filter(m => m.is_active);
+        const otherMedications = getActiveMedications();
 
         let bestSuggestion: { time: string, matchingMedName: string, diff: number } | null = null;
 
