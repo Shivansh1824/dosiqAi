@@ -291,9 +291,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
+      const medStartDate = parsedMed.start_date || startDate;
       let endDate: string | undefined;
       if (parsedMed.duration_days) {
-        endDate = calculateEndDate(startDate, parsedMed.duration_days);
+        endDate = calculateEndDate(medStartDate, parsedMed.duration_days);
       }
 
       const newSchedule = {
@@ -316,7 +317,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         food_relationship: parsedMed.food_relationship,
         interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
-        start_date: startDate,
+        start_date: medStartDate,
         duration_days: parsedMed.duration_days,
         end_date: endDate,
 
@@ -371,9 +372,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
       const newSchedules = parsedMeds.map(parsedMed => {
+        const medStartDate = parsedMed.start_date || startDate;
         let endDate: string | undefined;
         if (parsedMed.duration_days) {
-          endDate = calculateEndDate(startDate, parsedMed.duration_days);
+          endDate = calculateEndDate(medStartDate, parsedMed.duration_days);
         }
 
         return {
@@ -387,7 +389,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           medicine_purpose: parsedMed.medicine_purpose,
           form: parsedMed.form,
           strength: parsedMed.strength,
-
+ 
           // Scheduling
           dosage_instruction: parsedMed.dosage,
           timing_dosage: parsedMed.timing_dosage,
@@ -395,8 +397,8 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           reminder_times: parsedMed.time_of_day,
           food_relationship: parsedMed.food_relationship,
           interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
-
-          start_date: startDate,
+ 
+          start_date: medStartDate,
           duration_days: parsedMed.duration_days,
           end_date: endDate,
 

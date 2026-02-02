@@ -8,7 +8,7 @@ import { Medication } from '../types/medication';
 import { FamilyMember } from '../types/familyMember';
 import { normalizeTime } from '../types/medicationSchedule';
 import DatePickerModal from './DatePickerModal';
-import { calculateEndDate, isAsNeededFrequency } from '../utils/medicationParser';
+import { calculateEndDate, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
 import { generateCyclicReminderTimes } from '../types/medicationSchedule';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
@@ -37,7 +37,12 @@ interface MedicationVerificationCardProps {
   duplicateOf?: Medication;
   onDismiss?: () => void;
   medicineIndex?: number;
-  onLiveUpdate?: (updates: { current_reminder_times: string[] }) => void;
+  onLiveUpdate?: (updates: { 
+    current_reminder_times?: string[];
+    start_date?: string;
+    end_date?: string;
+    duration_days?: number;
+  }) => void;
   isFirstItem?: boolean;
   cardIndex?: number; // Index for alternating background colors
   isVerified?: boolean; // NEW: Whether medication is already added to tracker
@@ -73,12 +78,12 @@ export default function MedicationVerificationCard({
   const [isEditing, setIsEditing] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [startDate, setStartDate] = useState(suggestedStartDate);
+  const [startDate, setStartDate] = useState(parseDateOnly(suggestedStartDate));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   // Initialize endDate with the default calculated date so it doesn't float with startDate changes
   const [endDate, setEndDate] = useState<string>(
-    calculateEndDate(suggestedStartDate, initialMedication.duration_days ?? 5)
+    calculateEndDate(parseDateOnly(suggestedStartDate), initialMedication.duration_days ?? 7)
   );
 
   // Editable fields state
@@ -295,10 +300,23 @@ export default function MedicationVerificationCard({
   const handleVerifyAndAdd = async () => {
     setIsVerifying(true);
     try {
+      // Calculate duration_days based on current state (exact difference)
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Ensure we are comparing dates at the same time of day to avoid timezone/DST issues
+      const startUTC = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+      const endUTC = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+      
+      const diffTime = endUTC - startUTC;
+      const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
       // Include user-edited reminder times in the final medication object
       const activeReminderTimes = customReminderTimes.filter(t => !inactiveReminders.includes(t));
       const finalMedication = {
         ...medication,
+        duration_days: diffDays,
+        start_date: startDate,
         verified_by_user: true,
         time_of_day: activeReminderTimes, // Use user-edited times, not defaults
       };
@@ -718,6 +736,18 @@ export default function MedicationVerificationCard({
               onConfirm={(date) => {
                 setStartDate(date);
                 setShowDatePicker(false);
+                
+                // Calculate new duration and broadcast live update
+                const start = new Date(date);
+                const end = new Date(endDate);
+                const diffTime = end.getTime() - start.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                onLiveUpdate?.({ 
+                  start_date: date,
+                  end_date: endDate,
+                  duration_days: diffDays
+                });
               }}
               onCancel={() => setShowDatePicker(false)}
               maximumDate={new Date().toISOString().split('T')[0]}
@@ -731,6 +761,18 @@ export default function MedicationVerificationCard({
               onConfirm={(date) => {
                 setEndDate(date);
                 setShowEndDatePicker(false);
+                
+                // Calculate new duration and broadcast live update
+                const start = new Date(startDate);
+                const end = new Date(date);
+                const diffTime = end.getTime() - start.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                onLiveUpdate?.({ 
+                  start_date: startDate,
+                  end_date: date,
+                  duration_days: diffDays
+                });
               }}
               onCancel={() => setShowEndDatePicker(false)}
               minimumDate={startDate}

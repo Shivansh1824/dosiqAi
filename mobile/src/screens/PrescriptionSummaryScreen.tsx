@@ -11,7 +11,7 @@ import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
-import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
+import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
 import { supabase } from '../services/supabaseClient';
 import {
   METRIC_STATUS_COLORS,
@@ -86,8 +86,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     return medications.some(med => med.source_document_id === initialDocument.id);
   }, [initialDocument?.id, medications]);
 
-  // Live updates for medication reminders (index -> updates)
-  const [medicationLiveUpdates, setMedicationLiveUpdates] = useState<Record<number, { current_reminder_times?: string[] }>>({});
+  // Live updates for medication reminders and dates (index -> updates)
+  const [medicationLiveUpdates, setMedicationLiveUpdates] = useState<Record<number, { 
+    current_reminder_times?: string[];
+    start_date?: string;
+    end_date?: string;
+    duration_days?: number;
+  }>>({});
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
@@ -1073,7 +1078,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       <View>
                         {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
                           const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-                          const suggestedStartDate = document.created_at.split('T')[0];
+                          const suggestedStartDate = parseDateOnly(document.created_at);
                           // Pass full medications list for history check (parser handles filtering)
                           const duplicateOf = duplicateMedicationsMap.get(index);
 
@@ -1087,7 +1092,12 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               onVerifyAndAdd={handleVerifyAndAddMedication}
                               duplicateOf={duplicateOf || undefined}
                               medicineIndex={index}
-                              onLiveUpdate={(updates: { current_reminder_times?: string[] }) => {
+                              onLiveUpdate={(updates: { 
+                                current_reminder_times?: string[];
+                                start_date?: string;
+                                end_date?: string;
+                                duration_days?: number;
+                              }) => {
                                 setMedicationLiveUpdates(prev => ({
                                   ...prev,
                                   [index]: { ...prev[index], ...updates }
@@ -1123,23 +1133,38 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               const currentUser = (await supabase.auth.getUser()).data.user;
                               if (!currentUser) return;
 
+                              const suggestedStartDate = parseDateOnly(document.created_at);
                               const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
                                 const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                                 // Merge user edits from live updates
                                 const liveUpdates = medicationLiveUpdates[index];
-                                if (liveUpdates?.current_reminder_times) {
-                                  parsedMed.time_of_day = liveUpdates.current_reminder_times;
+                                if (liveUpdates) {
+                                  if (liveUpdates.current_reminder_times) {
+                                    parsedMed.time_of_day = liveUpdates.current_reminder_times;
+                                  }
+                                  parsedMed.start_date = liveUpdates.start_date || suggestedStartDate;
+                                  if (liveUpdates.duration_days !== undefined) {
+                                    parsedMed.duration_days = liveUpdates.duration_days;
+                                  }
+                                } else {
+                                  // No live updates, apply matching defaults from UI card (Simple Sync)
+                                  parsedMed.start_date = suggestedStartDate;
+                                  if (parsedMed.duration_days === null || parsedMed.duration_days === undefined) {
+                                    const isAsNeeded = isAsNeededFrequency(parsedMed.timing_dosage || parsedMed.dosage, parsedMed.total_times_per_day);
+                                    if (!isAsNeeded) {
+                                      parsedMed.duration_days = 7; // Matching UI's 7-day default
+                                    }
+                                  }
                                 }
                                 return parsedMed;
                               });
-                              const startDate = document.created_at.split('T')[0];
 
                               await useMedicationsStore.getState().addMedicationsBatchFromAI(
                                 medsToVerify,
                                 currentUser.id,
                                 document.id,
                                 displayTitle,
-                                startDate,
+                                suggestedStartDate,
                                 document.family_member_id!
                               );
 

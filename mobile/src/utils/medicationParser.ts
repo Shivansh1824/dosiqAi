@@ -9,6 +9,33 @@ import { MedicineInfo } from '../types/document';
 import { ParsedMedication, VerificationConfidence } from '../types/medicationVerification';
 
 /**
+ * Safely parse any date/timestamp string and return YYYY-MM-DD
+ * Handles ISO format (T separated) and SQL format (Space separated)
+ * 
+ * @param dateString - The date or timestamp string to parse
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function parseDateOnly(dateString: string | null | undefined): string {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+  
+  // Try regex for YYYY-MM-DD pattern at the start
+  const match = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  
+  // Fallback to JS Date parsing if regex fails
+  try {
+    const d = new Date(dateString);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  } catch (e) {
+    // console.log ignore
+  }
+  
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
  * Comprehensive medical frequency code mapping
  * Sources: Medical prescription abbreviations (Latin origins)
  *
@@ -149,7 +176,7 @@ export function formatFrequencyDisplay(
  * Determine if the frequency logic results in "As Needed"
  * Used to conditionally hide UI sections like Course Period
  * 
- * @param dosage - Timing pattern like "1-0-1"
+ * @param dosage - Timing pattern like "1-0-1" or instruction string
  * @param totalTimesPerDay - Number of times per day
  * @returns true if frequency is "As Needed"
  */
@@ -157,15 +184,40 @@ export function isAsNeededFrequency(
   dosage: string | null | undefined,
   totalTimesPerDay: number | null | undefined
 ): boolean {
+  // If no dosage instruction and no frequency, assume as needed (safety)
+  if (!dosage && (!totalTimesPerDay || totalTimesPerDay === 0)) return true;
+
+  // Check for common SOS/PRN keywords first
+  if (dosage) {
+    const instruction = dosage.toUpperCase();
+    if (
+      instruction.includes('PRN') || 
+      instruction.includes('S.O.S') || 
+      instruction.includes('SOS') || 
+      instruction.startsWith('AS NEEDED') ||
+      instruction.includes('IF NEEDED') ||
+      instruction.includes('WHEN NECESSARY')
+    ) {
+      return true;
+    }
+  }
+
+  // Check numeric patterns (e.g. 1-0-1)
   if (totalTimesPerDay && totalTimesPerDay <= 3 && dosage) {
     const parts = dosage.split('-').map(Number);
     if (parts.length === 3 && parts.every(p => !isNaN(p))) {
+      // If it's 0-0-0 specifically, it's as needed
+      if (parts.every(p => p === 0)) return true;
       return false;
     }
-    return true;
   } else if (totalTimesPerDay && totalTimesPerDay > 3) {
     return false;
   }
+
+  // Default for anything else (like single values or strings without SOS keywords)
+  // If it has a positive totalTimesPerDay, it's likely a scheduled dose
+  if (totalTimesPerDay && totalTimesPerDay > 0) return false;
+
   return true;
 }
 
@@ -741,6 +793,15 @@ export function parseAIMedication(
     foodRelationship = parseFoodRelationship(medicine.special_instructions);
   }
 
+  // Determine final duration: AI > Parsed > Default (7 days for non-SOS)
+  let finalDuration = medicine.duration_days ?? durationDays;
+  if (finalDuration === null || finalDuration === undefined) {
+    const isAsNeeded = isAsNeededFrequency(medicine.timing?.dosage || medicine.dosage_instruction, medicine.timing?.total_times_per_day);
+    if (!isAsNeeded) {
+      finalDuration = 7;
+    }
+  }
+
   return {
     name: cleanMedicationName(medicine.exact_written_name),
     strength: medicine.strength,
@@ -751,7 +812,7 @@ export function parseAIMedication(
     dosage: medicine.dosage_instruction || '',
     frequency,
     original_frequency_code: medicine.frequency || '',
-    duration_days: medicine.duration_days ?? durationDays,
+    duration_days: finalDuration,
     interval_days: medicine.interval_days ?? null,
     timing_dosage: medicine.timing?.dosage,
     total_times_per_day: medicine.timing?.total_times_per_day,
