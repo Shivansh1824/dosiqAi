@@ -798,7 +798,7 @@ export function parseAIMedication(
   if (finalDuration === null || finalDuration === undefined) {
     const isAsNeeded = isAsNeededFrequency(medicine.timing?.dosage || medicine.dosage_instruction, medicine.timing?.total_times_per_day);
     if (!isAsNeeded) {
-      finalDuration = 7;
+      finalDuration = 5;
     }
   }
 

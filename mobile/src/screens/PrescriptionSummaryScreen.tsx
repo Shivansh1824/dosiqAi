@@ -1159,7 +1159,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                       if (parsedMed.duration_days === null || parsedMed.duration_days === undefined) {
                                         const isAsNeeded = isAsNeededFrequency(parsedMed.timing_dosage || parsedMed.dosage, parsedMed.total_times_per_day);
                                         if (!isAsNeeded) {
-                                          parsedMed.duration_days = 7; // Matching UI's 7-day default
+                                          parsedMed.duration_days = 5; // Matching UI's 5-day default
                                         }
                                       }
                                     }

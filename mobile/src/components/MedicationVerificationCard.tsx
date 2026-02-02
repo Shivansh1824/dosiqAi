@@ -83,7 +83,7 @@ export default function MedicationVerificationCard({
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   // Initialize endDate with the default calculated date so it doesn't float with startDate changes
   const [endDate, setEndDate] = useState<string>(
-    calculateEndDate(parseDateOnly(suggestedStartDate), initialMedication.duration_days ?? 7)
+    calculateEndDate(parseDateOnly(suggestedStartDate), initialMedication.duration_days ?? 5)
   );
 
   // Editable fields state
