@@ -29,7 +29,7 @@ export default function MedicationsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showCalendarModal, setShowCalendarModal] = useState(false);
-    
+
     // Rescheduling state
     const [reschedulingMed, setReschedulingMed] = useState<MedicationWithStatus | null>(null);
     const [showTimePicker, setShowTimePicker] = useState(false);
@@ -56,7 +56,7 @@ export default function MedicationsScreen() {
         const selectedDateStr = toLocalDateString(selectedDate);
 
         // Filter medications that are:
-        // 1. Active (is_active = true)
+        // 1. Active (not expired)
         // 2. Started on or before selected date
         // 3. Not ended OR ended on or after selected date
         const activeMeds = meds.filter(med => {
@@ -244,20 +244,20 @@ export default function MedicationsScreen() {
 
     const onTimeChange = async (event: any, selectedTime?: Date) => {
         setShowTimePicker(false);
-        
+
         if (selectedTime && reschedulingMed && user?.id) {
-            const timeString = selectedTime.toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                hour12: false 
+            const timeString = selectedTime.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
             });
 
             try {
                 // Update the medication's schedule in the store
-                const updatedTimes = reschedulingMed.times.map((t: string) => 
+                const updatedTimes = reschedulingMed.times.map((t: string) =>
                     t === reschedulingMed.scheduled_time ? timeString : t
                 );
-                
+
                 const updatedMed = await useMedicationsStore.getState().updateMedication(reschedulingMed.id, {
                     time_of_day: updatedTimes.sort()
                 });
@@ -266,7 +266,7 @@ export default function MedicationsScreen() {
                     await scheduleAllForMedication(updatedMed);
                     console.log('✅ Rescheduled notifications for:', updatedMed.name);
                 }
-                
+
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (error) {
                 console.error('Failed to reschedule medication:', error);
@@ -298,7 +298,7 @@ export default function MedicationsScreen() {
     const handleSaveMedication = async (medication: any) => {
         try {
             const newMed = await useMedicationsStore.getState().addMedication(medication);
-            
+
             if (newMed) {
                 await scheduleAllForMedication(newMed);
                 console.log('✅ Scheduled notifications for new med:', newMed.name);

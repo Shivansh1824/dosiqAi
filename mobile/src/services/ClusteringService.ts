@@ -9,8 +9,7 @@ import { Medication } from '../types/medication';
 /**
  * Determines if a medication is active for a given date.
  * Checks:
- * 1. is_active flag
- * 2. start_date <= targetDate
+ * 1. start_date <= targetDate
  * 3. end_date >= targetDate (if exists)
  */
 export function isMedicationActiveForDate(medication: Medication, targetDate: Date): boolean {

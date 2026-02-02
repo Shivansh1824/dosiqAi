@@ -17,11 +17,11 @@ import { ParsedMedication, VerificationConfidence } from '../types/medicationVer
  */
 export function parseDateOnly(dateString: string | null | undefined): string {
   if (!dateString) return new Date().toISOString().split('T')[0];
-  
+
   // Try regex for YYYY-MM-DD pattern at the start
   const match = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
   if (match) return match[1];
-  
+
   // Fallback to JS Date parsing if regex fails
   try {
     const d = new Date(dateString);
@@ -31,7 +31,7 @@ export function parseDateOnly(dateString: string | null | undefined): string {
   } catch (e) {
     // console.log ignore
   }
-  
+
   return new Date().toISOString().split('T')[0];
 }
 
@@ -191,9 +191,9 @@ export function isAsNeededFrequency(
   if (dosage) {
     const instruction = dosage.toUpperCase();
     if (
-      instruction.includes('PRN') || 
-      instruction.includes('S.O.S') || 
-      instruction.includes('SOS') || 
+      instruction.includes('PRN') ||
+      instruction.includes('S.O.S') ||
+      instruction.includes('SOS') ||
       instruction.startsWith('AS NEEDED') ||
       instruction.includes('IF NEEDED') ||
       instruction.includes('WHEN NECESSARY')
@@ -398,7 +398,7 @@ export function generateDefaultTimeSlots(frequency: MedicationFrequency, prefere
 
     case 'four_times_daily':
       // For 4 times, we need a mid-point. Default to 17:00 or somewhere between afternoon and night
-      return [morning, afternoon, '17:00', night]; 
+      return [morning, afternoon, '17:00', night];
 
     case 'as_needed':
       return [];
@@ -470,7 +470,7 @@ export function generateTimeSlotsFromFrequencyCode(code: string | undefined, fre
 
     if (m > 0) slots.push(morning);
     if (a > 0) slots.push(afternoon);
-    if (n > 0) slots.push(night); 
+    if (n > 0) slots.push(night);
 
     if (slots.length > 0) return slots;
   }
@@ -518,7 +518,7 @@ function stripSpecialChars(str: string): string {
  * @returns Duplicate medication if found, null otherwise
  *
  * @example
- * const existingMeds = [{ name: "Paracetamol", dosage: "500mg", is_active: true }];
+ * const existingMeds = [{ name: "Paracetamol", dosage: "500mg" }];
  * detectDuplicateMedication("PARACETAMOL", "500mg", existingMeds) // returns the existing medication
  */
 export function detectDuplicateMedication(
