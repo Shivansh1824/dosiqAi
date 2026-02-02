@@ -19,8 +19,7 @@ import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import FilePreviewModal from '../components/FilePreviewModal';
-import MockLiveActivity from '../components/MockLiveActivity';
-import MedicineNotificationBanner from '../components/MedicineNotificationBanner';
+
 import { reconcileReminders } from '../services/notificationService';
 
 interface HomeScreenProps {
@@ -37,7 +36,17 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
   // Filtered counts for stat cards
   const documentsCount = documents.length;
-  const activeMedicationsCount = medications.filter(med => med.is_active === true).length;
+  const activeMedicationsCount = medications.filter(med => {
+    // Check if expired / ended
+    if (med.end_date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(med.end_date);
+      endDate.setHours(0, 0, 0, 0);
+      if (endDate < today) return false;
+    }
+    return true;
+  }).length;
   const upcomingAppointmentsCount = appointments.filter(apt => {
     try {
       const today = new Date();
@@ -60,8 +69,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   // New State for Preview Modal
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
-  const [showDebugWidget, setShowDebugWidget] = useState(false);
-
+  
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
   const fabPulse = useRef(new Animated.Value(1)).current;
@@ -623,35 +631,10 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             )}
           </View>
 
-          {/* Dev Tools Section */}
-          <View style={styles.section}>
-            <TouchableOpacity 
-              style={styles.debugButton} 
-              onPress={() => setShowDebugWidget(!showDebugWidget)}
-              activeOpacity={0.7}
-            >
-              <Feather name={showDebugWidget ? "eye-off" : "eye"} size={16} color={Colors.primary} />
-              <Text style={styles.debugButtonText}>
-                {showDebugWidget ? "Hide Live Activity Preview" : "Preview Live Activity Widget"}
-              </Text>
-            </TouchableOpacity>
-            
-            {showDebugWidget && (
-              <View style={styles.debugWidgetContainer}>
-                <MedicineNotificationBanner 
-                  medication="Vitamin D3"
-                  time="11:00 AM"
-                  strength="500mg"
-                  note="Take with food"
-                  currentDose={2}
-                  totalDoses={3}
-                  onTake={() => console.log('Taken pressed')}
-                  onSnooze={() => console.log('Snooze pressed')}
-                  onSkip={() => console.log('Skip pressed')}
-                />
-              </View>
-            )}
-          </View>
+
+
+
+
 
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -1389,27 +1372,5 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
 
-  // Debug/Dev Styles
-  debugButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    backgroundColor: '#EBF5FF',
-    marginHorizontal: Sizes.lg,
-    borderRadius: 8,
-    gap: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderStyle: 'dashed',
-  },
-  debugButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  debugWidgetContainer: {
-    marginBottom: 24,
-  },
+
 });

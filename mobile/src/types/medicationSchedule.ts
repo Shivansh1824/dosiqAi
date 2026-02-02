@@ -64,7 +64,6 @@ export interface MedicationSchedule {
     reminder_minutes_before?: number; // e.g., 15 minutes before scheduled time
 
     // Status
-    is_active: boolean;
     color: string;
 
     // Metadata

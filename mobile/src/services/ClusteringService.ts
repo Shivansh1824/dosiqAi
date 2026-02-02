@@ -14,9 +14,7 @@ import { Medication } from '../types/medication';
  * 3. end_date >= targetDate (if exists)
  */
 export function isMedicationActiveForDate(medication: Medication, targetDate: Date): boolean {
-  if (!medication.is_active) {
-    return false;
-  }
+
 
   // Normalize dates to YYYY-MM-DD for comparison to avoid time issues
   const targetDateStr = targetDate.toISOString().split('T')[0];
@@ -73,8 +71,12 @@ export function groupMedicinesByTime(
 
     // 2. Place into time buckets
     if (med.time_of_day && Array.isArray(med.time_of_day)) {
-      med.time_of_day.forEach((time) => {
+      med.time_of_day.forEach((rawTime) => {
+        // Sanitize time (trim spaces)
+        const time = rawTime.trim();
         // time is expected to be "HH:mm"
+        if (!time) return;
+
         if (!clusters[time]) {
           clusters[time] = [];
         }

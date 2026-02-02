@@ -191,62 +191,63 @@
             </div>
 
             <h3>
-                <span class="phase-badge">Phase 2</span> The Look (Notification
+                <span class="phase-badge" style="background-color: #059669;">Phase 2 (Completed)</span> The Look (Notification
                 Banner)
             </h3>
             <p>
-                <strong>The "Smart Text".</strong> Since we can't fit unlimited
-                text on a small phone banner, we need to be smart about what we
-                show.
+                <strong>The "Smart Text" Engine.</strong> We implemented a dynamic string generator (<code>generateSharedBodyText</code>) that adapts the notification body based on the exact count of medications in the cluster. This ensures we stay within the safe character limits (~40 chars) for single-line banners on both iOS and Android.
             </p>
             <ul>
-                <li>We write code to generate smart summaries.</li>
-                <li>If you have 2 meds: Show "Take Med A and Med B".</li>
+                <li><strong>Logic:</strong> The system automatically detects the number of meds and formats the string instantly.</li>
+                <li><strong>Single Med:</strong> "Time to take Aspirin"</li>
+                <li><strong>Double Meds:</strong> "Time to take Aspirin and Vitamin D"</li>
+                <li><strong>Multi Meds (3+):</strong> "Time to take Paracetamol, Zyloric & 1 other"</li>
                 <li>
-                    If you have 5 meds: Show "Take Med A, Med B, and 3 others".
-                </li>
-                <li>
-                    <strong>Result:</strong> Clean, readable notifications that
-                    don't get cut off.
+                    <strong>Result:</strong> zero truncation, perfect readability, and grammatically correct pluralization ("1 other" vs "2 others").
                 </li>
             </ul>
 
             <h3>
-                <span class="phase-badge">Phase 3</span> The Screen (Alarm UI)
+                <span class="phase-badge" style="background-color: #059669;">Phase 3 (Completed)</span> The Screen (Alarm UI)
             </h3>
             <p>
-                <strong>The "Checklist".</strong> Currently, the alarm screen
-                only knows how to show one medicine.
+                <strong>The "Checklist" & Unified Ecosystem.</strong> We redesigned the Alarm Screen to be the central hub for clustered medications.
             </p>
             <ul>
                 <li>
-                    We update the Alarm Screen to handle a <em>List</em> of
-                    medicines.
+                    <strong>Dynamic Checklist:</strong> The screen parses the <code>activeMedicationIds</code> payload and renders a scrollable list of medications. Users can check "All" or select specific ones.
                 </li>
-                <li>We add a "Take All" button for convenience.</li>
                 <li>
-                    <strong>Result:</strong> When you open the notification, you
-                    see everything you need to take right now in one view.
+                    <strong>Intelligent "Take" Action:</strong> Tapping "Take" processes the list logic instantly:
+                    <ul>
+                        <li><span style="color:#059669">Checked</span> items -> Marked as <strong>Taken</strong>.</li>
+                        <li><span style="color:#dc2626">Unchecked</span> items -> Automatically marked as <strong>Skipped</strong>.</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Premium Aesthetic:</strong> Implemented a "Glassmorphism" design with blurred backgrounds, smooth entrance animations, and a modern card layout.
                 </li>
             </ul>
 
             <h3>
-                <span class="phase-badge">Phase 4</span> The Safety Net
+                <span class="phase-badge" style="background-color: #059669;">Phase 4 (Completed)</span> The Safety Net
                 (Follow-ups)
             </h3>
             <p>
-                <strong>The "Unified Reminder".</strong> Making sure we don't
-                nag you unnecessarily.
+                <strong>The "Unified Reminder".</strong> The logic is now fully integrated with the UI actions.
             </p>
             <ul>
                 <li>
-                    If you snooze the 8:00 AM group, we snooze the whole group.
+                    <strong>Group Cancellation:</strong> Acting on the cluster (Taken or Skipped) immediately cancels the primary reminder <em>and</em> all associated follow-up notifications (Shield + Smart Layer) for that slot.
                 </li>
                 <li>
-                    <strong>Smart Logic:</strong> If you act on the group (e.g., mark 2 taken, 1 unchecked), the unchecked one is auto-skipped. No further follow-ups for this group.
+                    <strong>Cluster-Aware Snooze:</strong> Snoozing the alarm doesn't just silence the sound; it reschedules the <strong>entire cluster</strong>. When the snooze alarm fires, it remembers exactly which medications were in the group.
                 </li>
                 <li>
-                    <strong>Result:</strong> Less noise, more peace of mind.
+                    <strong>Smart Refill Engine:</strong> Every time a user takes action (Taken/Skipped), the system triggers a background <em>Reconciliation</em> process. This instantly "tops up" the schedule horizon back to 14 days, ensuring the user effectively triggers their own future reminders.
+                </li>
+                <li>
+                    <strong>Result:</strong> A seamless loop that never nags you for pills you've already taken.
                 </li>
             </ul>
         </div>

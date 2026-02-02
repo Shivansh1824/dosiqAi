@@ -60,8 +60,6 @@ export default function MedicationsScreen() {
         // 2. Started on or before selected date
         // 3. Not ended OR ended on or after selected date
         const activeMeds = meds.filter(med => {
-            if (!med.is_active) return false;
-
             // Check if medication has started
             if (med.start_date > selectedDateStr) {
                 return false; // Medication hasn't started yet
@@ -185,8 +183,6 @@ export default function MedicationsScreen() {
         const events: Record<string, CalendarEvent> = {};
 
         medications.forEach(med => {
-            if (!med.is_active) return;
-
             // Calculate actual occurrence dates based on frequency
             // Pass date strings directly (no Date object conversion)
             const occurrenceDates = calculateMedicationOccurrences(

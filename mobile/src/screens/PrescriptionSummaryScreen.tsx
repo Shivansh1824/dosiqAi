@@ -664,9 +664,11 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       await scheduleAllForMedication(addedMed);
                     }
 
-                    // Mark old as inactive
+                    // Mark old as inactive (set end_date to yesterday)
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
                     await useMedicationsStore.getState().updateMedication(duplicate.id, {
-                      is_active: false,
+                      end_date: yesterday.toISOString().split('T')[0],
                     });
 
                     // Mark as verified

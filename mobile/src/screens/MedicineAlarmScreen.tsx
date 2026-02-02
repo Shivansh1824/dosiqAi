@@ -1,9 +1,9 @@
 /**
  * Full-Screen Medicine Alarm Screen (Android)
- * Redesigned with Premium '2026 Standard' Aesthetic
+ * Redesigned with Premium '2026 Standard' Aesthetic & Clustering Support (Phase 3)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,18 +15,27 @@ import {
   Platform,
   Modal,
   Animated,
+  ScrollView,
+  SafeAreaView,
+  Easing, // Added
+  PanResponder, 
+  Image, 
+  PanResponderGestureState, 
+  useColorScheme // Added
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import notifee from '@notifee/react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { cancelReminder, snoozeReminder, MedicineReminderData } from '../services/notificationService';
+import { cancelReminder, cancelIOSFollowUps, snoozeReminder, MedicineReminderData } from '../services/notificationService';
 import SponsoredSpace from '../components/notification/SponsoredSpace';
 import { useMedicationLogsStore } from '../store/medicationLogsStore';
+import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { toLocalDateString } from '../utils/dateUtils';
 import { Colors } from '../constants';
+import { BlurView } from 'expo-blur';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface NotificationData {
   medicationId?: string;
@@ -34,422 +43,625 @@ interface NotificationData {
   dosage?: string;
   scheduleId?: string;
   instructions?: string;
+  // Phase 3: Clustering support
+  activeMedicationIds?: string; // JSON string of IDs
+  activeMedications?: string;   // JSON string of full objects (optional fallback)
+  scheduledTime?: string;       // ISO string of scheduled time
 }
 
-interface Props {
-  notification?: {
-    data?: NotificationData;
-  };
+interface MedicationItem {
+  id: string; // medicationId
+  name: string;
+  dosage: string;
+  instructions?: string;
+  scheduleId?: string; // Derived base schedule ID
 }
 
 export default function MedicineAlarmScreen({ notification, route, navigation }: any) {
+  // --------------------------------------------------------------------------
+  // LOGGING & SETUP
+  // --------------------------------------------------------------------------
   console.log('='.repeat(60));
-  console.log('[MedicineAlarmScreen] 🚨 COMPONENT RENDERING');
-  
-  // Detailed logging of incoming props
-  try {
-    if (notification) {
-      console.log('[MedicineAlarmScreen] notification prop keys:', Object.keys(notification));
-      console.log('[MedicineAlarmScreen] notification.data:', JSON.stringify(notification.data));
-    } else {
-      console.log('[MedicineAlarmScreen] notification prop is undefined');
-    }
-    
-    if (route) {
-      console.log('[MedicineAlarmScreen] route prop keys:', Object.keys(route));
-      console.log('[MedicineAlarmScreen] route.params:', JSON.stringify(route.params));
-    } else {
-      console.log('[MedicineAlarmScreen] route prop is undefined');
-    }
-  } catch (err) {
-    console.error('[MedicineAlarmScreen] Error logging props:', err);
-  }
+  console.log('[MedicineAlarmScreen] 🚨 PHASE 3 CLUSTER ALARM RENDER');
 
-  const [isActionTaken, setIsActionTaken] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
-  const slideAnim = useState(new Animated.Value(300))[0];
-  
-  // Store hooks for database updates
   const { user } = useAuthStore();
   const { markAsTaken, markAsSkipped } = useMedicationLogsStore();
+  const { medications: allMedications } = useMedicationsStore();
   
-  console.log('[MedicineAlarmScreen] Auth User ID:', user?.id || 'UNDEFINED');
-  
-  // Snooze options
-  const snoozeOptions = [
-    { label: '5 minutes', value: 5 },
-    { label: '10 minutes', value: 10 },
-    { label: '15 minutes', value: 15 },
-    { label: '30 minutes', value: 30 },
-  ];
-  
-  // Helper to safely extract data
-  const resolveMedicationData = (): NotificationData => {
-    // 1. Try notification data
-    if (notification?.data) {
-      console.log('[MedicineAlarmScreen] Using notification.data');
-      return notification.data;
-    }
-    
-    // 2. Try route params
-    if (route?.params) {
-      console.log('[MedicineAlarmScreen] Using route.params');
-      return route.params;
-    }
-    
-    // 3. Fallback
-    console.log('[MedicineAlarmScreen] Using default fallback data');
-    return {
-      medicationName: 'Metformin',
-      dosage: '500mg',
-      scheduleId: '',
-      medicationId: '',
-      instructions: 'Take with food'
-    };
+  // 1. Resolve Data Source (Notification vs Route)
+  const resolveInitialData = (): NotificationData => {
+    if (notification?.data) return notification.data;
+    if (route?.params) return route.params;
+    return {};
   };
 
-  const medicationData = resolveMedicationData();
+  const initialData = resolveInitialData();
   
-  // Extract scheduled time for logging
-  const scheduledDate = toLocalDateString(new Date());
-  const scheduledTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Determine relevant time to show - Robust helper to prevent "Invalid Date"
+  const getInitialTime = () => {
+    if (!initialData.scheduledTime) return new Date();
+    
+    // Attempt 1: Raw ISO string parse
+    let date = new Date(initialData.scheduledTime);
+    if (!isNaN(date.getTime())) return date;
+    
+    // Attempt 2: URL Decode (handles %3A and other encoding artifacts)
+    try {
+      date = new Date(decodeURIComponent(initialData.scheduledTime));
+      if (!isNaN(date.getTime())) return date;
+    } catch (e) {
+      console.log('[MedicineAlarm] Failed to parse encoded date');
+    }
+    
+    // Attempt 3: Default to current system time (User requested "Simple" fallback)
+    console.log('[MedicineAlarm] Malformed scheduledTime, falling back to current system time');
+    return new Date();
+  };
   
-  console.log('[MedicineAlarmScreen] Final Resolved medicationData:', JSON.stringify(medicationData));
+  const [displayTime, setDisplayTime] = useState(getInitialTime());
+
+  // 2. Parse Medications (Clustered vs Single)
+  const [medicationList, setMedicationList] = useState<MedicationItem[]>([]);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   
-  // Update time every second
+  // Load medications logic
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const parseMedications = () => {
+      const list: MedicationItem[] = [];
+      
+      // A. Check for Clustered Payload (Phase 3)
+      if (initialData.activeMedicationIds || initialData.activeMedications) {
+        try {
+          // Helper: Safe Parse with URL Decode fallback
+          const safeParse = (jsonStr: string | undefined): any => {
+            if (!jsonStr) return null;
+            try {
+              return JSON.parse(jsonStr);
+            } catch (e) {
+              // Retry with URL Decode (fix for Android Intent data oddities)
+              console.log('[MedicineAlarm] JSON Parse failed, retrying with decodeURIComponent...');
+              try {
+                return JSON.parse(decodeURIComponent(jsonStr));
+              } catch (e2) {
+                console.error(`[MedicineAlarm] Critical Parse Error. Raw: ${jsonStr}`);
+                throw e2; // Bubble up to outer catch
+              }
+            }
+          };
+
+          // Try to use rich objects first if available (for offline/test support)
+          if (initialData.activeMedications) {
+             const richMeds = safeParse(initialData.activeMedications);
+             if (richMeds && Array.isArray(richMeds)) {
+                richMeds.forEach((m: any) => {
+                  list.push({
+                    id: m.id,
+                    name: m.name,
+                    dosage: m.dosage || '',
+                    instructions: m.instructions || m.notes || '',
+                    scheduleId: initialData.scheduleId
+                  });
+                });
+             }
+          } 
+          
+          // Fallback to IDs + Store Lookup if Rich Data is missing or dry
+          if (list.length === 0 && initialData.activeMedicationIds) {
+            const ids: string[] = safeParse(initialData.activeMedicationIds);
+            
+            if (ids && Array.isArray(ids)) {
+                ids.forEach(id => {
+                  const medStoreItem = allMedications.find(m => m.id === id);
+                  if (medStoreItem) {
+                    list.push({
+                      id: medStoreItem.id,
+                      name: medStoreItem.name,
+                      dosage: medStoreItem.dosage || '',
+                      instructions: medStoreItem.notes || '',
+                      scheduleId: initialData.scheduleId
+                    });
+                  } else {
+                    // Critical Fallback: If store is empty (fresh boot), show at least the "Unknown" placeholder
+                    // or try to fetch from DB? For now, Show ID/Placeholder.
+                    console.log(`[MedicineAlarm] Med ID ${id} not found in store (Store size: ${allMedications.length})`);
+                    list.push({
+                      id: id,
+                      name: 'Loading Medication...', // Better UX than "Unknown"
+                      dosage: '',
+                      scheduleId: initialData.scheduleId
+                    });
+                  }
+                });
+            }
+          }
+        } catch (e) {
+          console.error('[MedicineAlarm] Failed to parse cluster data:', e);
+        }
+      } 
+      
+      // B. Fallback to Legacy Single Params
+      if (list.length === 0) {
+        if (initialData.medicationId || initialData.medicationName) {
+           list.push({
+             id: initialData.medicationId || 'unknown-id',
+             name: initialData.medicationName || 'Medication',
+             dosage: initialData.dosage || '',
+             instructions: initialData.instructions || '',
+             scheduleId: initialData.scheduleId
+           });
+        }
+      }
+      
+      // C. Default fallback for testing
+      if (list.length === 0) {
+         list.push({
+           id: 'mock-1',
+           name: 'Metformin',
+           dosage: '500mg',
+           instructions: 'Take with food'
+         });
+      }
+      
+      setMedicationList(list);
+      const allIds = new Set(list.map(m => m.id));
+      setCheckedIds(allIds);
+    };
+
+    parseMedications();
+  }, [initialData, allMedications]);
+
+  // --------------------------------------------------------------------------
+  // UI & ANIMATION STATE
+  // --------------------------------------------------------------------------
+  const [isActionTaken, setIsActionTaken] = useState(false);
+  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
   
-  // Start vibration pattern on mount
+  // Animations
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const contentSlide = useRef(new Animated.Value(20)).current;
+  const slideAnim = useState(new Animated.Value(300))[0];
+
+  // (Removed ticking clock effect to keep time stable/exact to schedule)
+
+  // Entrance Animation
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(contentFade, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(contentSlide, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, []);
+
+  // Vibration
   useEffect(() => {
     if (Platform.OS === 'android') {
-      const pattern = [0, 500, 300, 500, 300, 500]; // Heartbeat vibration
+      const pattern = [0, 500, 300, 500, 300, 500];
       Vibration.vibrate(pattern, true);
     }
     return () => Vibration.cancel();
   }, []);
-  
-  // Open snooze modal with animation
-  const openSnoozeModal = () => {
-    setShowSnoozeModal(true);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 65,
-      friction: 11,
-    }).start();
-  };
 
-  // Close snooze modal with animation
-  const closeSnoozeModal = () => {
-    Animated.timing(slideAnim, {
-      toValue: 300,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => setShowSnoozeModal(false));
+  // --------------------------------------------------------------------------
+  // HANDLERS
+  // --------------------------------------------------------------------------
+
+  const toggleCheckbox = (id: string) => {
+    const newSet = new Set(checkedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setCheckedIds(newSet);
   };
 
   const handleTaken = async () => {
     if (isActionTaken) return;
     setIsActionTaken(true);
     Vibration.cancel();
+
+    // 1. Process Logic
+    const scheduledDate = toLocalDateString(new Date());
+    const scheduledTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     
-    // Fallback name if undefined
-    const name = medicationData.medicationName || 'your medication';
-    console.log('[MedicineAlarm] Marking as taken:', name);
+    // Group Actions
+    const takenMeds = medicationList.filter(m => checkedIds.has(m.id));
+    const skippedMeds = medicationList.filter(m => !checkedIds.has(m.id));
     
-    // Update medication_logs table
-    if (user?.id && medicationData.medicationId) {
-      try {
-        await markAsTaken(
-          user.id,
-          medicationData.medicationId,
-          scheduledDate,
-          scheduledTime
-        );
-        console.log('[MedicineAlarm] ✅ Database updated with taken status');
-      } catch (error) {
-        console.error('[MedicineAlarm] Failed to update database:', error);
-      }
-    } else {
-      console.warn('[MedicineAlarm] ⚠️ Cannot update database - Missing User ID or Medication ID');
+    console.log(`[MedicineAlarm] TAKEN: ${takenMeds.map(m=>m.name).join(', ')}`);
+    console.log(`[MedicineAlarm] SKIPPED: ${skippedMeds.map(m=>m.name).join(', ')}`);
+
+    // DB Updates
+    if (user?.id) {
+       for (const med of takenMeds) {
+         await markAsTaken(user.id, med.id, scheduledDate, scheduledTime);
+       }
+       for (const med of skippedMeds) {
+         await markAsSkipped(user.id, med.id, scheduledDate, scheduledTime);
+       }
     }
-    
-    if (medicationData.scheduleId) {
-      const baseId = medicationData.scheduleId.replace('_followup', '').replace('_manual', '');
+
+    // Cancel Notifications (Unified)
+    // We assume the scheduleId param belongs to the "cluster leader" or shared time slot
+    if (initialData.scheduleId) {
+      const baseId = initialData.scheduleId.replace('_followup', '').replace('_manual', '');
       await cancelReminder(baseId);
-      await cancelReminder(`${baseId}_followup`);
+      await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
     }
-    
-    // Show confirmation toast/notification then CLOSE
-    const confirmationId = `confirmed-taken-${medicationData.scheduleId || Date.now()}`;
-    console.log('[DEBUG] [MedicineAlarm] Displaying confirmation notification:', confirmationId);
 
+    // User Feedback
+    const names = takenMeds.map(m => m.name).join(', ');
+    const feedbackTitle = takenMeds.length === medicationList.length 
+      ? 'All Clean!' 
+      : `${takenMeds.length}/${medicationList.length} Taken`;
+      
     await notifee.displayNotification({
-      id: confirmationId,
-      title: '✓ Medication Taken',
-      body: `Great job! You took ${name}`,
+      id: `confirm-${Date.now()}`,
+      title: '✓ Dose Logged',
+      body: takenMeds.length > 0 ? `Tracked: ${names}` : 'Medications skipped for now.',
       android: {
         channelId: 'medication-reminders',
         autoCancel: true,
-        // timeoutAfter removed for persistence
         pressAction: { id: 'default' },
-        lightUpScreen: true,
       },
     });
-    console.log('[DEBUG] [MedicineAlarm] handleTaken complete');
 
-    // Close the alarm screen
-    if (navigation?.canGoBack()) {
-      navigation.goBack();
-    } else {
-      // If we can't go back, maybe navigation reset or go Home?
-      // Assuming this screen might be opened on top of everything
-      console.log('[MedicineAlarm] Navigating back/home');
-      navigation.navigate('Home');
-    }
+    closeScreen();
   };
-  
-  const handleSnoozeSelect = async (minutes: number) => {
-    if (isActionTaken) return;
-    setIsActionTaken(true);
-    closeSnoozeModal();
-    Vibration.cancel();
-    
-    console.log('[MedicineAlarm] Snoozing for', minutes, 'minutes:', medicationData.medicationName);
-    
-    // Snooze does NOT update the database - only reschedules the alarm
-    if (medicationData.scheduleId) {
-      const baseId = medicationData.scheduleId.replace('_followup', '').replace('_manual', '');
-      
-      const reminderData: MedicineReminderData = {
-        medicationId: medicationData.medicationId || '',
-        medicationName: medicationData.medicationName || '',
-        dosage: medicationData.dosage || '',
-        scheduleId: baseId, // Use base ID for snooze
-        instructions: medicationData.instructions,
-        scheduledTime: new Date(),
-      };
-      
-      await snoozeReminder(baseId, reminderData, minutes);
-    }
-    
-    const confirmationId = `confirmed-snooze-${medicationData.scheduleId || Date.now()}`;
-    console.log('[DEBUG] [MedicineAlarm] Displaying snooze confirmation:', confirmationId);
 
-    await notifee.displayNotification({
-      id: confirmationId,
-      title: '⏰ Snoozed',
-      body: `Reminder for ${medicationData.medicationName} in ${minutes} minutes`,
-      android: {
-        channelId: 'medication-reminders',
-        autoCancel: true,
-        // timeoutAfter removed for persistence
-        pressAction: { id: 'default' },
-        lightUpScreen: true,
-      },
-    });
-    console.log('[DEBUG] [MedicineAlarm] handleSnoozeSelect complete');
-
-    // Close the alarm screen
-    if (navigation?.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('Home');
-    }
-  };
-  
   const handleSkip = async () => {
     if (isActionTaken) return;
     setIsActionTaken(true);
     Vibration.cancel();
     
-    // Fallback name if undefined
-    const name = medicationData.medicationName || 'your medication';
-    console.log('[MedicineAlarm] Skipping:', name);
+    // Mark ALL as skipped
+    const scheduledDate = toLocalDateString(new Date());
+    const scheduledTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     
-    // Update medication_logs table with skipped status
-    if (user?.id && medicationData.medicationId) {
-      try {
-        await markAsSkipped(
-          user.id,
-          medicationData.medicationId,
-          scheduledDate,
-          scheduledTime
-        );
-        console.log('[MedicineAlarm] ✅ Database updated with skipped status');
-      } catch (error) {
-        console.error('[MedicineAlarm] Failed to update database:', error);
+    if (user?.id) {
+      for (const med of medicationList) {
+        await markAsSkipped(user.id, med.id, scheduledDate, scheduledTime);
       }
-    } else {
-      console.warn('[MedicineAlarm] ⚠️ Cannot update database (Skip) - Missing User ID or Medication ID');
     }
     
-    if (medicationData.scheduleId) {
-      const baseId = medicationData.scheduleId.replace('_followup', '').replace('_manual', '');
+    if (initialData.scheduleId) {
+      const baseId = initialData.scheduleId.replace('_followup', '').replace('_manual', '');
       await cancelReminder(baseId);
-      await cancelReminder(`${baseId}_followup`);
+      await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
     }
 
-    // Close the alarm screen
-    if (navigation?.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('Home');
+    closeScreen();
+  };
+
+  const handleSnooze = async (minutes: number) => {
+    if (isActionTaken) return;
+    setIsActionTaken(true);
+    closeSnoozeModal();
+    Vibration.cancel();
+    
+    if (initialData.scheduleId) {
+       // Snooze logic needs a single ReminderData object. 
+       // We create a wrapper that represents the "Group"
+       const baseId = initialData.scheduleId.replace('_followup', '').replace('_manual', '');
+       const reminderData: MedicineReminderData = {
+         medicationId: medicationList[0]?.id || '', // Leader ID
+         medicationName: medicationList.length > 1 ? `${medicationList.length} Medications` : medicationList[0]?.name,
+         dosage: '',
+         scheduleId: baseId,
+         instructions: '',
+         scheduledTime: new Date(),
+         // Phase 3: Pass back the clustering data so the snooze alarm wakes up correctly!
+         activeMedicationIds: initialData.activeMedicationIds 
+           ? JSON.parse(initialData.activeMedicationIds) 
+           : undefined,
+       };
+       
+       await snoozeReminder(baseId, reminderData, minutes);
     }
+    
+    closeScreen();
   };
   
+  const closeScreen = () => {
+    if (navigation?.canGoBack()) navigation.goBack();
+    else navigation.navigate('Home'); 
+  };
+  
+  const closeSnoozeModal = () => {
+    Animated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => setShowSnoozeModal(false));
+  };
+
+  // --------------------------------------------------------------------------
+  // COMPONENTS (INTERNAL)
+  // --------------------------------------------------------------------------
+  
+  // --------------------------------------------------------------------------
+  // COMPONENTS (INTERNAL)
+  // --------------------------------------------------------------------------
+  
+  // 1. Theme Detection
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme !== 'light'; // Default to dark if undefined or dark
+  
+  // Theme Colors
+  const theme = {
+    bg: isDark ? (['#0f1014', '#172554', '#0f1014'] as const) : (['#ffffff', '#eff6ff', '#ffffff'] as const),
+    bubble: isDark ? '#1e3a8a' : '#bfdbfe', 
+    bubbleOpacity: isDark ? 0.5 : 0.6,
+    // Text: PURE BLACK for Light Mode as requested
+    textPrimary: isDark ? '#ffffff' : '#000000', 
+    textSecondary: isDark ? 'rgba(255,255,255,0.7)' : '#1f2937', // Gray-800
+    textMuted: isDark ? 'rgba(255,255,255,0.5)' : '#374151', // Gray-700
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', 
+    checkboxBorder: isDark ? '#475569' : '#64748b', 
+    checkboxCheck: '#2dd4bf', 
+    // Buttons: Dark Text for Light Mode
+    btnSnoozeBg: isDark ? 'rgba(30, 41, 59, 0.4)' : '#e2e8f0', 
+    btnSnoozeBorder: isDark ? 'rgba(148, 163, 184, 0.3)' : '#cbd5e1',
+    btnSnoozeText: isDark ? '#e2e8f0' : '#0f172a',
+    // Action Buttons (Taken/Skip) Text
+    btnActionText: isDark ? '#ffffff' : '#000000', // White in Dark, Black in Light for contrast
+    // Badge
+    badgeText: isDark ? '#ffffff' : '#065f46', // Dark Green for Light Mode
+    badgeBg: isDark ? 'rgba(45, 212, 191, 0.2)' : 'rgba(45, 212, 191, 0.3)',
+  };
+
+  const ProfessionalBackground = () => {
+    // Subtle breathing/floating animation for the "Nature Bubble"
+    const floatAnim = useRef(new Animated.Value(0)).current;
+    
+    useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim, { toValue: 1, duration: 8000, useNativeDriver: true }),
+          Animated.timing(floatAnim, { toValue: 0, duration: 8000, useNativeDriver: true }),
+        ])
+      ).start();
+    }, []);
+
+    const translateY = floatAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -20]
+    });
+
+    return (
+      <View style={StyleSheet.absoluteFill}>
+         {/* 1. Unified Rich Base (Brand Aligned) */}
+         <LinearGradient
+            colors={theme.bg} 
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+         />
+         
+         {/* 2. Top-Left "Nature Bubble" */}
+         <Animated.View 
+           style={{
+             position: 'absolute',
+             top: -120,
+             left: -80,
+             width: 500,
+             height: 500,
+             borderRadius: 250,
+             backgroundColor: theme.bubble, 
+             opacity: theme.bubbleOpacity,
+             transform: [{ translateY }]
+           }}
+         >
+            <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+         </Animated.View>
+
+         {/* 3. Bottom-Right "Grounding Bubble" */}
+         <View 
+           style={{
+             position: 'absolute',
+             bottom: -180,
+             right: -50,
+             width: 600,
+             height: 600,
+             borderRadius: 300,
+             backgroundColor: theme.bubble, 
+             opacity: isDark ? 0.3 : 0.4
+           }}
+         />
+         
+         {/* OVERLAY: Texture/Noise if needed (Optional) */}
+         <LinearGradient
+            colors={['transparent', isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.0)']}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+         />
+      </View>
+    );
+  };
+  
+  // CHECKBOX COMPONENT
+  const GlowCheckbox = ({ checked }: { checked: boolean }) => (
+    <View style={[styles.glowCheckbox, { borderColor: theme.checkboxBorder }, checked && styles.glowCheckboxChecked]}>
+       {checked && <MaterialCommunityIcons name="check" size={16} color={theme.checkboxCheck} />}
+    </View>
+  );
+
+  // --------------------------------------------------------------------------
+  // RENDERING
+  // --------------------------------------------------------------------------
+
   return (
-    <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-      
-      {/* Premium Gradient Background */}
-      <LinearGradient
-        colors={['#FEF9C3', '#E0F2FE', '#C7D2FE', '#4338CA']}
-        locations={[0, 0.4, 0.7, 1]}
-        style={styles.background}
-      />
+    <View style={[styles.container, { backgroundColor: theme.bg[1] }]}>
+      <StatusBar translucent barStyle={isDark ? "light-content" : "dark-content"} />
+      <ProfessionalBackground />
 
-      {/* Top Header Section */}
-      <View style={styles.header}>
-        <Text style={styles.appTitle}>FamilyCare Health</Text>
-        <Text style={styles.subtitle}>Medication Reminder</Text>
+      {/* Header Info - Logo & Branding */}
+      <SafeAreaView style={styles.safeArea}>
+         <View style={styles.header}>
+            <View style={styles.brandingContainer}>
+              <Image 
+                source={require('../../assets/app-logo.png')} 
+                style={styles.logoIcon}
+                resizeMode="contain"
+              />
+              <Text style={[styles.headerLabel, { color: theme.textPrimary }]}>dosiqAi</Text>
+            </View>
+            <View style={[styles.liveIndicator, { backgroundColor: theme.badgeBg }]}>
+               <View style={styles.liveDot} />
+               <Text style={[styles.liveText, { color: theme.badgeText }]}>ACTIVE</Text>
+            </View>
+         </View>
+      </SafeAreaView>
+
+      {/* Main Content */}
+      <Animated.View 
+        style={[
+          styles.mainContent,
+          { 
+            opacity: contentFade, 
+            transform: [{ translateY: contentSlide }] 
+          }
+        ]}
+      >
+          {/* Hero Time Display */}
+          <View style={styles.heroSection}>
+             <Text style={[styles.heroTime, { color: theme.textPrimary }]}>
+               {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(' ', '')}
+             </Text>
+             <Text style={[styles.heroDate, { color: theme.textSecondary }]}>
+               {displayTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}
+             </Text>
+          </View>
+
+          {/* Minimalist List */}
+          <View style={styles.listSection}>
+             <View style={styles.listHeaderRow}>
+                <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRESCRIBED BUNDLE ({medicationList.length})</Text>
+                {medicationList.length > 1 && (
+                  <TouchableOpacity onPress={() => {
+                     const allSelected = checkedIds.size === medicationList.length;
+                     if (allSelected) setCheckedIds(new Set());
+                     else setCheckedIds(new Set(medicationList.map(m=>m.id)));
+                  }}>
+                    <Text style={styles.toggleText}>{checkedIds.size === medicationList.length ? 'Clear' : 'All'}</Text>
+                  </TouchableOpacity>
+                )}
+             </View>
+             
+             <ScrollView 
+               style={{ maxHeight: 300 }} 
+               showsVerticalScrollIndicator={false}
+               contentContainerStyle={{ gap: 0 }}
+             >
+                {medicationList.map((med, index) => {
+                  const isChecked = checkedIds.has(med.id);
+                  return (
+                    <TouchableOpacity
+                      key={`${med.id}-${index}`}
+                      style={[styles.listItem, { borderBottomColor: theme.borderColor }]} // No opacity change on check
+                      onPress={() => toggleCheckbox(med.id)}
+                      activeOpacity={0.8}
+                    >
+                       <View style={styles.itemContent}>
+                          {/* Name: No change when checked (user request) */}
+                          <Text style={[styles.itemName, { color: theme.textPrimary }]}>
+                             {med.name}
+                          </Text>
+                          <View style={styles.itemMeta}>
+                             {med.dosage ? <Text style={[styles.itemDetail, { color: theme.textSecondary }]}>{med.dosage}</Text> : null}
+                             {med.instructions ? (
+                                <>
+                                 <View style={styles.metaDot} />
+                                 <Text style={[styles.itemDetail, { color: theme.textSecondary }]}>{med.instructions}</Text>
+                                </>
+                             ) : null}
+                          </View>
+                       </View>
+                       
+                       <GlowCheckbox checked={isChecked} />
+                    </TouchableOpacity>
+                  );
+                })}
+             </ScrollView>
+          </View>
+      </Animated.View>
+
+      {/* Bottom Actions - Simple Horizontal Layout */}
+      <View style={styles.bottomActionsContainer}>
+         
+         <View style={styles.actionGrid}>
+            {/* 1. TAKEN (Left) */}
+            <TouchableOpacity 
+               style={[styles.actionBtn, styles.btnTaken]} 
+               onPress={handleTaken}
+               activeOpacity={0.8}
+            >
+               <MaterialCommunityIcons name="check" size={24} color={isDark ? "white" : theme.btnActionText} />
+               <Text style={[styles.btnTextWhite, { color: theme.btnActionText }]}>Taken ({checkedIds.size})</Text>
+            </TouchableOpacity>
+
+            {/* 2. SNOOZE (Middle) */}
+            <TouchableOpacity 
+               style={[
+                 styles.actionBtn, 
+                 styles.btnSnooze, 
+                 { backgroundColor: theme.btnSnoozeBg, borderColor: theme.btnSnoozeBorder }
+               ]} 
+               onPress={() => setShowSnoozeModal(true)}
+               activeOpacity={0.8}
+            >
+               <MaterialCommunityIcons name="clock-outline" size={24} color={theme.btnSnoozeText} />
+               <Text style={[styles.btnTextLight, { color: theme.btnSnoozeText }]}>Snooze</Text>
+            </TouchableOpacity>
+
+            {/* 3. SKIP (Right) */}
+            <TouchableOpacity 
+               style={[styles.actionBtn, styles.btnSkip]} 
+               onPress={handleSkip}
+               activeOpacity={0.8}
+            >
+               <MaterialCommunityIcons name="close" size={24} color={isDark ? "white" : theme.btnActionText} />
+               <Text style={[styles.btnTextWhite, { color: theme.btnActionText }]}>Skip</Text>
+            </TouchableOpacity>
+         </View>
+
       </View>
 
-      {/* Main Card Container */}
-      <View style={styles.cardContainer}>
-        {/* Floating Icon Halo */}
-        <View style={styles.iconHalo}>
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="pill" size={32} color="#1E293B" />
-          </View>
-        </View>
-
-        {/* Card Content */}
-        <View style={styles.card}>
-          <Text style={styles.medicationName} numberOfLines={2}>
-            {medicationData.medicationName}
-          </Text>
-          
-          <View style={styles.detailsRow}>
-            <MaterialCommunityIcons name="bottle-tonic-plus" size={16} color="#64748B" />
-            <Text style={styles.dosageText}>{medicationData.dosage}</Text>
-          </View>
-          
-          {medicationData.instructions && (
-             <View style={styles.detailsRow}>
-              <MaterialCommunityIcons name="text-box-outline" size={16} color="#64748B" />
-              <Text style={styles.instructionText} numberOfLines={2}>{medicationData.instructions}</Text>
-            </View>
-          )}
-
-          {/* Sponsored Space inside the card */}
-          <SponsoredSpace />
-          
-          {/* Action Buttons Row */}
-          <View style={styles.actionsRow}>
-            {/* Taken / Approve */}
-            <View style={styles.actionItem}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.takenButton]}
-                onPress={handleTaken}
-                disabled={isActionTaken}
-              >
-                <MaterialCommunityIcons name="check" size={28} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.actionLabel}>Taken</Text>
-            </View>
-
-            {/* Snooze / Leave at Gate */}
-            <View style={styles.actionItem}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.snoozeButton]}
-                onPress={openSnoozeModal}
-                disabled={isActionTaken}
-              >
-                <MaterialCommunityIcons name="clock-outline" size={28} color="#1E293B" />
-              </TouchableOpacity>
-              <Text style={styles.actionLabel}>Snooze</Text>
-            </View>
-
-            {/* Skip / Deny */}
-            <View style={styles.actionItem}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.skipButton]}
-                onPress={handleSkip}
-                disabled={isActionTaken}
-              >
-                <MaterialCommunityIcons name="close" size={28} color="#EF4444" />
-              </TouchableOpacity>
-              <Text style={styles.actionLabel}>Skip</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Bottom Time Display */}
-      <View style={styles.footer}>
-        <Text style={styles.timeText}>
-          {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-        <Text style={styles.dateText}>
-          {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
-        </Text>
-      </View>
-      {/* Snooze Options Modal */}
+      {/* Modern Snooze Modal - Bottom Sheet Style */}
       <Modal
-        visible={showSnoozeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={closeSnoozeModal}
+         visible={showSnoozeModal}
+         transparent
+         animationType="fade"
+         onRequestClose={() => handleSnooze(5)}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={styles.modalBackdrop} 
-            activeOpacity={1} 
-            onPress={closeSnoozeModal}
-          />
-          
-          <Animated.View 
-            style={[
-              styles.modalContent,
-              {
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Snooze for...</Text>
-              <TouchableOpacity onPress={closeSnoozeModal}>
-                <MaterialCommunityIcons name="close" size={24} color="#64748B" />
+           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeSnoozeModal} />
+           <Animated.View style={[styles.snoozeSheet, { transform: [{ translateY: slideAnim }] }]}>
+              <Text style={styles.snoozeLabel}>SNOOZE DURATION</Text>
+              <View style={styles.snoozeRow}>
+                {[5, 10, 15, 30].map(min => (
+                  <TouchableOpacity 
+                    key={min} 
+                    style={styles.snoozeChip} 
+                    onPress={() => handleSnooze(min)}
+                  >
+                     <Text style={styles.snoozeChipText}>{min}m</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity style={styles.cancelLink} onPress={closeSnoozeModal}>
+                <Text style={styles.cancelLinkText}>Cancel</Text>
               </TouchableOpacity>
-            </View>
-            
-            <View style={styles.optionsContainer}>
-              {snoozeOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={styles.optionButton}
-                  onPress={() => handleSnoozeSelect(option.value)}
-                >
-                  <View style={styles.optionIconContainer}>
-                    <MaterialCommunityIcons name="clock-outline" size={20} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.optionText}>{option.label}</Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Animated.View>
+           </Animated.View>
         </View>
       </Modal>
+
     </View>
   );
 }
@@ -457,199 +669,283 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#050505',
   },
-  background: {
+  bgBase: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#050505',
   },
-  header: {
+  auroraOrb: {
     position: 'absolute',
-    top: 60,
-    alignItems: 'center',
+    borderRadius: 999,
+    opacity: 0.4,
   },
-  appTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
+  safeArea: {
+    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 44,
+    marginHorizontal: 24,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#475569',
-    fontWeight: '500',
-  },
-  cardContainer: {
-    width: width * 0.85,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  iconHalo: {
-    zIndex: 10,
-    marginBottom: -24, // Pull card up to float behind icon
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FDE047', // Yellow-400
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingTop: 40, // Space for floating icon
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  medicationName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 32,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  dosageText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  instructionText: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  actionsRow: {
+  
+  // HEADER
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 24,
-    paddingHorizontal: 10,
+    alignItems: 'center',
+    marginBottom: 60,
   },
-  actionItem: {
+  brandingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  actionButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  logoIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 6, // soft square icon
   },
-  skipButton: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-  },
-  snoozeButton: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  takenButton: {
-    backgroundColor: '#22C55E', // Green-500
-  },
-  actionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 50,
-    alignItems: 'center',
-  },
-  timeText: {
+  headerLabel: {
+    color: '#ffffff',
     fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    opacity: 0.9,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
-  dateText: {
-    fontSize: 14,
-    color: '#E0E7FF',
-    marginTop: 4,
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
-  modalOverlay: {
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  liveText: {
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
+  // HERO TIME
+  mainContent: {
+    paddingHorizontal: 24,
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
   },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+  heroSection: {
+    marginBottom: 48,
   },
-  modalContent: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  heroTime: {
+    fontSize: 92,
+    fontWeight: '200',
+    color: '#ffffff',
+    letterSpacing: -4,
+    lineHeight: 100,
   },
-  modalHeader: {
+  heroDate: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 2,
+    marginTop: 8,
+    marginLeft: 4,
+  },
+
+  // LIST
+  listSection: {
+    flex: 1,
+  },
+  listHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 20,
+  sectionLabel: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 11,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    letterSpacing: 1.5,
   },
-  optionsContainer: {
-    gap: 12,
+  toggleText: {
+    color: '#2dd4bf',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  optionButton: {
+  listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
-  optionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: Colors.white,
+  listItemChecked: {
+    opacity: 0.5,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: '#f8fafc',
+    marginBottom: 4,
+  },
+  itemNameChecked: {
+    textDecorationLine: 'line-through',
+    color: '#94a3b8',
+  },
+  itemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  itemDetail: {
+    color: '#64748b',
+    fontSize: 14,
+  },
+  metaDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#475569',
+    marginHorizontal: 8,
+  },
+  
+  // CUSTOM CHECKBOX
+  glowCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#475569',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  optionText: {
+  glowCheckboxChecked: {
+    borderColor: '#2dd4bf',
+    shadowColor: '#2dd4bf',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  glowCheckboxInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2dd4bf',
+  },
+
+  // BOTTOM ACTIONS
+  bottomActionsContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 24,
+    right: 24,
+    alignItems: 'center',
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    width: '100%',
+  },
+  actionBtn: {
+    height: 84,
+    flex: 1, // Equal width for uniform look
+    borderRadius: 24, // Squaricle
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    gap: 6,
+    // Base Glass
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  btnTaken: {
+    backgroundColor: 'rgba(20, 184, 166, 0.2)', // Teal-500 @ 20%
+    borderColor: '#14b8a6', // Teal-500 border
+  },
+  btnSnooze: {
+    backgroundColor: 'rgba(30, 41, 59, 0.4)', // Slate-800 @ 40%
+    borderColor: 'rgba(148, 163, 184, 0.3)', // Slate-400 border
+  },
+  btnSkip: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)', // Red-500 @ 15%
+    borderColor: 'rgba(239, 68, 68, 0.4)', // Red-500 border
+  },
+  btnTextWhite: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  btnTextLight: {
+    color: '#e2e8f0',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  btnTextDanger: {
+    color: '#fca5a5',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  // SNOOZE SHEET
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  snoozeSheet: {
+    backgroundColor: '#0f172a',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 32,
+    paddingBottom: 50,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  snoozeLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  snoozeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  snoozeChip: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  snoozeChipText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textPrimary,
-    flex: 1,
+  },
+  cancelLink: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  cancelLinkText: {
+    color: '#64748b',
+    fontSize: 15,
   },
 });

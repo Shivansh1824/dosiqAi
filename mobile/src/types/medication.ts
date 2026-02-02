@@ -45,7 +45,7 @@ export interface Medication {
   
   notes?: string;
   color: string; // Calculated on-the-fly
-  is_active: boolean;
+
   
   created_at: string;
   updated_at: string;

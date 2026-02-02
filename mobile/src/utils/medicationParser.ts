@@ -483,7 +483,7 @@ export function detectDuplicateMedication(
 
   // Only check ACTIVE medications that aren't expired (User Request: "Expiry logic is correct")
   const activeMeds = existingMeds.filter(med => {
-    if (!med.is_active) return false;
+
 
     // Check if medication is expired
     if (med.end_date) {

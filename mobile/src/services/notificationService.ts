@@ -34,6 +34,27 @@ import { groupMedicinesByTime, generateClusterId } from './ClusteringService';
 const MEDICATION_CATEGORY_ID = 'medication-actions';
 
 /**
+ * Generate Smart Body Text for Notification
+ * Handles Single, Double, and Multi-Medication scenarios with correct pluralization.
+ */
+export function generateSharedBodyText(medicationNames: string[]): string {
+    if (!medicationNames || medicationNames.length === 0) return 'Time to take your medications';
+    
+    if (medicationNames.length === 1) {
+        return `Time to take ${medicationNames[0]}`; // Note: Caller usually appends dosage if available, but for clusters we stick to name primarily or basic logic
+    }
+    
+    if (medicationNames.length === 2) {
+        return `Time to take ${medicationNames[0]} and ${medicationNames[1]}`;
+    }
+    
+    // For 3 or more: Show first 2 + count of others
+    const othersCount = medicationNames.length - 2;
+    const pluralSuffix = othersCount > 1 ? 's' : '';
+    return `Time to take ${medicationNames[0]}, ${medicationNames[1]} & ${othersCount} other${pluralSuffix}`;
+}
+
+/**
  * Helper to resolve the correct sound filename for iOS
  * Maps internal app tune defaults (MP3) to iOS native resources (CAF/WAV)
  */
@@ -95,6 +116,8 @@ export interface MedicineReminderData {
   iosFollowUpCount?: number;
   // For Clusters: IDs of meds active in this specific scheduled instance
   activeMedicationIds?: string[];
+  // Phase 3: Rich data for offline support (simplified objects)
+  activeMedications?: { id: string; name: string; dosage: string; instructions?: string; }[];
 }
 
 // Key generator for iOS notification storage
@@ -223,6 +246,7 @@ export async function scheduleIOSFollowUpsFromEvent(
             scheduleId: primaryId,
             isFollowUp: 'true',
             followUpNumber: i,
+            scheduledTime: followUpTime.toISOString(),
           },
           ios: {
             categoryId: MEDICATION_CATEGORY_ID,
@@ -331,16 +355,8 @@ export async function scheduleTimeSlotCluster(
     const activeMeds = medications; // filtered by caller
 
     // Create the Body Text
-    // "Take Aspirin, Vitamin D & 1 other"
     const names = activeMeds.map(m => m.name);
-    let bodyText = '';
-    if (names.length === 1) {
-      bodyText = `Time to take ${names[0]} ${activeMeds[0].dosage}`;
-    } else if (names.length === 2) {
-      bodyText = `Time to take ${names[0]} and ${names[1]}`;
-    } else {
-      bodyText = `Time to take ${names[0]}, ${names[1]} & ${names.length - 2} others`;
-    }
+    const bodyText = generateSharedBodyText(names);
 
     // Determine platform-specific tune
     const effectiveTune = Platform.OS === 'ios'
@@ -432,12 +448,15 @@ export async function scheduleMedicineReminder(
       console.log('[Notifications] ✅ Using ANDROID notification service with escalation');
       const notificationId = await scheduleAndroidSequence(
         reminder.medicationId,
+        reminder.scheduleId,
         reminder.medicationName,
         reminder.dosage,
         reminder.familyMemberId,
         reminder.scheduledTime,
         reminder.instructions,
-        reminder.step || 1
+        reminder.step || 1,
+        reminder.activeMedicationIds,
+        reminder.activeMedications
       );
       console.log('[Notifications] ✅ Android escalation sequence scheduled:', notificationId);
       await logDebug(`[NotificationService] Android sequence scheduled: ${notificationId}`);
@@ -471,17 +490,31 @@ export async function scheduleMedicineReminder(
         title: '💊 Medication Reminder',
         body: bodyContent,
         data: {
-          ...reminder,
+          medicationId: reminder.medicationId,
+          medicationName: reminder.medicationName,
+          dosage: reminder.dosage,
+          instructions: reminder.instructions || '',
+          scheduleId: reminder.scheduleId,
+          familyMemberId: reminder.familyMemberId || '',
+          reminderStyle: reminderStyle,
+          alertMode: alertMode || 'temporary',
+          
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
-          // Explicitly include iOS follow-up count for DELIVERED handler
           iosFollowUpCount: iosFollowUpCount,
           snoozeDuration: snoozeDuration,
           notificationTune: notificationTune || 'default',
-          // Add follow-up metadata for Live Activity triggering (only in standard mode on iOS)
+          // Metadata for Live Activity
           ...(Platform.OS === 'ios' && reminderStyle === 'standard' ? {
             followUpDuration: snoozeDuration.toString(),
             followUpTime: new Date(reminder.scheduledTime.getTime() + (snoozeDuration * 60000)).toISOString(),
+          } : {}),
+          // Fix: Data values must be strings.
+          ...(reminder.activeMedicationIds ? {
+             activeMedicationIds: JSON.stringify(reminder.activeMedicationIds)
+          } : {}),
+          ...(reminder.activeMedications ? {
+             activeMedications: JSON.stringify(reminder.activeMedications)
           } : {}),
         },
 
@@ -534,12 +567,24 @@ export async function scheduleMedicineReminder(
             title: `💊 Follow-up Reminder (${i}/${iosFollowUpCount})`,
             body: `Did you take ${reminder.medicationName} ${reminder.dosage}?`,
             data: {
-              ...reminder,
+              medicationId: reminder.medicationId,
+              medicationName: reminder.medicationName,
+              dosage: reminder.dosage,
+              instructions: reminder.instructions || '',
+              scheduleId: reminder.scheduleId,
+              familyMemberId: reminder.familyMemberId || '',
+              
               type: 'medication_reminder',
               scheduledTime: followUpTime.toISOString(),
-              isFollowUp: 'true', // String for notification data compatibility
+              isFollowUp: 'true',
               followUpNumber: i,
               originalScheduleId: reminder.scheduleId,
+              ...(reminder.activeMedicationIds ? {
+                 activeMedicationIds: JSON.stringify(reminder.activeMedicationIds)
+              } : {}),
+              ...(reminder.activeMedications ? {
+                 activeMedications: JSON.stringify(reminder.activeMedications)
+              } : {}),
             },
             ios: {
               categoryId: MEDICATION_CATEGORY_ID,
@@ -591,9 +636,38 @@ export async function scheduleAllRemindersForMedication(
     // We access the store state directly. Assuming it's loaded.
     // Ideally we should ensure it's loaded, but usually this Fn is called after add/update which implies store operation.
     const { medications: allMeds } = useMedicationsStore.getState();
-    const userMeds = allMeds.filter(m => m.user_id === medication.user_id && m.is_active);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const userMeds = allMeds.filter(m => {
+       if (m.user_id !== medication.user_id) return false;
+       
+       // Check if started
+       if (m.start_date) {
+         const startDate = new Date(m.start_date);
+         // If start date is in future (greater than today), it's not active yet
+         if (startDate > today) return false;
+       }
+
+       // Check if expired / ended
+       if (m.end_date) {
+         const endDate = new Date(m.end_date);
+         endDate.setHours(0, 0, 0, 0);
+         if (endDate < today) return false;
+       }
+       
+       return true;
+    });
 
     console.log(`[Notifications] 🔄 Re-evaluating Schedules for User ${medication.user_id} (${userMeds.length} active meds)`);
+
+    // CLEANUP: Cancel potential "Solo" alarms for all these medications to prevent duplicates.
+    // Since we are moving to a clustered system, we ensure no individual 'medication.id' alarms exist.
+    await Promise.all(userMeds.map(async (m) => {
+       await cancelReminder(m.id);
+       await cancelIOSFollowUps(m.id); // Clear any old follow-ups too
+    }));
+    console.log('[Notifications] 🧹 Pre-cleanup: Cancelled legacy individual alarms.');
 
     // 3. The "Smart Generator" (Refill Engine)
     // Instead of separating Daily/Non-Daily, we simulate the next 14 days.
@@ -615,8 +689,7 @@ export async function scheduleAllRemindersForMedication(
     
     const LOOK_AHEAD_DAYS = Math.min(14, Math.max(3, SAFE_DAYS)); 
     
-    console.log(`[Notifications] 🛡️ Dynamic Horizon: Limit=${MAX_SLOTS_IOS}, Daily=${dailyClusterCount}, SafeDays=${SAFE_DAYS} -> Using ${LOOK_AHEAD_DAYS} Days`); 
-    const today = new Date();
+    const schedulingToday = new Date();
     
     // We already have `scheduleTimeSlotCluster` which hits `scheduleRepeatingReminder`.
     // We need to modify `scheduleTimeSlotCluster` to accept a SPECIFIC date, not just "time".
@@ -627,8 +700,8 @@ export async function scheduleAllRemindersForMedication(
     console.log(`[Notifications] 🔮 Generating Schedule for next ${LOOK_AHEAD_DAYS} days...`);
 
     for (let dayOffset = 0; dayOffset < LOOK_AHEAD_DAYS; dayOffset++) {
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + dayOffset);
+      const targetDate = new Date(schedulingToday);
+      targetDate.setDate(schedulingToday.getDate() + dayOffset);
       
       // A. Create Clusters for THIS Date
       // The grouper now uses `isMedicationActiveForDate` which checks intervals!
@@ -671,14 +744,7 @@ async function scheduleClusterForSingleDate(
 
     // Body Text Logic
     const names = medications.map(m => m.name);
-    let bodyText = '';
-    if (names.length === 1) {
-      bodyText = `Time to take ${names[0]} ${medications[0].dosage}`;
-    } else if (names.length === 2) {
-      bodyText = `Time to take ${names[0]} and ${names[1]}`;
-    } else {
-      bodyText = `Time to take ${names[0]}, ${names[1]} & ${names.length - 2} others`;
-    }
+    const bodyText = generateSharedBodyText(names);
 
     // Platform Tune
     const effectiveTune = Platform.OS === 'ios'
@@ -711,6 +777,13 @@ async function scheduleClusterForSingleDate(
       notificationTune: effectiveTune,
       iosFollowUpCount: familyMember?.ios_followup_count ?? 2,
       activeMedicationIds: medications.map(m => m.id),
+      // Pass rich data (simplified) to avoid store lookup on cold start
+      activeMedications: medications.map(m => ({
+          id: m.id, 
+          name: m.name, 
+          dosage: m.dosage || '', 
+          instructions: m.notes || '' 
+      })),
     };
 
     // Call individual scheduler (NOT repeating)
@@ -757,12 +830,15 @@ export async function scheduleRepeatingReminder(
       console.log('[Notifications] ✅ Using ANDROID notification service for repeating reminder');
       const notificationId = await scheduleAndroidSequence(
         reminder.medicationId,
+        reminder.scheduleId,
         reminder.medicationName,
         reminder.dosage,
         reminder.familyMemberId,
         reminder.scheduledTime,
         reminder.instructions,
-        reminder.step || 1
+        reminder.step || 1,
+        reminder.activeMedicationIds,
+        reminder.activeMedications
       );
       console.log('[Notifications] ✅ Android repeating sequence scheduled:', notificationId);
       await logDebug(`[NotificationService] Android repeating sequence scheduled: ${notificationId}`);
@@ -794,12 +870,28 @@ export async function scheduleRepeatingReminder(
         title: '💊 Medication Reminder',
         body: bodyContent,
         data: {
-          ...reminder, // Contains scheduleId, medicationName, etc.
+          // Explicitly reconstruct to avoid Date objects or large non-serializable data
+          medicationId: reminder.medicationId,
+          medicationName: reminder.medicationName,
+          dosage: reminder.dosage,
+          instructions: reminder.instructions || '',
+          scheduleId: reminder.scheduleId,
+          familyMemberId: reminder.familyMemberId || '',
+          reminderStyle: reminderStyle,
+          alertMode: alertMode || 'temporary',
+          
           type: 'medication_reminder',
           scheduledTime: reminder.scheduledTime.toISOString(),
           iosFollowUpCount: iosFollowUpCount,
           snoozeDuration: snoozeDuration,
           notificationTune: notificationTune || 'default',
+          // Fix: Data values must be strings.
+          ...(reminder.activeMedicationIds ? {
+             activeMedicationIds: JSON.stringify(reminder.activeMedicationIds)
+          } : {}),
+          ...(reminder.activeMedications ? {
+             activeMedications: JSON.stringify(reminder.activeMedications)
+          } : {}),
         },
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
@@ -893,6 +985,13 @@ export async function scheduleRepeatingReminder(
               isFollowUp: 'true',
               followUpNumber: i,
               originalScheduleId: reminder.scheduleId,
+              // Fix: Data values must be strings.
+              ...(reminder.activeMedicationIds ? {
+                 activeMedicationIds: JSON.stringify(reminder.activeMedicationIds)
+              } : {}),
+              ...(reminder.activeMedications ? {
+                 activeMedications: JSON.stringify(reminder.activeMedications)
+              } : {}),
             },
             ios: {
               categoryId: MEDICATION_CATEGORY_ID,
@@ -933,16 +1032,39 @@ export async function scheduleRepeatingReminder(
  */
 export async function refillFollowUps(): Promise<void> {
   console.log('[Notifications] 🔄 Refill Engine Started...');
-  // In a real app, we would fetch all active medications from DB/Store.
-  // Since we don't have direct access to the store here (it's a hook), 
-  // we might need to rely on the caller to pass data or use a persistent store accessor.
-  // For now, let's assume this is called where we have access to medication data.
+  
+  try {
+    // 1. Access the Store State directly (Zustand supports this outside components)
+    const { medications } = useMedicationsStore.getState();
+    
+    if (!medications || medications.length === 0) {
+      console.log('[Notifications] Refill: No medications in store.');
+      return;
+    }
 
-  // Implementation Note: exact refill logic requires iterating over all meds.
-  // We will rely on `scheduleAllRemindersForMedication` to be safe and idempotent.
-  // Calling `scheduleAllRemindersForMedication` again effectively acts as a refill 
-  // because it recalculates dates and overwrites/adds triggers.
-  console.log('[Notifications] 🔄 Refill via rescehduling all... (Requires integration)');
+    // 2. Filter Active Only
+    // 2. Filter Active Only (Date-based)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeMeds = medications.filter(m => {
+       if (m.end_date) {
+         const endDate = new Date(m.end_date);
+         endDate.setHours(0, 0, 0, 0);
+         if (endDate < today) return false;
+       }
+       return true;
+    });
+    console.log(`[Notifications] Refill: Found ${activeMeds.length} active meds.`);
+
+    // 3. Trigger Reconciliation (Safe Idempotent Operation)
+    // This will calculate the schedule for the next 14 days and TOP UP the slots.
+    await reconcileReminders(activeMeds);
+    
+    console.log('[Notifications] ✅ Refill Complete.');
+  } catch (error) {
+    console.error('[Notifications] Refill Failed:', error);
+  }
 }
 
 /**
@@ -1113,7 +1235,18 @@ export async function reconcileReminders(medications: Medication[]): Promise<voi
     console.log('[Notifications] 🗑️  Cancelled ALL pending triggers (preserved delivered)');
 
     // 2. Filter for active only
-    const activeMeds = medications.filter(m => m.is_active);
+    // 2. Filter for active only
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeMeds = medications.filter(m => {
+       if (m.end_date) {
+         const endDate = new Date(m.end_date);
+         endDate.setHours(0, 0, 0, 0);
+         if (endDate < today) return false;
+       }
+       return true;
+    });
     console.log(`[Notifications] Found ${activeMeds.length} active medications to schedule`);
 
     // 3. Reschedule one by one
@@ -1147,9 +1280,16 @@ export async function rescheduleAllNotificationsForMember(familyMemberId: string
     const { medications } = useMedicationsStore.getState();
     
     // Filter for active medications belonging to this member
-    const memberMedications = medications.filter(
-      med => med.family_member_id === familyMemberId && med.is_active
-    );
+    const memberMedications = medications.filter(med => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const endDate = med.end_date ? new Date(med.end_date) : null;
+      if (endDate) endDate.setHours(0, 0, 0, 0);
+
+      const isActive = !endDate || endDate >= today;
+      return med.family_member_id === familyMemberId && isActive;
+    });
 
     console.log(`[Notifications] Found ${memberMedications.length} active medications to reschedule.`);
 

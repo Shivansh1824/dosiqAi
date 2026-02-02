@@ -78,7 +78,6 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
             start_date: new Date().toISOString().split('T')[0],
             instructions: 'after_meal',
             reminder_enabled: true,
-            is_active: true,
             family_member_id: user?.id, // Default to user themselves for now
         };
 
