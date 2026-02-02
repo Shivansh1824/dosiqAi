@@ -251,7 +251,7 @@ export async function scheduleIOSFollowUpsFromEvent(
           ios: {
             categoryId: MEDICATION_CATEGORY_ID,
             interruptionLevel: 'timeSensitive',
-            sound: iosSound,
+            ...(iosSound ? { sound: iosSound } : {}),
             threadId: primaryId,
           },
           android: {
@@ -523,7 +523,7 @@ export async function scheduleMedicineReminder(
           categoryId: MEDICATION_CATEGORY_ID,
           // ALWAYS use timeSensitive for medication reminders to ensure they stay prominent on lock screen
           interruptionLevel: 'timeSensitive',
-          sound: iosSound,
+          ...(iosSound ? { sound: iosSound } : {}),
           threadId: reminder.scheduleId, // Use threadId to group on iOS
         },
 
@@ -589,7 +589,7 @@ export async function scheduleMedicineReminder(
             ios: {
               categoryId: MEDICATION_CATEGORY_ID,
               interruptionLevel: 'timeSensitive',
-              sound: iosSound,
+              ...(iosSound ? { sound: iosSound } : {}),
               threadId: reminder.scheduleId, // Group with primary notification
             },
             android: {
@@ -676,47 +676,60 @@ export async function scheduleAllRemindersForMedication(
     // 3. The "Smart Generator" (Refill Engine)
     // Dynamic Horizon: We adjust the look-ahead based on slot availability.
     // iOS Slot Limit: 64. Safety Buffer: 10. Available: ~54.
-    // If user has 6 clusters/day -> 54 / 6 = 9 Days max.
-    // If user has 1 cluster/day -> 14 Days max.
     
     // Estimate daily density based on THIS user's meds
     const uniqueTimes = new Set(userMeds.flatMap(m => m.time_of_day || []));
     const dailyClusterCount = Math.max(uniqueTimes.size || 1, 1);
     
-    // Calculate Safe Horizon
-    const MAX_SLOTS_IOS = 50; // Safety cap (leave room for others)
-    const SAFE_DAYS = Math.floor(MAX_SLOTS_IOS / dailyClusterCount);
+    // Calculate Safe Horizon accounting for Follow-ups
+    const MAX_SLOTS_IOS = 50; // Safety cap
+    const iosFollowUpCount = familyMember?.ios_followup_count ?? 2;
+    const slotsPerCluster = Platform.OS === 'ios' ? (1 + iosFollowUpCount) : 1;
+    const dailySlotUsage = dailyClusterCount * slotsPerCluster;
     
-    const LOOK_AHEAD_DAYS = Math.min(14, Math.max(3, SAFE_DAYS)); 
+    const SAFE_DAYS = Math.floor(MAX_SLOTS_IOS / Math.max(dailySlotUsage, 1));
     
+    // Cap at 14 days, but purely bound by safety to prevent crashes
+    const LOOK_AHEAD_DAYS = Math.min(14, Math.max(2, SAFE_DAYS)); 
+    
+    // Pre-check current usage before starting loop
+    // This prevents adding to an already full schedule if cleanup failed
+    let currentTriggerCount = (await notifee.getTriggerNotificationIds()).length;
+
+    console.log(`[Notifications] 🔮 Generating Schedule: Clusters/Day=${dailyClusterCount}, Slots/Cluster=${slotsPerCluster}, DailyUsage=${dailySlotUsage}`);
+    console.log(`[Notifications] 🔮 Safe Day Limit: ${SAFE_DAYS} -> Using: ${LOOK_AHEAD_DAYS} days`);
+
     const schedulingToday = new Date();
     
-    // We already have `scheduleTimeSlotCluster` which hits `scheduleRepeatingReminder`.
-    // We need to modify `scheduleTimeSlotCluster` to accept a SPECIFIC date, not just "time".
-    // Currently `scheduleTimeSlotCluster` calculates the date itself. We should refactor it slightly 
-    // OR just use a new helper `scheduleClusterForDate`. 
-    // For minimal friction, let's create the loop here and call a modified `scheduleClusterForDate`.
-
-    console.log(`[Notifications] 🔮 Generating Schedule for next ${LOOK_AHEAD_DAYS} days...`);
-
     for (let dayOffset = 0; dayOffset < LOOK_AHEAD_DAYS; dayOffset++) {
+      // SAFETY VALVE: Stop if we are approaching the limit
+      if (Platform.OS === 'ios' && currentTriggerCount >= 60) {
+         console.warn(`[Notifications] 🛑 Safety Valve: Hit ${currentTriggerCount} notifications. Stopping schedule generation at Day ${dayOffset}.`);
+         break;
+      }
+
       const targetDate = new Date(schedulingToday);
       targetDate.setDate(schedulingToday.getDate() + dayOffset);
       
       // A. Create Clusters for THIS Date
-      // The grouper now uses `isMedicationActiveForDate` which checks intervals!
       const dailyClusters = groupMedicinesByTime(userMeds, targetDate);
       const clusterTimes = Object.keys(dailyClusters);
 
       if (clusterTimes.length > 0) {
-        console.log(`[Notifications]    📅 Day ${dayOffset} (${targetDate.toISOString().split('T')[0]}): Found ${clusterTimes.length} clusters`);
+        // Reduced logging to prevent spam
+        // console.log(`[Notifications]    📅 Day ${dayOffset}: ${clusterTimes.length} clusters`);
       }
 
       // B. Schedule Each Cluster
       for (const time of clusterTimes) {
+        // Re-check inner loop just in case
+        if (Platform.OS === 'ios' && currentTriggerCount >= 60) break;
+
         const medsInCluster = dailyClusters[time];
-        // We need a version of scheduleTimeSlotCluster that takes the EXACT Date
         await scheduleClusterForSingleDate(time, targetDate, medsInCluster, medication.family_member_id);
+        
+        // Increment estimated count (1 main + followups)
+        currentTriggerCount += slotsPerCluster;
       }
     }
 
@@ -896,7 +909,7 @@ export async function scheduleRepeatingReminder(
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
           interruptionLevel: 'timeSensitive',
-          sound: iosSound,
+          ...(iosSound ? { sound: iosSound } : {}),
           threadId: reminder.scheduleId,
         },
         android: {

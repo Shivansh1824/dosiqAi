@@ -298,7 +298,6 @@ export default function MedicationVerificationCard({
 
   // Handle verify and add
   const handleVerifyAndAdd = async () => {
-    console.log('[DEBUG] handleVerifyAndAdd called. Start:', startDate, 'End:', endDate);
     setIsVerifying(true);
     try {
       // Calculate duration_days based on current state (exact difference)
@@ -367,7 +366,6 @@ export default function MedicationVerificationCard({
 
   // Handle time change from time picker
   const handleTimeChange = (oldTime: string, newTime: string) => {
-    console.log('[DEBUG] handleTimeChange called. Old:', oldTime, 'New:', newTime);
     const currentTimes = getReminderTimes();
     const updatedTimes = [...currentTimes];
 
@@ -738,7 +736,6 @@ export default function MedicationVerificationCard({
               onConfirm={(date) => {
                 setStartDate(date);
                 setShowDatePicker(false);
-                console.log('[DEBUG] DatePickerModal Confirm START DATE:', date);
                 
                 // Calculate new duration and broadcast live update
                 const start = new Date(date);
@@ -764,7 +761,6 @@ export default function MedicationVerificationCard({
               onConfirm={(date) => {
                 setEndDate(date);
                 setShowEndDatePicker(false);
-                console.log('[DEBUG] DatePickerModal Confirm END DATE:', date);
                 
                 // Calculate new duration and broadcast live update
                 const start = new Date(startDate);

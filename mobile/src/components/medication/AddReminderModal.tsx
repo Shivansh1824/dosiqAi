@@ -52,7 +52,8 @@ export default function AddReminderModal({
     }, [visible]);
 
     const handleTimeChange = (event: any, date?: Date) => {
-        if (date) {
+        // Defensive: Ignore 1970 dates (iOS bug/glitch)
+        if (date && date.getFullYear() > 2000) {
             setSelectedTime(date);
         }
     };
@@ -220,6 +221,7 @@ export default function AddReminderModal({
                                         onChange={handleTimeChange}
                                         style={{ height: 120 }}
                                         textColor={Colors.gray900}
+                                        minimumDate={new Date(2000, 0, 1)}
                                     />
                                 ) : (
                                     <View style={{ paddingVertical: 10 }}>
