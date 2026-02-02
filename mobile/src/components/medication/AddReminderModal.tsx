@@ -36,10 +36,8 @@ export default function AddReminderModal({
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
     const [suggestion, setSuggestion] = useState<{ time: string, matchingMedName: string } | null>(null);
 
-    const { medications, getActiveMedications } = useMedicationsStore(state => ({
-        medications: state.medications,
-        getActiveMedications: state.getActiveMedications
-    }));
+    const medications = useMedicationsStore(state => state.medications);
+    const getActiveMedications = useMedicationsStore(state => state.getActiveMedications);
 
     // Reset state when modal opens
     useEffect(() => {

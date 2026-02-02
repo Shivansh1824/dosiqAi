@@ -30,6 +30,7 @@ export default function DatePickerModal({
     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const day = String(selectedDate.getDate()).padStart(2, '0');
     const localDateString = `${year}-${month}-${day}`;
+    console.log('[DEBUG] DatePickerModal handleConfirm. Selected:', selectedDate.toISOString(), 'Local:', localDateString);
 
     onConfirm(localDateString);
   };
