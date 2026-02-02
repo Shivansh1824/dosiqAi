@@ -5,6 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Typography } from '../../constants';
 import { AndroidTimePicker } from './AndroidTimePicker';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
+import { useMedicationsStore } from '../../store/medicationsStore';
 
 interface AddReminderModalProps {
     visible: boolean;
@@ -23,16 +24,19 @@ interface AddReminderModalProps {
  * AddReminderModal - Specific modal to add a new reminder time
  * User picks a time and selects a meal relationship
  */
-export default function AddReminderModal({ 
-    visible, 
-    onClose, 
-    onAdd, 
-    existingTimes = [], 
+export default function AddReminderModal({
+    visible,
+    onClose,
+    onAdd,
+    existingTimes = [],
     preferredTimes,
-    timingDosage 
+    timingDosage
 }: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+    const [suggestion, setSuggestion] = useState<{ time: string, matchingMedName: string } | null>(null);
+
+    const medications = useMedicationsStore(state => state.medications);
 
     // Reset state when modal opens
     useEffect(() => {
@@ -50,6 +54,73 @@ export default function AddReminderModal({
         if (date) {
             setSelectedTime(date);
         }
+    };
+
+    // Calculate suggestion based on other active medications
+    useEffect(() => {
+        // Find all active medications and their reminder times
+        const otherMedications = medications.filter(m => m.is_active);
+
+        let bestSuggestion: { time: string, matchingMedName: string, diff: number } | null = null;
+
+        // Current selected time in minutes from midnight
+        const currentHours = selectedTime.getHours();
+        const currentMinutes = selectedTime.getMinutes();
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+        for (const med of otherMedications) {
+            if (!med.time_of_day) continue;
+
+            for (const timeStr of med.time_of_day) {
+                const [h, m] = timeStr.split(':').map(Number);
+                const targetTotalMinutes = h * 60 + m;
+
+                // Calculate difference considering day wrap (though 30 min window is small enough usually)
+                let diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
+
+                // Handle near-midnight edge cases if needed (e.g. 23:50 vs 00:10)
+                // 1440 minutes in a day
+                if (diff > 720) {
+                    diff = 1440 - diff;
+                }
+
+                // Check window: active medicine present -> if moves in 30 min range -> recommend
+                // Exclude exact match (diff === 0) as it's already there
+                if (diff > 0 && diff <= 30) {
+                    // Start or update best suggestion
+                    if (!bestSuggestion || diff < bestSuggestion.diff) {
+                        bestSuggestion = {
+                            time: timeStr,
+                            matchingMedName: med.name,
+                            diff: diff
+                        };
+                    }
+                }
+            }
+        }
+
+        if (bestSuggestion) {
+            setSuggestion({
+                time: bestSuggestion.time,
+                matchingMedName: bestSuggestion.matchingMedName
+            });
+        } else {
+            setSuggestion(null);
+        }
+
+    }, [selectedTime, medications]);
+
+    const handleApplySuggestion = () => {
+        if (!suggestion) return;
+        const [h, m] = suggestion.time.split(':').map(Number);
+        const newDate = new Date(selectedTime);
+        newDate.setHours(h);
+        newDate.setMinutes(m);
+        // Reset seconds/ms just in case
+        newDate.setSeconds(0);
+        newDate.setMilliseconds(0);
+        setSelectedTime(newDate);
+        setSuggestion(null); // Clear suggestion after applying
     };
 
     const handleConfirm = () => {
@@ -161,8 +232,29 @@ export default function AddReminderModal({
                             {isDuplicate && (
                                 <View style={styles.errorContainer}>
                                     <Feather name="alert-circle" size={14} color={Colors.error} />
-                                    <Text style={styles.errorText}>Reminder already exists for this time</Text>
+                                    <Text style={styles.errorText}>This time is already set for this medicine</Text>
                                 </View>
+                            )}
+
+                            {suggestion && !isDuplicate && (
+                                <TouchableOpacity
+                                    style={styles.suggestionContainer}
+                                    onPress={handleApplySuggestion}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.suggestionIcon}>
+                                        <Feather name="clock" size={14} color={Colors.primary} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.suggestionTitle}>
+                                            Suggested: {suggestion.time}
+                                        </Text>
+                                        <Text style={styles.suggestionSubtitle}>
+                                            Matches {suggestion.matchingMedName}
+                                        </Text>
+                                    </View>
+                                    <Feather name="check" size={16} color={Colors.primary} />
+                                </TouchableOpacity>
                             )}
                         </View>
 
@@ -416,5 +508,34 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: Colors.error,
         ...Typography.fontWeights.medium,
+    },
+    suggestionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 16,
+        padding: 12,
+        backgroundColor: '#EFF6FF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        gap: 12,
+    },
+    suggestionIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: Colors.white,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    suggestionTitle: {
+        fontSize: 14,
+        color: Colors.primary,
+        ...Typography.fontWeights.semibold,
+    },
+    suggestionSubtitle: {
+        fontSize: 12,
+        color: Colors.gray600,
+        marginTop: 2,
     },
 });
