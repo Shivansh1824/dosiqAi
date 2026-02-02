@@ -10,7 +10,12 @@ interface MedicationListItemProps {
 }
 
 export default function MedicationListItem({ medication, onPress }: MedicationListItemProps) {
-  const isInactive = !medication.is_active;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = medication.end_date ? new Date(medication.end_date) : null;
+  if (endDate) endDate.setHours(0, 0, 0, 0);
+  
+  const isInactive = endDate ? endDate < today : false;
 
   // Format date for display
   const formatDate = (dateString: string): string => {

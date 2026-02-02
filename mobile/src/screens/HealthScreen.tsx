@@ -52,11 +52,19 @@ export default function HealthScreen() {
 
     // Get active medications
     const activeMedications = medications.filter(m => {
-        if (!m.is_active) return false;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Check Start Date (must be in past or today)
+        if (m.start_date) {
+            const startDate = new Date(m.start_date);
+            if (startDate > today) return false;
+        }
+
+        // Check End Date (must be in future or today, or null)
         if (m.end_date) {
             const endDate = new Date(m.end_date);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
             return endDate >= today;
         }
         return true;

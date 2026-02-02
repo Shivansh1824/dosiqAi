@@ -239,9 +239,11 @@ async function handleSnoozeAction(data: any) {
       instructions: data.instructions,
       scheduledTime: new Date(), // This will be overwritten by snoozeReminder
       notificationTune: data.notificationTune || data.notification_tune, // Handle both iOS (camel) and Android (snake) payload keys
+      // Phase 3 Fix: Preserve Cluster Payload so the Snooze Alarm wakes up with the checklist!
+      activeMedicationIds: data.activeMedicationIds ? JSON.parse(data.activeMedicationIds) : undefined,
     };
 
-    console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...');
+    console.log('[DEBUG] [NotificationHandler] Snoozing reminder (10min)...Payload:', reminderData.activeMedicationIds);
     const snoozedId = await snoozeReminder(
       data.scheduleId,
       reminderData,

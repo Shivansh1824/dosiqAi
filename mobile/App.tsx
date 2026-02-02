@@ -399,7 +399,7 @@ export default function App() {
                             else if (screen === 'health') navigation.navigate('Health');
                             else if (screen === 'profile') navigation.navigate('Profile');
                             else if (screen === 'profile') navigation.navigate('Profile');
-                            else if (screen === 'medicineAlarm') navigation.navigate('MedicineAlarm');
+                            else if (screen === 'medicineAlarm') navigation.navigate('MedicineAlarm', params);
                             else if (screen === 'preferenceOnboarding') navigation.navigate('PreferenceOnboarding');
                           }}
                           onProfileSwitch={() => setShowProfileModal(true)}

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Medication Clustering Strategy</title>
+        <style>
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    Helvetica, Arial, sans-serif;
+                line-height: 1.6;
+                color: #1f2937;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 40px 20px;
+                background-color: #f9fafb;
+            }
+            h1 {
+                color: #111827;
+                font-size: 2.5rem;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+            .subtitle {
+                text-align: center;
+                color: #6b7280;
+                margin-bottom: 40px;
+                font-size: 1.1rem;
+            }
+            .card {
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+                margin-bottom: 30px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }
+            h2 {
+                color: #2563eb;
+                font-size: 1.5rem;
+                margin-top: 0;
+                border-bottom: 2px solid #e5e7eb;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+            }
+            h3 {
+                color: #374151;
+                font-size: 1.2rem;
+                margin-top: 25px;
+                margin-bottom: 10px;
+            }
+            p {
+                margin-bottom: 15px;
+            }
+            .analogy {
+                background-color: #eff6ff;
+                border-left: 4px solid #2563eb;
+                padding: 15px;
+                margin: 20px 0;
+                font-style: italic;
+                color: #1e40af;
+            }
+            .phase-badge {
+                display: inline-block;
+                background-color: #2563eb;
+                color: white;
+                padding: 4px 12px;
+                border-radius: 9999px;
+                font-size: 0.85rem;
+                font-weight: bold;
+                margin-right: 10px;
+                vertical-align: middle;
+            }
+            ul {
+                padding-left: 20px;
+            }
+            li {
+                margin-bottom: 8px;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 50px;
+                color: #9ca3af;
+                font-size: 0.9rem;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Refined Notification Plan</h1>
+        <p class="subtitle">The "Medication Clustering" Strategy</p>
+
+        <div class="card">
+            <h2>The Problem</h2>
+            <p>
+                Imagine you have to take 3 different medicines at exactly 8:00
+                AM.
+            </p>
+            <p>
+                <strong>Currently:</strong> Your phone buzzes 3 separate times.
+                Your screen gets cluttered with 3 separate banners. If you miss
+                them, you get 3 separate follow-up reminders. It’s chaotic,
+                noisy, and annoying.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>The Solution: "Clustering"</h2>
+            <p>
+                Instead of treating them as 3 separate events, we group them
+                into one single <strong>"8:00 AM Event"</strong>.
+            </p>
+
+            <div class="analogy">
+                <strong>Think of it like a School Bus:</strong><br>
+                Instead of 30 parents driving 30 cars to drop kids at school
+                (Traffic Jam!), uses one Bus to pick everyone up at the same
+                time. The "Bus" is our Cluster Notification.
+            </div>
+
+            <h3>How it works for the User:</h3>
+            <ul>
+                <li><strong>At 8:00 AM:</strong> You get ONE notification.</li>
+                <li>
+                    <strong>The Message:</strong> It says <em>"Time to take
+                        Aspirin, Vitamin D & 1 other."</em>
+                </li>
+                <li>
+                    <strong>The Action:</strong> You tap it, and see a list of
+                    all 3 medicines to check off.
+                </li>
+                <li>
+                    <strong>The Reminder:</strong> If you take some and uncheck/leave others, we treat the unchecked ones as <strong>Skipped</strong>. The cycle ends there. No extra nagging.
+                </li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>The Implementation Phases</h2>
+            <p>
+                We will build this in 4 logical steps to ensure nothing breaks.
+            </p>
+
+            <h3>
+                <span class="phase-badge" style="background-color: #059669;">Phase 1 (Completed)</span> The Brain (Logic &
+                Scheduler)
+            </h3>
+            <p>
+                <strong>The "Invisible" Work.</strong> We have taught the app's internal brain to think in "Time Slots" using data directly from the <code>medication_schedules</code> table.
+            </p>
+            <ul>
+                <li>
+                    <strong>Active Check:</strong> We first filter medications using their <code>start_date</code> and <code>end_date</code> to ensure we only process what is currently active for today.
+                </li>
+                <li>
+                    <strong>Time Source:</strong> We look at the <code>reminder_times</code> field in the database. This is our source of truth for grouping.
+                </li>
+                <li>
+                    <strong>The Grouper:</strong> We created a new logic service that buckets these active medicines by their shared time (e.g., all 8:00 AM meds together).
+                </li>
+                <li>
+                    <strong>Cleanup & Replacement:</strong> We explicitly cancel old "single-pill" notifications to prevent duplicates.
+                </li>
+                <li>
+                    <strong>Smart Generator:</strong> Instead of "repeating forever", we now run a <strong>14-Day Look Ahead</strong> generator.
+                    <br><em>The Logic:</em> For each day (Today, Tomorrow...), we check exactly which medicines are active (Daily vs Every 3 Days).
+                    <ul>
+                        <li>Day 1: Med A (Daily) + Med B (Every 3 Days) -> <strong>Cluster "A & B"</strong></li>
+                        <li>Day 2: Med A (Daily) -> <strong>Cluster "A"</strong></li>
+                        <li>Day 3: Med A (Daily) -> <strong>Cluster "A"</strong></li>
+                        <li>Day 4: Med A (Daily) + Med B -> <strong>Cluster "A & B"</strong></li>
+                    </ul>
+                    This ensures the notification text is always 100% accurate for that specific day.
+                </li>
+            </ul>
+
+            <div style="margin-top: 30px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px;">
+                <h4 style="margin-top: 0; color: #1e293b;">Technical Architecture In-Depth</h4>
+                <p><strong>1. Offline-First Reliability:</strong><br>
+                The system uses an <em>"Unrolled Schedule"</em> approach. Instead of checking logic at the exact moment of the alarm (which might fail if the app is killed), we pre-calculate the schedule for the next 14 days and register it with the device OS immediately. This means even if the user goes offline or force-closes the app, the "Smart Cluster" notifications will still fire correctly.</p>
+
+                <p><strong>2. The Interval Math (The "Active Check"):</strong><br>
+                For every active medication, we perform exact math: <code>(TargetDate - StartDate) % Interval == 0</code>. This guarantees mathematically correct skipping logic (e.g., for "Every 3 Days" meds) without complex database queries.</p>
+
+                <p><strong>3. Data Integrity Payload:</strong><br>
+                Each cluster notification carries a hidden payload: <code>activeMedicationIds: [...]</code>. This ensures that when the user taps the notification, the UI receives the exact list of medications that were calculated for <em>that specific instance</em>, regardless of subsequent schedule changes. This is our "Rock Solid Foundation".</p>
+
+                <p><strong>4. Slot Management & Horizon Safety (The 64 Limit):</strong><br>
+                iOS limits app notifications to 64 slots. If a user has a heavy schedule (e.g., 6 doses/day), a 14-day loop (84 slots) would overflow the system. 
+                <br><em>Why this is dangerous:</em> When the limit is hit, iOS doesn't just stop; it often <strong>deletes the earliest notifications</strong> (like tomorrow's alarm) to make room for the new ones (14 days away). This is called "FIFO Drop" and causes missed doses.
+                <br><em>The Fix:</em> We implemented a <strong>Dynamic Safety Valve</strong> that auto-shrinks the horizon (e.g., from 14 days to 8 days) for heavy users. This guarantees we stay UNDER the limit (48 < 64), ensuring tomorrow's alarm is 100% safe.</p>
+            </div>
+
+            <h3>
+                <span class="phase-badge" style="background-color: #059669;">Phase 2 (Completed)</span> The Look (Notification
+                Banner)
+            </h3>
+            <p>
+                <strong>The "Smart Text" Engine.</strong> We implemented a dynamic string generator (<code>generateSharedBodyText</code>) that adapts the notification body based on the exact count of medications in the cluster. This ensures we stay within the safe character limits (~40 chars) for single-line banners on both iOS and Android.
+            </p>
+            <ul>
+                <li><strong>Logic:</strong> The system automatically detects the number of meds and formats the string instantly.</li>
+                <li><strong>Single Med:</strong> "Time to take Aspirin"</li>
+                <li><strong>Double Meds:</strong> "Time to take Aspirin and Vitamin D"</li>
+                <li><strong>Multi Meds (3+):</strong> "Time to take Paracetamol, Zyloric & 1 other"</li>
+                <li>
+                    <strong>Result:</strong> zero truncation, perfect readability, and grammatically correct pluralization ("1 other" vs "2 others").
+                </li>
+            </ul>
+
+            <h3>
+                <span class="phase-badge" style="background-color: #059669;">Phase 3 (Completed)</span> The Screen (Alarm UI)
+            </h3>
+            <p>
+                <strong>The "Checklist" & Unified Ecosystem.</strong> We redesigned the Alarm Screen to be the central hub for clustered medications.
+            </p>
+            <ul>
+                <li>
+                    <strong>Dynamic Checklist:</strong> The screen parses the <code>activeMedicationIds</code> payload and renders a scrollable list of medications. Users can check "All" or select specific ones.
+                </li>
+                <li>
+                    <strong>Intelligent "Take" Action:</strong> Tapping "Take" processes the list logic instantly:
+                    <ul>
+                        <li><span style="color:#059669">Checked</span> items -> Marked as <strong>Taken</strong>.</li>
+                        <li><span style="color:#dc2626">Unchecked</span> items -> Automatically marked as <strong>Skipped</strong>.</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Premium Aesthetic:</strong> Implemented a "Glassmorphism" design with blurred backgrounds, smooth entrance animations, and a modern card layout.
+                </li>
+            </ul>
+
+            <h3>
+                <span class="phase-badge" style="background-color: #059669;">Phase 4 (Completed)</span> The Safety Net
+                (Follow-ups)
+            </h3>
+            <p>
+                <strong>The "Unified Reminder".</strong> The logic is now fully integrated with the UI actions.
+            </p>
+            <ul>
+                <li>
+                    <strong>Group Cancellation:</strong> Acting on the cluster (Taken or Skipped) immediately cancels the primary reminder <em>and</em> all associated follow-up notifications (Shield + Smart Layer) for that slot.
+                </li>
+                <li>
+                    <strong>Cluster-Aware Snooze:</strong> Snoozing the alarm doesn't just silence the sound; it reschedules the <strong>entire cluster</strong>. When the snooze alarm fires, it remembers exactly which medications were in the group.
+                </li>
+                <li>
+                    <strong>Smart Refill Engine:</strong> Every time a user takes action (Taken/Skipped), the system triggers a background <em>Reconciliation</em> process. This instantly "tops up" the schedule horizon back to 14 days, ensuring the user effectively triggers their own future reminders.
+                </li>
+                <li>
+                    <strong>Result:</strong> A seamless loop that never nags you for pills you've already taken.
+                </li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            Generated by Dosiq AI Engineering Team
+        </div>
+    </body>
+</html>

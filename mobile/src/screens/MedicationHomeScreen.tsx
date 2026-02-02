@@ -20,7 +20,7 @@ export default function MedicationHomeScreen() {
     const endDate = med.end_date ? fromLocalDateString(med.end_date) : null;
 
     return (
-      med.is_active &&
+
       med.verified_by_user === true &&
       med.ai_extracted === true &&
       today >= startDate &&

@@ -572,9 +572,11 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       document.family_member_id!
                     );
 
-                    // Mark old as inactive
+                    // Mark old as inactive (set end_date to yesterday)
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
                     await useMedicationsStore.getState().updateMedication(duplicate.id, {
-                      is_active: false,
+                      end_date: yesterday.toISOString().split('T')[0],
                     });
 
                     // Mark as verified

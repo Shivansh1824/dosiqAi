@@ -78,6 +78,9 @@ export interface NotificationSequenceData {
   snoozeDuration: number;
   scheduledTime: string; // ISO string
   notification_tune?: string;
+  // Phase 3: Cluster Support
+  activeMedicationIds?: string; // serialized JSON
+  activeMedications?: string;   // serialized JSON
 }
 
 /**
@@ -259,7 +262,9 @@ export async function requestAndroidPermissions(): Promise<boolean> {
 /**
  * Generate consistent notification ID for a reminder
  */
-export function generateNotificationId(medicationId: string, familyMemberId: string): string {
+export function generateNotificationId(medicationId: string, familyMemberId: string, scheduleId?: string): string {
+  // If we have a unique scheduleId (which includes time/date), use it!
+  if (scheduleId) return scheduleId;
   return `medicine-${medicationId}-${familyMemberId}`;
 }
 
@@ -301,18 +306,24 @@ function getUserPreferences(familyMemberId: string): {
  */
 export async function scheduleNotificationSequence(
   medicationId: string,
+  scheduleId: string,
   medicationName: string,
   dosage: string,
   familyMemberId: string,
   reminderTime: Date,
   instructions?: string,
-  startStep: number = 1
+  startStep: number = 1,
+  // Phase 3: Cluster Support
+  activeMedicationIds?: string[], // raw array
+  activeMedications?: any[]       // raw rich objects
 ): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
 
   try {
     const { reminderStyle, snoozeDuration, notificationTune } = getUserPreferences(familyMemberId);
-    const baseNotificationId = generateNotificationId(medicationId, familyMemberId);
+    
+    // Fix: Use the passed UNIQUE scheduleId (which includes time), or fallback to generic
+    const baseNotificationId = scheduleId || generateNotificationId(medicationId, familyMemberId);
     
     // Determine total steps based on mode
     const totalSteps = reminderStyle === 'standard' ? 2 : 4;
@@ -347,7 +358,7 @@ export async function scheduleNotificationSequence(
         medicationName,
         dosage,
         instructions,
-        scheduleId: baseNotificationId, // Keep original ID for grouping/tracking
+        scheduleId: baseNotificationId, // Keep same ID for the entire sequence
         familyMemberId,
         step,
         totalSteps,
@@ -355,6 +366,9 @@ export async function scheduleNotificationSequence(
         snoozeDuration,
         scheduledTime: triggerTime.toISOString(),
         notification_tune: notificationTune,
+        // Serialize for payload
+        activeMedicationIds: activeMedicationIds ? JSON.stringify(activeMedicationIds) : undefined,
+        activeMedications: activeMedications ? JSON.stringify(activeMedications) : undefined,
       };
 
       if (isFullScreen) {
@@ -400,14 +414,22 @@ async function scheduleNormalNotification(
       title: '💊 Medication Reminder',
       body: `Time to take ${data.medicationName} ${data.dosage}`,
       data: {
-        ...data,
+        medicationId: data.medicationId,
+        medicationName: data.medicationName,
+        dosage: data.dosage,
+        instructions: data.instructions || '',
+        scheduleId: data.scheduleId,
+        familyMemberId: data.familyMemberId,
         type: 'medication_reminder',
         triggerId,
         step: data.step.toString(),
         totalSteps: data.totalSteps.toString(),
         snoozeDuration: data.snoozeDuration.toString(),
-        notification_tune: data.notification_tune,
-      } as any,
+        scheduledTime: data.scheduledTime,
+        notification_tune: data.notification_tune || '',
+        activeMedicationIds: data.activeMedicationIds || '',
+        activeMedications: data.activeMedications || '',
+      },
       android: {
         channelId: channelId,
         importance: AndroidImportance.HIGH,
@@ -466,15 +488,23 @@ async function scheduleFullScreenNotification(
       title: '💊 Medication Alarm',
       body: `Time to take ${data.medicationName} ${data.dosage}`,
       data: {
-        ...data,
+        medicationId: data.medicationId,
+        medicationName: data.medicationName,
+        dosage: data.dosage,
+        instructions: data.instructions || '',
+        scheduleId: data.scheduleId,
+        familyMemberId: data.familyMemberId,
         type: 'medication_reminder',
         isFullScreen: 'true',
         triggerId,
         step: data.step.toString(),
         totalSteps: data.totalSteps.toString(),
         snoozeDuration: data.snoozeDuration.toString(),
-        notification_tune: data.notification_tune,
-      } as any,
+        scheduledTime: data.scheduledTime,
+        notification_tune: data.notification_tune || '',
+        activeMedicationIds: data.activeMedicationIds || '',
+        activeMedications: data.activeMedications || '',
+      },
       android: {
         channelId: channelId,
         importance: AndroidImportance.HIGH,
@@ -585,6 +615,7 @@ export async function handleAndroidSnooze(data: NotificationSequenceData): Promi
   // Reschedule remaining sequence starting from current step
   await scheduleNotificationSequence(
     medicationId,
+    data.scheduleId, // Pass original scheduleId
     medicationName,
     dosage,
     familyMemberId,

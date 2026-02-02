@@ -124,12 +124,12 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           
           notes: row.notes,
           color: medicationColors[index % medicationColors.length],
-          is_active: row.is_active,
           
           created_at: row.created_at,
           updated_at: row.updated_at,
           
           source_document_id: row.source_document_id,
+
           // source_document_title not joined, can be fetched if really needed
           ai_extracted: !!row.source_document_id,
           verified_by_user: true, // If it's in this table, it's verified
@@ -171,7 +171,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         start_date: med.start_date,
         end_date: med.end_date,
         notes: med.notes,
-        is_active: true,
+
         food_relationship: med.food_relationship,
         // Optional fields
         scientific_name: med.scientific_name,
@@ -291,9 +291,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
+      const medStartDate = parsedMed.start_date || startDate;
       let endDate: string | undefined;
       if (parsedMed.duration_days) {
-        endDate = calculateEndDate(startDate, parsedMed.duration_days);
+        endDate = calculateEndDate(medStartDate, parsedMed.duration_days);
       }
 
       const newSchedule = {
@@ -316,10 +317,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         food_relationship: parsedMed.food_relationship,
         interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
-        start_date: startDate,
+        start_date: medStartDate,
         duration_days: parsedMed.duration_days,
         end_date: endDate,
-        is_active: true,
+
         notes: parsedMed.notes,
         
         // Metadata
@@ -371,9 +372,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
       const newSchedules = parsedMeds.map(parsedMed => {
+        const medStartDate = parsedMed.start_date || startDate;
         let endDate: string | undefined;
         if (parsedMed.duration_days) {
-          endDate = calculateEndDate(startDate, parsedMed.duration_days);
+          endDate = calculateEndDate(medStartDate, parsedMed.duration_days);
         }
 
         return {
@@ -387,7 +389,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           medicine_purpose: parsedMed.medicine_purpose,
           form: parsedMed.form,
           strength: parsedMed.strength,
-
+ 
           // Scheduling
           dosage_instruction: parsedMed.dosage,
           timing_dosage: parsedMed.timing_dosage,
@@ -395,11 +397,11 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           reminder_times: parsedMed.time_of_day,
           food_relationship: parsedMed.food_relationship,
           interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
-
-          start_date: startDate,
+ 
+          start_date: medStartDate,
           duration_days: parsedMed.duration_days,
           end_date: endDate,
-          is_active: true,
+
           notes: parsedMed.notes,
           
           // Metadata
@@ -437,16 +439,22 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     today.setHours(0, 0, 0, 0); // Reset to start of day for fair comparison
 
     return medications.filter(med => {
-      if (!med.is_active) return false;
+      // Check if started
+      if (med.start_date) {
+        const startDate = new Date(med.start_date);
+        if (startDate > today) return false;
+      }
 
-      // Check if expired
+      // Check if expired / ended
       if (med.end_date) {
         const endDate = new Date(med.end_date);
+        endDate.setHours(0, 0, 0, 0); // Normalize end date too
         if (endDate < today) return false;
       }
 
       return true;
     });
+
   },
 
   /**
@@ -461,11 +469,15 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         throw new Error('Supabase not configured');
       }
 
-      // Mark old medication as inactive (soft delete)
+      // Mark old medication as inactive (soft delete by setting end date to yesterday)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
       await get().updateMedication(oldMedicationId, {
-        is_active: false,
+        end_date: yesterday.toISOString(),
         updated_at: new Date().toISOString(),
       });
+
 
       // Add new medication
       const { data, error } = await supabase
@@ -477,8 +489,9 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (error) throw error;
 
       const medications = get().medications.map(med =>
-        med.id === oldMedicationId ? { ...med, is_active: false } : med
+        med.id === oldMedicationId ? { ...med, end_date: new Date(Date.now() - 86400000).toISOString() } : med
       );
+
 
       set({
         medications: [data, ...medications],
