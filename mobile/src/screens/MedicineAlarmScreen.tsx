@@ -14,15 +14,27 @@ import {
   Dimensions,
   Platform,
   Modal,
-  Animated,
+  Animated as RNAnimated,
   ScrollView,
-  SafeAreaView,
-  Easing, // Added
+  Easing as RNEasing, // Renamed to avoid conflict
   PanResponder, 
   Image, 
   PanResponderGestureState, 
   useColorScheme // Added
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // Fixed Import
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'; // Added
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withTiming, 
+    runOnJS, 
+    interpolate, 
+    Extrapolate,
+    FadeIn,
+    FadeOut,
+    Easing
+} from 'react-native-reanimated'; // Added
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import notifee from '@notifee/react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,8 +43,10 @@ import SponsoredSpace from '../components/notification/SponsoredSpace';
 import { useMedicationLogsStore } from '../store/medicationLogsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
+import { useFamilyMembersStore } from '../store/familyMembersStore'; // Added
 import { toLocalDateString } from '../utils/dateUtils';
 import { Colors } from '../constants';
+import ToastNotification from '../components/ToastNotification';
 import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
@@ -57,25 +71,87 @@ interface MedicationItem {
   scheduleId?: string; // Derived base schedule ID
 }
 
+// Reusable Option Item Component for Snooze (Local Definition)
+const SnoozeOptionItem = ({ option, isSelected, onPress }: { 
+    option: { count: number; label: string; desc: string }; 
+    isSelected: boolean; 
+    onPress: () => void;
+}) => {
+    // Animation shared values
+    const scale = useSharedValue(1);
+    const backgroundColorProgress = useSharedValue(isSelected ? 1 : 0);
+
+    useEffect(() => {
+        backgroundColorProgress.value = withTiming(isSelected ? 1 : 0, { duration: 300 });
+        if (isSelected) {
+            scale.value = withTiming(1.02, { duration: 150 }); // Slight bounce
+            setTimeout(() => { scale.value = withTiming(1, { duration: 150 }); }, 150);
+        }
+    }, [isSelected]);
+
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ scale: scale.value }],
+            backgroundColor: isSelected ? '#EFF6FF' : 'rgba(255,255,255,0.8)',
+            borderColor: isSelected ? Colors.primary : 'rgba(255,255,255,0.8)',
+        };
+    });
+
+    return (
+        <Animated.View style={[styles.verificationBar, animatedStyle, { marginBottom: 12, height: 68 }]}>
+            <TouchableOpacity 
+                style={StyleSheet.absoluteFill}
+                onPress={onPress}
+                activeOpacity={0.9}
+            >
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
+                    <View style={{ 
+                        width: 44, height: 44, borderRadius: 22, 
+                        backgroundColor: isSelected ? Colors.primary : '#E0F2FE', // Light Blue
+                        justifyContent: 'center', alignItems: 'center',
+                    }}>
+                        <MaterialCommunityIcons 
+                            name={isSelected ? "check" : "clock-outline"} 
+                            size={22} 
+                            color={isSelected ? "white" : '#0284C7'} // Blue-600
+                        />
+                    </View>
+                    
+                    <View style={{ flex: 1, marginLeft: 14 }}>
+                        <Text style={[styles.barLabel, { fontSize: 16, color: Colors.gray900 }]} numberOfLines={1}>{option.label}</Text>
+                        <Text style={{ fontSize: 13, color: Colors.gray500, marginTop: 2 }}>{option.desc}</Text>
+                    </View>
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+};
+
 export default function MedicineAlarmScreen({ notification, route, navigation }: any) {
   // --------------------------------------------------------------------------
   // LOGGING & SETUP
   // --------------------------------------------------------------------------
-  console.log('='.repeat(60));
-  console.log('[MedicineAlarmScreen] 🚨 PHASE 3 CLUSTER ALARM RENDER');
+  // --------------------------------------------------------------------------
+  // LOGGING & SETUP
+  // --------------------------------------------------------------------------
+  // Removed concise log to prevent flooding
+  // console.log('[MedicineAlarmScreen] Render');
 
   const { user } = useAuthStore();
+  const { activeMember } = useFamilyMembersStore(); // Access User Preference
   const { markAsTaken, markAsSkipped } = useMedicationLogsStore();
   const { medications: allMedications } = useMedicationsStore();
   
+  // Custom Snooze Duration
+  const userSnoozeDuration = activeMember?.snooze_duration || 0;
+  
   // 1. Resolve Data Source (Notification vs Route)
-  const resolveInitialData = (): NotificationData => {
+  // Fix: Memoize to prevent infinite loop caused by returning new object `{}` on every render
+  const initialData = React.useMemo(() => {
     if (notification?.data) return notification.data;
     if (route?.params) return route.params;
-    return {};
-  };
-
-  const initialData = resolveInitialData();
+    return {}; 
+  }, [notification?.data, route?.params]);
   
   // Determine relevant time to show - Robust helper to prevent "Invalid Date"
   const getInitialTime = () => {
@@ -85,16 +161,14 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
     let date = new Date(initialData.scheduledTime);
     if (!isNaN(date.getTime())) return date;
     
-    // Attempt 2: URL Decode (handles %3A and other encoding artifacts)
+    // Attempt 2: URL Decode
     try {
       date = new Date(decodeURIComponent(initialData.scheduledTime));
       if (!isNaN(date.getTime())) return date;
     } catch (e) {
-      console.log('[MedicineAlarm] Failed to parse encoded date');
+      // console.log('[MedicineAlarm] Failed to parse encoded date');
     }
     
-    // Attempt 3: Default to current system time (User requested "Simple" fallback)
-    console.log('[MedicineAlarm] Malformed scheduledTime, falling back to current system time');
     return new Date();
   };
   
@@ -216,22 +290,25 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
   const [isActionTaken, setIsActionTaken] = useState(false);
   const [showSnoozeModal, setShowSnoozeModal] = useState(false);
   
+  // Toast State
+  const [toast, setToast] = useState<{ visible: boolean; message: string; sub: string }>({ visible: false, message: '', sub: '' });
+  
   // Animations
-  const contentFade = useRef(new Animated.Value(0)).current;
-  const contentSlide = useRef(new Animated.Value(20)).current;
-  const slideAnim = useState(new Animated.Value(300))[0];
+  const contentFade = useRef(new RNAnimated.Value(0)).current;
+  const contentSlide = useRef(new RNAnimated.Value(20)).current;
+  const slideAnim = useState(new RNAnimated.Value(300))[0];
 
   // (Removed ticking clock effect to keep time stable/exact to schedule)
 
   // Entrance Animation
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(contentFade, {
+    RNAnimated.parallel([
+      RNAnimated.timing(contentFade, {
         toValue: 1,
         duration: 800,
         useNativeDriver: true,
       }),
-      Animated.spring(contentSlide, {
+      RNAnimated.spring(contentSlide, {
         toValue: 0,
         friction: 8,
         tension: 40,
@@ -248,6 +325,76 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
     }
     return () => Vibration.cancel();
   }, []);
+
+  // -------------------------------------------------------------------------
+  // Reanimated Modal Logic
+  // -------------------------------------------------------------------------
+  const SCREEN_HEIGHT = Dimensions.get('window').height;
+  const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.75;
+  
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const context = useSharedValue({ y: 0 });
+
+  useEffect(() => {
+    if (showSnoozeModal) {
+      translateY.value = withTiming(0, { 
+        duration: 450, 
+        easing: Easing.bezier(0.33, 1, 0.68, 1) // Custom ease out
+      });
+    } else {
+      translateY.value = withTiming(SCREEN_HEIGHT, { 
+        duration: 300,
+        easing: Easing.in(Easing.exp)
+      });
+    }
+  }, [showSnoozeModal]);
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      context.value = { y: translateY.value };
+    })
+    .onUpdate((event) => {
+      // Only allow dragging downwards
+      translateY.value = Math.max(0, context.value.y + event.translationY);
+    })
+    .onEnd((event) => {
+      // Dismiss if dragged fast enough or far enough
+      if (event.velocityY > 500 || translateY.value > SHEET_MAX_HEIGHT * 0.3) {
+        runOnJS(closeSnoozeModal)();
+      } else {
+        // Snap back up
+        translateY.value = withTiming(0, { duration: 300 });
+      }
+    });
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const animatedOverlayStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateY.value, [0, SCREEN_HEIGHT], [1, 0], Extrapolate.CLAMP),
+    pointerEvents: showSnoozeModal ? 'auto' : 'none', // Ensure it doesn't block touches when hidden
+  }));
+
+  // Define Snooze Options
+  const snoozeOptions = [
+      { count: 5, label: '5 Minutes', desc: 'Quick snooze' },
+      { count: 10, label: '10 Minutes', desc: 'Standard reminder' },
+      { count: 15, label: '15 Minutes', desc: 'Short break' },
+      { count: 30, label: '30 Minutes', desc: 'Long delay' },
+  ];
+  
+  // Add User Preference if unique
+  const displayOptions = [...snoozeOptions];
+  if (userSnoozeDuration > 0 && !snoozeOptions.find(o => o.count === userSnoozeDuration)) {
+      displayOptions.push({
+          count: userSnoozeDuration,
+          label: `${userSnoozeDuration} Minutes`,
+          desc: 'Your custom preference'
+      });
+      // Sort by count
+      displayOptions.sort((a, b) => a.count - b.count);
+  }
 
   // --------------------------------------------------------------------------
   // HANDLERS
@@ -296,26 +443,20 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
       await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
+      await cancelReminder(`${baseId}_manual`);
     }
 
-    // User Feedback
+    // User Feedback & Close
     const names = takenMeds.map(m => m.name).join(', ');
-    const feedbackTitle = takenMeds.length === medicationList.length 
-      ? 'All Clean!' 
-      : `${takenMeds.length}/${medicationList.length} Taken`;
-      
-    await notifee.displayNotification({
-      id: `confirm-${Date.now()}`,
-      title: '✓ Dose Logged',
-      body: takenMeds.length > 0 ? `Tracked: ${names}` : 'Medications skipped for now.',
-      android: {
-        channelId: 'medication-reminders',
-        autoCancel: true,
-        pressAction: { id: 'default' },
-      },
-    });
-
-    closeScreen();
+    const msg = takenMeds.length === medicationList.length ? 'All Clean!' : `${takenMeds.length}/${medicationList.length} Taken`;
+    const sub = takenMeds.length > 0 ? `Tracked: ${names}` : 'Medications skipped.';
+    
+    // Show Toast then close
+    setToast({ visible: true, message: msg, sub: sub });
+    
+    // Delay close to allow user to see the success message
+    // User requested 5-10s. We'll give 6s for the toast to be readable.
+    setTimeout(() => closeScreen(), 6000); 
   };
 
   const handleSkip = async () => {
@@ -340,7 +481,8 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
       await cancelReminder(`${baseId}_manual`);
     }
 
-    closeScreen();
+    setToast({ visible: true, message: 'Skipped!', sub: 'Medications will not be tracked.' });
+    setTimeout(() => closeScreen(), 6000);
   };
 
   const handleSnooze = async (minutes: number) => {
@@ -369,7 +511,8 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
        await snoozeReminder(baseId, reminderData, minutes);
     }
     
-    closeScreen();
+    setToast({ visible: true, message: 'Snoozed!', sub: `Reminding you in ${minutes} minutes.` });
+    setTimeout(() => closeScreen(), 1500);
   };
   
   const closeScreen = () => {
@@ -378,7 +521,7 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
   };
   
   const closeSnoozeModal = () => {
-    Animated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => setShowSnoozeModal(false));
+    RNAnimated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => setShowSnoozeModal(false));
   };
 
   // --------------------------------------------------------------------------
@@ -418,13 +561,13 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
 
   const ProfessionalBackground = () => {
     // Subtle breathing/floating animation for the "Nature Bubble"
-    const floatAnim = useRef(new Animated.Value(0)).current;
+    const floatAnim = useRef(new RNAnimated.Value(0)).current;
     
     useEffect(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(floatAnim, { toValue: 1, duration: 8000, useNativeDriver: true }),
-          Animated.timing(floatAnim, { toValue: 0, duration: 8000, useNativeDriver: true }),
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(floatAnim, { toValue: 1, duration: 8000, useNativeDriver: true }),
+          RNAnimated.timing(floatAnim, { toValue: 0, duration: 8000, useNativeDriver: true }),
         ])
       ).start();
     }, []);
@@ -445,7 +588,7 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
          />
          
          {/* 2. Top-Left "Nature Bubble" */}
-         <Animated.View 
+         <RNAnimated.View 
            style={{
              position: 'absolute',
              top: -120,
@@ -459,7 +602,7 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
            }}
          >
             <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-         </Animated.View>
+         </RNAnimated.View>
 
          {/* 3. Bottom-Right "Grounding Bubble" */}
          <View 
@@ -496,169 +639,198 @@ export default function MedicineAlarmScreen({ notification, route, navigation }:
   // RENDERING
   // --------------------------------------------------------------------------
 
+  // RENDERING
+  // --------------------------------------------------------------------------
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg[1] }]}>
-      <StatusBar translucent barStyle={isDark ? "light-content" : "dark-content"} />
+      <StatusBar translucent barStyle={isDark ? 'light-content' : 'dark-content'} />
       <ProfessionalBackground />
-
-      {/* Header Info - Logo & Branding */}
-      <SafeAreaView style={styles.safeArea}>
+      
+      {/* Toast Notification Layer (Z-Index High) */}
+      <ToastNotification 
+        visible={toast.visible}
+        message={toast.message}
+        subMessage={toast.sub}
+        type="success"
+        onDismiss={() => {
+            setToast(prev => ({ ...prev, visible: false }));
+        }}
+      />
+      
+      {/* Main Content Wrapper - Safe Area for Layout */}
+      <SafeAreaView style={{ flex: 1 }}>
+         
+         {/* HEADER */}
          <View style={styles.header}>
             <View style={styles.brandingContainer}>
               <Image 
-                source={require('../../assets/app-logo.png')} 
-                style={styles.logoIcon}
+                source={require('../../assets/app-logo-long.png')} 
+                style={styles.logoIconLong}
                 resizeMode="contain"
               />
-              <Text style={[styles.headerLabel, { color: theme.textPrimary }]}>dosiqAi</Text>
             </View>
             <View style={[styles.liveIndicator, { backgroundColor: theme.badgeBg }]}>
                <View style={styles.liveDot} />
                <Text style={[styles.liveText, { color: theme.badgeText }]}>ACTIVE</Text>
             </View>
          </View>
-      </SafeAreaView>
 
-      {/* Main Content */}
-      <Animated.View 
-        style={[
-          styles.mainContent,
-          { 
-            opacity: contentFade, 
-            transform: [{ translateY: contentSlide }] 
-          }
-        ]}
-      >
-          {/* Hero Time Display */}
-          <View style={styles.heroSection}>
-             <Text style={[styles.heroTime, { color: theme.textPrimary }]}>
-               {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(' ', '')}
-             </Text>
-             <Text style={[styles.heroDate, { color: theme.textSecondary }]}>
-               {displayTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}
-             </Text>
-          </View>
+         {/* HERO & LIST */}
+         <RNAnimated.View 
+            style={[
+              styles.mainContent,
+              { 
+                opacity: contentFade, 
+                transform: [{ translateY: contentSlide }] 
+              }
+            ]}
+         >
+            {/* Hero Time Display */}
+            <View style={styles.heroSection}>
+               <Text style={[styles.heroTime, { color: theme.textPrimary }]}>
+                 {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(' ', '')}
+               </Text>
+               <Text style={[styles.heroDate, { color: theme.textSecondary }]}>
+                 {displayTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}
+               </Text>
+            </View>
 
-          {/* Minimalist List */}
-          <View style={styles.listSection}>
-             <View style={styles.listHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRESCRIBED BUNDLE ({medicationList.length})</Text>
-                {medicationList.length > 1 && (
-                  <TouchableOpacity onPress={() => {
-                     const allSelected = checkedIds.size === medicationList.length;
-                     if (allSelected) setCheckedIds(new Set());
-                     else setCheckedIds(new Set(medicationList.map(m=>m.id)));
-                  }}>
-                    <Text style={styles.toggleText}>{checkedIds.size === medicationList.length ? 'Clear' : 'All'}</Text>
-                  </TouchableOpacity>
-                )}
-             </View>
-             
-             <ScrollView 
-               style={{ maxHeight: 300 }} 
-               showsVerticalScrollIndicator={false}
-               contentContainerStyle={{ gap: 0 }}
-             >
-                {medicationList.map((med, index) => {
-                  const isChecked = checkedIds.has(med.id);
-                  return (
-                    <TouchableOpacity
-                      key={`${med.id}-${index}`}
-                      style={[styles.listItem, { borderBottomColor: theme.borderColor }]} // No opacity change on check
-                      onPress={() => toggleCheckbox(med.id)}
-                      activeOpacity={0.8}
-                    >
-                       <View style={styles.itemContent}>
-                          {/* Name: No change when checked (user request) */}
-                          <Text style={[styles.itemName, { color: theme.textPrimary }]}>
-                             {med.name}
-                          </Text>
-                          <View style={styles.itemMeta}>
-                             {med.dosage ? <Text style={[styles.itemDetail, { color: theme.textSecondary }]}>{med.dosage}</Text> : null}
-                             {med.instructions ? (
-                                <>
-                                 <View style={styles.metaDot} />
-                                 <Text style={[styles.itemDetail, { color: theme.textSecondary }]}>{med.instructions}</Text>
-                                </>
-                             ) : null}
-                          </View>
-                       </View>
-                       
-                       <GlowCheckbox checked={isChecked} />
+            {/* List */}
+            <View style={styles.listSection}>
+               <View style={styles.listHeaderRow}>
+                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRESCRIBED BUNDLE ({medicationList.length})</Text>
+                  {medicationList.length > 1 && (
+                    <TouchableOpacity onPress={() => {
+                       const allSelected = checkedIds.size === medicationList.length;
+                       if (allSelected) setCheckedIds(new Set());
+                       else setCheckedIds(new Set(medicationList.map(m=>m.id)));
+                    }}>
+                      <Text style={styles.toggleText}>{checkedIds.size === medicationList.length ? 'Clear' : 'All'}</Text>
                     </TouchableOpacity>
-                  );
-                })}
-             </ScrollView>
-          </View>
-      </Animated.View>
+                  )}
+               </View>
+               
+               <ScrollView 
+                 style={{ maxHeight: 300 }} 
+                 showsVerticalScrollIndicator={false}
+                 contentContainerStyle={{ gap: 0 }}
+               >
+                  {medicationList.map((med, index) => {
+                    const isChecked = checkedIds.has(med.id);
+                    return (
+                      <TouchableOpacity
+                        key={`${med.id}-${index}`}
+                        style={[styles.listItem, { borderBottomColor: theme.borderColor }]} 
+                        onPress={() => toggleCheckbox(med.id)}
+                        activeOpacity={0.8}
+                      >
+                         <View style={styles.itemContent}>
+                            <Text style={[styles.itemName, { color: theme.textPrimary }]}>
+                               {med.name}
+                            </Text>
+                            <View style={styles.itemMeta}>
+                               {med.dosage ? <Text style={[styles.itemDetail, { color: theme.textSecondary }]}>{med.dosage}</Text> : null}
+                               {med.instructions ? (
+                                  <>
+                                   <View style={styles.metaDot} />
+                                   <Text style={[styles.itemDetail, { color: theme.textSecondary }]}>{med.instructions}</Text>
+                                  </>
+                               ) : null}
+                            </View>
+                         </View>
+                         
+                         <GlowCheckbox checked={isChecked} />
+                      </TouchableOpacity>
+                    );
+                  })}
+               </ScrollView>
+            </View>
+         </RNAnimated.View>
 
-      {/* Bottom Actions - Simple Horizontal Layout */}
-      <View style={styles.bottomActionsContainer}>
-         
-         <View style={styles.actionGrid}>
-            {/* 1. TAKEN (Left) */}
-            <TouchableOpacity 
-               style={[styles.actionBtn, styles.btnTaken]} 
-               onPress={handleTaken}
-               activeOpacity={0.8}
-            >
-               <MaterialCommunityIcons name="check" size={24} color={isDark ? "white" : theme.btnActionText} />
-               <Text style={[styles.btnTextWhite, { color: theme.btnActionText }]}>Taken ({checkedIds.size})</Text>
-            </TouchableOpacity>
+         {/* Bottom Actions - Now inside SafeAreaView for correct bottom padding */}
+         <View style={styles.bottomActionsContainer}>
+             <View style={styles.actionGrid}>
+                {/* 1. TAKEN */}
+                <TouchableOpacity 
+                   style={[styles.actionBtn, styles.btnTaken]} 
+                   onPress={handleTaken}
+                   activeOpacity={0.8}
+                >
+                   <MaterialCommunityIcons name="check" size={24} color={isDark ? "white" : theme.btnActionText} />
+                   <Text style={[styles.btnTextWhite, { color: theme.btnActionText }]}>Taken ({checkedIds.size})</Text>
+                </TouchableOpacity>
 
-            {/* 2. SNOOZE (Middle) */}
-            <TouchableOpacity 
-               style={[
-                 styles.actionBtn, 
-                 styles.btnSnooze, 
-                 { backgroundColor: theme.btnSnoozeBg, borderColor: theme.btnSnoozeBorder }
-               ]} 
-               onPress={() => setShowSnoozeModal(true)}
-               activeOpacity={0.8}
-            >
-               <MaterialCommunityIcons name="clock-outline" size={24} color={theme.btnSnoozeText} />
-               <Text style={[styles.btnTextLight, { color: theme.btnSnoozeText }]}>Snooze</Text>
-            </TouchableOpacity>
+                {/* 2. SNOOZE */}
+                <TouchableOpacity 
+                   style={[
+                     styles.actionBtn, 
+                     styles.btnSnooze, 
+                     { backgroundColor: theme.btnSnoozeBg, borderColor: theme.btnSnoozeBorder }
+                   ]} 
+                   onPress={() => setShowSnoozeModal(true)}
+                   activeOpacity={0.8}
+                >
+                   <MaterialCommunityIcons name="clock-outline" size={24} color={theme.btnSnoozeText} />
+                   <Text style={[styles.btnTextLight, { color: theme.btnSnoozeText }]}>Snooze</Text>
+                </TouchableOpacity>
 
-            {/* 3. SKIP (Right) */}
-            <TouchableOpacity 
-               style={[styles.actionBtn, styles.btnSkip]} 
-               onPress={handleSkip}
-               activeOpacity={0.8}
-            >
-               <MaterialCommunityIcons name="close" size={24} color={isDark ? "white" : theme.btnActionText} />
-               <Text style={[styles.btnTextWhite, { color: theme.btnActionText }]}>Skip</Text>
-            </TouchableOpacity>
+                {/* 3. SKIP */}
+                <TouchableOpacity 
+                   style={[styles.actionBtn, styles.btnSkip]} 
+                   onPress={handleSkip}
+                   activeOpacity={0.8}
+                >
+                   <MaterialCommunityIcons name="close" size={24} color={isDark ? "white" : theme.btnActionText} />
+                   <Text style={[styles.btnTextWhite, { color: theme.btnActionText }]}>Skip</Text>
+                </TouchableOpacity>
+             </View>
          </View>
 
-      </View>
+      </SafeAreaView>
 
-      {/* Modern Snooze Modal - Bottom Sheet Style */}
+      {/* Modern Snooze Modal */}
       <Modal
          visible={showSnoozeModal}
          transparent
-         animationType="fade"
-         onRequestClose={() => handleSnooze(5)}
+         animationType="none" // Controlled by Reanimated
+         onRequestClose={() => closeSnoozeModal()}
       >
         <View style={styles.modalOverlay}>
-           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeSnoozeModal} />
-           <Animated.View style={[styles.snoozeSheet, { transform: [{ translateY: slideAnim }] }]}>
-              <Text style={styles.snoozeLabel}>SNOOZE DURATION</Text>
-              <View style={styles.snoozeRow}>
-                {[5, 10, 15, 30].map(min => (
-                  <TouchableOpacity 
-                    key={min} 
-                    style={styles.snoozeChip} 
-                    onPress={() => handleSnooze(min)}
-                  >
-                     <Text style={styles.snoozeChipText}>{min}m</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity style={styles.cancelLink} onPress={closeSnoozeModal}>
-                <Text style={styles.cancelLinkText}>Cancel</Text>
-              </TouchableOpacity>
+           {/* Backdrop */}
+           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }, animatedOverlayStyle]}>
+              <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeSnoozeModal} />
            </Animated.View>
+
+           {/* Draggable Sheet */}
+           <GestureDetector gesture={panGesture}>
+              <Animated.View style={[styles.snoozeSheet, animatedSheetStyle]}>
+                 <View style={styles.dragHandleContainer}>
+                   <View style={styles.dragHandle} />
+                 </View>
+
+                 <View style={styles.sheetHeader}>
+                    <Text style={styles.sheetTitle}>Snooze Duration</Text>
+                    <TouchableOpacity onPress={closeSnoozeModal} style={styles.closeButton}>
+                       <MaterialCommunityIcons name="close" size={24} color={Colors.gray600} />
+                    </TouchableOpacity>
+                 </View>
+
+                 <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ padding: 20, paddingBottom: 20 }}>
+                    <Text style={styles.sectionHeaderText}>DURATION</Text>
+                    
+                    {displayOptions.map((opt) => (
+                        <SnoozeOptionItem
+                            key={opt.count}
+                            option={opt}
+                            isSelected={false} 
+                            onPress={() => handleSnooze(opt.count)}
+                        />
+                    ))}
+                    
+                 </ScrollView>
+              </Animated.View>
+           </GestureDetector>
         </View>
       </Modal>
 
@@ -680,33 +852,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     opacity: 0.4,
   },
-  safeArea: {
-    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 44,
-    marginHorizontal: 24,
-  },
-  
-  // HEADER
+  // REPLACED safeArea -> header layout
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 60,
+    marginHorizontal: 24, // Keep horz margin
+    marginTop: 12, // Slight top spacing inside Safe Area
   },
   brandingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  logoIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 6, // soft square icon
-  },
-  headerLabel: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+  logoIconLong: {
+    width: 140, 
+    height: 40,
   },
   liveIndicator: {
     flexDirection: 'row',
@@ -844,10 +1006,10 @@ const styles = StyleSheet.create({
 
   // BOTTOM ACTIONS
   bottomActionsContainer: {
-    position: 'absolute',
-    bottom: 40,
-    left: 24,
-    right: 24,
+    // Relative to Flex Parent (SafeAreaView), so just padding/margin
+    marginTop: 'auto', // Push to bottom
+    marginBottom: 20,  // Bottom spacing
+    paddingHorizontal: 24,
     alignItems: 'center',
   },
   actionGrid: {
@@ -859,8 +1021,8 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     height: 84,
-    flex: 1, // Equal width for uniform look
-    borderRadius: 24, // Squaricle
+    flex: 1, // Equal width
+    borderRadius: 24, 
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
@@ -898,54 +1060,77 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // SNOOZE SHEET
+  // MODAL & SNOOZE (Redesigned)
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'flex-end',
+    backgroundColor: 'transparent',
   },
   snoozeSheet: {
-    backgroundColor: '#0f172a',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 32,
-    paddingBottom: 50,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 0, // Reduced from 40
+    width: '100%',
+    height: Dimensions.get('window').height * 0.5, // Fixed 50% height as requested
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 20,
+    overflow: 'hidden',
   },
-  snoozeLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 24,
-    textAlign: 'center',
+  dragHandleContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  snoozeRow: {
+  dragHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: Colors.gray300,
+    borderRadius: 3,
+  },
+  sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
-  },
-  snoozeChip: {
-    flex: 1,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    paddingVertical: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
   },
-  snoozeChipText: {
-    color: '#fff',
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.gray900,
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: Colors.gray100,
+  },
+  sectionHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.gray500,
+    marginTop: 8,
+    marginBottom: 16,
+    letterSpacing: 1,
+  },
+  verificationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  barLabel: {
     fontSize: 16,
     fontWeight: '600',
+    letterSpacing: -0.3,
   },
-  cancelLink: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  cancelLinkText: {
-    color: '#64748b',
-    fontSize: 15,
-  },
+
 });

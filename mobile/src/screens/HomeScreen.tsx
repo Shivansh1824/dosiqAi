@@ -547,6 +547,8 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             </View>
           </TouchableOpacity>
 
+
+
           {/* Recent Documents Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>

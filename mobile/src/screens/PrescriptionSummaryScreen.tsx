@@ -93,6 +93,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     end_date?: string;
     duration_days?: number;
   }>>({});
+
+  const onLiveUpdate = (index: number, updates: any) => {
+    setMedicationLiveUpdates(prev => ({
+      ...prev,
+      [index]: { ...(prev[index] || {}), ...updates }
+    }));
+  };
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);

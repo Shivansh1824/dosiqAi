@@ -462,7 +462,6 @@ export function ReminderTimesSection({
             const timeToUpdate = editingTime;
             setEditingTime(null); // Dismiss immediately
             if (event.type === 'set' && selectedDate && timeToUpdate) {
-                console.log('[DEBUG] ReminderTimesSection Android set. TimeToUpdate:', timeToUpdate, 'Selected:', selectedDate);
                 const newTimeString = dateToTimeString(selectedDate);
                 onTimeChange?.(timeToUpdate, newTimeString);
             }
