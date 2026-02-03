@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } fr
 import { Feather } from '@expo/vector-icons';
 import Pdf from 'react-native-pdf-jsi';
 import { Colors } from '../../constants';
+import { DocumentPreviewLoading } from './DocumentPreviewLoading';
 
 interface DocumentPreviewProps {
     imageUri: string | null;
@@ -94,10 +95,7 @@ export function DocumentPreview({
 
     return (
         <View style={styles.previewCard}>
-            <View style={styles.previewIconContainer}>
-                <Feather name="file-text" size={64} color={Colors.primary} />
-            </View>
-            <Text style={styles.previewText}>Document Preview</Text>
+            <DocumentPreviewLoading />
         </View>
     );
 }

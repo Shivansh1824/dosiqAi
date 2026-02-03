@@ -7,7 +7,7 @@ import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Colors, Typography } from '../../constants';
-import { getTimeOfDayCategory } from '../../types/medicationSchedule';
+import { getTimeOfDayCategory, normalizeTime } from '../../types/medicationSchedule';
 import { cleanMedicationName } from '../../utils/medicationParser';
 import { InfoModal } from '../InfoModal';
 
@@ -60,12 +60,7 @@ const formatTimeDisplay = (time24: string): string => {
 /**
  * Normalize time string to HH:mm format for reliable comparison
  */
-const normalizeTime = (time: string): string => {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    if (!hours || !minutes) return '';
-    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
-};
+// normalizeTime imported from types/medicationSchedule
 
 // ... helpers getMealLabel, getCleanMedicineName kept as is via context ... Actually I can't skip helpers if I replace a large chunk.
 // I will target specific blocks to be safer.
@@ -1310,7 +1305,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         backgroundColor: '#EFF6FF',
         borderRadius: 12,
-        paddingVertical: 8,
+        height: 45, // Standardized 45px height
         paddingLeft: 12,
         paddingRight: 8, // Standardized 8
     },

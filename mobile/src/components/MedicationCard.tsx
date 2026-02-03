@@ -1,298 +1,261 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
-import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { Colors, Sizes } from '../constants';
-import { MedicationWithStatus, getMedicineTypeIcon, getMedicineTypeColor, getInstructionText } from '../types/medicationSchedule';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Colors } from '../constants';
+import { MedicationWithStatus, getInstructionText } from '../types/medicationSchedule';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ICON_THEMES } from './medication/MedicationIcons';
+import * as Haptics from 'expo-haptics';
 
 interface MedicationCardProps {
     medication: MedicationWithStatus;
+    doseNumber?: number;
     onTake: (medicationId: string, scheduledTime: string) => void;
+    onSkip: (medicationId: string, scheduledTime: string) => void;
     onReschedule?: (medication: MedicationWithStatus) => void;
 }
 
-export default function MedicationCard({ medication, onTake, onReschedule }: MedicationCardProps) {
-    const navigation = useNavigation();
+export default function MedicationCard({ medication, doseNumber, onTake, onSkip, onReschedule }: MedicationCardProps) {
     const isTaken = medication.status === 'taken';
-    const isMissed = medication.status === 'missed';
     const isSkipped = medication.status === 'skipped';
-    const isPending = medication.status === 'pending';
 
-    const iconName = getMedicineTypeIcon(medication.type);
-    const iconColor = getMedicineTypeColor(medication.type);
+    const cleanName = (name: string) => {
+        if (!name) return '';
+        // Aggressively remove instructions and extra details from the name
+        // e.g., "Ethoshine SOS for pain" -> "Ethoshine"
+        return name
+            .split(/\s(SOS|PRN|as\s+needed|for\s+|pc|ac|after\s+|before\s+|with\s+)/i)[0]
+            .replace(/[,\s.-]+$/, '')
+            .split('(')[0] // Remove strengths in parentheses if they are part of the name
+            .trim();
+    };
+    
+    const normalizedForm = medication.form?.toLowerCase() || 'tablet';
+    const theme = ICON_THEMES[normalizedForm] || ICON_THEMES.default;
 
-    // Animation for checkmark bounce
+    // Animations
     const scale = useSharedValue(1);
+    const opacity = useSharedValue(1);
 
     useEffect(() => {
-        if (isTaken) {
-            // Bounce animation when taken
-            scale.value = withSpring(1.2, {
-                damping: 8,
-                stiffness: 200,
-            }, () => {
-                scale.value = withSpring(1);
-            });
+        if (isTaken || isSkipped) {
+            scale.value = withSequence(
+                withSpring(1.05),
+                withSpring(1)
+            );
         }
-    }, [isTaken]);
+    }, [isTaken, isSkipped]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
+        opacity: opacity.value,
     }));
 
-    const handleTakePress = () => {
+    const handleTakePress = async () => {
         if (!isTaken) {
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onTake(medication.id, medication.scheduled_time);
         }
     };
 
-    const handleSourcePress = () => {
-        if (medication.source_document_id) {
-            (navigation as any).navigate('PrescriptionSummary', {
-                document: { id: medication.source_document_id }
-            });
+    const handleSkipPress = async () => {
+        if (!isSkipped) {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onSkip(medication.id, medication.scheduled_time);
         }
     };
 
+    const StatusContent = () => {
+        if (isTaken) {
+            return (
+                <View style={styles.statusBadge}>
+                    <Feather name="check" size={12} color={Colors.success} style={{ marginRight: 4 }} />
+                    <Text style={styles.statusBadgeText}>Done</Text>
+                </View>
+            );
+        }
+        if (isSkipped) {
+            return (
+                <View style={[styles.statusBadge, { backgroundColor: Colors.gray100 }]}>
+                    <Feather name="x" size={12} color={Colors.gray500} style={{ marginRight: 4 }} />
+                    <Text style={[styles.statusBadgeText, { color: Colors.gray500 }]}>Skipped</Text>
+                </View>
+            );
+        }
+        return (
+            <View style={styles.actionsGroup}>
+                <TouchableOpacity
+                    style={[styles.actionButton, styles.skipButton]}
+                    onPress={handleSkipPress}
+                    activeOpacity={0.7}
+                >
+                    <Feather name="clock" size={16} color={Colors.gray500} style={{ marginRight: 6 }} />
+                    <Text style={[styles.actionButtonText, { color: Colors.gray600 }]}>Skip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.actionButton, styles.takeButton]}
+                    onPress={handleTakePress}
+                    activeOpacity={0.7}
+                >
+                    <MaterialCommunityIcons name="pill" size={18} color={Colors.white} style={{ marginRight: 6 }} />
+                    <Text style={[styles.actionButtonText, { color: Colors.white }]}>Take</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     return (
-        <View style={[
-            styles.container,
-            isTaken && styles.containerTaken,
-            isMissed && styles.containerMissed,
-        ]}>
-            {/* Left: Medicine Icon */}
-            <View style={styles.leftSection}>
-                <View style={[styles.iconContainer, { backgroundColor: iconColor + '10' }]}>
-                    <View style={[styles.iconLargeCircle, { borderColor: iconColor + '30' }]}>
-                        <Feather
-                            name={iconName as any}
-                            size={28}
-                            color={isTaken ? Colors.gray400 : iconColor}
-                        />
-                    </View>
+        <Animated.View style={[styles.container, animatedStyle]}>
+            <LinearGradient
+                colors={isTaken || isSkipped ? ['#F8FAFC', '#F1F5F9'] : ['#FFFFFF', '#F8FAFC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+            />
+            
+            <View style={styles.barGraphics}>
+                {doseNumber !== undefined && (
+                    <Text style={[
+                        styles.doseNumber,
+                        (isTaken || isSkipped) && styles.textMuted
+                    ]}>{doseNumber}.</Text>
+                )}
+            </View>
+
+            <View style={styles.barContent}>
+                <View style={styles.mainInfo}>
+                    <Text style={[
+                        styles.name,
+                        (isTaken || isSkipped) && styles.textMuted
+                    ]} numberOfLines={1}>
+                        {cleanName(medication.name)}
+                    </Text>
+                </View>
+
+                <View style={styles.rightActions}>
+                    <StatusContent />
                 </View>
             </View>
             
-            {/* Center: Medicine Info */}
-            <View style={styles.infoContainer}>
-                <View style={styles.nameRow}>
-                    <Text style={[
-                        styles.name,
-                        isTaken && styles.nameTaken,
-                    ]} numberOfLines={1}>
-                        {medication.name}
-                    </Text>
-                </View>
-                
-                <View style={styles.detailsRow}>
-                    {/* Time & Reschedule */}
-                    <TouchableOpacity 
-                        style={styles.timeContainer} 
-                        onPress={() => onReschedule?.(medication)}
-                        disabled={isTaken}
-                        activeOpacity={0.6}
-                    >
-                        <Feather name="clock" size={12} color={Colors.primary} />
-                        <Text style={styles.timeText}>{medication.scheduled_time}</Text>
-                        {!isTaken && <Feather name="chevron-down" size={12} color={Colors.primary} />}
-                    </TouchableOpacity>
-
-                    <View style={styles.verticalDivider} />
-
-                    <Text style={styles.dosageText} numberOfLines={1}>
-                        {medication.dosage}
-                    </Text>
-                </View>
-
-                <View style={styles.tagRow}>
-                    <View style={styles.typeTag}>
-                        <Text style={styles.tagText}>{medication.type.charAt(0).toUpperCase() + medication.type.slice(1)}</Text>
-                    </View>
-                    <View style={styles.instructionTag}>
-                        <Text style={styles.tagText}>{getInstructionText(medication.instructions)}</Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* Right: Take Button / Status Indicator */}
-            <View style={styles.actionButtonContainer}>
-                {isTaken ? (
-                    <View style={styles.statusContainer}>
-                        <Feather name="check-circle" size={32} color={Colors.success} />
-                    </View>
-                ) : isSkipped ? (
-                    <View style={styles.skippedBanner}>
-                        <Feather name="x" size={14} color={Colors.textSecondary} />
-                        <Text style={styles.skippedText}>Skipped</Text>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        style={styles.takeButton}
-                        onPress={handleTakePress}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.takeButtonText}>Take</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </View>
+            {medication.status === 'missed' && <View style={styles.missedIndicator} />}
+        </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
-        backgroundColor: Colors.white,
-        borderRadius: 20,
-        padding: 14,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
-        alignItems: 'center',
-    },
-    containerTaken: {
-        opacity: 0.9,
-        backgroundColor: '#FFFFFF',
-    },
-    containerMissed: {
-        borderLeftWidth: 4,
-        borderLeftColor: Colors.error,
-    },
-    leftSection: {
-        marginRight: 14,
-    },
-    iconContainer: {
-        width: 60,
-        height: 60,
+        height: 70, // More compact
         borderRadius: 18,
+        overflow: 'hidden',
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.05,
+                shadowRadius: 10,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
+    },
+    barGraphics: {
+        width: 52, // Professional spacing between number and name
+        height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+        paddingLeft: 6,
     },
-    iconLargeCircle: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        borderWidth: 1.5,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: Colors.white,
-    },
-    infoContainer: {
+    barContent: {
         flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingRight: 8,
     },
-    nameRow: {
-        marginBottom: 4,
+    mainInfo: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    doseNumber: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: Colors.gray300,
+        letterSpacing: -1,
+        marginTop: -1,
     },
     name: {
-        fontSize: 17,
-        fontWeight: '700',
+        fontSize: 19,
+        fontWeight: '900', // Even bolder for that 'perfect' look
         color: Colors.textPrimary,
+        letterSpacing: -0.8, // Tighter for premium feel
+    },
+    dosage: {
+        fontSize: 15, // Slightly larger
+        fontWeight: '700', // Bolder to match name
+        color: Colors.gray500,
         letterSpacing: -0.3,
     },
-    nameTaken: {
-        color: Colors.textSecondary,
-        textDecorationLine: 'line-through',
+    textMuted: {
+        color: Colors.gray400,
+        opacity: 0.6,
     },
-    detailsRow: {
+    rightActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
     },
-    timeContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.primary + '10',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
-        gap: 4,
-    },
-    timeText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.primary,
-    },
-    verticalDivider: {
-        width: 1,
-        height: 12,
-        backgroundColor: Colors.gray200,
-        marginHorizontal: 8,
-    },
-    dosageText: {
-        fontSize: 13,
-        color: Colors.textSecondary,
-        fontWeight: '500',
-        flexShrink: 1,
-    },
-    tagRow: {
+    actionsGroup: {
         flexDirection: 'row',
         gap: 6,
     },
-    typeTag: {
+    actionButton: {
+        height: 40,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    skipButton: {
         backgroundColor: Colors.gray100,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
-    },
-    instructionTag: {
-        backgroundColor: Colors.gray100,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
-    },
-    tagText: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: Colors.gray600,
-        textTransform: 'uppercase',
-    },
-    actionButtonContainer: {
-        marginLeft: 8,
-        minWidth: 80, // Allow expansion
-        alignItems: 'flex-end',
+        borderWidth: 1,
+        borderColor: Colors.gray200,
     },
     takeButton: {
         backgroundColor: Colors.primary,
-        width: 70, 
-        height: 38,
-        borderRadius: 19,
-        justifyContent: 'center',
-        alignItems: 'center',
         shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 6,
+        elevation: 4,
     },
-    takeButtonText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.white,
-    },
-    statusContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 40,
-        height: 40,
-    },
-    // Skipped Banner Styles
-    skippedBanner: {
+    statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        backgroundColor: Colors.gray100,
-        borderRadius: 12,
-        paddingVertical: 8,
+        backgroundColor: Colors.success + '15',
         paddingHorizontal: 12,
-        borderWidth: 1,
-        borderColor: Colors.gray200,
+        paddingVertical: 8,
+        borderRadius: 12,
     },
-    skippedText: {
+    statusBadgeText: {
         fontSize: 12,
-        fontWeight: '600',
-        color: Colors.textSecondary,
+        fontWeight: '700',
+        color: Colors.success,
+    },
+    missedIndicator: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 4,
+        backgroundColor: Colors.error,
     },
 });

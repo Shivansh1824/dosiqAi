@@ -2,13 +2,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes } from '../constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Sizes, Typography } from '../constants';
 import { useNavigation } from '@react-navigation/native';
 import CalendarStrip from '../components/CalendarStrip';
-import TimeSection from '../components/TimeSection';
+import MedicationCard from '../components/MedicationCard';
 import AddMedicationModal from '../components/AddMedicationModal';
 import CalendarModal, { CalendarEvent } from '../components/CalendarModal';
-import { MedicationWithStatus, getTimeOfDayCategory } from '../types/medicationSchedule';
+import { MedicationWithStatus, getTimeOfDayCategory, mapFoodRelationshipToInstruction } from '../types/medicationSchedule';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useMedicationLogsStore } from '../store/medicationLogsStore';
 import { useAuthStore } from '../store/authStore';
@@ -23,7 +24,7 @@ export default function MedicationsScreen() {
     const navigation = useNavigation();
     const { user } = useAuthStore();
     const { medications, fetchMedications, isLoading } = useMedicationsStore();
-    const { logs, fetchLogsForDate, markAsTaken } = useMedicationLogsStore();
+    const { logs, fetchLogsForDateRange, markAsTaken } = useMedicationLogsStore();
     const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
     const [refreshing, setRefreshing] = useState(false);
@@ -41,39 +42,82 @@ export default function MedicationsScreen() {
         }
     }, [user?.id, fetchMedications]);
 
-    // Fetch logs for selected date
+    // Fetch logs for selected date (Windowed Sync & Wastage Filter)
     useEffect(() => {
-        if (user?.id) {
-            fetchLogsForDate(user.id, selectedDate);
-        }
-    }, [selectedDate, user?.id, fetchLogsForDate]);
+        if (!user?.id) return;
 
-    // Convert store medications to scheduled format with date filtering
+        // 1. Local Schedule Resolver: Check if ANY medicine actually exists on this day
+        const medsForDay = convertToScheduledMedications(medications, selectedDate);
+        if (medsForDay.length === 0) {
+            console.log(`[Sync] Skipping fetch for ${toLocalDateString(selectedDate)} (No medications scheduled)`);
+            return;
+        }
+
+        // 2. Windowed Fetch: Fetch 7 days back and 7 days forward to reduce future calls
+        const startWindow = new Date(selectedDate);
+        startWindow.setDate(startWindow.getDate() - 7);
+        const endWindow = new Date(selectedDate);
+        endWindow.setDate(endWindow.getDate() + 7);
+
+        fetchLogsForDateRange(
+            user.id, 
+            toLocalDateString(startWindow), 
+            toLocalDateString(endWindow)
+        );
+    }, [selectedDate, user?.id, medications, fetchLogsForDateRange]);
+
+    // Convert store medications to scheduled format with date filtering (Local Schedule Resolver)
     const convertToScheduledMedications = (meds: Medication[], selectedDate: Date): MedicationWithStatus[] => {
         const result: MedicationWithStatus[] = [];
-
-        // Normalize selected date to local date string (no UTC conversion)
         const selectedDateStr = toLocalDateString(selectedDate);
+        const dayOfWeek = selectedDate.getDay(); // 0 (Sun) to 6 (Sat)
+        
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
 
-        // Filter medications that are:
-        // 1. Active (not expired)
-        // 2. Started on or before selected date
-        // 3. Not ended OR ended on or after selected date
         const activeMeds = meds.filter(med => {
-            // Check if medication has started
-            if (med.start_date > selectedDateStr) {
-                return false; // Medication hasn't started yet
-            }
+            // 1. Basic Date Range Check
+            if (med.start_date > selectedDateStr) return false;
+            if (med.end_date && med.end_date < selectedDateStr) return false;
 
-            // Check if medication has ended
-            if (med.end_date && med.end_date < selectedDateStr) {
-                return false; // Medication already ended
-            }
+            // 2. Frequency/Interval Logic
+            const startDate = fromLocalDateString(med.start_date);
+            const diffTime = startOfDay.getTime() - startDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-            return true; // Medication is active on selected date
+            switch (med.frequency) {
+                case 'once_daily':
+                case 'twice_daily':
+                case 'three_times_daily':
+                case 'four_times_daily':
+                    // These are daily - if in range, they exist
+                    return true;
+                
+                case 'weekly':
+                    // Check if it's the same day of the week as the start date
+                    // (Assuming weekly means same day every week)
+                    return dayOfWeek === startDate.getDay();
+                
+                case 'monthly':
+                    // Check if it's the same date of the month
+                    return selectedDate.getDate() === startDate.getDate();
+
+                case 'as_needed':
+                    // For now, only show PRN if they have a log on this day
+                    return useMedicationLogsStore.getState().logs.some(
+                        (l: import('../store/medicationLogsStore').MedicationLog) => l.medication_id === med.id && l.scheduled_date === selectedDateStr
+                    );
+
+                default:
+                    // Interval Days logic (e.g. Every 2 days)
+                    if (med.interval_days && med.interval_days > 0) {
+                        return diffDays % med.interval_days === 0;
+                    }
+                    return false;
+            }
         });
 
-        // Create scheduled entries for valid medications
+        // Create scheduled entries
         activeMeds.forEach(med => {
             med.time_of_day.forEach(time => {
                 // Check if log exists for this medication/date/time
@@ -91,46 +135,66 @@ export default function MedicationsScreen() {
                     dosage: med.dosage,
                     frequency: getFrequencyText(med.frequency),
                     times: med.time_of_day,
-                    type: 'tablet', // Default type
+                    type: (med.medicine_type || med.form || 'tablet') as any,
+                    form: med.form || med.medicine_type,
                     reminder_enabled: true,
-                    instructions: 'other', // Default instruction
+                    instructions: mapFoodRelationshipToInstruction(med.food_relationship),
                 });
             });
         });
 
-        return result;
+        return result.sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time));
     };
 
-    // Group medications by time of day
-    const groupMedicationsByTimeOfDay = () => {
-        const grouped = {
-            morning: [] as MedicationWithStatus[],
-            afternoon: [] as MedicationWithStatus[],
-            evening: [] as MedicationWithStatus[],
-            night: [] as MedicationWithStatus[],
-        };
+    // Group medications by exact scheduled time
+    const groupMedicationsByExactTime = () => {
+        const grouped: Record<string, MedicationWithStatus[]> = {};
 
         const scheduledMeds = convertToScheduledMedications(medications, selectedDate);
 
         scheduledMeds.forEach((med) => {
-            const category = getTimeOfDayCategory(med.scheduled_time);
-            if (category) {
-                grouped[category].push(med);
+            const time = med.scheduled_time;
+            if (!grouped[time]) {
+                grouped[time] = [];
             }
+            grouped[time].push(med);
         });
 
-        // Sort by time within each category
-        Object.keys(grouped).forEach((key) => {
-            const typedKey = key as keyof typeof grouped;
-            grouped[typedKey].sort((a, b) =>
-                a.scheduled_time.localeCompare(b.scheduled_time)
-            );
+        // Sort the times keys
+        const sortedTimes = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+        
+        // Create an object with sorted keys
+        const sortedGrouped: Record<string, MedicationWithStatus[]> = {};
+        sortedTimes.forEach(time => {
+            sortedGrouped[time] = grouped[time];
         });
 
-        return grouped;
+        return sortedGrouped;
     };
 
-    const medicationsByTime = groupMedicationsByTimeOfDay();
+    const medicationsByTime = groupMedicationsByExactTime();
+
+    // Find the next upcoming dose
+    const getNextDoseTime = () => {
+        const now = new Date();
+        const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        const todayStr = toLocalDateString(getTodayLocal());
+        const isToday = toLocalDateString(selectedDate) === todayStr;
+
+        if (!isToday) return null;
+
+        const times = Object.keys(medicationsByTime).sort();
+        for (const time of times) {
+            if (time > currentTimeStr) {
+                // Check if there are any pending meds at this time
+                const hasPending = medicationsByTime[time].some(m => m.status === 'pending');
+                if (hasPending) return time;
+            }
+        }
+        return null;
+    };
+
+    const nextDoseTime = getNextDoseTime();
 
     // Helper function to calculate medication occurrences based on frequency
     const calculateMedicationOccurrences = (
@@ -236,6 +300,31 @@ export default function MedicationsScreen() {
         }
     }, [user?.id, selectedDate, markAsTaken]);
 
+    // Handle medication skip action
+    const handleSkipMedication = useCallback(async (medicationId: string, scheduledTime: string) => {
+        if (!user?.id) return;
+
+        try {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            const selectedDateStr = toLocalDateString(selectedDate);
+            await useMedicationLogsStore.getState().markAsSkipped(user.id, medicationId, selectedDateStr, scheduledTime);
+            
+            // Cancel reminders
+            const med = medications.find(m => m.id === medicationId);
+            if (med) {
+                const doseIndex = med.time_of_day.indexOf(scheduledTime);
+                if (doseIndex !== -1) {
+                    const baseId = `${medicationId}_dose_${doseIndex}`;
+                    await cancelReminder(baseId);
+                    await cancelReminder(`${baseId}_followup`);
+                }
+            }
+            console.log('⏭️ Medication skipped:', medicationId, 'at', scheduledTime);
+        } catch (error) {
+            console.error('Failed to mark medication as skipped:', error);
+        }
+    }, [user?.id, selectedDate, medications]);
+
     // Handle rescheduling medication
     const handleReschedule = useCallback((medication: MedicationWithStatus) => {
         setReschedulingMed(medication);
@@ -314,6 +403,12 @@ export default function MedicationsScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <LinearGradient
+                colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            />
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
@@ -348,6 +443,7 @@ export default function MedicationsScreen() {
             <CalendarStrip
                 selectedDate={selectedDate}
                 onDateSelect={setSelectedDate}
+                events={getCalendarEvents()}
             />
 
             {/* Full Calendar Button */}
@@ -373,35 +469,51 @@ export default function MedicationsScreen() {
                     />
                 }
             >
-                <TimeSection
-                    category="morning"
-                    medications={medicationsByTime.morning}
-                    onTakeMedication={handleTakeMedication}
-                />
+                {Object.keys(medicationsByTime).length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Feather name="check-circle" size={64} color={Colors.success} />
+                        <Text style={styles.emptyTitle}>All caught up!</Text>
+                        <Text style={styles.emptySubtitle}>No medications scheduled for this day.</Text>
+                    </View>
+                ) : (
+                    Object.entries(medicationsByTime).map(([time, meds]) => {
+                        const isNextDose = time === nextDoseTime;
+                        let slotDoseIndex = 0; // Reset for each time slot
+                        return (
+                            <View key={time} style={styles.timelineSlot}>
+                                <View style={styles.timeHeader}>
+                                    <Text style={[
+                                        styles.timeText,
+                                        isNextDose && styles.nextTimeText
+                                    ]}>{time}</Text>
+                                    
+                                    {isNextDose && (
+                                        <View style={styles.nextLabelContainer}>
+                                            <View style={styles.pulseDot} />
+                                            <Text style={styles.nextLabelText}>Up Next</Text>
+                                        </View>
+                                    )}
+                                </View>
 
-                <TimeSection
-                    category="afternoon"
-                    medications={medicationsByTime.afternoon}
-                    onTakeMedication={handleTakeMedication}
-                    onReschedule={handleReschedule}
-                />
-
-                <TimeSection
-                    category="evening"
-                    medications={medicationsByTime.evening}
-                    onTakeMedication={handleTakeMedication}
-                    onReschedule={handleReschedule}
-                />
-
-                <TimeSection
-                    category="night"
-                    medications={medicationsByTime.night}
-                    onTakeMedication={handleTakeMedication}
-                    onReschedule={handleReschedule}
-                />
-
-                {/* Extra padding for bottom */}
-                <View style={{ height: 40 }} />
+                                <View style={styles.medicationsList}>
+                                    {meds.map((med) => {
+                                        slotDoseIndex++;
+                                        return (
+                                            <MedicationCard
+                                                key={`${med.id}-${med.scheduled_time}`}
+                                                medication={med}
+                                                doseNumber={slotDoseIndex}
+                                                onTake={handleTakeMedication}
+                                                onSkip={handleSkipMedication}
+                                                onReschedule={handleReschedule}
+                                            />
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        );
+                    })
+                )}
             </ScrollView>
 
             {/* Add Medication Modal */}
@@ -443,7 +555,7 @@ export default function MedicationsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.bgSecondary,
+        backgroundColor: Colors.white,
     },
     header: {
         flexDirection: 'row',
@@ -451,7 +563,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: Sizes.lg,
         paddingVertical: Sizes.md,
-        backgroundColor: Colors.white,
+        backgroundColor: 'transparent',
     },
     backButton: {
         width: 44,
@@ -464,15 +576,14 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     headerTitle: {
-        fontSize: 28,
-        fontWeight: '700',
+        ...Typography.styles.h2,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
     headerSubtitle: {
-        fontSize: 14,
+        ...Typography.styles.bodySmall,
         color: Colors.textSecondary,
-        fontWeight: '500',
+        fontWeight: '600',
     },
     addButton: {
         width: 44,
@@ -487,7 +598,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: Sizes.lg,
+        paddingHorizontal: Sizes.md,
+        paddingTop: Sizes.md,
+        paddingBottom: Sizes.md, // Reduced from Sizes.xl
     },
     calendarButton: {
         flexDirection: 'row',
@@ -508,5 +621,69 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: Colors.primary,
+    },
+    timelineSlot: {
+        marginBottom: 24,
+    },
+    timeHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        paddingHorizontal: 2,
+    },
+    timeText: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+        letterSpacing: -0.5,
+    },
+    nextTimeText: {
+        color: Colors.primary,
+    },
+    medicationsList: {
+        gap: 12,
+        paddingBottom: 8,
+    },
+    nextLabelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.primary + '10',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 20,
+    },
+    pulseDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: Colors.primary,
+        marginRight: 8,
+    },
+    nextLabelText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: Colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    emptyContainer: {
+        flex: 1,
+        paddingTop: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        marginTop: 20,
+        marginBottom: 8,
+    },
+    emptySubtitle: {
+        fontSize: 16,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        paddingHorizontal: 40,
     },
 });

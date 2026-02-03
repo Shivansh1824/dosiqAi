@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Colors, Typography } from '../../constants';
 import { AndroidTimePicker } from './AndroidTimePicker';
 import { getTimeOfDayCategory } from '../../types/medicationSchedule';
@@ -39,78 +39,77 @@ export default function AddReminderModal({
     const medications = useMedicationsStore(state => state.medications);
     const getActiveMedications = useMedicationsStore(state => state.getActiveMedications);
 
-    // Reset state when modal opens
+    // Reset state to the top of the next hour when modal opens
     useEffect(() => {
         if (visible) {
             const now = new Date();
-            // Round to next hour for convenience
-            now.setMinutes(0);
+            // Round up to the next hour (e.g., 11:15 becomes 12:00)
             now.setHours(now.getHours() + 1);
+            now.setMinutes(0);
+            now.setSeconds(0);
+            now.setMilliseconds(0);
+            
             setSelectedTime(now);
-            setSelectedLabel(null); // Default to Not Specified
+            setSelectedLabel(null);
         }
     }, [visible]);
 
-    const handleTimeChange = (event: any, date?: Date) => {
+    const handleTimeChange = (event: DateTimePickerEvent, date?: Date) => {
         // Defensive: Ignore 1970 dates (iOS bug/glitch)
         if (date && date.getFullYear() > 2000) {
             setSelectedTime(date);
         }
     };
 
+    // ... 
+
     // Calculate suggestion based on other active medications
     useEffect(() => {
-        // Find all active medications and their reminder times
-        const otherMedications = getActiveMedications();
+        if (!visible) return;
 
-        let bestSuggestion: { time: string, matchingMedName: string, diff: number } | null = null;
+        // Defer calculation to allow the modal to open smoothly first
+        const timer = setTimeout(() => {
+            const otherMedications = getActiveMedications();
+            let bestSuggestion: { time: string, matchingMedName: string, diff: number } | null = null;
 
-        // Current selected time in minutes from midnight
-        const currentHours = selectedTime.getHours();
-        const currentMinutes = selectedTime.getMinutes();
-        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+            const currentHours = selectedTime.getHours();
+            const currentMinutes = selectedTime.getMinutes();
+            const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
-        for (const med of otherMedications) {
-            if (!med.time_of_day) continue;
+            for (const med of otherMedications) {
+                if (!med.time_of_day) continue;
 
-            for (const timeStr of med.time_of_day) {
-                const [h, m] = timeStr.split(':').map(Number);
-                const targetTotalMinutes = h * 60 + m;
+                for (const timeStr of med.time_of_day) {
+                    const [h, m] = timeStr.split(':').map(Number);
+                    const targetTotalMinutes = h * 60 + m;
 
-                // Calculate difference considering day wrap (though 30 min window is small enough usually)
-                let diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
+                    let diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
+                    if (diff > 720) diff = 1440 - diff;
 
-                // Handle near-midnight edge cases if needed (e.g. 23:50 vs 00:10)
-                // 1440 minutes in a day
-                if (diff > 720) {
-                    diff = 1440 - diff;
-                }
-
-                // Check window: active medicine present -> if moves in 30 min range -> recommend
-                // Exclude exact match (diff === 0) as it's already there
-                if (diff > 0 && diff <= 30) {
-                    // Start or update best suggestion
-                    if (!bestSuggestion || diff < bestSuggestion.diff) {
-                        bestSuggestion = {
-                            time: timeStr,
-                            matchingMedName: med.name,
-                            diff: diff
-                        };
+                    if (diff > 0 && diff <= 30) {
+                        if (!bestSuggestion || diff < bestSuggestion.diff) {
+                            bestSuggestion = {
+                                time: timeStr,
+                                matchingMedName: med.name,
+                                diff: diff
+                            };
+                        }
                     }
                 }
             }
-        }
 
-        if (bestSuggestion) {
-            setSuggestion({
-                time: bestSuggestion.time,
-                matchingMedName: bestSuggestion.matchingMedName
-            });
-        } else {
-            setSuggestion(null);
-        }
+            if (bestSuggestion) {
+                setSuggestion({
+                    time: bestSuggestion.time,
+                    matchingMedName: bestSuggestion.matchingMedName
+                });
+            } else {
+                setSuggestion(null);
+            }
+        }, 300); // 300ms delay after modal appears or time changes
 
-    }, [selectedTime, medications]);
+        return () => clearTimeout(timer);
+    }, [selectedTime, medications, visible, getActiveMedications]);
 
     const handleApplySuggestion = () => {
         if (!suggestion) return;
@@ -118,31 +117,21 @@ export default function AddReminderModal({
         const newDate = new Date(selectedTime);
         newDate.setHours(h);
         newDate.setMinutes(m);
-        // Reset seconds/ms just in case
         newDate.setSeconds(0);
         newDate.setMilliseconds(0);
         setSelectedTime(newDate);
-        setSuggestion(null); // Clear suggestion after applying
+        setSuggestion(null);
     };
 
     const handleConfirm = () => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-
-        // Pass null if "Not Specified" logic is desired, but our implementation plan said:
-        // "Not Specified" -> store empty string to suppress global.
-        // However, the `onAdd` signature here expects string | null.
-        // Let's refine: The parent should decide how to store. 
-        // Here we pass 'Not Specified' as a distinct value OR null.
-        // Let's standardize: 
-        // - Specific Label -> string
-        // - Not Specified -> "" (empty string) to indicate "suppress" or "nothing"
-
         onAdd(timeString, selectedLabel || "");
         onClose();
     };
 
+    // Static options moved out or memoized
     const MEAL_OPTIONS = [
         { label: 'Not Specified', value: null, icon: 'slash' },
         { label: 'Before Meal', value: 'Before Meal', icon: 'chevron-left' },
@@ -150,23 +139,14 @@ export default function AddReminderModal({
         { label: 'Empty Stomach', value: 'Empty Stomach', icon: 'circle' },
     ];
 
-    // Dynamic context options based on time could be cool, but keeping it simple for now as requested
-    // Maybe adding specific meals if needed?
-    // Standard Dose Groups with their IDs and icons
-    // Using preferred times from family_members exclusively
     const DOSE_GROUPS = [
         { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning || '08:00' },
         { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon || '14:00' },
         { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night || '21:00' },
     ];
 
-    // Filter out groups that are already in existingTimes based on category
-    // This makes the section fully dynamic based on available preferred times
     const availableGroups = DOSE_GROUPS.filter(group => {
-        // Ensure defaultTime is present (TypeScript check, though filtered above)
         if (!group.defaultTime) return false;
-
-        // Check if a reminder in this category (Morning, Afternoon, Night) already exists
         const groupCategory = getTimeOfDayCategory(group.defaultTime);
         if (!groupCategory) return false;
 
@@ -197,7 +177,7 @@ export default function AddReminderModal({
         <Modal
             visible={visible}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
@@ -209,7 +189,7 @@ export default function AddReminderModal({
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.content}>
+                    <View style={styles.content}>
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>TIME</Text>
                             <View style={styles.timePickerContainer}>
@@ -219,7 +199,7 @@ export default function AddReminderModal({
                                         mode="time"
                                         display="spinner"
                                         onChange={handleTimeChange}
-                                        style={{ height: 120 }}
+                                        style={{ height: 120, width: '100%' }}
                                         textColor={Colors.gray900}
                                         minimumDate={new Date(2000, 0, 1)}
                                     />
@@ -286,9 +266,6 @@ export default function AddReminderModal({
 
                         </View>
 
-
-
-
                         {/* Dose Group Section */}
                         {availableGroups.length > 0 && (
                             <View style={styles.section}>
@@ -330,7 +307,7 @@ export default function AddReminderModal({
                                 </View>
                             </View>
                         )}
-                    </ScrollView>
+                    </View>
 
                     <View style={styles.footer}>
                         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
@@ -414,19 +391,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
     },
-    androidTimeButtonContainer: {
-        padding: 20,
-        alignItems: 'center',
-    },
-    androidTimeText: {
-        fontSize: 24,
-        ...Typography.fontWeights.semibold,
-        color: Colors.primary,
-    },
-    androidEditButton: {
-        position: 'absolute',
-        top: 0, bottom: 0, left: 0, right: 0
-    },
     optionsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -498,14 +462,14 @@ const styles = StyleSheet.create({
     errorContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center', // Center it
+        justifyContent: 'center',
         gap: 6,
-        marginTop: 12, // More space
+        marginTop: 12,
         paddingVertical: 8,
         paddingHorizontal: 16,
-        backgroundColor: '#FEF2F2', // Light red bg
+        backgroundColor: '#FEF2F2',
         borderRadius: 12,
-        alignSelf: 'center', // Center in parent
+        alignSelf: 'center',
     },
     errorText: {
         fontSize: 13,

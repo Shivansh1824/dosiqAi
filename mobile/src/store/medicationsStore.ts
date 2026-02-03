@@ -170,6 +170,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         interval_days: med.interval_days || 1, // Default to daily if missing
         start_date: med.start_date,
         end_date: med.end_date,
+        duration_days: med.duration_days,
         notes: med.notes,
 
         food_relationship: med.food_relationship,
@@ -266,6 +267,12 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       // Update local state
       const medications = get().medications.filter((med) => med.id !== id);
       set({ medications, isLoading: false });
+      
+      // Update cache to prevent zombie items on reload
+      const userId = medications.length > 0 ? medications[0].user_id : null;
+      if (userId) {
+          saveToCache(CacheKeys.medications(userId), medications);
+      }
     } catch (error) {
        set({ error: 'Failed to delete', isLoading: false });
        throw error;

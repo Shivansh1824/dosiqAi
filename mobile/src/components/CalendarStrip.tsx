@@ -1,105 +1,175 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useRef, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { Colors, Sizes } from '../constants';
+import { toLocalDateString } from '../utils/dateUtils';
+
+const ITEM_WIDTH = 60; // Total width per day (60 width, no gap)
+const RANGE = 365; // +/- 1 year for unrestricted scrolling
+
+interface CalendarEvent {
+    type: 'medication' | 'appointment' | 'both';
+    count: number;
+}
 
 interface CalendarStripProps {
     selectedDate: Date;
     onDateSelect: (date: Date) => void;
+    events?: Record<string, CalendarEvent>; // Format: { "2025-10-25": { type: 'medication', count: 2 } }
 }
 
-interface DayItem {
+interface DayItemData {
+    id: string; 
     date: Date;
     dayName: string;
     dayNumber: number;
     isToday: boolean;
-    isSelected: boolean;
 }
 
-export default function CalendarStrip({ selectedDate, onDateSelect }: CalendarStripProps) {
-    const scrollViewRef = useRef<ScrollView>(null);
+/**
+ * Memoized Day Component for maximum scroll performance
+ */
+const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: { 
+    item: DayItemData; 
+    isSelected: boolean; 
+    hasEvent: boolean;
+    onSelect: (date: Date) => void;
+}) => {
+    return (
+        <TouchableOpacity
+            style={[
+                styles.dayItem,
+                isSelected && styles.dayItemSelected,
+            ]}
+            onPress={() => onSelect(item.date)}
+            activeOpacity={0.7}
+        >
+            <Text style={[
+                styles.dayName,
+                isSelected && styles.dayNameSelected,
+            ]}>
+                {item.dayName}
+            </Text>
+            <View style={[
+                styles.dayNumberContainer,
+                isSelected && styles.dayNumberContainerSelected,
+                item.isToday && !isSelected && styles.dayNumberContainerToday,
+                hasEvent && !isSelected && { borderColor: Colors.primary, borderWidth: 2 },
+                hasEvent && isSelected && { borderColor: Colors.white, borderWidth: 2 },
+            ]}>
+                <Text style={[
+                    styles.dayNumber,
+                    isSelected && styles.dayNumberSelected,
+                    item.isToday && !isSelected && styles.dayNumberToday,
+                ]}>
+                    {item.dayNumber}
+                </Text>
+            </View>
+        </TouchableOpacity>
+    );
+});
 
-    // Generate 7 days centered around selected date
-    const getDaysArray = (): DayItem[] => {
-        const days: DayItem[] = [];
+export default function CalendarStrip({ selectedDate, onDateSelect, events = {} }: CalendarStripProps) {
+    const listRef = useRef<FlatList>(null);
+
+    // 1. Generate large timeline
+    const days = useMemo(() => {
+        const result: DayItemData[] = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Center the week around the selected date
-        const centerDate = new Date(selectedDate);
-        centerDate.setHours(0, 0, 0, 0);
+        for (let i = -RANGE; i <= RANGE; i++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() + i);
 
-        // Start from 3 days before selected date to 3 days after
-        for (let i = -3; i <= 3; i++) {
-            const date = new Date(centerDate);
-            date.setDate(centerDate.getDate() + i);
-
-            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-            const dayNumber = date.getDate();
-            const isToday = date.toDateString() === today.toDateString();
-            const isSelected = date.toDateString() === selectedDate.toDateString();
-
-            days.push({ date, dayName, dayNumber, isToday, isSelected });
+            result.push({
+                id: toLocalDateString(date),
+                date,
+                dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+                dayNumber: date.getDate(),
+                isToday: date.getTime() === today.getTime(),
+            });
         }
+        return result;
+    }, []);
 
-        return days;
-    };
+    const todayIndex = RANGE;
 
-    const days = getDaysArray();
+    // 2. Index Calculation
+    const selectedDateIndex = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sel = new Date(selectedDate);
+        sel.setHours(0, 0, 0, 0);
+        
+        const diffTime = sel.getTime() - today.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        const index = RANGE + diffDays;
+        return (index >= 0 && index < days.length) ? index : todayIndex;
+    }, [selectedDate, days.length]);
 
-    // Auto-scroll to selected date when it changes
+    // 3. Scroll Sync
     useEffect(() => {
-        const selectedIndex = days.findIndex(d => d.isSelected);
-        if (selectedIndex !== -1 && scrollViewRef.current) {
-            // Scroll to center the selected date
-            const itemWidth = 60;
-            const scrollPosition = (selectedIndex * itemWidth) - (itemWidth * 1.5);
-            scrollViewRef.current.scrollTo({ x: Math.max(0, scrollPosition), animated: true });
+        if (listRef.current && selectedDateIndex !== -1) {
+            const timer = setTimeout(() => {
+                listRef.current?.scrollToIndex({
+                    index: selectedDateIndex,
+                    animated: true,
+                    viewPosition: 0.5 
+                });
+            }, 100);
+            return () => clearTimeout(timer);
         }
-    }, [selectedDate]);
+    }, [selectedDateIndex]);
+
+    // 4. Optimized Render
+    const renderItem = useCallback(({ item, index }: { item: DayItemData, index: number }) => {
+        const isSelected = index === selectedDateIndex;
+        const hasEvent = !!events[item.id];
+        
+        return (
+            <DayItem 
+                item={item} 
+                isSelected={isSelected} 
+                hasEvent={hasEvent}
+                onSelect={onDateSelect} 
+            />
+        );
+    }, [selectedDateIndex, onDateSelect, events]);
+
+    const getItemLayout = useCallback((_: any, index: number) => ({
+        length: ITEM_WIDTH,
+        offset: ITEM_WIDTH * index,
+        index,
+    }), []);
 
     return (
         <View style={styles.container}>
-            <ScrollView
-                ref={scrollViewRef}
+            <FlatList
+                ref={listRef}
+                data={days}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-            >
-                {days.map((day, index) => (
-                    <TouchableOpacity
-                        key={index}
-                        style={[
-                            styles.dayItem,
-                            day.isSelected && styles.dayItemSelected,
-                        ]}
-                        onPress={() => onDateSelect(day.date)}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={[
-                            styles.dayName,
-                            day.isSelected && styles.dayNameSelected,
-                        ]}>
-                            {day.dayName}
-                        </Text>
-                        <View style={[
-                            styles.dayNumberContainer,
-                            day.isSelected && styles.dayNumberContainerSelected,
-                            day.isToday && !day.isSelected && styles.dayNumberContainerToday,
-                        ]}>
-                            <Text style={[
-                                styles.dayNumber,
-                                day.isSelected && styles.dayNumberSelected,
-                                day.isToday && !day.isSelected && styles.dayNumberToday,
-                            ]}>
-                                {day.dayNumber}
-                            </Text>
-                        </View>
-                        {day.isToday && !day.isSelected && (
-                            <View style={styles.todayDot} />
-                        )}
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+                getItemLayout={getItemLayout}
+                initialScrollIndex={todayIndex}
+                initialNumToRender={10}
+                windowSize={5}
+                decelerationRate="fast"
+                snapToInterval={ITEM_WIDTH}
+                onScrollToIndexFailed={(info) => {
+                    listRef.current?.scrollToOffset({ 
+                        offset: info.averageItemLength * info.index, 
+                        animated: false 
+                    });
+                    setTimeout(() => {
+                        listRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0.5 });
+                    }, 100);
+                }}
+            />
         </View>
     );
 }
@@ -113,17 +183,15 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: Sizes.lg,
-        gap: Sizes.sm,
     },
     dayItem: {
         alignItems: 'center',
         paddingVertical: Sizes.sm,
-        paddingHorizontal: Sizes.md,
         borderRadius: 12,
-        minWidth: 60,
+        width: 60,
     },
     dayItemSelected: {
-        backgroundColor: Colors.primary + '10',
+        backgroundColor: Colors.primary + '15',
     },
     dayName: {
         fontSize: 12,
@@ -159,12 +227,6 @@ const styles = StyleSheet.create({
     },
     dayNumberToday: {
         color: Colors.primary,
-    },
-    todayDot: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: Colors.primary,
-        marginTop: 4,
+        fontWeight: '700',
     },
 });

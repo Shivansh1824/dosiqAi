@@ -30,7 +30,7 @@ import DocumentOptionsModal from '../components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
@@ -1342,12 +1342,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
             </>
           ) : (
-            <>
-              <View style={styles.previewIconContainer}>
-                <Feather name="file-text" size={64} color={Colors.primary} />
-              </View>
-              <Text style={styles.previewText}>Document Preview</Text>
-            </>
+            <DocumentPreviewLoading />
           )}
         </View>
 

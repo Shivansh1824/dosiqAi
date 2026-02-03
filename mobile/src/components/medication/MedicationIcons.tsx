@@ -88,7 +88,7 @@ export const getHeaderBackgroundColor = (form: string | null): string => {
 export const MedicationIcon = ({ form, size = 20 }: MedicationIconProps) => {
     const normalizedForm = form?.toLowerCase() || 'default';
     const theme = ICON_THEMES[normalizedForm] || ICON_THEMES.default;
-    const containerSize = size * 1.57; // Adjusted to maintain ~44px container for 28px SVG
+    const containerSize = size * 1.57;
     const svgSize = size;
 
     const renderIcon = () => {

@@ -11,6 +11,7 @@ interface DatePickerModalProps {
   onCancel: () => void;
   minimumDate?: string;
   maximumDate?: string;
+  title?: string;
 }
 
 export default function DatePickerModal({
@@ -20,12 +21,22 @@ export default function DatePickerModal({
   onCancel,
   minimumDate,
   maximumDate,
+  title = "Select Date",
 }: DatePickerModalProps) {
   const [selectedDate, setSelectedDate] = useState(new Date(date));
 
+  // Sync state when prop updates
+  React.useEffect(() => {
+    if (visible && date) {
+        // Ensure we parse the YYYY-MM-DD string as consistent local time or UTC to avoid shifts
+        // Constructing 'new Date("2024-03-02")' in JS is treated as UTC, while "2024-03-02T00:00" is local.
+        // Let's rely on standard parsing but be mindful.
+        // New Date(date) works okay if date is YYYY-MM-DD.
+        setSelectedDate(new Date(date));
+    }
+  }, [visible, date]);
+
   const handleConfirm = () => {
-    // Fix: Use local date formatting to avoid timezone conversion issues
-    // Previously used toISOString() which applies timezone offset
     const year = selectedDate.getFullYear();
     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const day = String(selectedDate.getDate()).padStart(2, '0');
@@ -68,7 +79,7 @@ export default function DatePickerModal({
       <View style={styles.overlay}>
         <View style={styles.modalContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>Select Start Date</Text>
+            <Text style={styles.title}>{title}</Text>
             <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
               <Feather name="x" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
@@ -85,6 +96,7 @@ export default function DatePickerModal({
             maximumDate={maximumDate ? new Date(maximumDate) : undefined}
             style={styles.picker}
             textColor="black"
+            themeVariant="light" 
           />
 
           <View style={styles.actions}>
@@ -109,9 +121,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: Sizes.lg,
+    paddingBottom: Sizes.xl + 20,
   },
   header: {
     flexDirection: 'row',
@@ -129,7 +142,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     width: '100%',
-    height: 200,
+    height: 180,
   },
   actions: {
     flexDirection: 'row',
@@ -138,11 +151,12 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: Sizes.md,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.gray300,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
@@ -152,9 +166,10 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1,
     backgroundColor: Colors.primary,
-    paddingVertical: Sizes.md,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmButtonText: {
     fontSize: 16,

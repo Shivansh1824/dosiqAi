@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentSync } from './useDocumentSync';
+import { SyncService } from '../services/SyncService';
 
 /**
  * Hook to handle app initialization
@@ -31,6 +32,12 @@ export const useAppInitialization = () => {
         console.log('[DEBUG] [AppInit] Calling auth store initialize...');
         await initialize();
         console.log('[DEBUG] [AppInit] Auth store initialized successfully');
+
+        // 2. Perform Data Reconciliation Audit (Truth Sync)
+        const user = useAuthStore.getState().user;
+        if (user?.id) {
+          SyncService.performReconciliationAudit(user.id);
+        }
 
         // Add any other initialization tasks here
         // e.g., load fonts, check for updates, etc.
