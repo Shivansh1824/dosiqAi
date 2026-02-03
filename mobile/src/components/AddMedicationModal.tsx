@@ -165,8 +165,25 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
             
             // Start Block
             isInternalSync.current = true;
-            setReminderTimes(newTimes);
-            setSelectedGroups(addedGroups);
+            
+            // Check if reminder times actually changed signatures
+            const toHM = (d: Date) => `${d.getHours()}:${d.getMinutes()}`;
+            const currentSig = reminderTimes.map(toHM).sort().join(',');
+            const newSig = newTimes.map(toHM).sort().join(',');
+            
+            if (currentSig !== newSig) {
+                setReminderTimes(newTimes);
+            }
+
+            // Check if groups changed
+            const groupsChanged = 
+                addedGroups.length !== selectedGroups.length || 
+                !addedGroups.every(g => selectedGroups.includes(g));
+            
+            if (groupsChanged) {
+                setSelectedGroups(addedGroups);
+            }
+            
             setTimeout(() => isInternalSync.current = false, 0);
         }
         
@@ -175,7 +192,6 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
              const newTimes = reminderTimes.slice(0, timesPerDay);
              
              // Also trim groups? 
-             // Logic: Re-evaluate which groups are valid for the NEW list of times
              const validGroups: string[] = [];
              const toMinutes = (d: Date) => d.getHours() * 60 + d.getMinutes();
              
@@ -192,8 +208,23 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
 
              // Start Block
              isInternalSync.current = true;
-             setReminderTimes(newTimes);
-             setSelectedGroups(validGroups);
+             
+             const toHM = (d: Date) => `${d.getHours()}:${d.getMinutes()}`;
+             const currentSig = reminderTimes.map(toHM).sort().join(',');
+             const newSig = newTimes.map(toHM).sort().join(',');
+             
+             if (currentSig !== newSig) {
+                setReminderTimes(newTimes);
+             }
+
+             const groupsChanged = 
+                validGroups.length !== selectedGroups.length || 
+                !validGroups.every(g => selectedGroups.includes(g));
+
+             if (groupsChanged) {
+                setSelectedGroups(validGroups);
+             }
+             
              setTimeout(() => isInternalSync.current = false, 0);
         }
         
@@ -242,6 +273,8 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
 
     // Reverse Sync: If reminderTimes changes, update selectedGroups
     useEffect(() => {
+        if (isInternalSync.current) return;
+
         const morningTime = (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getMinutes();
         const afternoonTime = (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getMinutes();
         const nightTime = (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getMinutes();
@@ -256,7 +289,8 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
         // Robust Compare
         const groupsChanged = 
             newGroups.length !== selectedGroups.length || 
-            !newGroups.every(g => selectedGroups.includes(g));
+            !newGroups.every(g => selectedGroups.includes(g)) ||
+            !selectedGroups.every(g => newGroups.includes(g));
 
         if (groupsChanged) {
              // If manual time change, we MUST update groups to reflect that strict groups are no longer met.
@@ -282,13 +316,25 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
 
     // Handle Frequency Change
     useEffect(() => {
-        if (frequency === 'once_daily') { setTimesPerDay(1); setIntervalDays('1'); }
-        else if (frequency === 'twice_daily') { setTimesPerDay(2); setIntervalDays('1'); }
-        else if (frequency === 'three_times_daily') { setTimesPerDay(3); setIntervalDays('1'); }
-        else if (frequency === 'four_times_daily') { setTimesPerDay(4); setIntervalDays('1'); }
-        else if (frequency === 'weekly') { setTimesPerDay(1); setIntervalDays('7'); }
-        else if (frequency === 'monthly') { setTimesPerDay(1); setIntervalDays('30'); }
-        else if (frequency === 'as_needed') { setTimesPerDay(1); setIntervalDays('0'); }
+        if (isInternalSync.current) return;
+
+        let newTimesPerDay = timesPerDay;
+        let newIntervalDays = intervalDays;
+
+        if (frequency === 'once_daily') { newTimesPerDay = 1; newIntervalDays = '1'; }
+        else if (frequency === 'twice_daily') { newTimesPerDay = 2; newIntervalDays = '1'; }
+        else if (frequency === 'three_times_daily') { newTimesPerDay = 3; newIntervalDays = '1'; }
+        else if (frequency === 'four_times_daily') { newTimesPerDay = 4; newIntervalDays = '1'; }
+        else if (frequency === 'weekly') { newTimesPerDay = 1; newIntervalDays = '7'; }
+        else if (frequency === 'monthly') { newTimesPerDay = 1; newIntervalDays = '30'; }
+        else if (frequency === 'as_needed') { newTimesPerDay = 1; newIntervalDays = '0'; }
+
+        if (newTimesPerDay !== timesPerDay || newIntervalDays !== intervalDays) {
+            isInternalSync.current = true;
+            setTimesPerDay(newTimesPerDay);
+            setIntervalDays(newIntervalDays);
+            setTimeout(() => isInternalSync.current = false, 0);
+        }
     }, [frequency]);
 
     const { medications } = useMedicationsStore();
@@ -389,15 +435,17 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
     };
 
     const resetForm = () => {
+        isInternalSync.current = true;
         setName('');
         setStrengthValue('');
-        // Default to Morning group as requested ("Once Daily" default)
-        setSelectedGroups(['morning']);
-        // Logic will auto-reset units via useEffect when type resets to tablet
         setSelectedType('tablet');
         setFrequency('once_daily');
         setTimesPerDay(1);
-        setReminderTimes([]); // Clear times so Group Sync can populate the morning slot
+
+        const morningT = parseTime(memberDoseTimes.morning) || parseTime("08:00:00");
+        setReminderTimes(morningT ? [morningT] : []);
+        setSelectedGroups(['morning']);
+        
         setIsContinuous(true);
         setDurationDays('');
         setStartDate(new Date());
@@ -405,8 +453,9 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
         setFoodRelationship('anytime');
         setNotes('');
         setShowSuggestions(false);
-        // Reset sync lock
-        isInternalSync.current = false;
+        
+        // Use a slightly longer timeout for the initial reset to ensure all effects settle
+        setTimeout(() => isInternalSync.current = false, 100);
     };
 
     const availableTypes = Object.keys(ICON_THEMES).filter(t => t !== 'default');
@@ -796,13 +845,13 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
                 <TimePickerModal
                     visible={showTimePicker.show}
                     time={
-                        showTimePicker.index < reminderTimes.length 
+                        showTimePicker.index >= 0 && showTimePicker.index < reminderTimes.length 
                             ? reminderTimes[showTimePicker.index] 
                             : getNextDefaultTime()
                     }
                     onConfirm={(date: Date) => onTimeChange(null, date)}
                     onCancel={() => setShowTimePicker({ show: false, index: -1 })}
-                    title={showTimePicker.index < reminderTimes.length ? "Edit Reminder Time" : "Add Reminder Time"}
+                    title={showTimePicker.index >= 0 && showTimePicker.index < reminderTimes.length ? "Edit Reminder Time" : "Add Reminder Time"}
                 />
 
                 {/* Unit Picker Modal */}

@@ -27,7 +27,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
 import { AnalysisResultsDisplay } from '../components/prescription/AnalysisResultsDisplay';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview } from '../components/prescription';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 import { AnimatedTooltip } from '../components/AnimatedTooltip';
 import { RootStackParamList } from '../../App';
@@ -956,12 +956,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                 </>
               ) : (
-                <>
-                  <View style={styles.previewIconContainer}>
-                    <Feather name="file-text" size={64} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.previewText}>Document Preview</Text>
-                </>
+                <DocumentPreviewLoading />
               )}
             </View>
 

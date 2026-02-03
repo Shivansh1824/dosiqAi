@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 console.log('[DEBUG] [App.tsx] react-native-gesture-handler imported');
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import notifee, { EventType } from '@notifee/react-native';
@@ -439,14 +439,14 @@ export default function App() {
                       }}
                     </Stack.Screen>
                     <Stack.Screen name="Documents" component={DocumentsScreen} />
-                    <Stack.Screen
-                      name="Medications"
-                      component={MedicationsScreen}
-                      options={{
-                        gestureEnabled: true,
-                        gestureDirection: 'horizontal',
-                      }}
-                    />
+                      <Stack.Screen
+                        name="Medications"
+                        component={MedicationsScreen}
+                        options={{
+                          gestureEnabled: Platform.OS === 'ios',
+                          gestureDirection: 'horizontal',
+                        }}
+                      />
                     <Stack.Screen
                       name="MedicationList"
                       component={MedicationHomeScreen}

@@ -19,7 +19,7 @@ export default function TimePickerModal({
   onCancel,
   title = "Select Time",
 }: TimePickerModalProps) {
-  const [selectedTime, setSelectedTime] = useState(time);
+  const [selectedTime, setSelectedTime] = useState(time || new Date());
 
   // Sync state when prop updates
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function TimePickerModal({
       // If we render DateTimePicker on Android here, it will just pop up the native dialog.
       return visible ? (
          <DateTimePicker
-            value={selectedTime}
+            value={selectedTime || new Date()}
             mode="time"
             display="default"
             onChange={(event, date) => {
@@ -77,7 +77,7 @@ export default function TimePickerModal({
           </View>
 
           <DateTimePicker
-            value={selectedTime}
+            value={selectedTime || new Date()}
             mode="time"
             display="spinner"
             onChange={(event, date) => {

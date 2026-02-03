@@ -1305,7 +1305,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         backgroundColor: '#EFF6FF',
         borderRadius: 12,
-        paddingVertical: 8,
+        height: 45, // Standardized 45px height
         paddingLeft: 12,
         paddingRight: 8, // Standardized 8
     },

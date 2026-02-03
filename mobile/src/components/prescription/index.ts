@@ -7,5 +7,6 @@ export { PrescriptionDetails } from './PrescriptionDetails';
 export { PrescriptionSummary } from './PrescriptionSummary';
 export { MedicationsSection } from './MedicationsSection';
 export { DocumentPreview } from './DocumentPreview';
+export { DocumentPreviewLoading } from './DocumentPreviewLoading';
 export { GroupedTestsCard } from './GroupedTestsCard';
 

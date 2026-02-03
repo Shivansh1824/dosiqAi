@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { WheelPicker } from './WheelPicker';
+import { Colors } from '../../constants';
 
 interface AndroidTimePickerProps {
     value: Date;
@@ -12,24 +13,17 @@ export function AndroidTimePicker({ value, onChange }: AndroidTimePickerProps) {
     const minutes = useMemo(() => Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')), []);
     const periods = useMemo(() => ['AM', 'PM'], []);
 
-    // Derived values
     const currentHours24 = value.getHours();
     const currentMinutes = value.getMinutes();
 
-    // Convert to 12h
     const period = currentHours24 >= 12 ? 'PM' : 'AM';
     const currentHour12 = currentHours24 % 12 || 12;
-
-    const hStr = currentHour12.toString();
-    const mStr = currentMinutes.toString().padStart(2, '0');
 
     const handleHourChange = (newHourStr: string) => {
         const newHour12 = parseInt(newHourStr, 10);
         let newHour24 = newHour12;
-
         if (period === 'PM' && newHour12 !== 12) newHour24 += 12;
         if (period === 'AM' && newHour12 === 12) newHour24 = 0;
-
         const newDate = new Date(value);
         newDate.setHours(newHour24);
         onChange(newDate);
@@ -44,12 +38,8 @@ export function AndroidTimePicker({ value, onChange }: AndroidTimePickerProps) {
 
     const handlePeriodChange = (newPeriod: string) => {
         let newHour24 = currentHours24;
-        if (newPeriod === 'AM' && currentHours24 >= 12) {
-            newHour24 -= 12;
-        } else if (newPeriod === 'PM' && currentHours24 < 12) {
-            newHour24 += 12;
-        }
-
+        if (newPeriod === 'AM' && currentHours24 >= 12) newHour24 -= 12;
+        else if (newPeriod === 'PM' && currentHours24 < 12) newHour24 += 12;
         const newDate = new Date(value);
         newDate.setHours(newHour24);
         onChange(newDate);
@@ -59,23 +49,24 @@ export function AndroidTimePicker({ value, onChange }: AndroidTimePickerProps) {
         <View style={styles.container}>
             <WheelPicker
                 items={hours}
-                value={hStr}
+                value={currentHour12.toString()}
                 onValueChange={handleHourChange}
-                width={60}
+                width={65}
             />
-            <Text style={styles.separator}>:</Text>
+            <Text style={styles.colon}>:</Text>
             <WheelPicker
                 items={minutes}
-                value={mStr}
+                value={currentMinutes.toString().padStart(2, '0')}
                 onValueChange={handleMinuteChange}
-                width={60}
+                width={65}
             />
-            <View style={{ width: 10 }} />
+            <View style={{ width: 15 }} />
             <WheelPicker
                 items={periods}
                 value={period}
                 onValueChange={handlePeriodChange}
-                width={60}
+                width={65}
+                loop={false}
             />
         </View>
     );
@@ -86,12 +77,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        height: 150, // 3 * 50
+        paddingVertical: 10,
     },
-    separator: {
+    colon: {
         fontSize: 24,
-        fontWeight: '600',
+        fontWeight: 'bold',
+        color: Colors.gray900,
         marginHorizontal: 4,
-        color: '#64748B' // Colors.gray500 equivalent
     }
 });

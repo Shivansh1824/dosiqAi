@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { Colors, Sizes } from '../constants';
 import { toLocalDateString } from '../utils/dateUtils';
 
