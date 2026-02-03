@@ -46,6 +46,7 @@ export interface MedicationSchedule {
     name: string;
     dosage: string; // e.g., "500mg", "10ml", "1 tablet"
     type: MedicineType;
+    form?: string; // e.g., "tablet", "capsule", "syrup"
 
     // Scheduling
     frequency: string; // e.g., "Daily", "Twice daily", "Every 8 hours"
@@ -58,6 +59,7 @@ export interface MedicationSchedule {
     instructions: MedicationInstruction;
     custom_instructions?: string; // For "other" or additional notes
     purpose?: string; // What is this medication for? e.g., "For viral fever"
+    notes?: string; // Additional notes
 
     // Reminders
     reminder_enabled: boolean;
@@ -165,6 +167,24 @@ export const getMedicineTypeColor = (type: MedicineType): string => {
             return '#F59E0B'; // Orange
         default:
             return '#6B7280'; // Gray
+    }
+};
+
+// Helper function to map FoodRelationship to MedicationInstruction
+export const mapFoodRelationshipToInstruction = (relation: string | undefined): MedicationInstruction => {
+    switch (relation) {
+        case 'before_food':
+            return 'before_meal';
+        case 'after_food':
+            return 'after_meal';
+        case 'with_food':
+            return 'with_food';
+        case 'empty_stomach':
+            return 'empty_stomach';
+        case 'anytime':
+            return 'other';
+        default:
+            return 'other';
     }
 };
 
