@@ -55,3 +55,10 @@ export const mapFoodRelationshipToInstruction = (foodRelationship?: FoodRelation
 export const getInstructionText = (med: MedicationWithStatus): string => {
   return med.instructions || mapFoodRelationshipToInstruction(med.food_relationship);
 };
+
+export const normalizeTime = (time: string): string => {
+  if (!time) return '';
+  const [hours, minutes] = time.split(':');
+  if (!hours || !minutes) return '';
+  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+};

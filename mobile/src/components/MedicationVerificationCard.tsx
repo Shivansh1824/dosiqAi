@@ -9,7 +9,6 @@ import { FamilyMember } from '../types/familyMember';
 import { normalizeTime } from '../types/medicationSchedule';
 import DatePickerModal from './DatePickerModal';
 import { calculateEndDate, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
-import { generateCyclicReminderTimes } from '../types/medicationSchedule';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSection } from './medication/ReminderTimesSection';

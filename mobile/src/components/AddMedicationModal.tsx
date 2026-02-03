@@ -4,12 +4,14 @@ import { Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
 // Removed unused import generateCyclicReminderTimes and MedicineType which caused errors
 import { MedicationFrequency, FoodRelationship } from '../types/medication';
+import { MEDICINE_TYPE_DEFAULTS } from '../constants/medicationDefaults';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { MedicationIcon, ICON_THEMES } from './medication/MedicationIcons';
 import { useAuthStore } from '../store/authStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import TimePickerModal from './TimePickerModal';
+import DatePickerModal from './DatePickerModal';
 
 // Define MedicineType locally based on ICON_THEMES
 type MedicineType = keyof typeof ICON_THEMES;
@@ -26,9 +28,20 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
     const { familyMembers, ensurePrimaryMemberExists } = useFamilyMembersStore();
     
     // Core Details
+    // Core Details
+    // Core Details
     const [name, setName] = useState('');
-    const [strength, setStrength] = useState('');
-    const [dosage, setDosage] = useState(''); // e.g., "1 Tablet"
+    // Split strength into value and unit for better control
+    const [strengthValue, setStrengthValue] = useState('');
+    const [strengthUnit, setStrengthUnit] = useState('mg');
+    // Group Selection State
+    const [selectedGroups, setSelectedGroups] = useState<string[]>([]); // 'morning', 'afternoon', 'night'
+    const [showGroupPicker, setShowGroupPicker] = useState(false);
+    
+    // Dynamic Logic Helper
+    // currentUnit tracks the *default* unit for the type, but strengthUnit enables user override
+    const [currentForm, setCurrentForm] = useState('Tablet');
+
     const [selectedType, setSelectedType] = useState<MedicineType>('tablet');
     
     // For Whom
@@ -38,7 +51,7 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
     const [intervalDays, setIntervalDays] = useState('1'); // Derived from frequency usually
     const [frequency, setFrequency] = useState<MedicationFrequency | 'specific_interval'>('once_daily');
     const [timesPerDay, setTimesPerDay] = useState(1);
-    const [reminderTimes, setReminderTimes] = useState<Date[]>([]);
+    const [reminderTimes, setReminderTimes] = useState<Date[]>([]); // Default empty
     
     // Instructions
     const [foodRelationship, setFoodRelationship] = useState<FoodRelationship>('anytime');
@@ -55,7 +68,11 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState<{show: boolean, index: number}>({show: false, index: -1});
+    const [showUnitPicker, setShowUnitPicker] = useState(false);
+    const [showDosageUnitPicker, setShowDosageUnitPicker] = useState(false);
 
+    // Ref to prevent infinite loops between sync effects
+    const isInternalSync = React.useRef(false);
 
     // Initialize
     useEffect(() => {
@@ -78,30 +95,190 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
         }
     }, [visible, user]);
 
-    // Update reminder times when timesPerDay changes
-    useEffect(() => {
-        const generateTimes = () => {
-             // Generate default times starting from 8:00 AM spaced out
-             const times: Date[] = [];
-             const startHour = 8;
-             const interval = Math.floor(12 / (timesPerDay || 1)); // Spread over 12 hours (8am to 8pm)
-             
-             for (let i = 0; i < timesPerDay; i++) {
-                 const d = new Date();
-                 d.setHours(startHour + (i * interval), 0, 0, 0);
-                 times.push(d);
-             }
-             return times;
-        };
+    // Helper to parse time string "HH:mm:ss" to Date
+    // Normalizes to a fixed date to ensure consistent comparisons
+    const parseTime = (timeStr?: string) => {
+        if (!timeStr) return null;
+        const [h, m] = timeStr.split(':').map(Number);
+        const d = new Date();
+        d.setFullYear(2025, 0, 1); // Fixed date
+        d.setHours(h, m, 0, 0); // Zero seconds/ms
+        return d;
+    };
+    
+    // Memoize the active member's dose times to avoid effect thrashing
+    const activeMember = familyMembers.find(m => m.id === selectedMemberId);
+    const memberDoseTimes = useMemo(() => ({
+        morning: activeMember?.morning_dose_time,
+        afternoon: activeMember?.afternoon_dose_time,
+        night: activeMember?.night_dose_time
+    }), [activeMember?.morning_dose_time, activeMember?.afternoon_dose_time, activeMember?.night_dose_time]);
 
-        // Preserve existing times if possible, otherwise regenerate
-        if (reminderTimes.length !== timesPerDay) {
-            const defaults = generateTimes();
-            // Try to keep as many existing user-set times as matched
-            const merged = defaults.map((def, i) => reminderTimes[i] || def);
-            setReminderTimes(merged);
+    // Update reminder times when timesPerDay changes (Frequency Sync)
+    useEffect(() => {
+        // If syncing internally from another source (Group/Reverse), SKIP this logic
+        if (isInternalSync.current) return;
+
+        // If 0 or matching length, do nothing
+        if (timesPerDay === reminderTimes.length) return;
+        
+        // If we need MORE times
+        if (timesPerDay > reminderTimes.length) {
+            const needed = timesPerDay - reminderTimes.length;
+            const newTimes = [...reminderTimes];
+            const addedGroups = [...selectedGroups]; // Start with current groups
+            
+            // Candidate slots in order of preference if not already present
+            const candidates = [
+                { id: 'morning', val: parseTime(memberDoseTimes.morning) || parseTime("08:00:00") },
+                { id: 'afternoon', val: parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00") },
+                { id: 'night', val: parseTime(memberDoseTimes.night) || parseTime("21:00:00") }
+            ];
+
+            // Comparison using hours/minutes only
+            const isTimePresent = (t: Date) => newTimes.some(nt => nt.getHours() === t.getHours() && nt.getMinutes() === t.getMinutes());
+            
+            let addedCount = 0;
+            
+            // 1. Try to fill from standard candidates first
+            for (const cand of candidates) {
+                if (addedCount >= needed) break;
+                if (cand.val && !isTimePresent(cand.val)) {
+                    newTimes.push(cand.val);
+                    if (!addedGroups.includes(cand.id)) {
+                        addedGroups.push(cand.id);
+                    }
+                    addedCount++;
+                }
+            }
+            
+            // 2. If still need more, add purely default calculated times
+            while (addedCount < needed) {
+                const base = newTimes.length > 0 ? newTimes[newTimes.length - 1] : parseTime("08:00:00");
+                const next = new Date(base!.getTime());
+                next.setHours(next.getHours() + 4);
+                newTimes.push(next);
+                addedCount++;
+            }
+            
+            newTimes.sort((a, b) => a.getTime() - b.getTime());
+            
+            // Start Block
+            isInternalSync.current = true;
+            setReminderTimes(newTimes);
+            setSelectedGroups(addedGroups);
+            setTimeout(() => isInternalSync.current = false, 0);
         }
-    }, [timesPerDay]);
+        
+        // If we need FEWER times
+        else if (timesPerDay < reminderTimes.length) {
+             const newTimes = reminderTimes.slice(0, timesPerDay);
+             
+             // Also trim groups? 
+             // Logic: Re-evaluate which groups are valid for the NEW list of times
+             const validGroups: string[] = [];
+             const toMinutes = (d: Date) => d.getHours() * 60 + d.getMinutes();
+             
+             const morningMins = (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getMinutes();
+             const afternoonMins = (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getMinutes();
+             const nightMins = (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getMinutes();
+
+             newTimes.forEach(t => {
+                 const tm = toMinutes(t);
+                 if (tm === morningMins && !validGroups.includes('morning')) validGroups.push('morning');
+                 if (tm === afternoonMins && !validGroups.includes('afternoon')) validGroups.push('afternoon');
+                 if (tm === nightMins && !validGroups.includes('night')) validGroups.push('night');
+             });
+
+             // Start Block
+             isInternalSync.current = true;
+             setReminderTimes(newTimes);
+             setSelectedGroups(validGroups);
+             setTimeout(() => isInternalSync.current = false, 0);
+        }
+        
+    }, [timesPerDay, memberDoseTimes]); // Use memoized dose times
+
+    // Update reminder times when Group changes (Group Sync)
+    useEffect(() => {
+        // Prepare to update times based on groups.
+        // If this update was triggered by Frequency or Manual Time change, SKIP to avoid overwriting/looping.
+        if (isInternalSync.current) return;
+
+        const newTimes: Date[] = [];
+
+        if (selectedGroups.includes('morning')) {
+            const t = parseTime(memberDoseTimes.morning) || parseTime("08:00:00");
+            if (t) newTimes.push(t);
+        }
+        if (selectedGroups.includes('afternoon')) {
+            const t = parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00");
+            if (t) newTimes.push(t);
+        }
+        if (selectedGroups.includes('night')) {
+             const t = parseTime(memberDoseTimes.night) || parseTime("21:00:00");
+             if (t) newTimes.push(t);
+        }
+        
+        newTimes.sort((a, b) => a.getTime() - b.getTime());
+        
+        // Robust Compare: "HH:mm" strings
+        const toHM = (d: Date) => `${d.getHours()}:${d.getMinutes()}`;
+        const currentSig = reminderTimes.map(toHM).sort().join(',');
+        const newSig = newTimes.map(toHM).sort().join(',');
+        
+        if (currentSig !== newSig) {
+            isInternalSync.current = true;
+            setReminderTimes(newTimes);
+            setTimesPerDay(newTimes.length || 1);
+            
+            if (newTimes.length === 1) setFrequency('once_daily');
+            else if (newTimes.length === 2) setFrequency('twice_daily');
+            else if (newTimes.length === 3) setFrequency('three_times_daily');
+
+             setTimeout(() => isInternalSync.current = false, 0);
+        }
+    }, [selectedGroups, memberDoseTimes]);
+
+    // Reverse Sync: If reminderTimes changes, update selectedGroups
+    useEffect(() => {
+        const morningTime = (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getMinutes();
+        const afternoonTime = (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getMinutes();
+        const nightTime = (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getMinutes();
+
+        const currentMinutes = reminderTimes.map(d => d.getHours() * 60 + d.getMinutes());
+
+        const newGroups: string[] = [];
+        if (currentMinutes.includes(morningTime)) newGroups.push('morning');
+        if (currentMinutes.includes(afternoonTime)) newGroups.push('afternoon');
+        if (currentMinutes.includes(nightTime)) newGroups.push('night');
+
+        // Robust Compare
+        const groupsChanged = 
+            newGroups.length !== selectedGroups.length || 
+            !newGroups.every(g => selectedGroups.includes(g));
+
+        if (groupsChanged) {
+             // If manual time change, we MUST update groups to reflect that strict groups are no longer met.
+             // But we set internal sync so Group Sync doesn't fire back and delete the manually edited time.
+             isInternalSync.current = true;
+             setSelectedGroups(newGroups);
+             setTimeout(() => isInternalSync.current = false, 0);
+        }
+    }, [reminderTimes, memberDoseTimes]); // Reacts to DB changes of dose times
+
+    // Initial default time is REMOVED as requested -> starts empty/none
+
+
+    // Update defaults when Type changes
+    useEffect(() => {
+        const defaults = MEDICINE_TYPE_DEFAULTS[selectedType] || MEDICINE_TYPE_DEFAULTS.default;
+        
+        // Update Strength Unit
+        setStrengthUnit(defaults.defaultStrengthUnit);
+        
+        // No need for simplistic checks here as we have explicit units now
+    }, [selectedType]);
 
     // Handle Frequency Change
     useEffect(() => {
@@ -114,33 +291,64 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
         else if (frequency === 'as_needed') { setTimesPerDay(1); setIntervalDays('0'); }
     }, [frequency]);
 
-    // Filter active medications for suggestions
-    const activeMeds = useMemo(() => getActiveMedications(), [visible]);
-    const filteredSuggestions = useMemo(() => {
+    const { medications } = useMedicationsStore();
+    
+    // Filter suggestions from FULL history (de-duplicated)
+    const suggestions = useMemo(() => {
         if (!name || !showSuggestions) return [];
-        return activeMeds.filter(med => 
-            med.name.toLowerCase().includes(name.toLowerCase())
-        ).slice(0, 5);
-    }, [name, activeMeds, showSuggestions]);
+        
+        const needle = name.toLowerCase();
+        const seenNames = new Set<string>();
+        
+        // Use all medications (history), assuming they are sorted by recency in store (which they are)
+        return medications.filter(med => {
+            if (!med.name.toLowerCase().includes(needle)) return false;
+            
+            // Deduplicate by name to avoid showing 5 "Amoxicillin" entries
+            const key = med.name.toLowerCase().trim();
+            if (seenNames.has(key)) return false;
+            
+            seenNames.add(key);
+            return true;
+        }).slice(0, 5);
+    }, [name, medications, showSuggestions]);
 
     const handleSelectSuggestion = (med: any) => {
         setName(med.name);
-        setStrength(med.strength || '');
-        setDosage(med.dosage || '');
+        
+        // Parse Strength
+        const strMatch = (med.strength || '').match(/^(\d+(\.\d+)?)\s*(.*)$/);
+        if (strMatch) {
+            setStrengthValue(strMatch[1]);
+            setStrengthUnit(strMatch[3] || MEDICINE_TYPE_DEFAULTS.default.defaultStrengthUnit);
+        } else {
+             setStrengthValue(med.strength || '');
+        }
+
+        // Parse Dosage (Legacy support - keeps quantity empty now)
+        // We could infer groups from dosage string if it contained "Morning" etc., but for now skip.
+
         setSelectedType((med.form?.toLowerCase() as MedicineType) || 'tablet');
         
-        // Try to map frequency/schedule
+        // Map Scheduler/Frequency
         if (med.frequency) {
-             const freq = med.frequency as MedicationFrequency;
-             setFrequency(freq);
+             setFrequency(med.frequency as MedicationFrequency);
         }
+        if (med.times_per_day) setTimesPerDay(med.times_per_day);
+        if (med.interval_days) setIntervalDays(med.interval_days.toString());
+        
+        // Map Instructions
+        if (med.food_relationship) setFoodRelationship(med.food_relationship);
+        // We generally don't copy detailed 'notes' as they might be specific to previous illness, 
+        // but 'instructions' might be useful if strictly medical.
+        // For now, let's keep notes blank to avoid confusion.
         
         setShowSuggestions(false);
     };
 
     const handleSave = () => {
-        if (!name || !dosage) {
-            alert('Please fill in Medicine Name and Dosage');
+        if (!name) {
+            alert('Please fill in Medicine Name');
             return;
         }
         if (!selectedMemberId) {
@@ -156,9 +364,9 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
             medicine_type: selectedType, // Using strict type for DB consistency
             medicine_purpose: '',
             form: selectedType,
-            strength,
+            strength: strengthValue ? `${strengthValue} ${strengthUnit}` : '',
             
-            dosage: dosage,
+            dosage: '', // Dosage quantity removed, allow valid null/empty
             frequency: frequency === 'specific_interval' ? 'custom' : frequency,
             time_of_day: reminderTimes.map(d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })),
             interval_days: parseInt(intervalDays) || 1,
@@ -182,11 +390,14 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
 
     const resetForm = () => {
         setName('');
-        setStrength('');
-        setDosage('');
+        setStrengthValue('');
+        // Default to Morning group as requested ("Once Daily" default)
+        setSelectedGroups(['morning']);
+        // Logic will auto-reset units via useEffect when type resets to tablet
         setSelectedType('tablet');
         setFrequency('once_daily');
         setTimesPerDay(1);
+        setReminderTimes([]); // Clear times so Group Sync can populate the morning slot
         setIsContinuous(true);
         setDurationDays('');
         setStartDate(new Date());
@@ -194,19 +405,21 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
         setFoodRelationship('anytime');
         setNotes('');
         setShowSuggestions(false);
+        // Reset sync lock
+        isInternalSync.current = false;
     };
 
     const availableTypes = Object.keys(ICON_THEMES).filter(t => t !== 'default');
     
     // Helpers for Date/Time pickers
-    const onStartDateChange = (event: any, selectedDate?: Date) => {
-        setShowStartDatePicker(Platform.OS === 'ios');
-        if (selectedDate) setStartDate(selectedDate);
+    const onStartDateChange = (dateStr: string) => {
+        setStartDate(new Date(dateStr));
+        setShowStartDatePicker(false);
     };
     
-    const onEndDateChange = (event: any, selectedDate?: Date) => {
-        setShowEndDatePicker(Platform.OS === 'ios');
-        if (selectedDate) setEndDate(selectedDate);
+    const onEndDateChange = (dateStr: string) => {
+        setEndDate(new Date(dateStr));
+        setShowEndDatePicker(false);
     };
 
     // Helper to get default time for new slot
@@ -316,9 +529,9 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
                                     }}
                                     onFocus={() => setShowSuggestions(true)}
                                 />
-                                {showSuggestions && filteredSuggestions.length > 0 && (
+                                {showSuggestions && suggestions.length > 0 && (
                                     <View style={styles.suggestionsContainer}>
-                                        {filteredSuggestions.map((med) => (
+                                        {suggestions.map((med) => (
                                             <TouchableOpacity
                                                 key={med.id}
                                                 style={styles.suggestionItem}
@@ -337,12 +550,23 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
 
                             {/* Strength */}
                             <Text style={[styles.label, { marginTop: Sizes.md }]}>Strength (Optional)</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g., 500mg"
-                                value={strength}
-                                onChangeText={setStrength}
-                            />
+                            <View style={styles.combinedInputContainer}>
+                                <TextInput
+                                    style={[styles.inputUnstyled, { flex: 1 }]}
+                                    placeholder="e.g., 500"
+                                    keyboardType="numeric"
+                                    value={strengthValue}
+                                    onChangeText={setStrengthValue}
+                                />
+                                <View style={styles.verticalDivider} />
+                                <TouchableOpacity 
+                                    style={styles.unitSelector}
+                                    onPress={() => setShowUnitPicker(true)}
+                                >
+                                    <Text style={styles.unitSelectorText}>{strengthUnit}</Text>
+                                    <Feather name="chevron-down" size={16} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
 
                             {/* Type Selector */}
                             <Text style={[styles.label, { marginTop: Sizes.md }]}>Type</Text>
@@ -374,21 +598,30 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
                             </ScrollView>
                         </View>
 
-                        {/* 3. Dosage & Instructions */}
+                        {/* 3. Group & Instructions */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Dosage & Instructions</Text>
 
-                            <Text style={styles.label}>Dosage Quantity *</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g., 1 Tablet, 5ml"
-                                value={dosage}
-                                onChangeText={setDosage}
-                            />
+                            {/* Group Selection */}
+                            <Text style={styles.label}>Group</Text>
+                            <TouchableOpacity 
+                                style={styles.groupSelectorBar}
+                                onPress={() => setShowGroupPicker(true)}
+                            >
+                                <Text style={[
+                                    styles.groupSelectorText, 
+                                    selectedGroups.length === 0 && { color: Colors.textSecondary }
+                                ]}>
+                                    {selectedGroups.length > 0 
+                                        ? selectedGroups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(', ') 
+                                        : 'None'}
+                                </Text>
+                                <Feather name="chevron-down" size={20} color={Colors.textSecondary} />
+                            </TouchableOpacity>
 
                             <Text style={[styles.label, { marginTop: Sizes.md }]}>When to take?</Text>
-                            <View style={styles.chipGrid}>
-                                {(['before_food', 'with_food', 'after_food', 'empty_stomach', 'anytime'] as FoodRelationship[]).map((rel) => (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContainer}>
+                                {(['anytime', 'before_food', 'with_food', 'after_food', 'empty_stomach'] as FoodRelationship[]).map((rel) => (
                                     <TouchableOpacity
                                         key={rel}
                                         style={[styles.chip, foodRelationship === rel && styles.chipSelected]}
@@ -399,7 +632,7 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
-                            </View>
+                            </ScrollView>
                         </View>
 
                         {/* 4. Schedule & Duration */}
@@ -542,29 +775,23 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
                 {/* Date / Time Modals */}
                 {/* Note: Android handling is built-in to the TimePickerModal component logic or handled via native standard */}
                 
-                {showStartDatePicker && (
-                    <DateTimePicker
-                        value={startDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(e, d) => {
-                            if (Platform.OS !== 'ios') setShowStartDatePicker(false);
-                            if (d) setStartDate(d);
-                        }}
-                    />
-                )}
-                 {showEndDatePicker && (
-                    <DateTimePicker
-                        value={endDate || new Date()}
-                        minimumDate={startDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(e, d) => {
-                            if (Platform.OS !== 'ios') setShowEndDatePicker(false);
-                            if (d) setEndDate(d);
-                        }}
-                    />
-                )}
+                {/* Date Pickers */}
+                <DatePickerModal 
+                    visible={showStartDatePicker}
+                    date={startDate.toISOString().split('T')[0]}
+                    onConfirm={onStartDateChange}
+                    onCancel={() => setShowStartDatePicker(false)}
+                    title="Select Start Date"
+                />
+
+                <DatePickerModal 
+                    visible={showEndDatePicker}
+                    date={endDate ? endDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                    minimumDate={startDate.toISOString().split('T')[0]}
+                    onConfirm={onEndDateChange}
+                    onCancel={() => setShowEndDatePicker(false)}
+                    title="Select End Date"
+                />
                 
                 <TimePickerModal
                     visible={showTimePicker.show}
@@ -577,6 +804,132 @@ export default function AddMedicationModal({ visible, onClose, onSave }: AddMedi
                     onCancel={() => setShowTimePicker({ show: false, index: -1 })}
                     title={showTimePicker.index < reminderTimes.length ? "Edit Reminder Time" : "Add Reminder Time"}
                 />
+
+                {/* Unit Picker Modal */}
+                <Modal
+                    visible={showUnitPicker}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowUnitPicker(false)}
+                >
+                    <TouchableOpacity 
+                        style={styles.overlay} 
+                        activeOpacity={1} 
+                        onPress={() => setShowUnitPicker(false)}
+                    >
+                        <View style={styles.pickerContainer}>
+                            <Text style={styles.pickerTitle}>Select Unit</Text>
+                            <ScrollView style={{ maxHeight: 300 }}>
+                                {(MEDICINE_TYPE_DEFAULTS[selectedType]?.allowedStrengthUnits || []).map((unit) => (
+                                    <TouchableOpacity
+                                        key={unit}
+                                        style={[styles.pickerItem, strengthUnit === unit && styles.pickerItemSelected]}
+                                        onPress={() => {
+                                            setStrengthUnit(unit);
+                                            setShowUnitPicker(false);
+                                        }}
+                                    >
+                                        <Text style={[styles.pickerItemText, strengthUnit === unit && styles.pickerItemTextSelected]}>
+                                            {unit}
+                                        </Text>
+                                        {strengthUnit === unit && <Feather name="check" size={20} color={Colors.primary} />}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Group Selection Modal */}
+                <Modal
+                    visible={showGroupPicker}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowGroupPicker(false)}
+                >
+                    <TouchableOpacity 
+                        style={styles.overlay} 
+                        activeOpacity={1} 
+                        onPress={() => setShowGroupPicker(false)}
+                    >
+                        <View style={styles.pickerContainer}>
+                            <Text style={styles.pickerTitle}>Select Group</Text>
+                            
+                            {/* None Option */}
+                            <TouchableOpacity
+                                style={[styles.groupOption, selectedGroups.length === 0 && styles.groupOptionSelected]}
+                                onPress={() => { setSelectedGroups([]); setShowGroupPicker(false); }}
+                            >
+                                <Text style={[styles.groupOptionText, selectedGroups.length === 0 && { color: Colors.primary, fontWeight: '600' }]}>
+                                    None
+                                </Text>
+                                {selectedGroups.length === 0 && <Feather name="check" size={20} color={Colors.primary} />}
+                            </TouchableOpacity>
+
+                            {/* Morning */}
+                            <TouchableOpacity
+                                style={[styles.groupOptionCard, { backgroundColor: '#FFF4E5' }, selectedGroups.includes('morning') && styles.groupCardSelected]}
+                                onPress={() => {
+                                    // Toggle logic
+                                    const newGroups = selectedGroups.includes('morning')
+                                        ? selectedGroups.filter(g => g !== 'morning')
+                                        : [...selectedGroups, 'morning'];
+                                    
+                                    // If toggling morning ON, verify we don't duplicate logic here, useEffect handles sync
+                                    // Actually, we must set state here to trigger useEffect
+                                    setSelectedGroups(newGroups);
+                                }}
+                            >
+                                <View style={{flexDirection:'row', alignItems:'center', gap: 12}}>
+                                    <Feather name="sun" size={24} color="#FF9500" />
+                                    <Text style={[styles.groupCardTitle, { color: '#FF9500' }]}>Morning</Text>
+                                </View>
+                                {selectedGroups.includes('morning') && <Feather name="check-circle" size={24} color="#FF9500" />}
+                            </TouchableOpacity>
+
+                             {/* Afternoon */}
+                             <TouchableOpacity
+                                style={[styles.groupOptionCard, { backgroundColor: '#FFF9C4', marginTop: 12 }, selectedGroups.includes('afternoon') && styles.groupCardSelected]}
+                                onPress={() => {
+                                    const newGroups = selectedGroups.includes('afternoon')
+                                        ? selectedGroups.filter(g => g !== 'afternoon')
+                                        : [...selectedGroups, 'afternoon'];
+                                    setSelectedGroups(newGroups);
+                                }}
+                            >
+                                <View style={{flexDirection:'row', alignItems:'center', gap: 12}}>
+                                    <Feather name="sun" size={24} color="#FBC02D" />
+                                    <Text style={[styles.groupCardTitle, { color: '#FBC02D' }]}>Afternoon</Text>
+                                </View>
+                                {selectedGroups.includes('afternoon') && <Feather name="check-circle" size={24} color="#FBC02D" />}
+                            </TouchableOpacity>
+
+                             {/* Night */}
+                             <TouchableOpacity
+                                style={[styles.groupOptionCard, { backgroundColor: '#E8EAF6', marginTop: 12 }, selectedGroups.includes('night') && styles.groupCardSelected]}
+                                onPress={() => {
+                                    const newGroups = selectedGroups.includes('night')
+                                        ? selectedGroups.filter(g => g !== 'night')
+                                        : [...selectedGroups, 'night'];
+                                    setSelectedGroups(newGroups);
+                                }}
+                            >
+                                <View style={{flexDirection:'row', alignItems:'center', gap: 12}}>
+                                    <Feather name="moon" size={24} color="#5C6BC0" />
+                                    <Text style={[styles.groupCardTitle, { color: '#5C6BC0' }]}>Night</Text>
+                                </View>
+                                {selectedGroups.includes('night') && <Feather name="check-circle" size={24} color="#5C6BC0" />}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={[styles.saveButton, { marginTop: 24, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14 }]} 
+                                onPress={() => setShowGroupPicker(false)}
+                            >
+                                <Text style={[styles.saveButtonText, { fontSize: 16, fontWeight: '600' }]}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
             </View>
         </Modal>
     );
@@ -798,6 +1151,9 @@ const styles = StyleSheet.create({
         gap: Sizes.md,
         marginTop: Sizes.sm,
     },
+
+
+    
     timeChip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -854,5 +1210,152 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '700',
         color: Colors.white,
+    },
+
+    // Combined Input & Unit Picker
+    combinedInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.gray50,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
+        overflow: 'hidden',
+    },
+    inputUnstyled: {
+        fontSize: 16,
+        color: Colors.textPrimary,
+        padding: Sizes.md,
+        height: '100%',
+    },
+    verticalDivider: {
+        width: 1,
+        height: '60%',
+        backgroundColor: Colors.gray200,
+    },
+    unitSelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Sizes.md,
+        paddingVertical: Sizes.md,
+        gap: 4,
+        backgroundColor: Colors.gray50,
+    },
+    unitSelectorText: {
+        fontSize: 14,
+        color: Colors.textSecondary,
+        fontWeight: '600',
+    },
+
+    // Group Selector Styles
+    groupSelectorBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.gray50,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
+        padding: Sizes.md,
+        height: 56,
+    },
+    groupSelectorText: {
+        fontSize: 16,
+        color: Colors.textPrimary,
+        fontWeight: '500',
+    },
+    groupOption: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        backgroundColor: Colors.white,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: Colors.gray100, // Subtle border
+    },
+    groupOptionSelected: {
+        backgroundColor: Colors.white,
+        borderColor: Colors.primary,
+        borderWidth: 1,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2
+    },
+    groupOptionText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: Colors.textSecondary,
+    },
+    groupOptionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 18,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: 'transparent',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    groupCardSelected: {
+        // Border color is set dynamically via inline styles for specific colors
+    },
+    groupCardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        letterSpacing: 0.3,
+    },
+
+    // Picker Modal - Refined Premium Styling
+    pickerContainer: {
+        backgroundColor: Colors.white,
+        borderRadius: 24, // Smoother corners
+        padding: 24,
+        width: '85%',
+        alignSelf: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+        elevation: 10,
+        marginTop: 'auto',
+        marginBottom: 'auto',
+    },
+    pickerTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    pickerItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        borderRadius: 12, 
+    },
+    pickerItemSelected: {
+        backgroundColor: Colors.primary + '08',
+    },
+    pickerItemText: {
+        fontSize: 16,
+        color: Colors.textSecondary,
+    },
+    pickerItemTextSelected: {
+        color: Colors.primary,
+        fontWeight: '600',
     },
 });
