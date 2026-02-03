@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Architecture Presentation: Scalable Sync Strategy</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap"
+            rel="stylesheet"
+        >
+        <style>
+            :root {
+                --bg: #0f172a;
+                --card-bg: rgba(30, 41, 59, 0.7);
+                --primary: #38bdf8;
+                --secondary: #818cf8;
+                --accent: #f472b6;
+                --success: #34d399;
+                --text: #f8fafc;
+                --text-dim: #94a3b8;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Inter", sans-serif;
+                background-color: var(--bg);
+                color: var(--text);
+                line-height: 1.6;
+                overflow-x: hidden;
+            }
+
+            .container {
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 4rem 2rem;
+            }
+
+            header {
+                text-align: center;
+                margin-bottom: 5rem;
+            }
+
+            h1 {
+                font-size: 3.5rem;
+                font-weight: 800;
+                background: linear-gradient(
+                    to right,
+                    var(--primary),
+                    var(--secondary)
+                );
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin-bottom: 1rem;
+            }
+
+            .subtitle {
+                font-size: 1.25rem;
+                color: var(--text-dim);
+                max-width: 600px;
+                margin: 0 auto;
+            }
+
+            .problem-box {
+                background: linear-gradient(
+                    135deg,
+                    rgba(244, 114, 182, 0.1),
+                    rgba(129, 140, 248, 0.1)
+                );
+                border-left: 5px solid var(--accent);
+                padding: 2rem;
+                border-radius: 1rem;
+                margin-bottom: 4rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+                font-weight: 700;
+                margin-bottom: 2rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .section-title span {
+                color: var(--primary);
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 2rem;
+                margin-bottom: 4rem;
+            }
+
+            .card {
+                background: var(--card-bg);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 2rem;
+                border-radius: 1.5rem;
+                transition: transform 0.3s ease, border-color 0.3s ease;
+            }
+
+            .card:hover {
+                transform: translateY(-10px);
+                border-color: var(--primary);
+            }
+
+            .card-icon {
+                font-size: 2.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .card h3 {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+                color: var(--primary);
+            }
+
+            .analogy {
+                background: rgba(0, 0, 0, 0.2);
+                padding: 1rem;
+                border-radius: 0.75rem;
+                margin-top: 1rem;
+                font-style: italic;
+                border-left: 3px solid var(--secondary);
+                color: var(--text-dim);
+            }
+
+            .big-stat {
+                text-align: center;
+                padding: 4rem;
+                background: linear-gradient(
+                    to bottom right,
+                    var(--secondary),
+                    var(--primary)
+                );
+                border-radius: 2rem;
+                margin-bottom: 4rem;
+            }
+
+            .big-stat h2 {
+                font-size: 4rem;
+                font-weight: 800;
+                margin-bottom: 0.5rem;
+            }
+
+            .big-stat p {
+                font-size: 1.5rem;
+                font-weight: 600;
+                opacity: 0.9;
+            }
+
+            footer {
+                text-align: center;
+                color: var(--text-dim);
+                padding: 2rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .animate {
+                animation: fadeIn 0.8s ease-out forwards;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <header class="animate">
+                <h1>The "Zero-Waste" Architecture</h1>
+                <p class="subtitle">
+                    How we built a medication app that scales to 1 lakh users
+                    with 90% less database cost and zero lag.
+                </p>
+            </header>
+
+            <div class="problem-box animate" style="animation-delay: 0.2s">
+                <h2 style="color: var(--accent); margin-bottom: 0.5rem">
+                    The Problem
+                </h2>
+                <p>
+                    If 1 lakh users open their calendar 10 times a day, that's
+                    **1 Million API calls** to our database. If we pay per
+                    request, we eventually go bankrupt. Plus, the app feels slow
+                    if it has to fetch data every time you tap a date.
+                </p>
+            </div>
+
+            <h2 class="section-title animate" style="animation-delay: 0.4s">
+                <span>01.</span> The Solution Blocks
+            </h2>
+
+            <div class="grid">
+                <!-- Resolver -->
+                <div class="card animate" style="animation-delay: 0.5s">
+                    <div class="card-icon">🧠</div>
+                    <h3>The "Math Student"</h3>
+                    <p>
+                        Instead of asking the database if a medicine is due, the
+                        phone's CPU does the math locally. It knows your
+                        schedule (e.g., Every 2 days) and calculates the result
+                        instantly.
+                    </p>
+                    <div class="analogy">
+                        "Like a student who knows the multiplication table
+                        instead of using a calculator for every move."
+                    </div>
+                </div>
+
+                <!-- Pre-fetching -->
+                <div class="card animate" style="animation-delay: 0.6s">
+                    <div class="card-icon">🛒</div>
+                    <h3>The "Bulk Shopper"</h3>
+                    <p>
+                        We don't buy one egg at a time. When you open the app,
+                        we fetch 14 days of logs at once. As you scroll, the app
+                        is already ready.
+                    </p>
+                    <div class="analogy">
+                        "Like buying a whole carton of eggs on Sunday so you
+                        don't have to go to the shop every morning."
+                    </div>
+                </div>
+
+                <!-- Optimistic UI -->
+                <div class="card animate" style="animation-delay: 0.7s">
+                    <div class="card-icon">🚀</div>
+                    <h3>The "Fast Waiter"</h3>
+                    <p>
+                        When you tap "Taken", the UI turns green instantly. We
+                        don't wait for the server's reply. We sync it in the
+                        background while you keep using the app.
+                    </p>
+                    <div class="analogy">
+                        "Like a waiter who says 'Coming right up!' before
+                        they've even reached the kitchen."
+                    </div>
+                </div>
+
+                <!-- Sync Service -->
+                <div class="card animate" style="animation-delay: 0.8s">
+                    <div class="card-icon">⚖️</div>
+                    <h3>The "Weekly Audit"</h3>
+                    <p>
+                        Once a week, the app checks the cloud and its local math
+                        to make sure everything matches. If there's a drift, it
+                        auto-corrects.
+                    </p>
+                    <div class="analogy">
+                        "Like a bank clerk who counts the physical cash every
+                        Friday to make sure it matches the computer."
+                    </div>
+                </div>
+            </div>
+
+            <div class="big-stat animate" style="animation-delay: 0.9s">
+                <h2>90.2%</h2>
+                <p>Reduction in Database Costs & API Usage</p>
+            </div>
+
+            <h2 class="section-title animate" style="animation-delay: 1s"><span>02.</span> The Mathematical Brain</h2>
+        
+        <div class="grid">
+            <div class="card animate" style="animation-delay: 1.1s">
+                <div class="card-icon">📅</div>
+                <h3>Daily & Weekly</h3>
+                <p>Simple checks: "Is it within the start/end date?" and "Is it Monday?" This handles 70% of meds instantly.</p>
+                <code style="display: block; background: #000; padding: 10px; border-radius: 5px; color: #34d399; margin-top: 10px;">
+                    if (today == Monday) { showMed(); }
+                </code>
+            </div>
+            <div class="card animate" style="animation-delay: 1.2s">
+                <div class="card-icon">🔢</div>
+                <h3>Interval Days (Cycles)</h3>
+                <p>For complex meds (e.g., Every 3 days), we use the **Modulo** trick. We count the days since the start and see if the remainder is zero.</p>
+                <code style="display: block; background: #000; padding: 10px; border-radius: 5px; color: #38bdf8; margin-top: 10px;">
+                    if (daysSinceStart % 3 == 0) { showMed(); }
+                </code>
+                <div class="analogy">"Like checking if the current day is a 'multiple of 3' on a giant invisible ruler."</div>
+            </div>
+        </div>
+
+        <h2 class="section-title animate" style="animation-delay: 1.3s"><span>03.</span> The Journey of a Tap</h2>
+        
+        <div class="card animate" style="animation-delay: 1.4s; margin-bottom: 4rem; border-left: 5px solid var(--primary);">
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <div style="background: var(--primary); color: #000; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;">1</div>
+                    <div>
+                        <strong style="color: var(--primary);">Instant UI Update (0ms)</strong>
+                        <p style="color: var(--text-dim);">The moment you tap "Take," the screen turns green. No waiting for the internet. Total "wow" factor for the user.</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <div style="background: var(--accent); color: #000; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;">2</div>
+                    <div>
+                        <strong style="color: var(--accent);">OS Notification Intercept</strong>
+                        <p style="color: var(--text-dim);">The app immediately tells the phone: "Delete the 8:00 AM alarm for Paracetamol!" This prevents annoying double-notifs if taken early.</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <div style="background: var(--secondary); color: #000; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;">3</div>
+                    <div>
+                        <strong style="color: var(--secondary);">Background Cloud Sync</strong>
+                        <p style="color: var(--text-dim);">Offline? No problem. The app saves the 'Taken' status locally and waits for the internet to talk to Supabase. It's Bulletproof.</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <div style="background: var(--success); color: #000; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;">4</div>
+                    <div>
+                        <strong style="color: var(--success);">Weekly Reconciliation</strong>
+                        <p style="color: var(--text-dim);">Every week, the system double-checks: "Does the phone's math match the database's record?" This is our 'Source of Truth' audit.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title animate" style="animation-delay: 1.5s">
+                <span>04.</span> Why this is a Win
+            </h2>
+            <div class="grid">
+                <div class="card animate" style="animation-delay: 1.6s">
+                    <h3>💰 Huge Savings</h3>
+                    <p>
+                        By preventing "Waste Calls" on empty calendar days, we
+                        save thousands of dollars as the user base grows.
+                    </p>
+                </div>
+                <div class="card animate" style="animation-delay: 1.7s">
+                    <h3>🏎️ Instant Speed</h3>
+                    <p>
+                        The user never sees a loading spinner when clicking the
+                        calendar. It feels like a high-end premium app.
+                    </p>
+                </div>
+                <div class="card animate" style="animation-delay: 1.8s">
+                    <h3>🔔 Safe Reminders</h3>
+                    <p>
+                        Taking a med early cancels only THAT specific reminder.
+                        Other medicines remain active and safe.
+                    </p>
+                </div>
+            </div>
+
+            <footer>
+                <p>Built for Scalability, Designed for Experience.</p>
+            </footer>
+        </div>
+    </body>
+</html>

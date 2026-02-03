@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native
 import { Colors, Sizes } from '../constants';
 import { toLocalDateString } from '../utils/dateUtils';
 
-const ITEM_WIDTH = 68; // Total width per day (60 width + 8 gap)
+const ITEM_WIDTH = 60; // Total width per day (60 width, no gap)
 const RANGE = 365; // +/- 1 year for unrestricted scrolling
 
 interface CalendarEvent {
@@ -53,6 +53,8 @@ const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: {
                 styles.dayNumberContainer,
                 isSelected && styles.dayNumberContainerSelected,
                 item.isToday && !isSelected && styles.dayNumberContainerToday,
+                hasEvent && !isSelected && { borderColor: Colors.primary, borderWidth: 2 },
+                hasEvent && isSelected && { borderColor: Colors.white, borderWidth: 2 },
             ]}>
                 <Text style={[
                     styles.dayNumber,
@@ -62,16 +64,6 @@ const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: {
                     {item.dayNumber}
                 </Text>
             </View>
-            
-            {/* Event Indicator Dot */}
-            {hasEvent && !isSelected && (
-                <View style={styles.eventDot} />
-            )}
-
-            {/* Today Indicator Dot (Alternative) */}
-            {item.isToday && !isSelected && !hasEvent && (
-                <View style={styles.todayDot} />
-            )}
         </TouchableOpacity>
     );
 });
@@ -196,7 +188,6 @@ const styles = StyleSheet.create({
         paddingVertical: Sizes.sm,
         borderRadius: 12,
         width: 60,
-        marginRight: 8,
     },
     dayItemSelected: {
         backgroundColor: Colors.primary + '15',
@@ -235,23 +226,6 @@ const styles = StyleSheet.create({
     },
     dayNumberToday: {
         color: Colors.primary,
-    },
-    eventDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: Colors.primary,
-        marginTop: 4,
-        position: 'absolute',
-        bottom: 6,
-    },
-    todayDot: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: Colors.gray400,
-        marginTop: 4,
-        position: 'absolute',
-        bottom: 6,
+        fontWeight: '700',
     },
 });

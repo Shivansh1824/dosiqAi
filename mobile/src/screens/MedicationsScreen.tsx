@@ -24,7 +24,7 @@ export default function MedicationsScreen() {
     const navigation = useNavigation();
     const { user } = useAuthStore();
     const { medications, fetchMedications, isLoading } = useMedicationsStore();
-    const { logs, fetchLogsForDate, markAsTaken } = useMedicationLogsStore();
+    const { logs, fetchLogsForDateRange, markAsTaken } = useMedicationLogsStore();
     const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
     const [refreshing, setRefreshing] = useState(false);
@@ -42,39 +42,82 @@ export default function MedicationsScreen() {
         }
     }, [user?.id, fetchMedications]);
 
-    // Fetch logs for selected date
+    // Fetch logs for selected date (Windowed Sync & Wastage Filter)
     useEffect(() => {
-        if (user?.id) {
-            fetchLogsForDate(user.id, selectedDate);
-        }
-    }, [selectedDate, user?.id, fetchLogsForDate]);
+        if (!user?.id) return;
 
-    // Convert store medications to scheduled format with date filtering
+        // 1. Local Schedule Resolver: Check if ANY medicine actually exists on this day
+        const medsForDay = convertToScheduledMedications(medications, selectedDate);
+        if (medsForDay.length === 0) {
+            console.log(`[Sync] Skipping fetch for ${toLocalDateString(selectedDate)} (No medications scheduled)`);
+            return;
+        }
+
+        // 2. Windowed Fetch: Fetch 7 days back and 7 days forward to reduce future calls
+        const startWindow = new Date(selectedDate);
+        startWindow.setDate(startWindow.getDate() - 7);
+        const endWindow = new Date(selectedDate);
+        endWindow.setDate(endWindow.getDate() + 7);
+
+        fetchLogsForDateRange(
+            user.id, 
+            toLocalDateString(startWindow), 
+            toLocalDateString(endWindow)
+        );
+    }, [selectedDate, user?.id, medications, fetchLogsForDateRange]);
+
+    // Convert store medications to scheduled format with date filtering (Local Schedule Resolver)
     const convertToScheduledMedications = (meds: Medication[], selectedDate: Date): MedicationWithStatus[] => {
         const result: MedicationWithStatus[] = [];
-
-        // Normalize selected date to local date string (no UTC conversion)
         const selectedDateStr = toLocalDateString(selectedDate);
+        const dayOfWeek = selectedDate.getDay(); // 0 (Sun) to 6 (Sat)
+        
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
 
-        // Filter medications that are:
-        // 1. Active (not expired)
-        // 2. Started on or before selected date
-        // 3. Not ended OR ended on or after selected date
         const activeMeds = meds.filter(med => {
-            // Check if medication has started
-            if (med.start_date > selectedDateStr) {
-                return false; // Medication hasn't started yet
-            }
+            // 1. Basic Date Range Check
+            if (med.start_date > selectedDateStr) return false;
+            if (med.end_date && med.end_date < selectedDateStr) return false;
 
-            // Check if medication has ended
-            if (med.end_date && med.end_date < selectedDateStr) {
-                return false; // Medication already ended
-            }
+            // 2. Frequency/Interval Logic
+            const startDate = fromLocalDateString(med.start_date);
+            const diffTime = startOfDay.getTime() - startDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-            return true; // Medication is active on selected date
+            switch (med.frequency) {
+                case 'once_daily':
+                case 'twice_daily':
+                case 'three_times_daily':
+                case 'four_times_daily':
+                    // These are daily - if in range, they exist
+                    return true;
+                
+                case 'weekly':
+                    // Check if it's the same day of the week as the start date
+                    // (Assuming weekly means same day every week)
+                    return dayOfWeek === startDate.getDay();
+                
+                case 'monthly':
+                    // Check if it's the same date of the month
+                    return selectedDate.getDate() === startDate.getDate();
+
+                case 'as_needed':
+                    // For now, only show PRN if they have a log on this day
+                    return useMedicationLogsStore.getState().logs.some(
+                        (l: import('../store/medicationLogsStore').MedicationLog) => l.medication_id === med.id && l.scheduled_date === selectedDateStr
+                    );
+
+                default:
+                    // Interval Days logic (e.g. Every 2 days)
+                    if (med.interval_days && med.interval_days > 0) {
+                        return diffDays % med.interval_days === 0;
+                    }
+                    return false;
+            }
         });
 
-        // Create scheduled entries for valid medications
+        // Create scheduled entries
         activeMeds.forEach(med => {
             med.time_of_day.forEach(time => {
                 // Check if log exists for this medication/date/time
@@ -100,7 +143,7 @@ export default function MedicationsScreen() {
             });
         });
 
-        return result;
+        return result.sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time));
     };
 
     // Group medications by exact scheduled time

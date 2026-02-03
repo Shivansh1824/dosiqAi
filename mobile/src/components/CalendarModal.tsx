@@ -95,7 +95,7 @@ export default function CalendarModal({
     });
 
     // Mark selected date (using local date, not UTC)
-    const selectedDateStr = toLocalDateString(calendarDate);
+    const selectedDateStr = toLocalDateString(selectedDate);
     marked[selectedDateStr] = {
       ...marked[selectedDateStr],
       selected: true,
@@ -154,13 +154,13 @@ export default function CalendarModal({
           <View style={styles.legend}>
             {(filterType === 'medication' || filterType === 'all') && (
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+                <View style={[styles.legendDot, { borderColor: Colors.primary }]} />
                 <Text style={styles.legendText}>Medication</Text>
               </View>
             )}
             {(filterType === 'appointment' || filterType === 'all') && (
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
+                <View style={[styles.legendDot, { borderColor: Colors.success }]} />
                 <Text style={styles.legendText}>Appointment</Text>
               </View>
             )}
@@ -173,6 +173,38 @@ export default function CalendarModal({
             markedDates={getMarkedDates()}
             onDayPress={handleDayPress}
             markingType={'multi-dot'}
+            dayComponent={({ date, state, marking, onPress }: any) => {
+              const isSelected = marking?.selected;
+              const isToday = state === 'today';
+              const isDisabled = state === 'disabled';
+              const hasEvents = marking?.dots && marking.dots.length > 0;
+              
+              // Use the first dot's color for the ring if available, default to primary
+              const ringColor = hasEvents ? (marking.dots[0].color || Colors.primary) : 'transparent';
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.dayContainer,
+                    isSelected && styles.selectedDay,
+                    hasEvents && !isSelected && { borderColor: ringColor, borderWidth: 2 },
+                    hasEvents && isSelected && { borderColor: Colors.white, borderWidth: 2 }
+                  ]}
+                  onPress={() => onPress(date)}
+                >
+                  <View style={styles.dayInner}>
+                    <Text style={[
+                      styles.dayText,
+                      isSelected && styles.selectedDayText,
+                      isToday && !isSelected && styles.todayText,
+                      isDisabled ? styles.disabledDayText : styles.dayTextPrimary
+                    ]}>
+                      {date?.day}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
             onMonthChange={(month) => {
               // Update local state when user navigates months
               const newDate = fromLocalDateString(month.dateString);
@@ -451,13 +483,49 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    backgroundColor: 'transparent',
   },
   legendText: {
     fontSize: 13,
     color: Colors.textSecondary,
+  },
+  // Calendar day styles
+  dayContainer: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    margin: 2,
+  },
+  dayInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedDay: {
+    backgroundColor: Colors.primary,
+  },
+  dayText: {
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  dayTextPrimary: {
+    color: Colors.textPrimary,
+  },
+  selectedDayText: {
+    color: Colors.white,
+    fontWeight: '700',
+  },
+  todayText: {
+    color: Colors.primary,
+    fontWeight: '800',
+  },
+  disabledDayText: {
+    color: Colors.gray300,
   },
   doneButton: {
     backgroundColor: Colors.primary,
