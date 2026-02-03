@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform, Image, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Colors, Typography } from '../../constants';
@@ -38,6 +39,31 @@ export default function AddReminderModal({
 
     const medications = useMedicationsStore(state => state.medications);
     const getActiveMedications = useMedicationsStore(state => state.getActiveMedications);
+    
+    // Animation for suggestion entrance
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(10)).current;
+
+    useEffect(() => {
+        if (suggestion) {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 400,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(slideAnim, {
+                    toValue: 0,
+                    tension: 50,
+                    friction: 7,
+                    useNativeDriver: true,
+                })
+            ]).start();
+        } else {
+            fadeAnim.setValue(0);
+            slideAnim.setValue(10);
+        }
+    }, [suggestion]);
 
     // Reset state to the top of the next hour when modal opens
     useEffect(() => {
@@ -69,14 +95,27 @@ export default function AddReminderModal({
 
         // Defer calculation to allow the modal to open smoothly first
         const timer = setTimeout(() => {
-            const otherMedications = getActiveMedications();
+            // Dosiq AI Logic: Consider active medications AND those finished in the last 14 days
+            // AI should "remember" your usual schedule slots even if a specific course just ended
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const fourteenDaysAgo = new Date(today);
+            fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+            const relevantMedications = medications.filter(med => {
+                if (!med.end_date) return true;
+                const endDate = new Date(med.end_date);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate >= fourteenDaysAgo;
+            });
+
             let bestSuggestion: { time: string, matchingMedName: string, diff: number } | null = null;
 
             const currentHours = selectedTime.getHours();
             const currentMinutes = selectedTime.getMinutes();
             const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
-            for (const med of otherMedications) {
+            for (const med of relevantMedications) {
                 if (!med.time_of_day) continue;
 
                 for (const timeStr of med.time_of_day) {
@@ -86,6 +125,7 @@ export default function AddReminderModal({
                     let diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
                     if (diff > 720) diff = 1440 - diff;
 
+                    // Only suggest if it's a DIFFERENT time (diff > 0) or if it's the exact same time but not flagged as duplicate yet
                     if (diff > 0 && diff <= 30) {
                         if (!bestSuggestion || diff < bestSuggestion.diff) {
                             bestSuggestion = {
@@ -189,7 +229,8 @@ export default function AddReminderModal({
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.content}>
+                    <ScrollView style={styles.scrollArea} bounces={false}>
+                        <View style={styles.content}>
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>TIME</Text>
                             <View style={styles.timePickerContainer}>
@@ -220,24 +261,44 @@ export default function AddReminderModal({
                             )}
 
                             {suggestion && !isDuplicate && (
-                                <TouchableOpacity
-                                    style={styles.suggestionContainer}
-                                    onPress={handleApplySuggestion}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={styles.suggestionIcon}>
-                                        <Feather name="clock" size={14} color={Colors.primary} />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.suggestionTitle}>
-                                            Suggested: {suggestion.time}
-                                        </Text>
-                                        <Text style={styles.suggestionSubtitle}>
-                                            Matches {suggestion.matchingMedName}
-                                        </Text>
-                                    </View>
-                                    <Feather name="check" size={16} color={Colors.primary} />
-                                </TouchableOpacity>
+                                <Animated.View style={{ 
+                                    opacity: fadeAnim, 
+                                    transform: [{ translateY: slideAnim }] 
+                                }}>
+                                    <TouchableOpacity
+                                        activeOpacity={0.9}
+                                        onPress={handleApplySuggestion}
+                                    >
+                                        <LinearGradient
+                                            colors={['#F0F7FF', '#FFFFFF']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.suggestionContainer}
+                                        >
+                                            <View style={styles.aiIconWrapper}>
+                                                <Image 
+                                                    source={require('../../../assets/ai-icon.png')}
+                                                    style={styles.aiIcon}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={styles.suggestionHeader}>
+                                                    <Text style={styles.aiBadgeText}>DOSIQ AI SUGGESTION</Text>
+                                                </View>
+                                                <Text style={styles.suggestionTitle}>
+                                                    Suggested: {suggestion.time}
+                                                </Text>
+                                                <Text style={styles.suggestionSubtitle}>
+                                                    Matches {suggestion.matchingMedName} schedule
+                                                </Text>
+                                            </View>
+                                            <View style={styles.applyButton}>
+                                                <Feather name="check" size={14} color={Colors.white} />
+                                            </View>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </Animated.View>
                             )}
                         </View>
 
@@ -307,7 +368,8 @@ export default function AddReminderModal({
                                 </View>
                             </View>
                         )}
-                    </View>
+                        </View>
+                    </ScrollView>
 
                     <View style={styles.footer}>
                         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
@@ -371,6 +433,9 @@ const styles = StyleSheet.create({
     },
     closeButton: {
         padding: 4,
+    },
+    scrollArea: {
+        flexShrink: 1,
     },
     content: {
         padding: 20,
@@ -480,29 +545,59 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 16,
-        padding: 12,
-        backgroundColor: '#EFF6FF',
-        borderRadius: 12,
+        padding: 14,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: '#BFDBFE',
         gap: 12,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 3,
     },
-    suggestionIcon: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: Colors.white,
+    aiIconWrapper: {
+        width: 32,
+        height: 32,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    suggestionTitle: {
-        fontSize: 14,
+    aiIcon: {
+        width: 24,
+        height: 24,
+    },
+    suggestionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 2,
+    },
+    aiBadgeText: {
+        fontSize: 9,
+        ...Typography.fontWeights.bold,
         color: Colors.primary,
-        ...Typography.fontWeights.semibold,
+        letterSpacing: 1,
+        backgroundColor: '#EBF5FF',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    suggestionTitle: {
+        fontSize: 15,
+        color: Colors.gray900,
+        ...Typography.fontWeights.bold,
     },
     suggestionSubtitle: {
         fontSize: 12,
-        color: Colors.gray600,
-        marginTop: 2,
+        color: Colors.gray500,
+        marginTop: 1,
+    },
+    applyButton: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });
