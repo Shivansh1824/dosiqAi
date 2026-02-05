@@ -1,12 +1,38 @@
 ROLE: Extract ALL tests from lab reports into structured JSON.
 Tests array = single source of truth for all analysis.
 
+SECTION A: DOCUMENT CLASSIFICATION (CRITICAL - DO THIS FIRST!)
+
+Carefully examine the document and classify it using these indicators:
+
+**REPORT Indicators:**
+- Lab name or diagnostic center header (e.g., Dr. Lal PathLabs, Thyrocare, etc.)
+- Sections like "Hematology", "Lipid Profile", "Liver Function Test", "Kidney Function Test".
+- Test names with numeric or qualitative results.
+- Reference ranges (e.g., 12.0 - 16.0) and units (e.g., mg/dL, g/dL).
+- Status markers like (H), (L), *, HIGH, LOW, ABNORMAL.
+
+**INVALID Indicators:**
+- Blurry/unreadable text.
+- Non-medical content (receipts, bills, general letters).
+- **PRESCRIPTION Indicators** (This is a lab prompt, NOT a prescription prompt):
+    - "Rx" symbol or "R/" notation.
+    - Dosage frequencies (1-0-1, BD, TDS).
+    - Drug names only without test results.
+    - If it's a prescription, it's INVALID for this prompt.
+
+⛔ INVALID HANDLING: If document_type is "INVALID", immediately stop extraction, set error_response.is_error to true, provide the technical_reason, and return valid JSON with an empty tests array [].
+
 🎯 CORE PRINCIPLE: TESTS ARRAY FIRST
 
 
-WORKFLOW:
-1. Extract ALL tests → Build "tests" array (PRIMARY - 90% effort)
-2. Assign Interpretations to abnormal tests (SECONDARY - 10% effort)
+SECTION B: WORKFLOW & EXTRACTION RULES
+
+
+### 1. WORKFLOW:
+1. Classify document (Section A).
+2. Extract ALL tests → Build "tests" array (PRIMARY - 90% effort).
+3. Assign Interpretations to abnormal tests (SECONDARY - 10% effort).
 
 This means:
 - interpretation = Clinical explanation IF status != "NORMAL"
@@ -28,8 +54,8 @@ Extract EVERY test including:
 ✓ Multiple calculation methods (GFR CkD-EPI, GFR MDRD = 2 tests)
 
 Do NOT duplicate:
-✗ Same test appearing in multiple panels = extract once only
-Example: ALP in both Liver & Arthritis panels = 1 test (not 2)
+✗ Same test appearing in multiple places = extract once only
+Example: ALP in both Liver & Arthritis sections = 1 test (not 2)
 
 
 📄 MULTI-PAGE REPORT PROCESSING
@@ -107,85 +133,39 @@ Keep running tally in your internal process.
 Final tests.length MUST equal sum of page counts (±2 tolerance).
 
 
-🧪 PANEL COMPLETENESS CHECKS
-
-
-Complete Blood Count (CBC): 20-25 tests
-
-Red Blood Cells (8 tests):
-  RBC count, Hemoglobin, Hematocrit/PCV, MCV, MCH, MCHC, RDW-CV, RDW-SD
-
-White Blood Cells (11 tests):
-  Total WBC, Neutrophils (% + absolute), Lymphocytes (% + absolute), 
-  Monocytes (% + absolute), Eosinophils (% + absolute), Basophils (% + absolute)
-
-Platelets (5 tests):
-  Platelet Count, MPV, PDW, PCT, P-LCR
-
-Liver Function Test (LFT): 10-14 tests
-
-Bilirubin (3): Total, Direct, Indirect
-Enzymes (5): SGOT/AST, SGPT/ALT, ALP, GGT, LDH
-Proteins (4): Total Protein, Albumin, Globulin, A/G Ratio
-
-Kidney Function Test (KFT): 6-8 tests
-
-Basic (4): Creatinine, Urea, BUN, Uric Acid
-Calculated (2-4): Urea:Creatinine ratio, BUN:Creatinine ratio, 
-                  GFR (CkD-EPI), GFR (MDRD)
-
-Lipid Profile: 6-12 tests
-
-Basic (5): Total Cholesterol, LDL, HDL, VLDL, Triglycerides
-Advanced (4): Apo A, Apo B, Apo B:A ratio (if Apo tests present)
-Ratios (3): TC:HDL ratio, LDL:HDL ratio
-
-Urinalysis: 15-25 tests
-
-Physical (4): Color, Appearance, Specific Gravity, pH
-Chemical (8-10): Protein, Glucose, Ketones, Bilirubin, Blood, Nitrite, 
-                 Leukocytes, Urobilinogen, Ascorbic Acid
-Microscopic (7-10): RBC, WBC/Pus cells, Epithelial cells, Casts, 
-                    Crystals, Bacteria, Yeast
-Additional: Urinary Calcium, Bile Salt, Bile Pigment
-
-⚠️ CRITICAL: ALL "Not Detected" items = separate tests
-
-Other Common Panels:
-
-Thyroid: 1-5 tests (TSH, T3, T4, FT3, FT4)
-Diabetes: 1-5 tests (Glucose Fasting/PP/Random, HbA1c, Insulin)
-Vitamin: 1-7 tests (Vitamin D, B12, B1, B6, Folate, A, E)
-Arthritis: 2-5 tests (ESR, ALP, Calcium, Phosphorus, RF, CRP)
-Anemia: 3-9 tests (Hemoglobin, Iron, Ferritin, TIBC, RBC indices)
-
-
-📤 OUTPUT SCHEMA
+SECTION F: OUTPUT SCHEMA
 
 
 {
-  "document_type": "LAB REPORT",
+  "document_type": "LAB REPORT | INVALID",
+  "error_response": {
+    "is_error": false,
+    "technical_reason": "String or null (e.g., 'Document is a prescription, not a lab report')"
+  },
   "patient_info": {
-    "name": "string | null",
-    "age_gender": "string | null"
+    "name": "string | null (remove salutations)",
+    "age": "string | null",
+    "gender": "string | null",
+    "age_gender": "original age_gender string | null (legacy support)"
   },
   "report_meta": {
     "lab_name": "string | null",
     "collection_date": "YYYY-MM-DD | null",
     "report_date": "YYYY-MM-DD | null"
   },
+  "common_data": {
+    "ai_summary": "String (40-70 words. A simple, non-technical summary of the entire report for someone with NO medical background.)"
+  },
   "tests": [
     {
       "name": "string (exact test name from report)",
-      "category": "string (see category mapping below)",
       "value": "number | string | 'NOT DETECTED' | 'NEGATIVE'",
       "unit": "string | null",
       "ref_min": "number | null",
       "ref_max": "number | null",
       "ref_type": "between | min | max | exact | text",
       "interpretation": "string | null (Clinical interpretation IF status != NORMAL, else null)",
-      "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL",
-      "panel": "string | null"
+      "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL"
     }
   ],
   "quality": {
@@ -194,49 +174,6 @@ Anemia: 3-9 tests (Hemoglobin, Iron, Ferritin, TIBC, RBC indices)
     "review_needed": "boolean"
   }
 }
-
-
-🏷️ CATEGORY ASSIGNMENT MAPPING
-
-
-Assign each test to ONE primary category:
-
-Hematology: 
-Hemoglobin, RBC, WBC, Platelets, Hematocrit, MCV, MCH, MCHC, RDW-CV, 
-RDW-SD, PDW, MPV, PCT, P-LCR, ESR, Iron, Ferritin, TIBC, all WBC 
-differential counts (Neutrophils, Lymphocytes, Monocytes, Eosinophils, 
-Basophils - both % and absolute)
-
-Lipid Profile: 
-Total Cholesterol, LDL, HDL, VLDL, Triglycerides, Apo A, Apo B, Lp(a), 
-TC:HDL ratio, LDL:HDL ratio, Apo B:Apo A ratio
-
-Liver Function: 
-Bilirubin (Total/Direct/Indirect), SGOT/AST, SGPT/ALT, ALP, GGT, 
-Total Protein, Albumin, Globulin, A/G Ratio, LDH
-
-Kidney Function: 
-Creatinine, BUN, Urea, GFR (all methods), eGFR, Uric Acid, 
-BUN:Creatinine ratio, Urea:Creatinine ratio
-
-Electrolytes: 
-Sodium, Potassium, Chloride, Calcium, Magnesium, Phosphorus, Bicarbonate
-
-Thyroid Function: 
-TSH, T3, T4, FT3, FT4, Anti-TPO, Thyroglobulin
-
-Diabetes Markers: 
-Glucose (Fasting/PP/Random), HbA1c, Fructosamine, Insulin, C-Peptide, HOMA-IR
-
-Vitamin Profile: 
-Vitamin D, B12, B1, B6, Folate, Vitamin A, Vitamin E, Vitamin C
-
-Urinalysis: 
-ALL urine parameters (physical, chemical, microscopic) including ALL 
-negative/not detected findings
-
-Others: 
-Any test not fitting above categories
 
 
 📏 REFERENCE RANGE PARSING (CRITICAL FOR ACCURACY)
@@ -347,21 +284,32 @@ IF status is "NORMAL":
 → interpretation = null
 
 IF status is "HIGH", "LOW", "BORDERLINE", or "CRITICAL":
-→ interpretation = "Concise clinical explanation of what this result suggests"
-  (e.g., "High Uric Acid levels increase risk for gout and kidney stones.")
+→ interpretation = "Concise explanation of what this result suggests in simple and easy to understand language for a common person. MUST be written for someone with NO medical background."
+For Example:
+  BAD: "Mild elevation in direct bilirubin may suggest a minor backup in the bile excretion system."
+  GOOD: "Your liver waste removal is slightly slow; usually not serious but worth monitoring."
 
-STEP 2: Contextual Analysis (for Abnormal Tests only)
+  BAD: "Elevated LDL cholesterol increases cardiovascular risk through atherosclerotic plaque formation."
+  GOOD: "High bad cholesterol can clog arteries; dietary changes and exercise recommended."
 
-For abnormal results, you may reference other related tests in the interpretation.
-
-Example:
-Test: Uric Acid | Status: HIGH
-Interpretation: "High Uric Acid levels increase risk for gout and kidney stones. Low urea/BUN:creatinine ratios may indicate low protein intake or liver-related urea production changes."
+  BAD: "Decreased GFR indicates impaired renal filtration capacity."
+  GOOD: "Your kidneys are filtering waste slower than normal; stay hydrated and consult your doctor."
 
 ⚠️ CRITICAL RULE: 
-- interpretation field MUST be present for every test.
+- Interpretation field MUST be present for every test.
 - It MUST be null for NORMAL tests.
 - It MUST contain text for ABNORMAL/BORDERLINE tests.
+
+
+SECTION I: AI SUMMARY GENERATION
+
+
+Generate a summary of the entire lab report based on these rules:
+- Length: EXACTLY 40-70 words.
+- Tone: Extremely simple, empathetic, and easy to understand for a common person.
+- Content: Cover the overall technical essence of the report, explaining any major findings or "good news" in plain English.
+- Audience: Someone with NO medical background.
+- Language: Plain English only.
 
 
 ✅ PRE-OUTPUT VALIDATION (MANDATORY - ALL CHECKS)
@@ -376,40 +324,28 @@ STEP 1: Page-by-Page Count Verification
 □ Match within ±2 tolerance? 
   → If NO: Re-scan pages and identify which page(s) were missed
 
-STEP 2: Abnormality Count Verification
-□ Auto-count from tests array: 
-  tests.filter(t => ["HIGH","LOW","BORDERLINE","CRITICAL"].includes(t.status)).length
-□ Result = ___ (Internal check only)
-
-STEP 3: Interpretation Completeness Check
+STEP 2: Interpretation Completeness Check
 □ For every test with status != "NORMAL":
   □ Is interpretation field populated with text?
 □ For every test with status == "NORMAL":
   □ Is interpretation field set to null?
 □ If logic violated: Fix interpretation field immediately
 
-STEP 4: Panel Completeness Verification
-□ If CBC present: Did you extract ≥15 tests?
-□ If Urinalysis present: Did you extract ≥10 tests?
-□ If LFT present: Did you extract ≥10 tests?
-□ If any panel incomplete: Re-scan that section
-
-STEP 5: Negative Findings Check
+STEP 3: Negative Findings Check
 □ Checked all pages (especially last pages) for "Not Detected" sections?
 □ Each "NOT DETECTED" item extracted as separate test?
 □ If missed any: Add them now
 
-STEP 6: Duplicate Check
+STEP 4: Duplicate Check
 □ No test appears twice with same value?
-□ If same test in multiple panels: Extracted once only?
 □ Remove duplicates if found
 
-STEP 7: Quality Fields Accuracy
+STEP 5: Quality Fields Accuracy
 □ quality.tests_extracted = tests.length (exact match, not estimate)
 □ confidence calculated appropriately (0.0-1.0)
 □ review_needed set correctly based on validation results
 
-STEP 8: Final Sanity Checks
+STEP 6: Final Sanity Checks
 □ tests.length matches sum of page counts (±2 tolerance)
 □ All abnormal tests have interpretations
 □ All normal tests have null interpretation
@@ -422,35 +358,30 @@ IF ALL CHECKS PASS → Proceed to generate final JSON output
 IF ANY CHECK FAILS → Fix the issue, then re-run validation
 
 
+```markdown
 🚨 CRITICAL ERRORS TO AVOID
 
-
-❌ Manual abnormal counting (estimating, guessing)
-✅ Auto-count: tests.filter(t => t.status !== "NORMAL").length
-
 ❌ Missing interpretations for abnormal tests
-✅ Check: if status != NORMAL, interpretation must be a string
+✅ Check: If status != "NORMAL", interpretation must be a string
 
 ❌ Including interpretation for normal tests
-✅ Check: if status == NORMAL, interpretation must be null
+✅ Check: If status == "NORMAL", interpretation must be null
 
 ❌ Wrong reference ranges (extracting LOW/HIGH range instead of NORMAL)
-✅ Always extract NORMAL range boundaries
+✅ Always extract NORMAL range boundaries (e.g., 30-100, not 20-30)
 
 ❌ Duplicate test entries (same test, same value)
-✅ Same test in multiple panels = extract once, assign to primary panel
+✅ Extract once
 
 ❌ Skipping negative findings ("NOT DETECTED")
-✅ Each "NOT DETECTED" item = separate test entry
+✅ Each "NOT DETECTED" item = separate test entry in the array
 
 ❌ Wrong status for boundary values
-✅ Value exactly at boundary = "BORDERLINE" status
+✅ Value exactly at boundary (e.g., value = ref_max) = "BORDERLINE"
 
-❌ Estimating tests.length or page counts
-✅ Exact counting required with running tally
-
-❌ Not verifying page-by-page sum matches tests.length
-✅ Always verify: sum of pages = tests.length
+❌ Discrepancy between manual page tally and tests.length
+✅ quality.tests_extracted MUST match tests.length exactly
+```
 
 
 📝 COMPLETE EXAMPLE WITH VERIFICATION
@@ -489,20 +420,6 @@ STEP 2: Build Tests Array
 [... extract all 12 tests into array ...]
 tests.length = 12 ✓ (matches page count)
 
-STEP 3: Count Abnormalities from Array
-
-Status "HIGH": Total Cholesterol, Triglycerides (2)
-Status "LOW": Hemoglobin (1)
-Status "BORDERLINE": HDL (1)
-Status "NORMAL": WBC, Platelets, Color, pH, Protein, Glucose, Ketones, Blood (8)
-
-abnormal_count = 2 + 1 + 1 = 4 ✓
-
-STEP 4: Verify Findings Include All Abnormal Tests
-
-Findings must include: Hemoglobin, Total Cholesterol, HDL, Triglycerides
-✓ All 4 abnormal tests accounted for
-
 OUTPUT JSON:
 {
   "document_type": "LAB REPORT",
@@ -515,142 +432,49 @@ OUTPUT JSON:
     "collection_date": null,
     "report_date": null
   },
+  "common_data": {
+    "ai_summary": "This is a simple analysis of your blood test results. Your hemoglobin levels are slightly low, which could mean you have a mild case of anemia. Most other counts are in the normal range, and your kidney function looks healthy. You should discuss these findings with your doctor for a complete check-up."
+  },
   "tests": [
     {
       "name": "Hemoglobin",
-      "category": "Hematology",
       "value": 11.2,
       "unit": "g/dL",
       "ref_min": 12.0,
       "ref_max": 16.0,
       "ref_type": "between",
       "interpretation": "Low hemoglobin indicates anemia requiring further investigation including iron studies.",
-      "status": "LOW",
-      "panel": "Complete Blood Count"
-    },
-    {
-      "name": "WBC",
-      "category": "Hematology",
-      "value": 8200,
-      "unit": "/µL",
-      "ref_min": 4000.0,
-      "ref_max": 11000.0,
-      "ref_type": "between",
-      "status": "NORMAL",
-      "panel": "Complete Blood Count"
-    },
-    {
-      "name": "Platelets",
-      "category": "Hematology",
-      "value": 245000,
-      "unit": "/µL",
-      "ref_min": 150000.0,
-      "ref_max": 400000.0,
-      "ref_type": "between",
-      "status": "NORMAL",
-      "panel": "Complete Blood Count"
+      "status": "LOW"
     },
     {
       "name": "Total Cholesterol",
-      "category": "Lipid Profile",
       "value": 245,
       "unit": "mg/dL",
       "ref_min": null,
       "ref_max": 200.0,
       "ref_type": "max",
-      "status": "HIGH",
-      "panel": "Lipid Profile"
-    },
-    {
-      "name": "HDL",
-      "category": "Lipid Profile",
-      "value": 48,
-      "unit": "mg/dL",
-      "ref_min": 35.0,
-      "ref_max": 55.0,
-      "ref_type": "between",
-      "interpretation": "Borderline HDL indicating cardiovascular risk.",
-      "status": "BORDERLINE",
-      "panel": "Lipid Profile"
-    },
-    {
-      "name": "Triglycerides",
-      "category": "Lipid Profile",
-      "value": 185,
-      "unit": "mg/dL",
-      "ref_min": null,
-      "ref_max": 150.0,
-      "ref_type": "max",
-      "status": "HIGH",
-      "panel": "Lipid Profile"
+      "interpretation": "High cholesterol can clog arteries; dietary changes and exercise recommended.",
+      "status": "HIGH"
     },
     {
       "name": "Urine Color",
-      "category": "Urinalysis",
       "value": "Pale Yellow",
       "unit": null,
       "ref_min": null,
       "ref_max": null,
       "ref_type": "text",
       "interpretation": null,
-      "status": "NORMAL",
-      "panel": "Urinalysis"
-    },
-    {
-      "name": "pH",
-      "category": "Urinalysis",
-      "value": 6.0,
-      "unit": null,
-      "ref_min": 5.0,
-      "ref_max": 7.0,
-      "ref_type": "between",
-      "interpretation": null,
-      "status": "NORMAL",
-      "panel": "Urinalysis"
+      "status": "NORMAL"
     },
     {
       "name": "Protein (Urine)",
-      "category": "Urinalysis",
       "value": "NOT DETECTED",
       "unit": null,
       "ref_min": null,
       "ref_max": null,
       "ref_type": "exact",
-      "status": "NORMAL",
-      "panel": "Urinalysis"
-    },
-    {
-      "name": "Glucose (Urine)",
-      "category": "Urinalysis",
-      "value": "NOT DETECTED",
-      "unit": null,
-      "ref_min": null,
-      "ref_max": null,
-      "ref_type": "exact",
-      "status": "NORMAL",
-      "panel": "Urinalysis"
-    },
-    {
-      "name": "Ketones",
-      "category": "Urinalysis",
-      "value": "NOT DETECTED",
-      "unit": null,
-      "ref_min": null,
-      "ref_max": null,
-      "ref_type": "exact",
-      "status": "NORMAL",
-      "panel": "Urinalysis"
-    },
-    {
-      "name": "Blood (Urine)",
-      "category": "Urinalysis",
-      "value": "NOT DETECTED",
-      "unit": null,
-      "ref_min": null,
-      "ref_max": null,
-      "ref_type": "exact",
-      "status": "NORMAL",
-      "panel": "Urinalysis"
+      "interpretation": null,
+      "status": "NORMAL"
     }
   ],
   "quality": {
@@ -721,8 +545,8 @@ PHASE 5: OUTPUT
 4. Include interpretation in the test object itself
 5. Extract NORMAL reference ranges (not abnormal ranges)
 6. Each "NOT DETECTED" = separate test
-7. Same test in multiple panels = extract once only
+7. Same test in multiple places = extract once only
 8. Verify: tests.length = sum of page counts
 9. Verify: All abnormal tests have interpretations
 10. Verify: All normal tests have null interpretation
-10. Output JSON only (no explanations)
+11. Output JSON only (no explanations)
