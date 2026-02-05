@@ -1,7 +1,7 @@
 /**
  * Supabase Edge Function: analyze-document
  *
- * Analyzes uploaded health documents using OpenRouter API (Google Gemini 2.5 Flash)
+ * Analyzes uploaded health documents using OpenRouter API (Google Gemini 3 Flash Preview)
  * This function acts as a secure proxy to keep the OpenRouter API key on the server
  *
  * Configuration (Edge Function Secrets):
@@ -36,7 +36,7 @@ const DOCUMENT_ANALYSIS_PROMPT = Deno.env.get("DOCUMENT_ANALYSIS_PROMPT") || "";
 
 // OpenRouter configuration
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-3-flash-preview";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 const MAX_FILE_SIZE_MB = 10;
@@ -208,11 +208,7 @@ serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "authorization, content-type, x-client-info, apikey",
-      },
+      headers: corsHeaders,
     });
   }
 
@@ -239,7 +235,7 @@ serve(async (req: Request) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -250,7 +246,7 @@ serve(async (req: Request) => {
       console.error("[Auth] User authentication failed:", userError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -264,7 +260,7 @@ serve(async (req: Request) => {
     if (!documentId || !base64Image || !fileType) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: documentId, base64Image, fileType" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -274,7 +270,7 @@ serve(async (req: Request) => {
         JSON.stringify({
           error: `Unsupported file type: ${fileType}. Allowed types: ${ALLOWED_MIME_TYPES.join(", ")}`
         }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -284,7 +280,7 @@ serve(async (req: Request) => {
         JSON.stringify({
           error: `File too large (max ${MAX_FILE_SIZE_MB} MB)`
         }),
-        { status: 413, headers: { "Content-Type": "application/json" } }
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -298,7 +294,7 @@ serve(async (req: Request) => {
           error: "Daily upload limit reached (5 documents per day)",
           code: "RATE_LIMIT_EXCEEDED",
         }),
-        { status: 429, headers: { "Content-Type": "application/json" } }
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -379,12 +375,12 @@ serve(async (req: Request) => {
       {
         status: 200,
         headers: {
+          ...corsHeaders,
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
         },
       }
     );
-  } catch (error: unknown) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
     console.error("[Error] Analysis failed:", error);
 
@@ -393,15 +389,11 @@ serve(async (req: Request) => {
     // Try to update document status to 'failed'
     // Save the prompt that was used so we know what caused the failure
     try {
-      const body = await req.clone().json();
-      const { documentId, prompt } = body;
-
       if (documentId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         // Save error as JSON with prompt
         const errorData = {
           error: errorMessage,
-          prompt: prompt || DOCUMENT_ANALYSIS_PROMPT
+          prompt: DOCUMENT_ANALYSIS_PROMPT // Use default prompt if custom one not available in this scope easily
         };
 
         await supabase
@@ -426,8 +418,8 @@ serve(async (req: Request) => {
       {
         status: 500,
         headers: {
+          ...corsHeaders,
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
         },
       }
     );
