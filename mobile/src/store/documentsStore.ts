@@ -320,7 +320,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    * Trigger AI analysis for a document
    * Shows progress updates and handles the complete analysis flow
    */
-  triggerAnalysis: async (documentId: string, localFilePath: string, customPrompt?: string) => {
+  triggerAnalysis: async (documentId: string, localFilePath: string, customPrompt?: string, isReport?: boolean) => {
     let progressInterval: NodeJS.Timeout | null = null;
     try {
       console.log('[DocumentsStore] Triggering analysis for:', documentId);
@@ -353,6 +353,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         documentId,
         localFilePath,
         customPrompt,
+        isReport,
       });
 
       // Update progress to 100%
@@ -368,7 +369,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       const document = localDocuments.find((doc) => doc.id === documentId);
 
       // Use analysis result directly from the API response (more reliable than refetching)
-      console.log('[DocumentsStore] Full result from Edge Function:', JSON.stringify(result, null, 2));
+      console.log(`[DocumentsStore] Edge Function result (documentId: ${documentId}):`, JSON.stringify(result, null, 2));
 
       const analysisResult = result.analysis;
       const aiDocumentType = analysisResult?.document_type;
@@ -501,8 +502,12 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    * Retry analysis for a failed document
    */
   retryAnalysis: async (documentId: string, localFilePath: string) => {
+    const doc = get().documents.find(d => d.id === documentId);
+    const isReport = doc?.type === 'Lab Report' || doc?.type === 'Report';
+    
+    console.log(`[DocumentsStore] Retrying analysis for ${documentId} (isReport: ${isReport})`);
     await get().clearAnalysisError(documentId);
-    await get().triggerAnalysis(documentId, localFilePath);
+    await get().triggerAnalysis(documentId, localFilePath, undefined, isReport);
   },
 
   /**

@@ -129,7 +129,252 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     return 'other';
   }, [initialDocument?.ai_analysis_result]);
 
-  if (!initialDocument) {
+  // SAFE: initialDocument is guaranteed to exist after this point
+  // Get LIVE document from store (updates when AI analysis completes and updates title)
+  // Falls back to initialDocument (prop/id lookup) if not found in store (e.g., during weird state)
+  const document = useMemo(() => {
+    if (!initialDocument) return undefined;
+    return documents.find(d => d.id === initialDocument.id) || initialDocument;
+  }, [initialDocument, documents]);
+
+  // AsyncStorage key for dismissed medications (NOW SAFE)
+  const DISMISSED_MEDS_STORAGE_KEY = useMemo(() => {
+    return document ? `dismissed_medications_${document.id}` : '';
+  }, [document?.id]);
+
+  // Get analysis progress for this document
+  const documentProgress = useMemo(() => {
+    return (document && analysisProgress[document.id]) || 0;
+  }, [document?.id, analysisProgress]);
+
+  // Get family member name
+  const familyMember = useMemo(() => {
+    return (document && familyMembers.find(m => m.id === document.family_member_id)) || undefined;
+  }, [document?.family_member_id, familyMembers]);
+
+  // ========== MEDICATION CALCULATIONS (moved to top-level for Rules of Hooks) ==========
+  // Inner medicines from document
+  const innerMedicines = useMemo(() => {
+    return document?.ai_analysis_result?.prescription_data?.medicines || [];
+  }, [document?.ai_analysis_result]);
+
+  // Get display title - prefer AI-generated filename from analysis result, fallback to document title
+  // Smart Header Logic
+  const analysis = document?.ai_analysis_result;
+
+  const { titleText, subtitleText } = useMemo(() => {
+    if (!document) return { titleText: 'Medical Document', subtitleText: '' };
+
+    let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
+      ? "dosiq Ai • Analyzing..."
+      : (document.local_file_path?.split('/').pop() || 'Medical Document');
+    let subtitle = '';
+
+    if (analysis) {
+      // 1. Construct Smart Title
+      if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
+        title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
+      } else if (analysis.document_type) {
+        // Map 'invalid' to friendlier 'Needs Review' label
+        if (analysis.document_type.toLowerCase() === 'invalid') {
+          title = 'Unrecognized Document';
+        } else {
+          // Capitalize (e.g., "lab_report" -> "Lab Report")
+          title = analysis.document_type
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+      } else if (analysis.file_name) {
+        // Fallback to filename if no specific type data
+        title = analysis.file_name;
+      }
+
+      // 2. Construct Subtitle (Patient • Date)
+      const parts = [];
+      if (analysis.patient_info?.name) parts.push(analysis.patient_info.name);
+
+      if (analysis.common_data?.visit_date) {
+        parts.push(analysis.common_data.visit_date);
+      }
+      subtitle = parts.join(' • ');
+    }
+
+    return { titleText: title, subtitleText: subtitle };
+  }, [document?.ai_analysis_status, document?.local_file_path, analysis]);
+
+  // Keep displayTitle for shared PDF viewer
+  const displayTitle = titleText;
+
+  // All unverified medications - Memoized to prevent heavy calculation on every render
+  const allUnverifiedMedsIdx = useMemo(() => {
+    if (!document) return [];
+    return innerMedicines
+      .map((medicine, index) => ({ medicine, index }))
+      .filter(({ medicine }) => {
+        const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
+        return !verifiedMedications.has(parsedMed.name);
+      });
+  }, [innerMedicines, document?.id, verifiedMedications, displayTitle, familyMember]);
+
+  // Active unverified medications - Memoized
+  const activeMedsForBatch = useMemo(() => {
+    if (!document) return [];
+    return allUnverifiedMedsIdx.filter(({ index }) => {
+      const dismissId = `${document.id}_${index}`;
+      return !dismissedMedicationIds.has(dismissId);
+    });
+  }, [allUnverifiedMedsIdx, document?.id, dismissedMedicationIds]);
+
+  // Pre-calculate duplicates map to avoid O(N*M) in render loop
+  const duplicateMedicationsMap = useMemo(() => {
+    const map = new Map<number, import('../types/medication').Medication>();
+    if (!document || !medications || medications.length === 0) return map;
+
+    allUnverifiedMedsIdx.forEach(({ medicine, index }) => {
+      const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
+      const duplicate = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, medications);
+      if (duplicate) {
+        map.set(index, duplicate);
+      }
+    });
+    return map;
+  }, [allUnverifiedMedsIdx, medications, document?.id, displayTitle, familyMember]);
+
+  const hasUnverifiedMeds = activeMedsForBatch.length > 0;
+
+  // Check if file exists locally; if not, sync from R2
+  useEffect(() => {
+    const checkAndSyncFile = async () => {
+      if (!document || !document.local_file_path) {
+        setFileNotFound(true);
+        return;
+      }
+
+      try {
+        console.log('[PrescriptionSummary] Original relative path:', document.local_file_path);
+
+        // Convert relative path to absolute path at runtime
+        const absolutePath = getAbsolutePath(document.local_file_path);
+
+        console.log('[PrescriptionSummary] Converted to absolute path:', absolutePath);
+        console.log('[PrescriptionSummary] Path has file:// protocol:', absolutePath.startsWith('file://'));
+
+        // First check if file exists locally
+        const exists = await fileExists(absolutePath);
+
+        if (exists) {
+          setImageUri(absolutePath);
+          setFileNotFound(false);
+          console.log('[PrescriptionSummary] File found and URI set successfully');
+        } else {
+          // File not found locally - try to sync from R2
+          console.log('[PrescriptionSummary] File not found locally, attempting R2 sync...');
+
+          if (document.cloud_file_key) {
+            try {
+              setDownloading(true);
+              console.log('[PrescriptionSummary] Cloud file key available:', document.cloud_file_key);
+
+              // Import and use the file sync utility
+              const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
+              const filename = extractFilename(document.local_file_path);
+
+              console.log('[PrescriptionSummary] Starting file sync for:', filename);
+              const { localPath, wasDownloaded } = await getFileWithSync(filename, document.cloud_file_key);
+
+              if (wasDownloaded) {
+                console.log('[PrescriptionSummary] ✅ File downloaded from R2:', localPath);
+              } else {
+                console.log('[PrescriptionSummary] File was already available locally:', localPath);
+              }
+
+              setImageUri(localPath);
+              setFileNotFound(false);
+              setDownloading(false);
+            } catch (syncError) {
+              console.error('[PrescriptionSummary] R2 sync failed:', syncError);
+              setFileNotFound(true);
+              setDownloading(false);
+            }
+          } else {
+            // No cloud key available
+            setFileNotFound(true);
+            console.error('[PrescriptionSummary] File not found at path and no cloud_file_key available:', absolutePath);
+          }
+        }
+      } catch (error) {
+        setFileNotFound(true);
+        console.error('[PrescriptionSummary] Error checking file:', error);
+        console.error('[PrescriptionSummary] Error details:', JSON.stringify(error, null, 2));
+      }
+    };
+
+    checkAndSyncFile();
+  }, [document?.local_file_path, document?.cloud_file_key]);
+
+
+  useEffect(() => {
+    const loadDismissedMedications = async () => {
+      if (!document || !DISMISSED_MEDS_STORAGE_KEY) return;
+      try {
+        const stored = await AsyncStorage.getItem(DISMISSED_MEDS_STORAGE_KEY);
+        if (stored) {
+          const dismissed = JSON.parse(stored);
+          setDismissedMedicationIds(new Set(dismissed));
+          console.log('[PrescriptionSummary] Loaded dismissed medications:', dismissed);
+        }
+      } catch (error) {
+        console.error('[PrescriptionSummary] Error loading dismissed medications:', error);
+      }
+    };
+
+    loadDismissedMedications();
+  }, [DISMISSED_MEDS_STORAGE_KEY]);
+
+  // Load lab report ID if this document is a lab report
+  useEffect(() => {
+    const loadLabReportId = async () => {
+      if (!document) return;
+      try {
+        const { data, error } = await supabase
+          .from('lab_reports')
+          .select('id')
+          .eq('document_id', document.id)
+          .single();
+
+        if (error) {
+          if (error.code !== 'PGRST116') {
+            // PGRST116 = no rows returned (not a lab report)
+            console.error('[PrescriptionSummary] Error loading lab report:', error);
+          }
+          setLabReportId(null);
+        } else if (data) {
+          setLabReportId(data.id);
+          console.log('[PrescriptionSummary] Found lab report ID:', data.id);
+        }
+      } catch (error) {
+        console.error('[PrescriptionSummary] Error querying lab_reports:', error);
+        setLabReportId(null);
+      }
+    };
+
+    // Only query if document has AI analysis and is a lab report
+    if (document?.ai_analysis_result && document.ai_analysis_result.document_type?.toLowerCase() === 'lab_report') {
+      loadLabReportId();
+    } else {
+      setLabReportId(null);
+    }
+  }, [document?.id, document?.ai_analysis_result, document?.ai_analysis_result?.document_type]);
+
+  const { isGenerating: isGeneratingAnalysis, generateAndShare: handleShareAnalysis } = useAnalysisPDF({
+    analysis: document?.ai_analysis_result,
+    documentType,
+    imageUri,
+    displayTitle
+  });
+
+  if (!initialDocument || !document) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header - Fixed Verification Banner if already added */}
@@ -163,234 +408,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     );
   }
 
-  // SAFE: initialDocument is guaranteed to exist after this point
-  // Get LIVE document from store (updates when AI analysis completes and updates title)
-  // Falls back to initialDocument (prop/id lookup) if not found in store (e.g., during weird state)
-  const document = documents.find(d => d.id === initialDocument.id) || initialDocument;
-
-  // AsyncStorage key for dismissed medications (NOW SAFE)
-  const DISMISSED_MEDS_STORAGE_KEY = `dismissed_medications_${document.id} `;
-
-  // Get analysis progress for this document
-  const documentProgress = analysisProgress[document.id] || 0;
-
-  // Get family member name
-  const familyMember = familyMembers.find(m => m.id === document.family_member_id);
-
-  // ========== MEDICATION CALCULATIONS (moved to top-level for Rules of Hooks) ==========
-  // Inner medicines from document
-  const innerMedicines = useMemo(() => {
-    return document.ai_analysis_result?.prescription_data?.medicines || [];
-  }, [document.ai_analysis_result]);
-
-  // All unverified medications - Memoized to prevent heavy calculation on every render
-  const allUnverifiedMedsIdx = useMemo(() => {
-    return innerMedicines
-      .map((medicine, index) => ({ medicine, index }))
-      .filter(({ medicine }) => {
-        const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-        return !verifiedMedications.has(parsedMed.name);
-      });
-  }, [innerMedicines, document.id, verifiedMedications]);
-
-  // Active unverified medications - Memoized
-  const activeMedsForBatch = useMemo(() => {
-    return allUnverifiedMedsIdx.filter(({ index }) => {
-      const dismissId = `${document.id}_${index}`;
-      return !dismissedMedicationIds.has(dismissId);
-    });
-  }, [allUnverifiedMedsIdx, document.id, dismissedMedicationIds]);
-
-  // Pre-calculate duplicates map to avoid O(N*M) in render loop
-  const duplicateMedicationsMap = useMemo(() => {
-    const map = new Map<number, import('../types/medication').Medication>();
-    if (!medications || medications.length === 0) return map;
-
-    allUnverifiedMedsIdx.forEach(({ medicine, index }) => {
-      const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-      const duplicate = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, medications);
-      if (duplicate) {
-        map.set(index, duplicate);
-      }
-    });
-    return map;
-  }, [allUnverifiedMedsIdx, medications, document.id]);
-
-  const hasUnverifiedMeds = activeMedsForBatch.length > 0;
-
-
-  // Get display title - prefer AI-generated filename from analysis result, fallback to document title
-  // Smart Header Logic
-  const analysis = document.ai_analysis_result;
-
-  const { titleText, subtitleText } = useMemo(() => {
-    let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
-      ? "dosiq Ai • Analyzing..."
-      : (document.local_file_path?.split('/').pop() || 'Medical Document');
-    let subtitle = '';
-
-    if (analysis) {
-      // 1. Construct Smart Title
-      if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
-        title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
-      } else if (analysis.document_type) {
-        // Map 'invalid' to friendlier 'Needs Review' label
-        if (analysis.document_type.toLowerCase() === 'invalid') {
-          title = 'Unrecognized Document';
-        } else {
-          // Capitalize (e.g., "lab_report" -> "Lab Report")
-          title = analysis.document_type
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-        }
-      } else if (analysis.file_name) {
-        // Fallback to filename if no specific type data
-        title = analysis.file_name;
-      }
-
-      // 2. Construct Subtitle (Patient • Date)
-      const parts = [];
-      if (analysis.patient_info?.name) parts.push(analysis.patient_info.name);
-
-      if (analysis.common_data?.visit_date) {
-        // Format date if possible (YYYY-MM-DD -> DD MMM YYYY) roughly, or just use raw
-        // For 10/10, let's keep it clean. 
-        parts.push(analysis.common_data.visit_date);
-      }
-      subtitle = parts.join(' • ');
-    }
-
-    return { titleText: title, subtitleText: subtitle };
-  }, [document.ai_analysis_status, document.local_file_path, analysis]);
-
-  // Keep displayTitle for shared PDF viewer
-  const displayTitle = titleText;
-
-  // Check if file exists locally; if not, sync from R2
-  useEffect(() => {
-    const checkAndSyncFile = async () => {
-      if (document.local_file_path) {
-        try {
-          console.log('[PrescriptionSummary] Original relative path:', document.local_file_path);
-
-          // Convert relative path to absolute path at runtime
-          const absolutePath = getAbsolutePath(document.local_file_path);
-
-          console.log('[PrescriptionSummary] Converted to absolute path:', absolutePath);
-          console.log('[PrescriptionSummary] Path has file:// protocol:', absolutePath.startsWith('file://'));
-
-          // First check if file exists locally
-          const exists = await fileExists(absolutePath);
-
-          if (exists) {
-            setImageUri(absolutePath);
-            setFileNotFound(false);
-            console.log('[PrescriptionSummary] File found and URI set successfully');
-          } else {
-            // File not found locally - try to sync from R2
-            console.log('[PrescriptionSummary] File not found locally, attempting R2 sync...');
-
-            if (document.cloud_file_key) {
-              try {
-                setDownloading(true);
-                console.log('[PrescriptionSummary] Cloud file key available:', document.cloud_file_key);
-
-                // Import and use the file sync utility
-                const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
-                const filename = extractFilename(document.local_file_path);
-
-                console.log('[PrescriptionSummary] Starting file sync for:', filename);
-                const { localPath, wasDownloaded } = await getFileWithSync(filename, document.cloud_file_key);
-
-                if (wasDownloaded) {
-                  console.log('[PrescriptionSummary] ✅ File downloaded from R2:', localPath);
-                } else {
-                  console.log('[PrescriptionSummary] File was already available locally:', localPath);
-                }
-
-                setImageUri(localPath);
-                setFileNotFound(false);
-                setDownloading(false);
-              } catch (syncError) {
-                console.error('[PrescriptionSummary] R2 sync failed:', syncError);
-                setFileNotFound(true);
-                setDownloading(false);
-              }
-            } else {
-              // No cloud key available
-              setFileNotFound(true);
-              console.error('[PrescriptionSummary] File not found at path and no cloud_file_key available:', absolutePath);
-            }
-          }
-        } catch (error) {
-          setFileNotFound(true);
-          console.error('[PrescriptionSummary] Error checking file:', error);
-          console.error('[PrescriptionSummary] Error details:', JSON.stringify(error, null, 2));
-        }
-      } else {
-        setFileNotFound(true);
-        console.warn('[PrescriptionSummary] No local_file_path provided for document:', document.id);
-      }
-    };
-
-    checkAndSyncFile();
-  }, [document.local_file_path, document.cloud_file_key]);
-
-
-  useEffect(() => {
-    const loadDismissedMedications = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(DISMISSED_MEDS_STORAGE_KEY);
-        if (stored) {
-          const dismissed = JSON.parse(stored);
-          setDismissedMedicationIds(new Set(dismissed));
-          console.log('[PrescriptionSummary] Loaded dismissed medications:', dismissed);
-        }
-      } catch (error) {
-        console.error('[PrescriptionSummary] Error loading dismissed medications:', error);
-      }
-    };
-
-    loadDismissedMedications();
-  }, [document.id]);
-
-  // Load lab report ID if this document is a lab report
-  useEffect(() => {
-    const loadLabReportId = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('lab_reports')
-          .select('id')
-          .eq('document_id', document.id)
-          .single();
-
-        if (error) {
-          if (error.code !== 'PGRST116') {
-            // PGRST116 = no rows returned (not a lab report)
-            console.error('[PrescriptionSummary] Error loading lab report:', error);
-          }
-          setLabReportId(null);
-        } else if (data) {
-          setLabReportId(data.id);
-          console.log('[PrescriptionSummary] Found lab report ID:', data.id);
-        }
-      } catch (error) {
-        console.error('[PrescriptionSummary] Error querying lab_reports:', error);
-        setLabReportId(null);
-      }
-    };
-
-    // Only query if document has AI analysis and is a lab report
-    if (document.ai_analysis_result && document.ai_analysis_result.document_type?.toLowerCase() === 'lab_report') {
-      loadLabReportId();
-    } else {
-      setLabReportId(null);
-    }
-  }, [document.id, document.ai_analysis_result, document.ai_analysis_result?.document_type]);
-
   // Determine if file is PDF
-  const isPdf = document.local_file_path?.toLowerCase().endsWith('.pdf');
+  const isPdf = document?.local_file_path?.toLowerCase().endsWith('.pdf');
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -461,10 +480,12 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       setLoading(true);
 
       // 1. Delete from Supabase
-      await deleteDocument(document.id);
+      if (document) {
+        await deleteDocument(document.id);
+      }
 
       // 2. Delete from local storage
-      if (document.local_file_path) {
+      if (document?.local_file_path) {
         try {
           const absolutePath = getAbsolutePath(document.local_file_path);
           await deleteLocalFile(absolutePath);
@@ -506,12 +527,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     }
   };
 
-  const { isGenerating: isGeneratingAnalysis, generateAndShare: handleShareAnalysis } = useAnalysisPDF({
-    analysis: document.ai_analysis_result,
-    documentType,
-    imageUri,
-    displayTitle
-  });
 
   // Handle download
   const handleDownload = async () => {
@@ -604,6 +619,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
   // Handle dismissing a medication from verification list
   const handleDismissMedication = (medicineIndex: number) => {
+    if (!document) return;
     const dismissId = `${document.id}_${medicineIndex}`;
 
     console.log('[PrescriptionSummary] Dismissing medication at index:', medicineIndex);
@@ -618,6 +634,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
   // Handle restoring a dismissed medication
   const handleRestoreMedication = (medicineIndex: number) => {
+    if (!document) return;
     const dismissId = `${document.id}_${medicineIndex}`;
 
     console.log('[PrescriptionSummary] Restoring medication at index:', medicineIndex);
@@ -731,10 +748,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       const addedMed = await addMedicationFromAI(
         parsedMed,
         user.id,
-        document.id,
+        document!.id,
         displayTitle,
         startDate,
-        document.family_member_id!
+        document!.family_member_id!
       );
 
       // Schedule reminders
@@ -963,10 +980,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
 
             {/* Detailed Medical Report Analysis - Always show for medical reports */}
-            {document.ai_analysis_status === 'completed' &&
-              document.ai_analysis_result?.document_type === 'medical_report' &&
+            {document?.ai_analysis_status === 'completed' &&
+              document?.ai_analysis_result?.document_type === 'medical_report' &&
               (() => {
-                if (document.ai_analysis_status === 'completed' && document.ai_analysis_result) {
+                if (document?.ai_analysis_status === 'completed' && document?.ai_analysis_result) {
                   return (
                     <AnalysisResultsDisplay
                       result={document.ai_analysis_result}
@@ -982,26 +999,26 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
             {/* Consolidated AI Summary, Medications & Action Bar */}
             {(() => {
-              const summary = getSummary(document.ai_analysis_result);
+              const summary = document ? getSummary(document.ai_analysis_result) : undefined;
 
               return (
                 <>
                   {/* AI Summary Section - Show greyed-out when already added, hidden only during session verification */}
-                  {document.ai_analysis_status === 'completed' &&
-                    document.ai_analysis_result?.document_type !== 'medical_report' &&
+                  {document?.ai_analysis_status === 'completed' &&
+                    document?.ai_analysis_result?.document_type !== 'medical_report' &&
                     summary &&
                     (hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                       <PrescriptionSummary
                         summary={summary}
-                        recommendedTests={document.ai_analysis_result?.prescription_data?.recommended_tests}
-                        otherInformation={document.ai_analysis_result?.prescription_data?.other_information}
+                        recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
+                        otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
                         style={[{ marginBottom: 0 }]}
-                        defaultExpanded={document.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
+                        defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
                       />
                     )}
 
                   {/* Medications Section */}
-                  {document.ai_analysis_status === 'completed' &&
+                  {document?.ai_analysis_status === 'completed' &&
                     innerMedicines.length > 0 && (
                       <View style={[styles.medicationsCard, (!hasUnverifiedMeds && !isAlreadyAdded) && { paddingTop: 16 }]}>
                         {/* MEDS DETECTED Header - Show greyed-out when already added, hidden only during session verification */}
@@ -1058,7 +1075,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                         {verifiedMedications.size > 0 && (() => {
                           const verifiedNames = innerMedicines
-                            .map(m => parseAIMedication(m, document.id, displayTitle, familyMember))
+                            .map(m => parseAIMedication(m, document!.id, displayTitle, familyMember))
                             .filter(m => verifiedMedications.has(m.name))
                             .map(m => m.name);
 
@@ -1079,16 +1096,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                           <View>
                             {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
-                              const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-                              const suggestedStartDate = parseDateOnly(document.created_at);
+                              const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
+                              const suggestedStartDate = parseDateOnly(document!.created_at);
                               // Pass full medications list for history check (parser handles filtering)
                               const duplicateOf = duplicateMedicationsMap.get(index);
-
+ 
                               return (
                                 <MedicationVerificationCard
                                   key={index}
                                   medication={parsedMed}
-                                  documentId={document.id}
+                                  documentId={document!.id}
                                   documentTitle={displayTitle}
                                   suggestedStartDate={suggestedStartDate}
                                   onVerifyAndAdd={handleVerifyAndAddMedication}
@@ -1133,7 +1150,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                 setIsVerifyingAll(true);
                                 try {
                                   const currentUser = (await supabase.auth.getUser()).data.user;
-                                  if (!currentUser) return;
+                                  if (!currentUser || !document) return;
 
                                   const suggestedStartDate = parseDateOnly(document.created_at);
                                   const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
@@ -1164,15 +1181,15 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   await useMedicationsStore.getState().addMedicationsBatchFromAI(
                                     medsToVerify,
                                     currentUser.id,
-                                    document.id,
+                                    document?.id,
                                     displayTitle,
                                     suggestedStartDate,
-                                    document.family_member_id!
+                                    document?.family_member_id!
                                   );
 
                                   // Schedule reminders for all batch-added meds
                                   const updatedMeds = useMedicationsStore.getState().medications;
-                                  const batchMeds = updatedMeds.filter(m => m.source_document_id === document.id);
+                                  const batchMeds = updatedMeds.filter(m => m.source_document_id === document?.id);
 
                                   for (const med of batchMeds) {
                                     await scheduleAllForMedication(med);
@@ -1228,9 +1245,9 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
             })()}
 
             {/* Advised Tests Section */}
-            {document.ai_analysis_status === 'completed' &&
-              document.ai_analysis_result?.prescription_data?.recommended_tests &&
-              document.ai_analysis_result.prescription_data.recommended_tests.length > 0 && (
+            {document?.ai_analysis_status === 'completed' &&
+              document?.ai_analysis_result?.prescription_data?.recommended_tests &&
+              document?.ai_analysis_result?.prescription_data?.recommended_tests.length > 0 && (
                 <View style={styles.card}>
                   <View style={[styles.cardHeader, { marginBottom: 4 }]}>
                     <Text style={styles.cardTitle}>Advised Tests</Text>
@@ -1238,11 +1255,11 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                   <Text style={styles.cardSubtitle}>
                     Recommended lab tests and investigations
                   </Text>
-
+ 
                   <View style={{ gap: 12, marginTop: 12 }}>
-
+ 
                     <GroupedTestsCard
-                      tests={document.ai_analysis_result.prescription_data.recommended_tests}
+                      tests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
                     />
                   </View>
                 </View>

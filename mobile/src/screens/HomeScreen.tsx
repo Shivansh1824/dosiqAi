@@ -19,6 +19,7 @@ import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
 import AnalysisLoading from '../components/AnalysisLoading';
 import FilePreviewModal from '../components/FilePreviewModal';
+import ActionSheet from '../components/ActionSheet';
 
 import { reconcileReminders } from '../services/notificationService';
 
@@ -221,35 +222,9 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   };
 
-  const handleConfirmUpload = async () => {
-    if (!selectedFile) return;
 
-    const { uri, type, name } = selectedFile;
-    const isImage = type === 'image';
 
-    try {
-      if (isImage) {
-        setIsCompressing(true);
-        const compressedUri = await compressImage(uri);
-        setIsCompressing(false);
-
-        if (compressedUri) {
-          await uploadFile(compressedUri, 'image', name);
-        }
-      } else {
-        await uploadFile(uri, 'document', name);
-      }
-    } catch (error) {
-      console.error('Error in confirm upload:', error);
-      setIsCompressing(false);
-      Alert.alert('Error', 'Failed to upload document. Please try again.');
-    } finally {
-      setPreviewModalVisible(false);
-      setSelectedFile(null);
-    }
-  };
-
-  const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string) => {
+  const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string, isReport: boolean = false) => {
     if (!user?.id) {
       Alert.alert('Error', 'Please log in to upload documents.');
       return;
@@ -259,6 +234,14 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       Alert.alert('Error', 'Database service not configured.');
       return;
     }
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[HomeScreen] 📁 UPLOAD FILE CALLED');
+    console.log(`[HomeScreen] uploadType state: ${uploadType}`);
+    console.log(`[HomeScreen] isReport parameter: ${isReport}`);
+    console.log(`[HomeScreen] File type: ${type}`);
+    console.log(`[HomeScreen] File name: ${fileName}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -302,8 +285,18 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         extension
       );
 
-      // Determine document type based on extension
-      const docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
+      // Determine document type based on extension and isReport flag
+      let docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
+      if (isReport) {
+        docType = 'Lab Report';
+      }
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[HomeScreen] 📋 DOCUMENT TYPE DETERMINATION');
+      console.log(`[HomeScreen] Extension: ${extension}`);
+      console.log(`[HomeScreen] isReport flag: ${isReport}`);
+      console.log(`[HomeScreen] Final docType: ${docType}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Save document metadata to database
       // title = UUID filename for consistency across local, Supabase, and R2
@@ -353,12 +346,21 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[HomeScreen] 🔬 TRIGGERING ANALYSIS');
+      console.log(`[HomeScreen] Document ID: ${actualDocumentId}`);
+      console.log(`[HomeScreen] Analysis path: ${analysisPath}`);
+      console.log(`[HomeScreen] isReport flag: ${isReport}`);
+      console.log('[HomeScreen] Expected prompt:', isReport ? 'REPORT_PROMPT' : 'DOCUMENT_ANALYSIS_PROMPT');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       Alert.alert('Success', 'Document uploaded successfully! Analyzing...', [
         {
           text: 'OK',
           onPress: () => {
             const { triggerAnalysis } = useDocumentsStore.getState();
-            triggerAnalysis(actualDocumentId, analysisPath).catch((error) => {
+            console.log('[HomeScreen] Triggering background analysis: id=', actualDocumentId, 'path=', analysisPath, 'isReport=', isReport);
+            triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
               console.error('[HomeScreen] Background analysis failed:', error);
             });
           },
@@ -372,10 +374,82 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     }
   };
 
-  const showUploadOptions = () => {
+  /* -------------------------------------------------------------------------- */
+  /*                                Upload Logic                                */
+  /* -------------------------------------------------------------------------- */
+
+  /* -------------------------------------------------------------------------- */
+  /*                                Upload Logic                                */
+  /* -------------------------------------------------------------------------- */
+  
+  // Custom Action Sheet State
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [actionSheetConfig, setActionSheetConfig] = useState<{
+    title?: string;
+    subtitle?: string;
+    options: import('../components/ActionSheet').ActionSheetOption[];
+  }>({ options: [] });
+
+  const [uploadType, setUploadType] = useState<'prescription' | 'report'>('prescription');
+
+  const showUploadTypeSelection = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
+          options: ['Cancel', 'Upload Prescription', 'Upload Report'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            setUploadType('prescription');
+            setTimeout(showSourceOptions, 300); 
+          } else if (buttonIndex === 2) {
+            setUploadType('report');
+            setTimeout(showSourceOptions, 300);
+          }
+        }
+      );
+    } else {
+      // Android - Use Custom Action Sheet
+      setActionSheetConfig({
+        title: 'Upload Document',
+        subtitle: 'What would you like to upload?',
+        options: [
+          {
+            label: 'Upload Prescription',
+            icon: 'file-text',
+            onPress: () => {
+              setActionSheetVisible(false); // Close first sheet
+              setUploadType('prescription');
+              setTimeout(() => {
+                  showSourceOptions();
+              }, 300);
+            },
+          },
+          {
+            label: 'Upload Report',
+            icon: 'activity',
+            onPress: () => {
+              setActionSheetVisible(false);
+              setUploadType('report');
+              setTimeout(() => {
+                   showSourceOptions();
+              }, 300);
+            },
+          },
+        ],
+      });
+      setActionSheetVisible(true);
+    }
+  };
+
+  const showSourceOptions = () => {
+    const title = uploadType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
+    
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: title,
           options: ['Cancel', 'Photo Library', 'Take Photo or Video', 'Choose Files'],
           cancelButtonIndex: 0,
         },
@@ -394,12 +468,77 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         }
       );
     } else {
-      Alert.alert('Upload Document', 'Choose an option', [
-        { text: 'Photo Library', onPress: pickImage },
-        { text: 'Take Photo', onPress: takePhoto },
-        { text: 'Choose Files', onPress: pickDocument },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      // Android - Use Custom Action Sheet
+      setActionSheetConfig({
+        title: title,
+        subtitle: 'Choose an option',
+        options: [
+          {
+            label: 'Photo Library',
+            icon: 'image',
+            onPress: () => {
+                setActionSheetVisible(false);
+                setTimeout(pickImage, 200);
+            },
+          },
+          {
+            label: 'Take Photo',
+            icon: 'camera',
+            onPress: () => {
+                setActionSheetVisible(false);
+                setTimeout(takePhoto, 200);
+            },
+          },
+          {
+            label: 'Choose Files',
+            icon: 'folder',
+            onPress: () => {
+                setActionSheetVisible(false);
+                setTimeout(pickDocument, 200);
+            },
+          },
+        ],
+      });
+      setActionSheetVisible(true);
+    }
+  };
+
+  // Replaces the old showUploadOptions
+  const showUploadOptions = showUploadTypeSelection;
+
+  const handleConfirmUpload = async () => {
+    if (!selectedFile) return;
+
+    const { uri, type, name } = selectedFile;
+    const isImage = type === 'image';
+    const isReport = uploadType === 'report';
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[HomeScreen] 🔄 CONFIRM UPLOAD');
+    console.log(`[HomeScreen] uploadType state: ${uploadType}`);
+    console.log(`[HomeScreen] Derived isReport: ${isReport}`);
+    console.log(`[HomeScreen] File: ${name}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    try {
+      if (isImage) {
+        setIsCompressing(true);
+        const compressedUri = await compressImage(uri);
+        setIsCompressing(false);
+
+        if (compressedUri) {
+          await uploadFile(compressedUri, 'image', name, isReport);
+        }
+      } else {
+        await uploadFile(uri, 'document', name, isReport);
+      }
+    } catch (error) {
+      console.error('Error in confirm upload:', error);
+      setIsCompressing(false);
+      Alert.alert('Error', 'Failed to upload document. Please try again.');
+    } finally {
+      setPreviewModalVisible(false);
+      setSelectedFile(null);
     }
   };
 
@@ -733,32 +872,34 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                     setShowFamilyModal(false);
                   }}
                 >
-                  <View style={styles.familyMemberAvatar}>
-                    <Feather name="user" size={24} color={Colors.primary} />
+                  <View style={styles.familyModalAvatar}>
+                    <Feather name="user" size={24} color="#FFF" />
                   </View>
-                  <View style={styles.familyMemberInfo}>
-                    <Text style={styles.familyMemberName}>{formatProfileName(member.name)}</Text>
+                  <View style={styles.familyModalInfo}>
+                    <Text style={styles.familyModalName}>{formatProfileName(member.name)}</Text>
                     {member.relationship && (
-                      <Text style={styles.familyMemberRelationship}>{member.relationship}</Text>
+                      <Text style={styles.familyModalRelation}>{member.relationship}</Text>
                     )}
                   </View>
                   {activeMember?.id === member.id && (
-                    <Feather name="check-circle" size={20} color={Colors.primary} />
+                    <Feather name="check" size={20} color={Colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
 
-            <TouchableOpacity
-              style={styles.addMemberButton}
-              onPress={() => {
-                setShowFamilyModal(false);
-                setShowAddMemberModal(true);
-              }}
-            >
-              <Feather name="plus-circle" size={20} color={Colors.primary} />
-              <Text style={styles.addMemberButtonText}>Add Family Member</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.addFamilyMemberButton}
+                onPress={() => {
+                  setShowFamilyModal(false);
+                  setTimeout(() => setShowAddMemberModal(true), 500);
+                }}
+              >
+                <View style={styles.addMemberIcon}>
+                  <Feather name="plus" size={24} color={Colors.primary} />
+                </View>
+                <Text style={styles.addMemberText}>Add New Profile</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -766,8 +907,20 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       <AddFamilyMemberModal
         visible={showAddMemberModal}
         onClose={() => setShowAddMemberModal(false)}
+        onSuccess={() => {
+          fetchFamilyMembers(user?.id || '', true);
+        }}
       />
-    </View >
+
+        {/* Custom Action Sheet for Android */}
+      <ActionSheet
+        visible={actionSheetVisible}
+        onClose={() => setActionSheetVisible(false)}
+        title={actionSheetConfig.title}
+        subtitle={actionSheetConfig.subtitle}
+        options={actionSheetConfig.options}
+      />
+    </View>
   );
 }
 
@@ -1354,6 +1507,50 @@ const styles = StyleSheet.create({
     ...Typography.fontWeights.regular,
     color: Colors.gray500,
     marginTop: 2,
+  },
+  // Family Modal Styles
+  familyModalAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B82F6', // Blue background
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  familyModalInfo: {
+    flex: 1,
+  },
+  familyModalName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  familyModalRelation: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  addFamilyMemberButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    borderStyle: 'dashed',
+    backgroundColor: '#EFF6FF',
+  },
+  addMemberIcon: {
+    marginRight: 8,
+  },
+  addMemberText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
   addMemberButton: {
     flexDirection: 'row',

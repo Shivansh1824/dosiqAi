@@ -20,9 +20,10 @@ import { RELATIONSHIPS, GENDERS, Relationship, Gender } from '../types/familyMem
 interface AddFamilyMemberModalProps {
     visible: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
-export default function AddFamilyMemberModal({ visible, onClose }: AddFamilyMemberModalProps) {
+export default function AddFamilyMemberModal({ visible, onClose, onSuccess }: AddFamilyMemberModalProps) {
     const { user } = useAuthStore();
     const { addFamilyMember } = useFamilyMembersStore();
 
@@ -62,6 +63,7 @@ export default function AddFamilyMemberModal({ visible, onClose }: AddFamilyMemb
             });
 
             Alert.alert('Success', `${name} has been added to your family`);
+            if (onSuccess) onSuccess();
             handleClose();
         } catch (error: any) {
             Alert.alert('Error', error.message || 'Failed to add family member');

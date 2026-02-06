@@ -187,7 +187,7 @@ export interface DocumentsActions {
   setError: (error: string | null) => void;
 
   // AI Analysis actions
-  triggerAnalysis: (documentId: string, localFilePath: string, customPrompt?: string) => Promise<void>;
+  triggerAnalysis: (documentId: string, localFilePath: string, customPrompt?: string, isReport?: boolean) => Promise<void>;
   refreshUploadLimit: (userId: string) => Promise<void>;
   clearAnalysisError: (documentId: string) => Promise<void>;
   retryAnalysis: (documentId: string, localFilePath: string) => Promise<void>;

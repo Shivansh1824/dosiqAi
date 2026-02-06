@@ -34,6 +34,7 @@ export function useNotifications() {
 
       return await scheduleMedicineReminder({
         ...data,
+        familyMemberId: data.familyMemberId || activeMember?.id,
         ...settings,
       });
     },
@@ -53,6 +54,7 @@ export function useNotifications() {
 
       return await scheduleRepeatingReminder({
         ...data,
+        familyMemberId: data.familyMemberId || activeMember?.id,
         ...settings,
       }, 'daily');
     },
@@ -72,6 +74,7 @@ export function useNotifications() {
 
       return await scheduleRepeatingReminder({
         ...data,
+        familyMemberId: data.familyMemberId || activeMember?.id,
         ...settings,
       }, 'weekly');
     },

@@ -444,26 +444,30 @@ export async function scheduleMedicineReminder(
     console.log('='.repeat(60));
 
     // --- ANDROID: Delegate to Android notification service with escalation logic ---
-    if (Platform.OS === 'android' && reminder.familyMemberId) {
-      console.log('[Notifications] ✅ Using ANDROID notification service with escalation');
-      const notificationId = await scheduleAndroidSequence(
-        reminder.medicationId,
-        reminder.scheduleId,
-        reminder.medicationName,
-        reminder.dosage,
-        reminder.familyMemberId,
-        reminder.scheduledTime,
-        reminder.instructions,
-        reminder.step || 1,
-        reminder.activeMedicationIds,
-        reminder.activeMedications
-      );
-      console.log('[Notifications] ✅ Android escalation sequence scheduled:', notificationId);
-      await logDebug(`[NotificationService] Android sequence scheduled: ${notificationId}`);
-      return notificationId;
+    if (Platform.OS === 'android') {
+      if (reminder.familyMemberId) {
+        console.log('[Notifications] ✅ Using ANDROID notification service with escalation');
+        const notificationId = await scheduleAndroidSequence(
+          reminder.medicationId,
+          reminder.scheduleId,
+          reminder.medicationName,
+          reminder.dosage,
+          reminder.familyMemberId,
+          reminder.scheduledTime,
+          reminder.instructions,
+          reminder.step || 1,
+          reminder.activeMedicationIds,
+          reminder.activeMedications
+        );
+        console.log('[Notifications] ✅ Android escalation sequence scheduled:', notificationId);
+        await logDebug(`[NotificationService] Android sequence scheduled: ${notificationId}`);
+        return notificationId;
+      } else {
+        console.warn('[Notifications] ⚠️ Missing familyMemberId on Android. Falling back to standard notification (escalation disabled).');
+      }
+    } else {
+      console.log('[Notifications] 📱 Using standard iOS notification path');
     }
-
-    console.log('[Notifications] ⚠️ Using iOS/fallback notification path (familyMemberId missing or not Android)');
 
     // --- iOS/FALLBACK: Use existing time-sensitive notification + Live Activity logic ---
     const trigger: TimestampTrigger = {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import Pdf from 'react-native-pdf-jsi';
 import { Colors, Sizes, Typography } from '../constants';
 
 interface FilePreviewModalProps {
@@ -38,6 +38,20 @@ export default function FilePreviewModal({
     isUploading = false,
 }: FilePreviewModalProps) {
     const [pdfLoading, setPdfLoading] = useState(true);
+    const [pageCount, setPageCount] = useState<number>(0);
+
+    // Reset state when modal opens
+    useEffect(() => {
+        if (visible) {
+            setPdfLoading(true);
+            // Default to 1 page for images, 0 for PDF until loaded
+            if (fileType === 'image') {
+                setPageCount(1);
+            } else {
+                setPageCount(0);
+            }
+        }
+    }, [visible, fileType, fileUri]);
 
     if (!visible || !fileUri) return null;
 
@@ -55,7 +69,12 @@ export default function FilePreviewModal({
                 <StatusBar barStyle="light-content" />
 
                 {/* Background Blur */}
-                <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+                {/* Background Effect */}
+                {Platform.OS === 'ios' ? (
+                    <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+                ) : (
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.90)' }]} />
+                )}
 
                 {/* Header - Title Only */}
                 <View style={styles.header}>
@@ -75,12 +94,25 @@ export default function FilePreviewModal({
                                         <ActivityIndicator size="large" color={Colors.primary} />
                                     </View>
                                 )}
-                                <WebView
-                                    source={{ uri: fileUri }}
-                                    style={styles.webview}
-                                    onLoadEnd={() => setPdfLoading(false)}
-                                    originWhitelist={['*']}
-                                    scalesPageToFit={true}
+                                <Pdf
+                                    source={{ uri: fileUri, cache: true }}
+                                    style={styles.pdfView}
+                                    onLoadComplete={(numberOfPages) => {
+                                        setPdfLoading(false);
+                                        setPageCount(numberOfPages);
+                                        console.log(`[Preview] PDF loaded with ${numberOfPages} pages`);
+                                    }}
+                                    onError={(error) => {
+                                        console.error('[Preview] PDF Error:', error);
+                                        setPdfLoading(false);
+                                    }}
+                                    page={1}
+                                    scale={1.0}
+                                    minScale={1.0}
+                                    maxScale={3.0}
+                                    spacing={0}
+                                    fitPolicy={0}
+                                    enablePaging={true}
                                 />
                             </View>
                         ) : (
@@ -90,6 +122,23 @@ export default function FilePreviewModal({
                                 resizeMode="contain"
                             />
                         )}
+                    </View>
+                    
+                    {/* Stats Display - Pages & Tokens */}
+                    <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                            <Feather name="file-text" size={16} color={Colors.white} style={{ opacity: 0.8 }} />
+                            <Text style={styles.statText}>
+                                {pageCount > 0 ? `${pageCount} Page${pageCount !== 1 ? 's' : ''}` : 'Counting...'}
+                            </Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                            <Feather name="layers" size={16} color={Colors.secondary} style={{ opacity: 0.9 }} />
+                            <Text style={styles.statText}>
+                                {pageCount > 0 ? `${pageCount} Token${pageCount !== 1 ? 's' : ''}` : '...'}
+                            </Text>
+                        </View>
                     </View>
                 </View>
 
@@ -114,7 +163,7 @@ export default function FilePreviewModal({
                         <TouchableOpacity
                             style={[styles.actionButton, styles.selectButton]}
                             onPress={onConfirm}
-                            disabled={isUploading}
+                            disabled={isUploading || (isPdf && pageCount === 0)}
                             activeOpacity={0.8}
                         >
                             {isUploading ? (
@@ -168,7 +217,8 @@ const styles = StyleSheet.create({
     },
     previewCard: {
         width: '100%',
-        height: '100%',
+        // Adjust height to leave room for stats
+        height: '75%', 
         backgroundColor: '#000',
         borderRadius: 24,
         overflow: 'hidden',
@@ -196,12 +246,49 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
         zIndex: 1,
     },
+    pdfView: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#F5F5F5',
+    },
     webview: {
         flex: 1,
         backgroundColor: 'transparent',
     },
+    
+    // Stats Styles
+    statsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    statItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    statText: {
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: '600',
+        letterSpacing: 0.5,
+    },
+    statDivider: {
+        width: 1,
+        height: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        marginHorizontal: 16,
+    },
 
-    // New Footer Styles
+    // Footer Styles
     footer: {
         width: '100%',
         paddingHorizontal: Sizes.lg,
