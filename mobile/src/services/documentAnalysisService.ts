@@ -134,26 +134,34 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
         base64Image,
         fileType,
         prompt: customPrompt,
-        isReport,
       };
 
+      // Determine which edge function to call based on document type
+      const edgeFunctionName = isReport ? 'analyze-report' : 'analyze-prescription';
+
+      console.log('[DocumentAnalysis] 🎯 EDGE FUNCTION SELECTION');
+      console.log(`[DocumentAnalysis] Selected function: ${edgeFunctionName}`);
+      console.log(`[DocumentAnalysis] Reason: User clicked "${isReport ? 'Upload Report' : 'Upload Prescription'}"`);
+      console.log(`[DocumentAnalysis] Expected prompt: ${isReport ? 'REPORT_PROMPT' : 'DOCUMENT_ANALYSIS_PROMPT'}`);
+
       console.log('[DocumentAnalysis] 📤 Sending to edge function:', {
+        functionName: edgeFunctionName,
         documentId: requestBody.documentId,
         fileType: requestBody.fileType,
-        isReport: requestBody.isReport,
         hasCustomPrompt: !!requestBody.prompt,
         base64Length: requestBody.base64Image.length
       });
 
-      const { data, error } = await supabase.functions.invoke('analyze-document', {
+      const { data, error } = await supabase.functions.invoke(edgeFunctionName, {
         body: requestBody,
       });
 
       console.log(`[DocumentAnalysis] Edge Function response metadata:`, {
         status: 'received',
-        isReport,
+        functionCalled: edgeFunctionName,
         documentId
       });
+
 
       if (error) {
         console.error('[DocumentAnalysis] Edge Function error:', error);

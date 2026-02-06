@@ -1,12 +1,12 @@
 /**
- * Supabase Edge Function: analyze-document
+ * Supabase Edge Function: analyze-prescription
  *
- * Analyzes uploaded health documents using OpenRouter API (Google Gemini 3 Flash Preview)
+ * Analyzes uploaded prescription documents using OpenRouter API (Google Gemini 3 Flash Preview)
  * This function acts as a secure proxy to keep the OpenRouter API key on the server
  *
  * Configuration (Edge Function Secrets):
  * - OPENROUTER_API_KEY: OpenRouter API key for authentication
- * - DOCUMENT_ANALYSIS_PROMPT: Default prompt for document analysis (required)
+ * - DOCUMENT_ANALYSIS_PROMPT: Prompt for prescription analysis (required)
  *
  * Request Payload:
  * {
@@ -33,7 +33,6 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const DOCUMENT_ANALYSIS_PROMPT = Deno.env.get("DOCUMENT_ANALYSIS_PROMPT") || "";
-const REPORT_PROMPT = Deno.env.get("REPORT_PROMPT") || "";
 
 // OpenRouter configuration
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -43,9 +42,8 @@ const RETRY_DELAY_MS = 1000;
 const MAX_FILE_SIZE_MB = 10;
 const MAX_BASE64_LENGTH = (MAX_FILE_SIZE_MB * 1024 * 1024 * 4) / 3; // Account for base64 encoding
 
-// Token limits for different document types
-const MAX_TOKENS_PRESCRIPTION = 5000; // For prescriptions (simpler, shorter documents)
-const MAX_TOKENS_REPORT = 20000; // Increased for very large/complex lab reports
+// Token limits for prescriptions (simpler, shorter documents)
+const MAX_TOKENS_PRESCRIPTION = 5000;
 
 // Allowed file types
 const ALLOWED_MIME_TYPES = [
@@ -58,12 +56,11 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 // Request/Response interfaces
-interface AnalyzeDocumentRequest {
+interface AnalyzePrescriptionRequest {
   documentId: string;
   base64Image: string;
   fileType: string;
   prompt?: string;
-  isReport?: boolean;
 }
 
 interface OpenRouterResponse {
@@ -146,7 +143,7 @@ async function callOpenRouterAPI(
           },
         ],
         temperature: 0.1, // Low temperature for consistent extraction
-        max_tokens: maxTokens, // Dynamic based on document type
+        max_tokens: maxTokens,
         response_format: { type: "json_object" }, // Request raw JSON without markdown
       }),
     });
@@ -237,10 +234,10 @@ serve(async (req: Request) => {
       throw new Error("Analysis service not configured");
     }
 
-    // Validate Document Analysis Prompts
-    if (!DOCUMENT_ANALYSIS_PROMPT && !REPORT_PROMPT) {
-      console.error("[Config] No analysis prompts configured (DOCUMENT_ANALYSIS_PROMPT or REPORT_PROMPT)");
-      throw new Error("Document analysis prompts not configured");
+    // Validate Document Analysis Prompt
+    if (!DOCUMENT_ANALYSIS_PROMPT) {
+      console.error("[Config] DOCUMENT_ANALYSIS_PROMPT not configured");
+      throw new Error("Prescription analysis prompt not configured");
     }
 
     // Initialize Supabase client with service role key
@@ -269,15 +266,15 @@ serve(async (req: Request) => {
     console.log(`[Request] User: ${user.id}`);
 
     // Parse request body
-    const body: AnalyzeDocumentRequest = await req.json();
-    let base64Image, fileType, prompt, isReport;
-    ({ documentId, base64Image, fileType, prompt, isReport } = body);
+    const body: AnalyzePrescriptionRequest = await req.json();
+    let base64Image, fileType, prompt;
+    ({ documentId, base64Image, fileType, prompt } = body);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[DEBUG] 📤 UPLOAD REQUEST RECEIVED');
+    console.log('[DEBUG] 📤 PRESCRIPTION ANALYSIS REQUEST');
     console.log(`[DEBUG] Document ID: ${documentId}`);
-    console.log(`[DEBUG] isReport flag from client: ${isReport}`);
     console.log(`[DEBUG] Custom prompt provided: ${prompt ? 'YES' : 'NO'}`);
+    console.log(`[DEBUG] Using: DOCUMENT_ANALYSIS_PROMPT`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Validate required fields
@@ -352,36 +349,8 @@ serve(async (req: Request) => {
       console.log("[Status] Document marked as processing");
     }
 
-    // Call OpenRouter API
-    // Use isReport flag directly from client (user intent) - no inference from document type
-    // User clicked "Upload Prescription" → isReport = false → DOCUMENT_ANALYSIS_PROMPT
-    // User clicked "Upload Report" → isReport = true → REPORT_PROMPT
-    // AI validates document type and returns INVALID if mismatch
-    const finalIsReport = isReport ?? false; // Default to prescription if not specified
-    
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[DEBUG] 🎯 USER-INTENT BASED PROMPT SELECTION');
-    console.log(`[DEBUG] User selected: ${finalIsReport ? '"Upload Report"' : '"Upload Prescription"'} button`);
-    console.log(`[DEBUG] isReport from client: ${isReport}`);
-    console.log(`[DEBUG] finalIsReport (after default): ${finalIsReport}`);
-    console.log(`[DEBUG] Document Type in DB: "${document.type}" (ignored for prompt selection)`);
-    console.log(`[DEBUG] REPORT_PROMPT configured: ${REPORT_PROMPT ? 'YES' : 'NO'}`);
-    console.log(`[DEBUG] DOCUMENT_ANALYSIS_PROMPT configured: ${DOCUMENT_ANALYSIS_PROMPT ? 'YES' : 'NO'}`);
-    
-    let analysisPrompt = prompt || (finalIsReport ? REPORT_PROMPT : DOCUMENT_ANALYSIS_PROMPT);
-    const chosenSecret = finalIsReport ? "REPORT_PROMPT" : "DOCUMENT_ANALYSIS_PROMPT";
-    
-    console.log(`[DEBUG] ✅ SELECTED SECRET KEY: ${chosenSecret}`);
-    console.log(`[DEBUG] Prompt source: ${prompt ? 'CUSTOM PROVIDED' : chosenSecret}`);
-    console.log(`[DEBUG] Prompt length: ${analysisPrompt?.length || 0} characters`);
-    console.log(`[DEBUG] ℹ️  AI will validate document type and return INVALID if mismatch`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    // Fallback if REPORT_PROMPT is requested but missing
-    if (finalIsReport && !REPORT_PROMPT) {
-      console.error('[Config] ⚠️ REPORT_PROMPT requested but not configured, falling back to DOCUMENT_ANALYSIS_PROMPT');
-      analysisPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
-    }
+    // Use prescription prompt
+    const analysisPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
 
     // Safety check - ensure we have a prompt
     if (!analysisPrompt || analysisPrompt.trim().length === 0) {
@@ -389,17 +358,12 @@ serve(async (req: Request) => {
       throw new Error('Analysis prompt not configured properly');
     }
 
-    // Determine max_tokens based on document type
-    const maxTokens = finalIsReport ? MAX_TOKENS_REPORT : MAX_TOKENS_PRESCRIPTION;
-    
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[DEBUG] 🎯 TOKEN LIMIT CONFIGURATION');
-    console.log(`[DEBUG] Document Type: ${finalIsReport ? 'LAB REPORT' : 'PRESCRIPTION'}`);
-    console.log(`[DEBUG] Max Tokens: ${maxTokens}`);
-    console.log(`[DEBUG] Limit Source: ${finalIsReport ? 'MAX_TOKENS_REPORT' : 'MAX_TOKENS_PRESCRIPTION'}`);
+    console.log('[DEBUG] 🎯 PRESCRIPTION TOKEN LIMIT CONFIGURATION');
+    console.log(`[DEBUG] Max Tokens: ${MAX_TOKENS_PRESCRIPTION}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, analysisPrompt, maxTokens);
+    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, analysisPrompt, MAX_TOKENS_PRESCRIPTION);
 
     // Extract analysis result
     const analysisText = openRouterResponse.choices[0]?.message?.content;
@@ -413,7 +377,7 @@ serve(async (req: Request) => {
     // Calculate duration
     const duration = Date.now() - startTime;
 
-    console.log(`[Success] Analysis completed in ${duration}ms, tokens: ${openRouterResponse.usage.total_tokens}`);
+    console.log(`[Success] Prescription analysis completed in ${duration}ms, tokens: ${openRouterResponse.usage.total_tokens}`);
 
     // Update document with analysis result
     const { error: finalUpdateError } = await supabase
@@ -451,12 +415,11 @@ serve(async (req: Request) => {
     );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    console.error("[Error] Analysis failed:", error);
+    console.error("[Error] Prescription analysis failed:", error);
 
     const duration = Date.now() - startTime;
 
     // Try to update document status to 'failed'
-    // Save the prompt that was used so we know what caused the failure
     try {
       if (documentId && supabase && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
         console.log('[Error] Saving error state to database...');
