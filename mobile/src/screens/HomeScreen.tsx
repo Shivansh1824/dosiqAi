@@ -224,7 +224,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
 
 
-  const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string) => {
+  const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string, isReport: boolean = false) => {
     if (!user?.id) {
       Alert.alert('Error', 'Please log in to upload documents.');
       return;
@@ -234,6 +234,14 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       Alert.alert('Error', 'Database service not configured.');
       return;
     }
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[HomeScreen] 📁 UPLOAD FILE CALLED');
+    console.log(`[HomeScreen] uploadType state: ${uploadType}`);
+    console.log(`[HomeScreen] isReport parameter: ${isReport}`);
+    console.log(`[HomeScreen] File type: ${type}`);
+    console.log(`[HomeScreen] File name: ${fileName}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -277,8 +285,18 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         extension
       );
 
-      // Determine document type based on extension
-      const docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
+      // Determine document type based on extension and isReport flag
+      let docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
+      if (isReport) {
+        docType = 'Lab Report';
+      }
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[HomeScreen] 📋 DOCUMENT TYPE DETERMINATION');
+      console.log(`[HomeScreen] Extension: ${extension}`);
+      console.log(`[HomeScreen] isReport flag: ${isReport}`);
+      console.log(`[HomeScreen] Final docType: ${docType}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Save document metadata to database
       // title = UUID filename for consistency across local, Supabase, and R2
@@ -328,12 +346,21 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[HomeScreen] 🔬 TRIGGERING ANALYSIS');
+      console.log(`[HomeScreen] Document ID: ${actualDocumentId}`);
+      console.log(`[HomeScreen] Analysis path: ${analysisPath}`);
+      console.log(`[HomeScreen] isReport flag: ${isReport}`);
+      console.log('[HomeScreen] Expected prompt:', isReport ? 'REPORT_PROMPT' : 'DOCUMENT_ANALYSIS_PROMPT');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       Alert.alert('Success', 'Document uploaded successfully! Analyzing...', [
         {
           text: 'OK',
           onPress: () => {
             const { triggerAnalysis } = useDocumentsStore.getState();
-            triggerAnalysis(actualDocumentId, analysisPath).catch((error) => {
+            console.log('[HomeScreen] Triggering background analysis: id=', actualDocumentId, 'path=', analysisPath, 'isReport=', isReport);
+            triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
               console.error('[HomeScreen] Background analysis failed:', error);
             });
           },
@@ -482,23 +509,16 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const handleConfirmUpload = async () => {
     if (!selectedFile) return;
 
-    // Report flow is currently a placeholder
-    if (uploadType === 'report') {
-      setPreviewModalVisible(false);
-      setSelectedFile(null);
-      setTimeout(() => {
-        Alert.alert(
-          'Feature Coming Soon',
-          'We are working hard to bring you Medical Report Analysis. Stay tuned!',
-          [{ text: 'OK' }]
-        );
-      }, 300);
-      return;
-    }
-
-    // Existing Prescription Flow
     const { uri, type, name } = selectedFile;
     const isImage = type === 'image';
+    const isReport = uploadType === 'report';
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[HomeScreen] 🔄 CONFIRM UPLOAD');
+    console.log(`[HomeScreen] uploadType state: ${uploadType}`);
+    console.log(`[HomeScreen] Derived isReport: ${isReport}`);
+    console.log(`[HomeScreen] File: ${name}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     try {
       if (isImage) {
@@ -507,10 +527,10 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         setIsCompressing(false);
 
         if (compressedUri) {
-          await uploadFile(compressedUri, 'image', name);
+          await uploadFile(compressedUri, 'image', name, isReport);
         }
       } else {
-        await uploadFile(uri, 'document', name);
+        await uploadFile(uri, 'document', name, isReport);
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);

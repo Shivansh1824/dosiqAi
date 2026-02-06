@@ -33,6 +33,7 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const DOCUMENT_ANALYSIS_PROMPT = Deno.env.get("DOCUMENT_ANALYSIS_PROMPT") || "";
+const REPORT_PROMPT = Deno.env.get("REPORT_PROMPT") || "";
 
 // OpenRouter configuration
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -41,6 +42,10 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 const MAX_FILE_SIZE_MB = 10;
 const MAX_BASE64_LENGTH = (MAX_FILE_SIZE_MB * 1024 * 1024 * 4) / 3; // Account for base64 encoding
+
+// Token limits for different document types
+const MAX_TOKENS_PRESCRIPTION = 5000; // For prescriptions (simpler, shorter documents)
+const MAX_TOKENS_REPORT = 20000; // Increased for very large/complex lab reports
 
 // Allowed file types
 const ALLOWED_MIME_TYPES = [
@@ -58,6 +63,7 @@ interface AnalyzeDocumentRequest {
   base64Image: string;
   fileType: string;
   prompt?: string;
+  isReport?: boolean;
 }
 
 interface OpenRouterResponse {
@@ -106,6 +112,7 @@ async function callOpenRouterAPI(
   base64Image: string,
   fileType: string,
   prompt: string,
+  maxTokens: number,
   retryCount: number = 0
 ): Promise<OpenRouterResponse> {
   try {
@@ -139,7 +146,8 @@ async function callOpenRouterAPI(
           },
         ],
         temperature: 0.1, // Low temperature for consistent extraction
-        max_tokens: 2000,
+        max_tokens: maxTokens, // Dynamic based on document type
+        response_format: { type: "json_object" }, // Request raw JSON without markdown
       }),
     });
 
@@ -152,7 +160,7 @@ async function callOpenRouterAPI(
         const delay = RETRY_DELAY_MS * (retryCount + 1);
         console.log(`[OpenRouter] Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
-        return callOpenRouterAPI(base64Image, fileType, prompt, retryCount + 1);
+        return callOpenRouterAPI(base64Image, fileType, prompt, maxTokens, retryCount + 1);
       }
 
       throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
@@ -167,7 +175,7 @@ async function callOpenRouterAPI(
       const delay = RETRY_DELAY_MS * (retryCount + 1);
       console.log(`[OpenRouter] Network error, retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return callOpenRouterAPI(base64Image, fileType, prompt, retryCount + 1);
+      return callOpenRouterAPI(base64Image, fileType, prompt, maxTokens, retryCount + 1);
     }
     throw error;
   }
@@ -180,13 +188,19 @@ async function callOpenRouterAPI(
 function parseAnalysisResult(analysisText: string): Record<string, unknown> {
   try {
     // Try to extract JSON from markdown code blocks
-    const jsonMatch = analysisText.match(/```json\n([\s\S]*?)\n```/);
+    // More flexible regex that handles various newline styles and whitespace
+    const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
     const jsonText = jsonMatch ? jsonMatch[1] : analysisText;
 
-    return JSON.parse(jsonText.trim());
-  } catch (_parseError) {
+    const parsed = JSON.parse(jsonText.trim());
+    console.log('[Parser] ✅ Successfully parsed JSON response');
+    return parsed;
+  } catch (parseError) {
     // If parsing fails, store as raw text with error
-    console.warn("[Parser] Could not parse JSON, storing as raw text");
+    console.error("[Parser] ❌ Failed to parse JSON");
+    console.error("[Parser] Error details:", parseError instanceof Error ? parseError.message : String(parseError));
+    console.error("[Parser] First 500 chars of response:", analysisText.substring(0, 500));
+    
     return {
       rawText: analysisText,
       parseError: "Could not parse as JSON",
@@ -213,6 +227,8 @@ serve(async (req: Request) => {
   }
 
   const startTime = Date.now();
+  let documentId: string | undefined;
+  let supabase: SupabaseClient | undefined;
 
   try {
     // Validate OpenRouter API key
@@ -221,14 +237,14 @@ serve(async (req: Request) => {
       throw new Error("Analysis service not configured");
     }
 
-    // Validate Document Analysis Prompt
-    if (!DOCUMENT_ANALYSIS_PROMPT) {
-      console.error("[Config] DOCUMENT_ANALYSIS_PROMPT not configured");
-      throw new Error("Document analysis prompt not configured");
+    // Validate Document Analysis Prompts
+    if (!DOCUMENT_ANALYSIS_PROMPT && !REPORT_PROMPT) {
+      console.error("[Config] No analysis prompts configured (DOCUMENT_ANALYSIS_PROMPT or REPORT_PROMPT)");
+      throw new Error("Document analysis prompts not configured");
     }
 
     // Initialize Supabase client with service role key
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Authenticate user from JWT token
     const authHeader = req.headers.get("Authorization");
@@ -254,7 +270,15 @@ serve(async (req: Request) => {
 
     // Parse request body
     const body: AnalyzeDocumentRequest = await req.json();
-    const { documentId, base64Image, fileType, prompt } = body;
+    let base64Image, fileType, prompt, isReport;
+    ({ documentId, base64Image, fileType, prompt, isReport } = body);
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DEBUG] 📤 UPLOAD REQUEST RECEIVED');
+    console.log(`[DEBUG] Document ID: ${documentId}`);
+    console.log(`[DEBUG] isReport flag from client: ${isReport}`);
+    console.log(`[DEBUG] Custom prompt provided: ${prompt ? 'YES' : 'NO'}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Validate required fields
     if (!documentId || !base64Image || !fileType) {
@@ -301,7 +325,7 @@ serve(async (req: Request) => {
     // Verify document exists and belongs to user
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("id, user_id")
+      .select("id, user_id, type")
       .eq("id", documentId)
       .single();
 
@@ -329,8 +353,53 @@ serve(async (req: Request) => {
     }
 
     // Call OpenRouter API
-    const analysisPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
-    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, analysisPrompt);
+    // Use isReport flag directly from client (user intent) - no inference from document type
+    // User clicked "Upload Prescription" → isReport = false → DOCUMENT_ANALYSIS_PROMPT
+    // User clicked "Upload Report" → isReport = true → REPORT_PROMPT
+    // AI validates document type and returns INVALID if mismatch
+    const finalIsReport = isReport ?? false; // Default to prescription if not specified
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DEBUG] 🎯 USER-INTENT BASED PROMPT SELECTION');
+    console.log(`[DEBUG] User selected: ${finalIsReport ? '"Upload Report"' : '"Upload Prescription"'} button`);
+    console.log(`[DEBUG] isReport from client: ${isReport}`);
+    console.log(`[DEBUG] finalIsReport (after default): ${finalIsReport}`);
+    console.log(`[DEBUG] Document Type in DB: "${document.type}" (ignored for prompt selection)`);
+    console.log(`[DEBUG] REPORT_PROMPT configured: ${REPORT_PROMPT ? 'YES' : 'NO'}`);
+    console.log(`[DEBUG] DOCUMENT_ANALYSIS_PROMPT configured: ${DOCUMENT_ANALYSIS_PROMPT ? 'YES' : 'NO'}`);
+    
+    let analysisPrompt = prompt || (finalIsReport ? REPORT_PROMPT : DOCUMENT_ANALYSIS_PROMPT);
+    const chosenSecret = finalIsReport ? "REPORT_PROMPT" : "DOCUMENT_ANALYSIS_PROMPT";
+    
+    console.log(`[DEBUG] ✅ SELECTED SECRET KEY: ${chosenSecret}`);
+    console.log(`[DEBUG] Prompt source: ${prompt ? 'CUSTOM PROVIDED' : chosenSecret}`);
+    console.log(`[DEBUG] Prompt length: ${analysisPrompt?.length || 0} characters`);
+    console.log(`[DEBUG] ℹ️  AI will validate document type and return INVALID if mismatch`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Fallback if REPORT_PROMPT is requested but missing
+    if (finalIsReport && !REPORT_PROMPT) {
+      console.error('[Config] ⚠️ REPORT_PROMPT requested but not configured, falling back to DOCUMENT_ANALYSIS_PROMPT');
+      analysisPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
+    }
+
+    // Safety check - ensure we have a prompt
+    if (!analysisPrompt || analysisPrompt.trim().length === 0) {
+      console.error('[Config] ❌ No valid prompt available!');
+      throw new Error('Analysis prompt not configured properly');
+    }
+
+    // Determine max_tokens based on document type
+    const maxTokens = finalIsReport ? MAX_TOKENS_REPORT : MAX_TOKENS_PRESCRIPTION;
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DEBUG] 🎯 TOKEN LIMIT CONFIGURATION');
+    console.log(`[DEBUG] Document Type: ${finalIsReport ? 'LAB REPORT' : 'PRESCRIPTION'}`);
+    console.log(`[DEBUG] Max Tokens: ${maxTokens}`);
+    console.log(`[DEBUG] Limit Source: ${finalIsReport ? 'MAX_TOKENS_REPORT' : 'MAX_TOKENS_PRESCRIPTION'}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, analysisPrompt, maxTokens);
 
     // Extract analysis result
     const analysisText = openRouterResponse.choices[0]?.message?.content;
@@ -380,7 +449,7 @@ serve(async (req: Request) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
     console.error("[Error] Analysis failed:", error);
 
@@ -389,11 +458,12 @@ serve(async (req: Request) => {
     // Try to update document status to 'failed'
     // Save the prompt that was used so we know what caused the failure
     try {
-      if (documentId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-        // Save error as JSON with prompt
+      if (documentId && supabase && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        console.log('[Error] Saving error state to database...');
+        // Save error as JSON
         const errorData = {
           error: errorMessage,
-          prompt: DOCUMENT_ANALYSIS_PROMPT // Use default prompt if custom one not available in this scope easily
+          timestamp: new Date().toISOString()
         };
 
         await supabase

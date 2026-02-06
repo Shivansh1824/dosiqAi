@@ -12,6 +12,7 @@ export interface AnalyzeDocumentParams {
   documentId: string;
   localFilePath: string;
   customPrompt?: string;
+  isReport?: boolean;
 }
 
 export interface AnalysisResponse {
@@ -96,14 +97,25 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
   const { documentId, localFilePath, customPrompt } = params;
 
   try {
-    console.log('[DocumentAnalysis] Starting analysis for document:', documentId);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DocumentAnalysis] 🚀 STARTING DOCUMENT ANALYSIS');
+    console.log(`[DocumentAnalysis] Document ID: ${documentId}`);
+    console.log(`[DocumentAnalysis] Local file path: ${localFilePath}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Convert file to base64
+    const { isReport } = params;
     const base64Image = await fileToBase64(localFilePath);
     const fileType = getMimeType(localFilePath);
 
     console.log('[DocumentAnalysis] File type:', fileType);
     console.log('[DocumentAnalysis] Base64 size:', (base64Image.length * 0.75 / 1024).toFixed(2), 'KB');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DocumentAnalysis] 📊 REQUEST PARAMETERS');
+    console.log(`[DocumentAnalysis] isReport flag: ${isReport}`);
+    console.log(`[DocumentAnalysis] Custom prompt: ${customPrompt ? 'PROVIDED' : 'NOT PROVIDED'}`);
+    console.log('[DocumentAnalysis] Expected secret key:', isReport ? 'REPORT_PROMPT' : 'DOCUMENT_ANALYSIS_PROMPT');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Get current session token
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -117,13 +129,30 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
     console.log('[DocumentAnalysis] Request body size:', JSON.stringify({ documentId, fileType }).length + base64Image.length, 'bytes');
 
     try {
+      const requestBody = {
+        documentId,
+        base64Image,
+        fileType,
+        prompt: customPrompt,
+        isReport,
+      };
+
+      console.log('[DocumentAnalysis] 📤 Sending to edge function:', {
+        documentId: requestBody.documentId,
+        fileType: requestBody.fileType,
+        isReport: requestBody.isReport,
+        hasCustomPrompt: !!requestBody.prompt,
+        base64Length: requestBody.base64Image.length
+      });
+
       const { data, error } = await supabase.functions.invoke('analyze-document', {
-        body: {
-          documentId,
-          base64Image,
-          fileType,
-          prompt: customPrompt,
-        },
+        body: requestBody,
+      });
+
+      console.log(`[DocumentAnalysis] Edge Function response metadata:`, {
+        status: 'received',
+        isReport,
+        documentId
       });
 
       if (error) {

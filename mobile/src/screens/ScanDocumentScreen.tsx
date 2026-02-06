@@ -176,7 +176,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
   };
 
   // Upload file - saves locally and stores metadata in Supabase
-  const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string) => {
+  const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string, isReportOverride?: boolean) => {
     if (!user?.id) {
       Alert.alert('Error', 'Please log in to upload documents.');
       return;
@@ -234,7 +234,13 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       );
 
       // Determine document type based on extension
-      const docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
+      let docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
+      
+      // If we have an override or if fileName contains "Report"
+      const isReport = isReportOverride || fileName?.toLowerCase().includes('report') || extension.toLowerCase() === 'pdf';
+      if (isReport) {
+        docType = 'Lab Report';
+      }
 
       // Save document metadata to database
       const savedDocument = await addDocument({
@@ -300,10 +306,10 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
               onBack();
 
               // Trigger analysis in background (non-blocking) with correct document ID
-              console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId);
+              console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId, 'isReport:', isReport);
               console.log('[ScanDocument] Analysis path:', analysisPath);
-              console.log('[ScanDocument] 🔍 VERIFY THIS PATH: ', analysisPath); // Added for user verification
-              triggerAnalysis(actualDocumentId, analysisPath).catch((error) => {
+              
+              triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
                 console.error('[ScanDocument] Background analysis failed:', error);
               });
             },

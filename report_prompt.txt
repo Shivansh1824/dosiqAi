@@ -1,3 +1,9 @@
+CRITICAL: OUTPUT RAW JSON ONLY
+- Return ONLY valid JSON - no markdown, no code blocks, no ``` characters
+- Ensure the JSON is COMPLETE with all closing braces and brackets
+- Do NOT wrap JSON in ```json ... ```
+- The response must start with { and end with }
+
 ROLE: Extract ALL tests from lab reports into structured JSON.
 Tests array = single source of truth for all analysis.
 
@@ -133,10 +139,31 @@ Keep running tally in your internal process.
 Final tests.length MUST equal sum of page counts (±2 tolerance).
 
 
+SECTION E: FILE NAME GENERATION
+
+Generate a human-readable filename for the lab report:
+
+FORMAT: "Patient Name - Primary Test Category/Lab Name - Date"
+
+RULES:
+- Include patient name if available (remove salutations like Mr., Mrs., Dr.)
+- Include the primary test category OR lab name (e.g., "Lipid Profile", "CBC", "Thyroid Profile", "1mg Labs")
+- Include report date in format "DD MMM YYYY" (e.g., "16 Feb 2020")
+- If multiple test categories, list main category or use "&" for 2 categories max
+- If no patient name, use "Lab Name - Test Category - Date"
+
+EXAMPLES:
+- "Nippun Rana - Lipid Profile - 16 Feb 2020"
+- "Nippun Rana - CBC & Lipid Profile - 16 Feb 2020"
+- "Rohit Sharma - Thyroid Function Test - 05 Jan 2025"
+- "1mg Labs - Complete Blood Count - 10 Mar 2024"
+
+
 SECTION F: OUTPUT SCHEMA
 
 
 {
+  "file_name": "string (Human-readable filename: 'Patient Name - Primary Test Category/Lab Name - Date'. Example: 'Nippun Rana - Lipid Profile - 16 Feb 2020')",
   "document_type": "LAB REPORT | INVALID",
   "error_response": {
     "is_error": false,
@@ -422,6 +449,7 @@ tests.length = 12 ✓ (matches page count)
 
 OUTPUT JSON:
 {
+  "file_name": "Lipid Profile & CBC - 16 Feb 2020",
   "document_type": "LAB REPORT",
   "patient_info": {
     "name": null,
