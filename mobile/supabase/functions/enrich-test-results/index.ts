@@ -68,12 +68,14 @@ const corsHeaders = {
 };
 
 /**
- * Search LOINC API for test name
+ * Search LOINC API for test name and property (loinc_unit)
  */
-async function searchLoincAPI(testName: string, retryCount: number = 0): Promise<LoincCandidate[]> {
+async function searchLoincAPI(testName: string, loincUnit: string | null, retryCount: number = 0): Promise<LoincCandidate[]> {
   try {
-    const url = `${LOINC_API_BASE}?terms=${encodeURIComponent(testName)}&ef=LOINC_NUM&type=question&maxList=10`;
-    console.log(`[LOINC-API] Searching for: "${testName}" (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+    const propertyParam = loincUnit ? `&q=PROPERTY:${loincUnit}` : "";
+    const url = `${LOINC_API_BASE}?sf=SHORTNAME,LONG_COMMON_NAME,COMPONENT&df=text,LOINC_NUM,LONG_COMMON_NAME,COMPONENT&terms=${encodeURIComponent(testName)}&maxList=40${propertyParam}`;
+    
+    console.log(`[LOINC-API] Searching for: "${testName}" with property: "${loincUnit || 'any'}" (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
     const response = await fetch(url);
     
@@ -84,7 +86,7 @@ async function searchLoincAPI(testName: string, retryCount: number = 0): Promise
         const delay = RETRY_DELAY_MS * (retryCount + 1);
         console.log(`[LOINC-API] Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
-        return searchLoincAPI(testName, retryCount + 1);
+        return searchLoincAPI(testName, loincUnit, retryCount + 1);
       }
       
       return [];
@@ -92,17 +94,27 @@ async function searchLoincAPI(testName: string, retryCount: number = 0): Promise
 
     const data = await response.json();
     
-    // Parse response format: [count, [display_names], null, [loinc_codes]]
-    if (Array.isArray(data) && data.length >= 4 && Array.isArray(data[1]) && Array.isArray(data[3])) {
-      const names = data[1] as string[];
-      const codes = data[3] as string[][];
+    /**
+     * Parse response format with df=text,LOINC_NUM,LONG_COMMON_NAME,COMPONENT:
+     * [
+     *   count,
+     *   [sections],
+     *   null,
+     *   [
+     *     [text, LOINC_NUM, LONG_COMMON_NAME, COMPONENT],
+     *     ...
+     *   ]
+     * ]
+     */
+    if (Array.isArray(data) && data.length >= 4 && Array.isArray(data[3])) {
+      const rows = data[3] as string[][];
       
       const candidates: LoincCandidate[] = [];
-      for (let i = 0; i < names.length && i < codes.length; i++) {
-        if (codes[i] && codes[i][0]) {
+      for (const row of rows) {
+        if (row && row[1]) { // row[1] is LOINC_NUM
           candidates.push({
-            code: codes[i][0],
-            name: names[i],
+            code: row[1],
+            name: row[0], // row[0] is text (display name)
           });
         }
       }
@@ -120,7 +132,7 @@ async function searchLoincAPI(testName: string, retryCount: number = 0): Promise
       const delay = RETRY_DELAY_MS * (retryCount + 1);
       console.log(`[LOINC-API] Network error, retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return searchLoincAPI(testName, retryCount + 1);
+      return searchLoincAPI(testName, loincUnit, retryCount + 1);
     }
     
     return [];
@@ -240,8 +252,9 @@ serve(async (req: Request) => {
       const testName = String(test.name).trim();
       if (!testName) continue;
       
-      // Search API
-      const candidates = await searchLoincAPI(testName);
+      // Search API with loinc_unit filter
+      const loincUnit = test.loinc_unit ? String(test.loinc_unit).trim() : null;
+      const candidates = await searchLoincAPI(testName, loincUnit);
       
       // Format results as key-value pairs: { "LOINC_CODE": "LOINC_NAME" }
       const loincResults: Record<string, string> = {};

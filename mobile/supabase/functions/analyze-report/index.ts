@@ -14,9 +14,11 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const REPORT_PROMPT = Deno.env.get("REPORT_PROMPT") || "";
 
-// R2 Configuration (for downloadingfiles from Cloudflare R2)
+// R2 Configuration (for downloading files from Cloudflare R2)
 const R2_ENDPOINT = Deno.env.get("R2_ENDPOINT") || "";
 const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME") || "";
+const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID") || "";
+const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY") || "";
 
 // Configuration
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -57,7 +59,7 @@ async function callOpenRouterAPI(
   retryCount: number = 0
 ): Promise<OpenRouterResponse> {
   try {
-    console.log(`[OpenRouter] 📤 Calling Gemini 2.0 Flash (Attempt ${retryCount + 1})`);
+    console.log(`[OpenRouter] 📤 Calling Gemini 3 Flash (Attempt ${retryCount + 1})`);
     
     const response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
@@ -84,6 +86,10 @@ async function callOpenRouterAPI(
         temperature: 0.1,
         max_tokens: MAX_TOKENS_REPORT,
         response_format: { type: "json_object" },
+        reasoning: {
+          enabled: true,
+          effort: "low",
+        },
       }),
     });
 
@@ -152,11 +158,53 @@ function _getPresignedUrlFromR2(fileKey: string): string {
 }
 
 /**
+ * Download file from a presigned URL and convert to base64
+ * This is the preferred method as it uses pre-authenticated URLs from the client
+ */
+async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
+  try {
+    console.log(`[PresignedURL] 🚀 Downloading from presigned URL...`);
+    
+    const startTime = Date.now();
+    const response = await fetch(presignedUrl);
+    
+    console.log(`[PresignedURL] 📡 Response: ${response.status} ${response.statusText}`);
+    console.log(`[PresignedURL] 📋 Headers:`, { ct: response.headers.get('content-type'), cl: response.headers.get('content-length') });
+    
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[PresignedURL] ❌ Status ${response.status}: ${errorBody.substring(0, 500)}`);
+      throw new Error(`Presigned URL download failed: ${response.status} ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const fileSize = arrayBuffer.byteLength;
+    const downloadTime = Date.now() - startTime;
+    
+    console.log(`[PresignedURL] ✅ File downloaded: ${(fileSize / 1024).toFixed(2)} KB in ${downloadTime}ms`);
+    
+    if (fileSize === 0) throw new Error('Downloaded file is empty (0 bytes)');
+    
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64 = btoa(String.fromCharCode(...uint8Array));
+    
+    console.log(`[PresignedURL] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
+    return base64;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[PresignedURL] ❌ Download failed:", msg);
+    if (stack) console.error("[PresignedURL] 💥 Stack:", stack);
+    throw new Error(`Presigned URL download failed: ${msg}`);
+  }
+}
+/**
  * Download file from R2 and convert to base64
  */
 async function downloadFileAsBase64(fileKey: string): Promise<string> {
   try {
-    console.log(`[R2] Downloading file: ${fileKey}`);
+    console.log(`[R2] 🚀 Downloading file: ${fileKey}`);
+    console.log('[R2] 📋 Config:', { hasEndpoint: !!R2_ENDPOINT, hasBucket: !!R2_BUCKET_NAME, hasAccessKey: !!R2_ACCESS_KEY_ID });
     
     if (!R2_ENDPOINT || !R2_BUCKET_NAME) {
       throw new Error("R2 configuration is incomplete");
@@ -164,14 +212,19 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
     
     const startTime = Date.now();
     
-    // Construct R2 URL - using the endpoint directly
-    const fileUrl = `${R2_ENDPOINT}/${fileKey}`;
+    // Construct R2 URL - including bucket name for S3-compatible API
+    const fileUrl = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${fileKey}`;
     
-    console.log(`[R2] Fetching from: ${fileUrl}`);
+    console.log(`[R2] 📍 Fetching from: ${fileUrl}`);
     const response = await fetch(fileUrl);
     
+    console.log(`[R2] 📡 Response: ${response.status} ${response.statusText}`);
+    console.log(`[R2] 📋 Headers:`, { ct: response.headers.get('content-type'), cl: response.headers.get('content-length') });
+    
     if (!response.ok) {
-      throw new Error(`R2 download failed: ${response.status} ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error(`[R2] ❌ Status ${response.status}: ${errorBody.substring(0, 500)}`);
+      throw new Error(`R2 download failed: ${response.status} ${response.statusText} - ${errorBody.substring(0, 200)}`);
     }
 
     // Get file as array buffer
@@ -189,7 +242,9 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
     return base64;
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     console.error("[R2] ❌ Failed to download file:", msg);
+    if (stack) console.error("[R2] 💥 Stack:", stack);
     throw new Error(`R2 file download failed: ${msg}`);
   }
 }
@@ -211,25 +266,29 @@ serve(async (req) => {
 
     const body = await req.json();
     documentId = body.documentId;
-    const { base64Image, cloudFileKey, fileType } = body;
+    const { base64Image, cloudFileKey, presignedUrl, fileType } = body;
 
     console.log(`[Start] 📄 Document: ${documentId} | User: ${user.id}`);
     
     if (!documentId) throw new Error("Missing documentId");
 
-    // Determine source: R2 or direct base64
+    // Determine source: Presigned URL (new), R2 with key (legacy), or direct base64
     let finalBase64Image: string;
     
-    if (cloudFileKey) {
-      // NEW PATH: Download from R2 (for large files)
+    if (presignedUrl) {
+      // NEWEST PATH: Download from presigned URL (authenticated, no credentials needed)
+      console.log(`[PresignedURL] 🔗 Using presigned URL: ${presignedUrl.substring(0, 100)}...`);
+      finalBase64Image = await downloadFromPresignedUrl(presignedUrl);
+    } else if (cloudFileKey) {
+      // LEGACY R2 PATH: Download from R2 using cloudFileKey (requires credentials)
       console.log(`[R2] Using cloud file key: ${cloudFileKey}`);
       finalBase64Image = await downloadFileAsBase64(cloudFileKey);
     } else if (base64Image) {
-      // OLD PATH: Use base64 directly (backward compatibility)
+      // OLDEST PATH: Use base64 directly (backward compatibility)
       console.log(`[Legacy] Using direct base64 (size: ${base64Image.length} chars)`);
       finalBase64Image = base64Image;
     } else {
-      throw new Error("Missing both cloudFileKey and base64Image");
+      throw new Error("Missing presignedUrl, cloudFileKey, or base64Image");
     }
 
     // 2. AI Analysis

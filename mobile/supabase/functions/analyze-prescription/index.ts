@@ -117,7 +117,7 @@ async function callOpenRouterAPI(
   retryCount: number = 0
 ): Promise<OpenRouterResponse> {
   try {
-    console.log(`[OpenRouter] Calling API (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+    console.log(`[OpenRouter] Calling Gemini 3 Flash (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
     const response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
@@ -149,6 +149,10 @@ async function callOpenRouterAPI(
         temperature: 0.1, // Low temperature for consistent extraction
         max_tokens: maxTokens,
         response_format: { type: "json_object" }, // Request raw JSON without markdown
+        reasoning: {
+          enabled: true,
+          effort: "low",
+        },
       }),
     });
 
@@ -222,7 +226,8 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
     }
     
     const startTime = Date.now();
-    const fileUrl = `${R2_ENDPOINT}/${fileKey}`;
+    // Construct R2 URL - including bucket name for S3-compatible API
+    const fileUrl = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${fileKey}`;
     
     console.log(`[R2] Fetching from: ${fileUrl}`);
     const response = await fetch(fileUrl);

@@ -111,14 +111,21 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
     let requestBody: any;
     
     if (cloudFileKey) {
-      // NEW PATH: Send R2 file key (tiny payload)
-      console.log('[DocumentAnalysis] Using R2 approach (cloud file key)');
+      // NEW PATH: Generate presigned URL from R2 file key (for secure access)
+      console.log('[DocumentAnalysis] Using R2 approach (generating presigned URL)');
       console.log('[DocumentAnalysis] File type:', fileType);
       console.log('[DocumentAnalysis] R2 key:', cloudFileKey);
       
+      // Import storage service to generate presigned URL
+      const { getPresignedUrl } = await import('./storageService');
+      
+      // Generate presigned URL (valid for 1 hour)
+      const presignedUrl = await getPresignedUrl(cloudFileKey, 3600);
+      console.log('[DocumentAnalysis] Generated presigned URL (truncated):', presignedUrl.substring(0, 100) + '...');
+      
       requestBody = {
         documentId,
-        cloudFileKey,
+        presignedUrl, // Send presigned URL instead of raw cloudFileKey
         fileType,
         prompt: customPrompt,
       };
@@ -165,7 +172,8 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
       console.log(`[DocumentAnalysis] Target: ${edgeFunctionName}`);
       console.log(`[DocumentAnalysis] Document ID: ${requestBody.documentId}`);
       console.log(`[DocumentAnalysis] File Type: ${requestBody.fileType}`);
-      console.log(`[DocumentAnalysis] Using: ${cloudFileKey ? 'R2 (cloud_file_key)' : 'Base64 (legacy)'}`);
+      console.log(`[DocumentAnalysis] Using: ${cloudFileKey ? 'R2 (presigned URL)' : 'Base64 (legacy)'}`);
+      console.log(`[DocumentAnalysis] Presigned URL: ${requestBody.presignedUrl ? 'Generated' : 'N/A'}`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       const { data, error } = await supabase.functions.invoke(edgeFunctionName, {
