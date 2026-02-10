@@ -214,7 +214,7 @@ serve(async (req: Request) => {
     console.log(`[ENRICH] Found ${tests.length} tests to process`);
 
     // 1. Loop through each test and search LOINC API
-    const enrichmentResults: { name: string; loinc_codes: string; loinc_names: string }[] = [];
+    const enrichmentResults: { name: string; loinc_results: Record<string, string> | "null" }[] = [];
     
     // We process sequentially to avoid hitting API rate limits too hard, 
     // or we could do Promise.all with concurrency limit if needed.
@@ -231,20 +231,19 @@ serve(async (req: Request) => {
       if (!testName) continue;
       
       // Search API
-      // Note: We use the helper function defined below
       const candidates = await searchLoincAPI(testName);
       
-      // Format results as requested: comma-separated strings
-      // Note: Based on API observation, the 'name' field (index 1) actually contains the LOINC Code,
-      // and the 'code' field (index 3/extra info) contains the text/short name.
-      // So we swap them here to produce the correct output.
-      const loincCodes = candidates.map((c: LoincCandidate) => c.name).join(",");
-      const loincNames = candidates.map((c: LoincCandidate) => c.code).join(",");
+      // Format results as key-value pairs: { "LOINC_CODE": "LOINC_NAME" }
+      const loincResults: Record<string, string> = {};
+      
+      candidates.forEach((c: LoincCandidate) => {
+        // Based on API observation, c.name contains the code and c.code contains the name
+        loincResults[c.name] = c.code;
+      });
       
       enrichmentResults.push({
         name: testName,
-        loinc_codes: loincCodes || "null",
-        loinc_names: loincNames || "null"
+        loinc_results: Object.keys(loincResults).length > 0 ? loincResults : "null"
       });
       
       // Small delay to be nice to the API
@@ -273,6 +272,41 @@ serve(async (req: Request) => {
       console.error("[ENRICH] Failed to write to debug_logs:", logError);
     } else {
       console.log("[ENRICH] ✅ Results saved to debug_logs table");
+    }
+
+    // 3. Update loinc_codes master table
+    console.log("[ENRICH] Updating loinc_codes master table...");
+    const loincToUpsert: { loinc_code: string; loinc_name: string; category: string | null }[] = [];
+    const seenCodes = new Set<string>();
+
+    for (const result of enrichmentResults) {
+      if (result.loinc_results && typeof result.loinc_results === 'object') {
+        for (const [code, name] of Object.entries(result.loinc_results)) {
+          if (!seenCodes.has(code)) {
+            loincToUpsert.push({
+              loinc_code: code,
+              loinc_name: name,
+              category: null // As requested, only code and name are filled for now
+            });
+            seenCodes.add(code);
+          }
+        }
+      }
+    }
+
+    if (loincToUpsert.length > 0) {
+      const { error: upsertError } = await supabase
+        .from("loinc_codes")
+        .upsert(loincToUpsert, { 
+          onConflict: 'loinc_code',
+          ignoreDuplicates: true 
+        });
+
+      if (upsertError) {
+        console.error("[ENRICH] Error upserting to loinc_codes:", upsertError);
+      } else {
+        console.log(`[ENRICH] ✅ Successfully processed ${loincToUpsert.length} unique LOINC codes`);
+      }
     }
 
     // TODO: Future steps (AI selection, update loinc_codes, update lab_reports, update test_results)
