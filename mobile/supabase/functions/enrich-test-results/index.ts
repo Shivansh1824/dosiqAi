@@ -214,7 +214,17 @@ serve(async (req: Request) => {
     console.log(`[ENRICH] Found ${tests.length} tests to process`);
 
     // 1. Loop through each test and search LOINC API
-    const enrichmentResults: { name: string; loinc_results: Record<string, string> | "null" }[] = [];
+    const enrichmentResults: { 
+      test_name: string; 
+      test_results: {
+        value?: string | number | null;
+        status?: string | null;
+        ref_max?: number | null;
+        ref_min?: number | null;
+        ref_type?: string | null;
+      };
+      loinc_results: Record<string, string> | "null";
+    }[] = [];
     
     // We process sequentially to avoid hitting API rate limits too hard, 
     // or we could do Promise.all with concurrency limit if needed.
@@ -241,8 +251,20 @@ serve(async (req: Request) => {
         loincResults[c.name] = c.code;
       });
       
+      // Extract test result data from the original test, merging unit into value
+      const testResults = {
+        value: test.value != null && test.unit 
+          ? `${test.value} ${test.unit}` 
+          : test.value ?? null,
+        status: test.status ?? null,
+        ref_max: test.ref_max ?? null,
+        ref_min: test.ref_min ?? null,
+        ref_type: test.ref_type ?? null,
+      };
+      
       enrichmentResults.push({
-        name: testName,
+        test_name: testName,
+        test_results: testResults,
         loinc_results: Object.keys(loincResults).length > 0 ? loincResults : "null"
       });
       
