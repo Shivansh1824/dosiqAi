@@ -53,6 +53,7 @@ interface EnrichTestResultsRequest {
   documentId: string;
   analysisResult: Record<string, unknown>;
   userId: string;
+  labReportId?: string;
 }
 
 interface LoincCandidate {
@@ -171,7 +172,7 @@ serve(async (req: Request) => {
 
     // Parse request body
     const body: EnrichTestResultsRequest = await req.json();
-    const { documentId: docId, analysisResult, userId } = body;
+    const { documentId: docId, analysisResult, userId, labReportId: _labReportId } = body;
     documentId = docId;
 
     console.log(`[ENRICH] Document: ${documentId}`);
@@ -218,7 +219,6 @@ serve(async (req: Request) => {
       test_name: string; 
       test_results: {
         value?: string | number | null;
-        status?: string | null;
         ref_max?: number | null;
         ref_min?: number | null;
         ref_type?: string | null;
@@ -256,7 +256,6 @@ serve(async (req: Request) => {
         value: test.value != null && test.unit 
           ? `${test.value} ${test.unit}` 
           : test.value ?? null,
-        status: test.status ?? null,
         ref_max: test.ref_max ?? null,
         ref_min: test.ref_min ?? null,
         ref_type: test.ref_type ?? null,

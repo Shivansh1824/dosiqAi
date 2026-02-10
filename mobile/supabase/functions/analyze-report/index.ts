@@ -126,7 +126,7 @@ function parseJSON(text: string) {
  * Generate presigned URL from R2 file key
  * Creates a temporary download URL valid for 1 hour
  */
-function getPresignedUrlFromR2(fileKey: string): string {
+function _getPresignedUrlFromR2(fileKey: string): string {
   try {
     console.log(`[R2] Generating presigned URL for key: ${fileKey}`);
     
@@ -239,7 +239,7 @@ serve(async (req) => {
 
     const analysisResult = parseJSON(content);
 
-    // 3. Save Results
+    // 3. Save Analysis Status to Documents Table
     const { error: dbErr } = await supabase
       .from("documents")
       .update({
@@ -252,7 +252,109 @@ serve(async (req) => {
 
     if (dbErr) throw dbErr;
 
-    // 4. Trigger Enrichment (Non-blocking)
+    // 4. Create Lab Report Record
+    console.log(`[Database] 🏥 Creating lab report for document: ${documentId}`);
+    console.log('[AI Response] Full analysis result:', JSON.stringify(analysisResult, null, 2));
+    
+    // Helper function to find field in nested objects
+    const findField = (obj: Record<string, unknown>, ...keys: string[]): unknown => {
+      for (const key of keys) {
+        if (obj[key] != null) return obj[key];
+        
+        // Check in common nested objects from AI response
+        const patientInfo = obj.patient_info as Record<string, unknown> | undefined;
+        const reportMeta = obj.report_meta as Record<string, unknown> | undefined;
+        const commonData = obj.common_data as Record<string, unknown> | undefined;
+        const reportInfo = obj.report_info as Record<string, unknown> | undefined;
+        
+        if (patientInfo?.[key] != null) return patientInfo[key];
+        if (reportMeta?.[key] != null) return reportMeta[key];
+        if (commonData?.[key] != null) return commonData[key];
+        if (reportInfo?.[key] != null) return reportInfo[key];
+      }
+      return null;
+    };
+
+    // Extract metadata from analysis result (with comprehensive fallbacks)
+    const reportData = {
+      user_id: user.id,
+      document_id: documentId,
+      patient_name: findField(analysisResult, 'patient_name', 'name', 'patientName'),
+      age: (() => {
+        const ageVal = findField(analysisResult, 'age', 'patient_age', 'patientAge');
+        if (typeof ageVal === 'number') return ageVal;
+        if (typeof ageVal === 'string') {
+          // Handle "29 Y", "29 years", etc.
+          const match = ageVal.match(/(\d+)/);
+          return match ? parseInt(match[1]) : null;
+        }
+        return null;
+      })(),
+      gender: findField(analysisResult, 'gender', 'sex', 'patient_gender'),
+      lab_name: findField(analysisResult, 'lab_name', 'laboratory', 'lab', 'labName'),
+      collection_date: findField(analysisResult, 'collection_date', 'sample_date', 'collectionDate', 'sampleDate'),
+      report_date: findField(analysisResult, 'report_date', 'date', 'test_date', 'reportDate', 'testDate'),
+      ai_summary: findField(analysisResult, 'ai_summary', 'summary', 'interpretation', 'clinical_summary', 'aiSummary', 'clinicalSummary'),
+    };
+
+
+    console.log('[Database] 📋 Extracted report data:', JSON.stringify({
+      patient_name: reportData.patient_name,
+      age: reportData.age,
+      gender: reportData.gender,
+      lab_name: reportData.lab_name,
+      report_date: reportData.report_date,
+    }, null, 2));
+
+    const { data: labReport, error: labErr } = await supabase
+      .from("lab_reports")
+      .insert(reportData)
+      .select()
+      .single();
+
+    if (labErr) {
+      console.error("[Database] ❌ Failed to create lab report:", labErr);
+      console.error("[Database] 📊 Report data that failed:", JSON.stringify(reportData, null, 2));
+      // We don't throw here to avoid failing the whole process if metadata insert fails
+    } else {
+      console.log(`[Database] ✅ Successfully created lab report with ID: ${labReport?.id}`);
+    }
+
+    // 5. Create Test Results Records
+    if (labReport && Array.isArray(analysisResult.tests) && analysisResult.tests.length > 0) {
+      console.log(`[Database] 🧪 Inserting ${analysisResult.tests.length} test results`);
+      
+      const testResults = analysisResult.tests.map((test: Record<string, unknown>) => {
+        const mappedTest = {
+          user_id: user.id,
+          lab_report_id: labReport.id,
+          report_date: reportData.report_date,
+          test_name: test.test_name || test.name || "Unknown Test",
+          value: test.value ?? null,
+          unit: test.unit ?? null,
+          ref_min: test.ref_min != null ? parseFloat(String(test.ref_min)) : null,
+          ref_max: test.ref_max != null ? parseFloat(String(test.ref_max)) : null,
+          ref_type: test.ref_type || null,
+          interpretation: test.interpretation || null,
+          status: test.status || null,
+        };
+        
+        console.log(`[Database] Test mapped: ${mappedTest.test_name} | report_date: ${mappedTest.report_date}`);
+        return mappedTest;
+      });
+
+      const { error: testsErr } = await supabase
+        .from("test_results")
+        .insert(testResults);
+
+      if (testsErr) {
+        console.error("[Database] ❌ Failed to insert test results:", testsErr);
+      } else {
+        console.log(`[Database] ✅ Successfully inserted ${testResults.length} test results`);
+      }
+    }
+
+    // 6. Trigger Enrichment (Non-blocking)
     const enrichUrl = `${SUPABASE_URL}/functions/v1/enrich-test-results`;
     const enrichmentTask = fetch(enrichUrl, {
       method: 'POST',
@@ -260,7 +362,7 @@ serve(async (req) => {
         'Authorization': authHeader,
         'Content-Type': 'application/json' 
       },
-      body: JSON.stringify({ documentId, analysisResult, userId: user.id }),
+      body: JSON.stringify({ documentId, analysisResult, userId: user.id, labReportId: labReport?.id }),
     }).catch((e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[Enrichment] ❌ Trigger failed:", msg);
