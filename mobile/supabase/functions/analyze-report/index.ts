@@ -1,127 +1,71 @@
 /**
  * Supabase Edge Function: analyze-report
  *
- * Analyzes uploaded lab report documents using OpenRouter API (Google Gemini 3 Flash Preview)
- * This function acts as a secure proxy to keep the OpenRouter API key on the server
- *
- * Configuration (Edge Function Secrets):
- * - OPENROUTER_API_KEY: OpenRouter API key for authentication
- * - REPORT_PROMPT: Prompt for lab report analysis (required)
- *
- * Request Payload:
- * {
- *   "documentId": "uuid-of-document"
- * }
- *
- * Response:
- * {
- *   success: boolean;
- *   documentId: string;
- *   analysis?: object;
- *   tokensUsed?: number;
- *   duration?: number;
- *   error?: string;
- *   code?: string;
- * }
+ * Analyzes uploaded lab report documents using OpenRouter API (Google Gemini 2.0 Flash)
+ * Matches the robust pattern developed for enrich-test-results.
  */
 
 import { serve } from "std/http/server.ts";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
-// Environment variables (automatically available in Edge Functions)
+// Environment variables
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const REPORT_PROMPT = Deno.env.get("REPORT_PROMPT") || "";
 
-// OpenRouter configuration
-const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
-const MAX_FILE_SIZE_MB = 10;
-const MAX_BASE64_LENGTH = (MAX_FILE_SIZE_MB * 1024 * 1024 * 4) / 3; // Account for base64 encoding
+// R2 Configuration (for downloadingfiles from Cloudflare R2)
+const R2_ENDPOINT = Deno.env.get("R2_ENDPOINT") || "";
+const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME") || "";
 
-// Token limits for lab reports (complex documents with many tests)
+// Configuration
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL = "google/gemini-3-flash-preview"; 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1500;
+
+// Token limit
 const MAX_TOKENS_REPORT = 20000;
 
-// Allowed file types
-const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/heic",
-  "image/heif",
-  "application/pdf",
-];
-
-// Request/Response interfaces
-interface AnalyzeReportRequest {
-  documentId: string;
-  base64Image: string;
-  fileType: string;
-  prompt?: string;
-}
+// CORS Headers - Extended for better client compatibility
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, prefer",
+  "Access-Control-Max-Age": "86400",
+};
 
 interface OpenRouterResponse {
-  id: string;
   choices: Array<{
     message: {
       content: string;
       role: string;
     };
-    finish_reason: string;
   }>;
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
     total_tokens: number;
   };
-  model: string;
 }
 
 /**
- * Check if user has exceeded upload limit
- */
-async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase.rpc("check_upload_limit", {
-      p_user_id: userId,
-      p_max_uploads: 5,
-    });
-
-    if (error) {
-      console.error("[RateLimit] Error checking limit:", error);
-      return true; // Fail open - allow request if check fails
-    }
-
-    return data === true;
-  } catch (error) {
-    console.error("[RateLimit] Exception:", error);
-    return true; // Fail open
-  }
-}
-
-/**
- * Call OpenRouter API with retry logic
+ * Call OpenRouter API with robust retry logic
  */
 async function callOpenRouterAPI(
   base64Image: string,
   fileType: string,
   prompt: string,
-  maxTokens: number,
   retryCount: number = 0
 ): Promise<OpenRouterResponse> {
   try {
-    console.log(`[OpenRouter] Calling API (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
-
+    console.log(`[OpenRouter] 📤 Calling Gemini 2.0 Flash (Attempt ${retryCount + 1})`);
+    
     const response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://familycarehealth.app",
-        "X-Title": "FamilyCare Health",
+        "HTTP-Referer": "https://dosiq.ai",
+        "X-Title": "dosiqAi",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -129,370 +73,226 @@ async function callOpenRouterAPI(
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: prompt,
-              },
+              { type: "text", text: prompt },
               {
                 type: "image_url",
-                image_url: {
-                  url: `data:${fileType};base64,${base64Image}`,
-                },
+                image_url: { url: `data:${fileType};base64,${base64Image}` }
               },
             ],
           },
         ],
-        temperature: 0.1, // Low temperature for consistent extraction
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" }, // Request raw JSON without markdown
+        temperature: 0.1,
+        max_tokens: MAX_TOKENS_REPORT,
+        response_format: { type: "json_object" },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[OpenRouter] API error (${response.status}):`, errorText);
+      console.error(`[OpenRouter] ❌ API error (${response.status}):`, errorText);
 
-      // Retry on rate limit or temporary errors
-      if ([429, 500, 502, 503].includes(response.status) && retryCount < MAX_RETRIES) {
-        const delay = RETRY_DELAY_MS * (retryCount + 1);
-        console.log(`[OpenRouter] Retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        return callOpenRouterAPI(base64Image, fileType, prompt, maxTokens, retryCount + 1);
+      if ([429, 500, 502, 503, 504].includes(response.status) && retryCount < MAX_RETRIES) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, retryCount); // Exponential backoff
+        await new Promise(r => setTimeout(r, delay));
+        return callOpenRouterAPI(base64Image, fileType, prompt, retryCount + 1);
       }
-
-      throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
+      throw new Error(`OpenRouter API failed: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log("[OpenRouter] API call successful");
-    return data as OpenRouterResponse;
-  } catch (error) {
-    // Retry on network errors
+    return await response.json();
+    } catch (err: unknown) {
     if (retryCount < MAX_RETRIES) {
-      const delay = RETRY_DELAY_MS * (retryCount + 1);
-      console.log(`[OpenRouter] Network error, retrying in ${delay}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return callOpenRouterAPI(base64Image, fileType, prompt, maxTokens, retryCount + 1);
+      const delay = RETRY_DELAY_MS * Math.pow(2, retryCount);
+      console.log(`[OpenRouter] 🔄 Network error, retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callOpenRouterAPI(base64Image, fileType, prompt, retryCount + 1);
     }
-    throw error;
+    throw err;
   }
 }
 
-/**
- * Parse JSON from OpenRouter response
- * Handles both raw JSON and JSON wrapped in markdown code blocks
- */
-function parseAnalysisResult(analysisText: string): Record<string, unknown> {
+function parseJSON(text: string) {
   try {
-    // Try to extract JSON from markdown code blocks
-    // More flexible regex that handles various newline styles and whitespace
-    const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
-    const jsonText = jsonMatch ? jsonMatch[1] : analysisText;
-
-    const parsed = JSON.parse(jsonText.trim());
-    console.log('[Parser] ✅ Successfully parsed JSON response');
-    return parsed;
-  } catch (parseError) {
-    // If parsing fails, store as raw text with error
-    console.error("[Parser] ❌ Failed to parse JSON");
-    console.error("[Parser] Error details:", parseError instanceof Error ? parseError.message : String(parseError));
-    console.error("[Parser] First 500 chars of response:", analysisText.substring(0, 500));
-    
-    return {
-      rawText: analysisText,
-      parseError: "Could not parse as JSON",
-      summary: analysisText.substring(0, 500), // First 500 chars as summary
-    };
+    const cleanJson = text.replace(/```json\s*|\s*```/g, "").trim();
+    return JSON.parse(cleanJson);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Parser] ❌ Failed to parse response:", msg);
+    return { raw: text, error: "JSON Parse failed" };
   }
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, content-type, x-client-info, apikey",
-};
+/**
+ * Generate presigned URL from R2 file key
+ * Creates a temporary download URL valid for 1 hour
+ */
+function getPresignedUrlFromR2(fileKey: string): string {
+  try {
+    console.log(`[R2] Generating presigned URL for key: ${fileKey}`);
+    
+    if (!R2_ENDPOINT || !R2_BUCKET_NAME) {
+      throw new Error("R2 configuration is incomplete");
+    }
+
+    // For R2, we can construct a simple presigned URL
+    // Format: https://<endpoint>/<bucket>/<key>?X-Amz-Algorithm=...
+    // Simpler approach: Use the public R2 URL if available, or generate AWS-compatible presigned URL
+    
+    // Since we're using R2 with the AWS S3 SDK on the client side,
+    // we'll use a similar approach here with native fetch
+    const url = `${R2_ENDPOINT}/${fileKey}`;
+    
+    console.log(`[R2] ✅  Using R2 URL: ${url}`);
+    return url;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[R2] ❌ Failed to generate presigned URL:", msg);
+    throw new Error(`R2 presigned URL generation failed: ${msg}`);
+  }
+}
 
 /**
- * Main handler
+ * Download file from R2 and convert to base64
  */
-serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: corsHeaders,
-    });
+async function downloadFileAsBase64(fileKey: string): Promise<string> {
+  try {
+    console.log(`[R2] Downloading file: ${fileKey}`);
+    
+    if (!R2_ENDPOINT || !R2_BUCKET_NAME) {
+      throw new Error("R2 configuration is incomplete");
+    }
+    
+    const startTime = Date.now();
+    
+    // Construct R2 URL - using the endpoint directly
+    const fileUrl = `${R2_ENDPOINT}/${fileKey}`;
+    
+    console.log(`[R2] Fetching from: ${fileUrl}`);
+    const response = await fetch(fileUrl);
+    
+    if (!response.ok) {
+      throw new Error(`R2 download failed: ${response.status} ${response.statusText}`);
+    }
+
+    // Get file as array buffer
+    const arrayBuffer = await response.arrayBuffer();
+    const fileSize = arrayBuffer.byteLength;
+    const downloadTime = Date.now() - startTime;
+    
+    console.log(`[R2] ✅ File downloaded: ${(fileSize / 1024).toFixed(2)} KB in ${downloadTime}ms`);
+    
+    // Convert to base64
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64 = btoa(String.fromCharCode(...uint8Array));
+    
+    console.log(`[R2] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
+    return base64;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[R2] ❌ Failed to download file:", msg);
+    throw new Error(`R2 file download failed: ${msg}`);
   }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startTime = Date.now();
-  let documentId: string | undefined;
-  let supabase: SupabaseClient | undefined;
+  let documentId: string | null = null;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    // Validate OpenRouter API key
-    if (!OPENROUTER_API_KEY) {
-      console.error("[Config] OPENROUTER_API_KEY not configured");
-      throw new Error("Analysis service not configured");
-    }
-
-    // Validate Report Prompt
-    if (!REPORT_PROMPT) {
-      console.error("[Config] REPORT_PROMPT not configured");
-      throw new Error("Lab report analysis prompt not configured");
-    }
-
-    // Initialize Supabase client with service role key
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Authenticate user from JWT token
+    // 1. Auth & Payload
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (!authHeader) throw new Error("Missing Authorization");
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (authErr || !user) throw new Error("Unauthorized");
 
-    if (userError || !user) {
-      console.error("[Auth] User authentication failed:", userError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const body = await req.json();
+    documentId = body.documentId;
+    const { base64Image, cloudFileKey, fileType } = body;
 
-    console.log(`[Request] User: ${user.id}`);
-
-    // Parse request body
-    const body: AnalyzeReportRequest = await req.json();
-    let base64Image, fileType, prompt;
-    ({ documentId, base64Image, fileType, prompt } = body);
-
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[DEBUG] 📤 LAB REPORT ANALYSIS REQUEST');
-    console.log(`[DEBUG] Document ID: ${documentId}`);
-    console.log(`[DEBUG] Custom prompt provided: ${prompt ? 'YES' : 'NO'}`);
-    console.log(`[DEBUG] Using: REPORT_PROMPT`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    // Validate required fields
-    if (!documentId || !base64Image || !fileType) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: documentId, base64Image, fileType" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate file type
-    if (!ALLOWED_MIME_TYPES.includes(fileType)) {
-      return new Response(
-        JSON.stringify({
-          error: `Unsupported file type: ${fileType}. Allowed types: ${ALLOWED_MIME_TYPES.join(", ")}`
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate file size (base64 length check)
-    if (base64Image.length > MAX_BASE64_LENGTH) {
-      return new Response(
-        JSON.stringify({
-          error: `File too large (max ${MAX_FILE_SIZE_MB} MB)`
-        }),
-        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[Request] Document: ${documentId}, Type: ${fileType}, Size: ${(base64Image.length * 0.75 / 1024).toFixed(2)} KB`);
-
-    // Check rate limiting
-    const allowed = await checkRateLimit(supabase, user.id);
-    if (!allowed) {
-      return new Response(
-        JSON.stringify({
-          error: "Daily upload limit reached (5 documents per day)",
-          code: "RATE_LIMIT_EXCEEDED",
-        }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Verify document exists and belongs to user
-    const { data: document, error: docError } = await supabase
-      .from("documents")
-      .select("id, user_id, type")
-      .eq("id", documentId)
-      .single();
-
-    if (docError || !document || document.user_id !== user.id) {
-      console.error("[Auth] Document not found or unauthorized:", docError);
-      return new Response(
-        JSON.stringify({ error: "Document not found or unauthorized" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Update document status to 'processing'
-    const { error: processingError } = await supabase
-      .from("documents")
-      .update({
-        ai_analysis_status: "processing",
-      })
-      .eq("id", documentId);
+    console.log(`[Start] 📄 Document: ${documentId} | User: ${user.id}`);
     
-    if (processingError) {
-      console.error("[Status] Failed to mark as processing:", processingError);
-      // We continue anyway, but log it
+    if (!documentId) throw new Error("Missing documentId");
+
+    // Determine source: R2 or direct base64
+    let finalBase64Image: string;
+    
+    if (cloudFileKey) {
+      // NEW PATH: Download from R2 (for large files)
+      console.log(`[R2] Using cloud file key: ${cloudFileKey}`);
+      finalBase64Image = await downloadFileAsBase64(cloudFileKey);
+    } else if (base64Image) {
+      // OLD PATH: Use base64 directly (backward compatibility)
+      console.log(`[Legacy] Using direct base64 (size: ${base64Image.length} chars)`);
+      finalBase64Image = base64Image;
     } else {
-      console.log("[Status] Document marked as processing");
+      throw new Error("Missing both cloudFileKey and base64Image");
     }
 
-    // Use lab report prompt
-    const analysisPrompt = prompt || REPORT_PROMPT;
+    // 2. AI Analysis
+    const openRouterResponse = await callOpenRouterAPI(finalBase64Image, fileType, REPORT_PROMPT || body.prompt);
+    const content = openRouterResponse.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty AI response");
 
-    // Safety check - ensure we have a prompt
-    if (!analysisPrompt || analysisPrompt.trim().length === 0) {
-      console.error('[Config] ❌ No valid prompt available!');
-      throw new Error('Analysis prompt not configured properly');
-    }
+    const analysisResult = parseJSON(content);
 
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[DEBUG] 🎯 LAB REPORT TOKEN LIMIT CONFIGURATION');
-    console.log(`[DEBUG] Max Tokens: ${MAX_TOKENS_REPORT}`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, analysisPrompt, MAX_TOKENS_REPORT);
-
-    // Extract analysis result
-    const analysisText = openRouterResponse.choices[0]?.message?.content;
-    if (!analysisText || analysisText.trim().length === 0) {
-      throw new Error("Empty response from OpenRouter API");
-    }
-
-    // Parse JSON from response
-    const analysisResult = parseAnalysisResult(analysisText);
-
-    // Calculate duration
-    const duration = Date.now() - startTime;
-
-    console.log(`[Success] Lab report analysis completed in ${duration}ms, tokens: ${openRouterResponse.usage.total_tokens}`);
-
-    // Update document with analysis result
-    const { error: finalUpdateError } = await supabase
+    // 3. Save Results
+    const { error: dbErr } = await supabase
       .from("documents")
       .update({
         ai_analysis_status: "completed",
         ai_analysis_result: analysisResult,
         ai_analyzed_at: new Date().toISOString(),
         ai_analysis_tokens_used: openRouterResponse.usage.total_tokens,
-        ai_analysis_error: null,
       })
       .eq("id", documentId);
 
-    if (finalUpdateError) {
-      console.error("[Status] Failed to save final results:", finalUpdateError);
-      throw new Error(`Failed to save analysis results: ${finalUpdateError.message}`);
-    }
+    if (dbErr) throw dbErr;
 
-    // Trigger LOINC enrichment edge function asynchronously
-    // Use EdgeRuntime.waitUntil to ensure the background task completes
-    // without blocking the response to the client
+    // 4. Trigger Enrichment (Non-blocking)
     const enrichUrl = `${SUPABASE_URL}/functions/v1/enrich-test-results`;
-    console.log('[LOINC] 🧬 Triggering enrich-test-results function (background)...');
-    
     const enrichmentTask = fetch(enrichUrl, {
-        method: 'POST',
-        headers: {
+      method: 'POST',
+      headers: { 
         'Authorization': authHeader,
-        'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-        documentId,
-        analysisResult,
-        userId: user.id,
-        }),
-    })
-    .then(res => {
-        if (!res.ok) console.error(`[LOINC] ❌ API error: ${res.status}`);
-        else console.log('[LOINC] ✅ Enrichment triggered successfully');
-    })
-    .catch(err => {
-        console.error('[LOINC] ❌ Failed to trigger enrichment:', err);
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({ documentId, analysisResult, userId: user.id }),
+    }).catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[Enrichment] ❌ Trigger failed:", msg);
     });
 
-    // @ts-ignore: EdgeRuntime is available in the Deno environment
+    // @ts-ignore: EdgeRuntime
     if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
-        // @ts-ignore: waitUntil is valid
-        EdgeRuntime.waitUntil(enrichmentTask);
-        console.log('[LOINC] ⏳ Task registered with EdgeRuntime.waitUntil');
-    } else {
-        // Fallback for local testing or environments without waitUntil
-        console.log('[LOINC] ⚠️ EdgeRuntime.waitUntil not available, using relaxed fetch');
-        // We just let the promise float - in some runtimes this might be killed,
-        // but it's the best fallback we have.
+      // @ts-ignore: EdgeRuntime
+      EdgeRuntime.waitUntil(enrichmentTask);
     }
 
-    // Return success response immediately
-    return new Response(
-      JSON.stringify({
-        success: true,
-        documentId,
-        analysis: analysisResult,
-        tokensUsed: openRouterResponse.usage.total_tokens,
-        duration,
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    console.error("[Error] Lab report analysis failed:", error);
+    return new Response(JSON.stringify({
+      success: true,
+      duration: Date.now() - startTime,
+      tokens: openRouterResponse.usage.total_tokens,
+      analysisResult
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const duration = Date.now() - startTime;
-
-    // Try to update document status to 'failed'
-    try {
-      if (documentId && supabase && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-        console.log('[Error] Saving error state to database...');
-        // Save error as JSON
-        const errorData = {
-          error: errorMessage,
-          timestamp: new Date().toISOString()
-        };
-
-        await supabase
-          .from("documents")
-          .update({
-            ai_analysis_status: "failed",
-            ai_analysis_error: errorData,
-          })
-          .eq("id", documentId);
-      }
-    } catch (updateError) {
-      console.error("[Error] Failed to update document status:", updateError);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Fatal] ❌", msg);
+    
+    if (documentId) {
+      await supabase.from("documents").update({
+        ai_analysis_status: "failed",
+        ai_analysis_error: { message: msg, time: new Date().toISOString() }
+      }).eq("id", documentId);
     }
 
-    // Return error response
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-        duration,
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ success: false, error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   }
 });

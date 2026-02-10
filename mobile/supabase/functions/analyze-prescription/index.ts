@@ -34,6 +34,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const DOCUMENT_ANALYSIS_PROMPT = Deno.env.get("DOCUMENT_ANALYSIS_PROMPT") || "";
 
+// R2 Configuration (for downloading files from Cloudflare R2)
+const R2_ENDPOINT = Deno.env.get("R2_ENDPOINT") || "";
+const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME") || "";
+
 // OpenRouter configuration
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
@@ -206,6 +210,45 @@ function parseAnalysisResult(analysisText: string): Record<string, unknown> {
   }
 }
 
+/**
+ * Download file from R2 and convert to base64
+ */
+async function downloadFileAsBase64(fileKey: string): Promise<string> {
+  try {
+    console.log(`[R2] Downloading file: ${fileKey}`);
+    
+    if (!R2_ENDPOINT || !R2_BUCKET_NAME) {
+      throw new Error("R2 configuration is incomplete");
+    }
+    
+    const startTime = Date.now();
+    const fileUrl = `${R2_ENDPOINT}/${fileKey}`;
+    
+    console.log(`[R2] Fetching from: ${fileUrl}`);
+    const response = await fetch(fileUrl);
+    
+    if (!response.ok) {
+      throw new Error(`R2 download failed: ${response.status} ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const fileSize = arrayBuffer.byteLength;
+    const downloadTime = Date.now() - startTime;
+    
+    console.log(`[R2] ✅ File downloaded: ${(fileSize / 1024).toFixed(2)} KB in ${downloadTime}ms`);
+    
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64 = btoa(String.fromCharCode(...uint8Array));
+    
+    console.log(`[R2] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
+    return base64;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[R2] ❌ Failed to download file:", msg);
+    throw new Error(`R2 file download failed: ${msg}`);
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -266,21 +309,50 @@ serve(async (req: Request) => {
     console.log(`[Request] User: ${user.id}`);
 
     // Parse request body
-    const body: AnalyzePrescriptionRequest = await req.json();
-    let base64Image, fileType, prompt;
-    ({ documentId, base64Image, fileType, prompt } = body);
+    const body = await req.json();
+    const { cloudFileKey, prompt } = body;
+    let { base64Image, fileType } = body;
+    documentId = body.documentId;
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[DEBUG] 📤 PRESCRIPTION ANALYSIS REQUEST');
     console.log(`[DEBUG] Document ID: ${documentId}`);
+    console.log(`[DEBUG] Cloud file key: ${cloudFileKey || 'NOT PROVIDED'}`);
     console.log(`[DEBUG] Custom prompt provided: ${prompt ? 'YES' : 'NO'}`);
-    console.log(`[DEBUG] Using: DOCUMENT_ANALYSIS_PROMPT`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Validate required fields
-    if (!documentId || !base64Image || !fileType) {
+    // Validate document ID
+    if (!documentId) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: documentId, base64Image, fileType" }),
+        JSON.stringify({ error: "Missing required field: documentId" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Determine source: R2 or direct base64
+    if (cloudFileKey) {
+      // NEW PATH: Download from R2
+      console.log(`[R2] Using cloud file key: ${cloudFileKey}`);
+      base64Image = await downloadFileAsBase64(cloudFileKey);
+      // Infer fileType from filename if not provided
+      if (!fileType) {
+        const ext = cloudFileKey.split('.').pop()?.toLowerCase();
+        fileType = ext === 'pdf' ? 'application/pdf' : `image/${ext}`;
+      }
+    } else if (!base64Image) {
+      return new Response(
+        JSON.stringify({ error: "Missing both cloudFileKey and base64Image" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } else {
+      // OLD PATH: Use base64 directly
+      console.log(`[Legacy] Using direct base64 (size: ${base64Image.length} chars)`);
+    }
+
+    // Validate fileType is set
+    if (!fileType) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: fileType" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

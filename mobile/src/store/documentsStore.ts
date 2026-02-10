@@ -124,16 +124,22 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       // Exclude color field - it will be calculated when fetched, not stored in DB
       const { color, ...newDoc } = doc;
-      // Add new medication
+
+      console.log('[DocumentsStore] 📤 Inserting Payload to DB:', JSON.stringify(newDoc, null, 2));
+
       const { data, error } = await supabase
         .from('documents')
         .insert(newDoc)
         .select()
         .single();
 
-      console.log('[DocumentsStore] Inserting Payload to DB:', JSON.stringify(newDoc, null, 2));
-
       if (error) {
+        console.error('[DocumentsStore] ❌ DB Insert Error:', JSON.stringify({
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        }, null, 2));
         throw error;
       }
 
@@ -148,14 +154,21 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         isLoading: false,
       });
 
-      console.log('[DocumentsStore] Document added:', data.id);
+      console.log('[DocumentsStore] ✅ Document added:', data.id);
 
       // Return the saved document with its UUID and calculated color
       return documentWithColor;
-    } catch (error) {
-      console.error('[DocumentsStore] Add document error:', error);
+    } catch (error: any) {
+      console.error('[DocumentsStore] ❌ Add document EXCEPTION:', JSON.stringify({
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        name: error?.name,
+        stack: error?.stack,
+      }, null, 2));
       set({
-        error: error instanceof Error ? error.message : 'Failed to add document',
+        error: error instanceof Error ? error.message : (error?.message || 'Failed to add document'),
         isLoading: false,
       });
       throw error;
@@ -348,12 +361,16 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         }));
       }, 500);
 
-      // Call analysis service
+      // Get document info to pass cloud_file_key
+      const cloudFileKey = get().documents.find((doc) => doc.id === documentId)?.cloud_file_key;
+
+      // Call analysis service with cloud_file_key if available
       const result = await analyzeDocument({
         documentId,
         localFilePath,
         customPrompt,
         isReport,
+        cloudFileKey, // Pass R2 file key if available
       });
 
       // Update progress to 100%
