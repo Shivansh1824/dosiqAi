@@ -403,14 +403,35 @@ serve(async (req) => {
         return mappedTest;
       });
 
-      const { error: testsErr } = await supabase
+      const { data: insertedTests, error: testsErr } = await supabase
         .from("test_results")
-        .insert(testResults);
+        .insert(testResults)
+        .select('id, test_name, value, unit, status, ref_min, ref_max');
 
       if (testsErr) {
         console.error("[Database] ❌ Failed to insert test results:", testsErr);
       } else {
         console.log(`[Database] ✅ Successfully inserted ${testResults.length} test results`);
+        
+        // 6. Trigger match-biomarkers function
+        if (insertedTests && insertedTests.length > 0) {
+          console.log(`[Trigger] 🔫 Invoking match-biomarkers with ${insertedTests.length} tests`);
+          
+          const matchFunctionUrl = `${SUPABASE_URL}/functions/v1/match-biomarkers`;
+          
+          fetch(matchFunctionUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ tests: insertedTests }),
+          }).then(res => {
+             console.log(`[Trigger] 📡 Triggered match-biomarkers: ${res.status}`);
+          }).catch(err => {
+             console.error(`[Trigger] ❌ Failed to invoke match-biomarkers: ${err}`);
+          });
+        }
       }
     }
 
