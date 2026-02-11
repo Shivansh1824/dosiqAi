@@ -2,23 +2,24 @@
  * Supabase Edge Function: analyze-report
  *
  * Analyzes uploaded lab report documents using OpenRouter API (Google Gemini 2.0 Flash)
- * Matches the robust pattern developed for enrich-test-results.
+ * Analyzes uploaded lab report documents using OpenRouter API (Google Gemini 2.0 Flash)
  */
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { REPORT_PROMPT } from "./prompt.ts";
 
 // Environment variables
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const REPORT_PROMPT = Deno.env.get("REPORT_PROMPT") || "";
+// const REPORT_PROMPT = Deno.env.get("REPORT_PROMPT") || "";
 
 // R2 Configuration (for downloading files from Cloudflare R2)
 const R2_ENDPOINT = Deno.env.get("R2_ENDPOINT") || "";
 const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME") || "";
 const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID") || "";
-const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY") || "";
+const _R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY") || "";
 
 // Configuration
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -413,25 +414,7 @@ serve(async (req) => {
       }
     }
 
-    // 6. Trigger Enrichment (Non-blocking)
-    const enrichUrl = `${SUPABASE_URL}/functions/v1/enrich-test-results`;
-    const enrichmentTask = fetch(enrichUrl, {
-      method: 'POST',
-      headers: { 
-        'Authorization': authHeader,
-        'Content-Type': 'application/json' 
-      },
-      body: JSON.stringify({ documentId, analysisResult, userId: user.id, labReportId: labReport?.id }),
-    }).catch((e: unknown) => {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[Enrichment] ❌ Trigger failed:", msg);
-    });
-
-    // @ts-ignore: EdgeRuntime
-    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
-      // @ts-ignore: EdgeRuntime
-      EdgeRuntime.waitUntil(enrichmentTask);
-    }
+    // Enrichment removed per requirements
 
     return new Response(JSON.stringify({
       success: true,

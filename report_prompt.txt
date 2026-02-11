@@ -192,8 +192,7 @@ SECTION F: OUTPUT SCHEMA
       "ref_max": "number | null",
       "ref_type": "between | min | max | exact | text",
       "interpretation": "string | null (Clinical interpretation IF status != NORMAL, else null)",
-      "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL",
-      "loinc_unit": "string | null (LOINC Property/Kind of Quantity. Example: MCnc, SCnc, CCnc, NCnc, Frac, Mrat)"
+      "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL"
     }
   ],
   "quality": {
@@ -300,32 +299,7 @@ UNIT EXTRACTION:
   Keep IU/L, g/dL, cells/µL, ng/mL, pg/mL, etc. as shown
   If no unit visible, set unit: null
 302: 
-303: 🔬 LOINC UNIT CATEGORIZATION (CRITICAL FOR STANDARDIZATION)
-304: 
-305: Assign a 'loinc_unit' (LOINC Property/Kind of Quantity) to EVERY test based on its unit and what it measures:
-306: 
-307: - MCnc (Mass Concentration): For mass per volume. 
-308:   Examples: g/dL, mg/dL, µg/mL, ng/L, mg/L, g/L.
-309: - SCnc (Substance Concentration): For moles per volume.
-310:   Examples: mmol/L, µmol/L, nmol/L, mEq/L.
-311: - CCnc (Catalytic Concentration): For enzymatic activity per volume.
-312:   Examples: U/L, IU/L, mU/mL, µkat/L.
-313: - NCnc (Number Concentration): For counts per volume.
-314:   Examples: cells/µL, x10^3/µL, /hpf (high power field), /cmm.
-315: - NFr (Number Fraction) or Frac (Fraction): For percentages or ratios of counts.
-316:   Examples: %, fraction, ratio (when comparing same units).
-317: - Mrat (Mass Rate): For mass excreted over time.
-318:   Examples: mg/24h, g/day.
-319: - Vrat (Volume Rate): For volume over time.
-320:   Examples: mL/min, L/h.
-321: - Prty (Property): For qualitative descriptions where no standard numeric unit applies.
-322:   Examples: Clear, Yellow, Negative, Reactive.
-323: - MrFr (Mass Fraction): For mass per mass.
-324:   Examples: mg/g, µg/mg.
-325: 
-326: RULE: If a unit doesn't fit exactly, use the closest LOINC Property standard. 
-327: If completely unknown or unclassifiable, set loinc_unit: null.
-328: 
+
 
 
 📊 INTERPRETATION GENERATION (INLINE IN TESTS ARRAY)
@@ -500,8 +474,7 @@ OUTPUT JSON:
       "ref_max": 16.0,
       "ref_type": "between",
       "interpretation": "Low hemoglobin indicates anemia requiring further investigation including iron studies.",
-      "status": "LOW",
-      "loinc_unit": "MCnc"
+      "status": "LOW"
     },
     {
       "name": "Total Cholesterol",
@@ -511,8 +484,7 @@ OUTPUT JSON:
       "ref_max": 200.0,
       "ref_type": "max",
       "interpretation": "High cholesterol can clog arteries; dietary changes and exercise recommended.",
-      "status": "HIGH",
-      "loinc_unit": "MCnc"
+      "status": "HIGH"
     },
     {
       "name": "Urine Color",
@@ -522,8 +494,7 @@ OUTPUT JSON:
       "ref_max": null,
       "ref_type": "text",
       "interpretation": null,
-      "status": "NORMAL",
-      "loinc_unit": "Prty"
+      "status": "NORMAL"
     },
     {
       "name": "Protein (Urine)",
@@ -533,9 +504,8 @@ OUTPUT JSON:
       "ref_max": null,
       "ref_type": "exact",
       "interpretation": null,
-      "status": "NORMAL",
-      "loinc_unit": "Prty"
-    }
+      "status": "NORMAL"
+    },
   ],
   "quality": {
     "tests_extracted": 12,
