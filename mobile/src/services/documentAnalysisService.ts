@@ -13,6 +13,7 @@ export interface AnalyzeDocumentParams {
   localFilePath: string;
   customPrompt?: string;
   isReport?: boolean;
+  cloudFileKey?: string; // R2 file key for large files
 }
 
 export interface AnalysisResponse {
@@ -94,22 +95,57 @@ export const getMimeType = (filePath: string): string => {
  * @returns Analysis response with results or error
  */
 export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<AnalysisResponse> => {
-  const { documentId, localFilePath, customPrompt } = params;
+  const { documentId, localFilePath, customPrompt, cloudFileKey } = params;
 
   try {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[DocumentAnalysis] 🚀 STARTING DOCUMENT ANALYSIS');
     console.log(`[DocumentAnalysis] Document ID: ${documentId}`);
-    console.log(`[DocumentAnalysis] Local file path: ${localFilePath}`);
+    console.log(`[DocumentAnalysis] Cloud file key: ${cloudFileKey || 'NOT PROVIDED'}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Convert file to base64
     const { isReport } = params;
-    const base64Image = await fileToBase64(localFilePath);
     const fileType = getMimeType(localFilePath);
 
-    console.log('[DocumentAnalysis] File type:', fileType);
-    console.log('[DocumentAnalysis] Base64 size:', (base64Image.length * 0.75 / 1024).toFixed(2), 'KB');
+    // Determine request payload based on availability of R2 cloud file key
+    let requestBody: any;
+    
+    if (cloudFileKey) {
+      // NEW PATH: Generate presigned URL from R2 file key (for secure access)
+      console.log('[DocumentAnalysis] Using R2 approach (generating presigned URL)');
+      console.log('[DocumentAnalysis] File type:', fileType);
+      console.log('[DocumentAnalysis] R2 key:', cloudFileKey);
+      
+      // Import storage service to generate presigned URL
+      const { getPresignedUrl } = await import('./storageService');
+      
+      // Generate presigned URL (valid for 1 hour)
+      const presignedUrl = await getPresignedUrl(cloudFileKey, 3600);
+      console.log('[DocumentAnalysis] Generated presigned URL (truncated):', presignedUrl.substring(0, 100) + '...');
+      
+      requestBody = {
+        documentId,
+        presignedUrl, // Send presigned URL instead of raw cloudFileKey
+        fileType,
+        prompt: customPrompt,
+      };
+    } else {
+      // OLD PATH: Convert to base64 and send (backward compatibility)
+      console.log('[DocumentAnalysis] Using legacy approach (base64 upload)');
+      console.log(`[DocumentAnalysis] Local file path: ${localFilePath}`);
+      
+      const base64Image = await fileToBase64(localFilePath);
+      console.log('[DocumentAnalysis] File type:', fileType);
+      console.log('[DocumentAnalysis] Base64 size:', (base64Image.length * 0.75 / 1024).toFixed(2), 'KB');
+      
+      requestBody = {
+        documentId,
+        base64Image,
+        fileType,
+        prompt: customPrompt,
+      };
+    }
+
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[DocumentAnalysis] 📊 REQUEST PARAMETERS');
     console.log(`[DocumentAnalysis] isReport flag: ${isReport}`);
@@ -126,38 +162,37 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
 
     // Call Edge Function
     console.log('[DocumentAnalysis] Calling Edge Function...');
-    console.log('[DocumentAnalysis] Request body size:', JSON.stringify({ documentId, fileType }).length + base64Image.length, 'bytes');
 
     try {
-      const requestBody = {
-        documentId,
-        base64Image,
-        fileType,
-        prompt: customPrompt,
-        isReport,
-      };
+      // Determine which edge function to call based on document type
+      const edgeFunctionName = isReport ? 'analyze-report' : 'analyze-prescription';
 
-      console.log('[DocumentAnalysis] 📤 Sending to edge function:', {
-        documentId: requestBody.documentId,
-        fileType: requestBody.fileType,
-        isReport: requestBody.isReport,
-        hasCustomPrompt: !!requestBody.prompt,
-        base64Length: requestBody.base64Image.length
-      });
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[DocumentAnalysis] 🎯 EDGE FUNCTION INVOCATION');
+      console.log(`[DocumentAnalysis] Target: ${edgeFunctionName}`);
+      console.log(`[DocumentAnalysis] Document ID: ${requestBody.documentId}`);
+      console.log(`[DocumentAnalysis] File Type: ${requestBody.fileType}`);
+      console.log(`[DocumentAnalysis] Using: ${cloudFileKey ? 'R2 (presigned URL)' : 'Base64 (legacy)'}`);
+      console.log(`[DocumentAnalysis] Presigned URL: ${requestBody.presignedUrl ? 'Generated' : 'N/A'}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      const { data, error } = await supabase.functions.invoke('analyze-document', {
+      const { data, error } = await supabase.functions.invoke(edgeFunctionName, {
         body: requestBody,
       });
 
-      console.log(`[DocumentAnalysis] Edge Function response metadata:`, {
-        status: 'received',
-        isReport,
-        documentId
-      });
-
       if (error) {
-        console.error('[DocumentAnalysis] Edge Function error:', error);
-        console.error('[DocumentAnalysis] Error details:', JSON.stringify(error, null, 2));
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.error('[DocumentAnalysis] ❌ INVOCATION FAILED');
+        console.error(`[DocumentAnalysis] Error Name: ${error.name}`);
+        console.error(`[DocumentAnalysis] Error Message: ${error.message}`);
+        console.error(`[DocumentAnalysis] Stack: ${error.stack}`);
+        
+        // Check for specific fetch/timeout issues
+        if (error.message?.includes('fetch') || error.name === 'FunctionsFetchError') {
+          console.error('[DocumentAnalysis] 🚩 This looks like a network or payload size issue.');
+          console.error('[DocumentAnalysis] Tips: Check internet connection, decrease image quality, or increase timeout.');
+        }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         throw error;
       }
 

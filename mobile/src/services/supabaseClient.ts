@@ -47,6 +47,31 @@ export const supabase = createClient(EFFECTIVE_SUPABASE_URL, EFFECTIVE_SUPABASE_
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    // Increase fetch timeout to 120s to prevent premature timeouts on slow networks or long AI tasks
+    fetch: (url, options) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 120000);
+      
+      // Merge signals if one was provided in options
+      if (options?.signal) {
+          options.signal.addEventListener('abort', () => {
+              controller.abort();
+              clearTimeout(id);
+          });
+      }
+
+      return fetch(url, { ...options, signal: controller.signal })
+        .then(response => {
+            clearTimeout(id);
+            return response;
+        })
+        .catch(error => {
+            clearTimeout(id);
+            throw error;
+        });
+    },
+  },
 });
 
 // Test connectivity immediately

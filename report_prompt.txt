@@ -298,6 +298,8 @@ UNIT EXTRACTION:
   DO NOT convert units (keep mg/dL, don't convert to mmol/L)
   Keep IU/L, g/dL, cells/µL, ng/mL, pg/mL, etc. as shown
   If no unit visible, set unit: null
+302: 
+
 
 
 📊 INTERPRETATION GENERATION (INLINE IN TESTS ARRAY)
@@ -503,7 +505,7 @@ OUTPUT JSON:
       "ref_type": "exact",
       "interpretation": null,
       "status": "NORMAL"
-    }
+    },
   ],
   "quality": {
     "tests_extracted": 12,
