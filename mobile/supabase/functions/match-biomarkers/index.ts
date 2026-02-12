@@ -40,7 +40,6 @@ interface ExactMatchResult {
 }
 
 interface FuzzyCandidate {
-  score: number;
   alias_name: string;
   biomarker_id: string;
   mastertable_interpretation: string;
@@ -166,7 +165,7 @@ serve(async (req: Request) => {
         console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
         // Log individual candidates for manual verification
         fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
-          console.log(`  [#${i + 1}] ${r.alias_name} (Score: ${r.score.toFixed(4)})`);
+          console.log(`  [#${i + 1}] ${r.alias_name}`);
         });
 
         fuzzyMatches.push({
@@ -175,7 +174,6 @@ serve(async (req: Request) => {
           value: valueWithUnit,
           original_interpretation: test.interpretation || null,
           fuzzy_candidates: fuzzyResults.map((r: { score: number; alias_name: string; biomarker_id: string; mastertable_interpretation: string }) => ({
-            score: parseFloat(r.score.toFixed(4)),
             alias_name: r.alias_name,
             biomarker_id: r.biomarker_id,
             mastertable_interpretation: r.mastertable_interpretation,
