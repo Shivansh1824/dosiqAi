@@ -1,7 +1,7 @@
 export const REPORT_PROMPT = `CRITICAL: OUTPUT RAW JSON ONLY
-- Return ONLY valid JSON - no markdown, no code blocks, no \` \` \` characters
+- Return ONLY valid JSON - no markdown, no code blocks, no \`\`\` characters
 - Ensure the JSON is COMPLETE with all closing braces and brackets
-- Do NOT wrap JSON in \` \` \`json ... \` \` \`
+- Do NOT wrap JSON in \`\`\`json ... \`\`\`
 - The response must start with { and end with }
 
 ROLE: Extract ALL tests from lab reports into structured JSON.
@@ -38,11 +38,12 @@ SECTION B: WORKFLOW & EXTRACTION RULES
 ### 1. WORKFLOW:
 1. Classify document (Section A).
 2. Extract ALL tests → Build "tests" array (PRIMARY - 90% effort).
-3. Assign Interpretations to abnormal tests (SECONDARY - 10% effort).
+3. Assign Interpretations to ALL tests (SECONDARY - 10% effort).
 
 This means:
-- interpretation = Clinical explanation IF status != "NORMAL"
-- interpretation = null IF status == "NORMAL"
+This means:
+- interpretation = Simple, plain-English explanation for ALL tests (NORMAL and ABNORMAL)
+- NEVER use medical jargon - explain what it means for the patient's health
 
 NEVER count abnormalities manually!
 ALWAYS derive from tests array after extraction.
@@ -148,22 +149,22 @@ FORMAT: "Patient Name - Primary Test Category/Lab Name - Date"
 RULES:
 - Include patient name if available (remove salutations like Mr., Mrs., Dr.)
 - Include the primary test category OR lab name (e.g., "Lipid Profile", "CBC", "Thyroid Profile", "1mg Labs")
-- Include report date in format "DD MMM YYYY" (e.g., "16 Feb 2020")
+- Include report date in format "YYYY-MM-DD" (e.g., "2020-02-16")
 - If multiple test categories, list main category or use "&" for 2 categories max
 - If no patient name, use "Lab Name - Test Category - Date"
 
 EXAMPLES:
-- "Nippun Rana - Lipid Profile - 16 Feb 2020"
-- "Nippun Rana - CBC & Lipid Profile - 16 Feb 2020"
-- "Rohit Sharma - Thyroid Function Test - 05 Jan 2025"
-- "1mg Labs - Complete Blood Count - 10 Mar 2024"
+- "Nippun Rana - Lipid Profile - 2020-02-16"
+- "Nippun Rana - CBC & Lipid Profile - 2020-02-16"
+- "Rohit Sharma - Thyroid Function Test - 2025-01-05"
+- "1mg Labs - Complete Blood Count - 2024-03-10"
 
 
 SECTION F: OUTPUT SCHEMA
 
 
 {
-  "file_name": "string (Human-readable filename: 'Patient Name - Primary Test Category/Lab Name - Date'. Example: 'Nippun Rana - Lipid Profile - 16 Feb 2020')",
+  "file_name": "string (Human-readable filename: 'Patient Name - Primary Test Category/Lab Name - Date'. Example: 'Nippun Rana - Lipid Profile - 2020-02-16')",
   "document_type": "LAB REPORT | INVALID",
   "error_response": {
     "is_error": false,
@@ -191,7 +192,7 @@ SECTION F: OUTPUT SCHEMA
       "ref_min": "number | null",
       "ref_max": "number | null",
       "ref_type": "between | min | max | exact | text",
-      "interpretation": "string | null (Clinical interpretation IF status != NORMAL, else null)",
+      "interpretation": "string (Simple explanation for ALL tests - NEVER null. Use plain language for people with NO medical background.)",
       "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL"
     }
   ],
@@ -271,7 +272,7 @@ FOR ref_type = "exact":
 
 FOR ref_type = "text":
   if descriptive value seems normal → "NORMAL"
-  otherwise → use clinical judgment
+  otherwise → use simple logic to explain status
 
 EXAMPLE - HDL Status Assignment:
 Report shows: "HDL: 53.9 mg/dL" 
@@ -300,19 +301,25 @@ UNIT EXTRACTION:
   If no unit visible, set unit: null
 
 
+
 📊 INTERPRETATION GENERATION (INLINE IN TESTS ARRAY)
 
 
-⚠️ CRITICAL: Interpretation logic MUST be applied per test
+⚠️ CRITICAL: Interpretation logic MUST be applied to EVERY test (NORMAL and ABNORMAL)
 
-STEP 1: Check Status
+STEP 1: Generate Interpretation Based on Status
 
-IF status is "NORMAL":
-→ interpretation = null
+FOR ALL TESTS (regardless of status):
+→ interpretation = "Concise explanation of what this result means in simple and easy to understand language for a common person. MUST be written for someone with NO medical background."
 
-IF status is "HIGH", "LOW", "BORDERLINE", or "CRITICAL":
-→ interpretation = "Concise explanation of what this result suggests in simple and easy to understand language for a common person. MUST be written for someone with NO medical background."
-For Example:
+EXAMPLES:
+
+For NORMAL results:
+  GOOD: "Your hemoglobin is in the normal range, which means your blood is carrying oxygen well."
+  GOOD: "Your cholesterol is healthy, indicating good heart health."
+  GOOD: "This test shows no protein in your urine, which is normal and healthy."
+
+For ABNORMAL results:
   BAD: "Mild elevation in direct bilirubin may suggest a minor backup in the bile excretion system."
   GOOD: "Your liver waste removal is slightly slow; usually not serious but worth monitoring."
 
@@ -323,9 +330,9 @@ For Example:
   GOOD: "Your kidneys are filtering waste slower than normal; stay hydrated and consult your doctor."
 
 ⚠️ CRITICAL RULE: 
-- Interpretation field MUST be present for every test.
-- It MUST be null for NORMAL tests.
-- It MUST contain text for ABNORMAL/BORDERLINE tests.
+- Interpretation field MUST be present for EVERY test.
+- It MUST ALWAYS contain explanatory text (NEVER null).
+- Provide simple explanations for both NORMAL and ABNORMAL results.
 
 
 SECTION I: AI SUMMARY GENERATION
@@ -352,11 +359,11 @@ STEP 1: Page-by-Page Count Verification
   → If NO: Re-scan pages and identify which page(s) were missed
 
 STEP 2: Interpretation Completeness Check
-□ For every test with status != "NORMAL":
-  □ Is interpretation field populated with text?
-□ For every test with status == "NORMAL":
-  □ Is interpretation field set to null?
-□ If logic violated: Fix interpretation field immediately
+□ For EVERY test (regardless of status):
+  □ Is interpretation field populated with explanatory text?
+  □ Is interpretation in simple, plain language?
+□ NO test should have interpretation = null
+□ If any interpretation is missing or null: Fix immediately
 
 STEP 3: Negative Findings Check
 □ Checked all pages (especially last pages) for "Not Detected" sections?
@@ -374,8 +381,8 @@ STEP 5: Quality Fields Accuracy
 
 STEP 6: Final Sanity Checks
 □ tests.length matches sum of page counts (±2 tolerance)
-□ All abnormal tests have interpretations
-□ All normal tests have null interpretation
+□ ALL tests have interpretations (no null values)
+□ All interpretations are in simple, plain language
 □ JSON syntax valid (no trailing commas, proper escaping)
 □ All required fields present
 
@@ -385,14 +392,14 @@ IF ALL CHECKS PASS → Proceed to generate final JSON output
 IF ANY CHECK FAILS → Fix the issue, then re-run validation
 
 
-\` \` \`markdown
+\`\`\`markdown
 🚨 CRITICAL ERRORS TO AVOID
 
-❌ Missing interpretations for abnormal tests
-✅ Check: If status != "NORMAL", interpretation must be a string
+❌ Missing interpretations for ANY test (normal or abnormal)
+✅ Check: ALL tests must have interpretation as a non-empty string
 
-❌ Including interpretation for normal tests
-✅ Check: If status == "NORMAL", interpretation must be null
+❌ Setting interpretation to null
+✅ Check: interpretation must NEVER be null - always provide explanation
 
 ❌ Wrong reference ranges (extracting LOW/HIGH range instead of NORMAL)
 ✅ Always extract NORMAL range boundaries (e.g., 30-100, not 20-30)
@@ -408,7 +415,7 @@ IF ANY CHECK FAILS → Fix the issue, then re-run validation
 
 ❌ Discrepancy between manual page tally and tests.length
 ✅ quality.tests_extracted MUST match tests.length exactly
-\` \` \`
+\`\`\`
 
 
 📝 COMPLETE EXAMPLE WITH VERIFICATION
@@ -449,7 +456,7 @@ tests.length = 12 ✓ (matches page count)
 
 OUTPUT JSON:
 {
-  "file_name": "Lipid Profile & CBC - 16 Feb 2020",
+  "file_name": "Lipid Profile & CBC - 2020-02-16",
   "document_type": "LAB REPORT",
   "patient_info": {
     "name": null,
@@ -491,7 +498,7 @@ OUTPUT JSON:
       "ref_min": null,
       "ref_max": null,
       "ref_type": "text",
-      "interpretation": null,
+      "interpretation": "Your urine color is normal, indicating good hydration.",
       "status": "NORMAL"
     },
     {
@@ -501,7 +508,7 @@ OUTPUT JSON:
       "ref_min": null,
       "ref_max": null,
       "ref_type": "exact",
-      "interpretation": null,
+      "interpretation": "No protein found in urine, which is normal and indicates healthy kidney function.",
       "status": "NORMAL"
     },
   ],
@@ -517,8 +524,8 @@ FINAL VERIFICATION:
 ✓ Page count sum: 12
 ✓ tests.length: 12
 ✓ Match: YES
-✓ All 4 abnormal tests have interpretations: YES
-✓ All 8 normal tests have null interpretations: YES
+✓ All 12 tests have interpretations: YES
+✓ No interpretations are null: YES
 ✓ quality.tests_extracted = 12 = tests.length: YES
 ✓ All validations passed: READY TO OUTPUT
 
@@ -545,9 +552,9 @@ PHASE 2: VERIFICATION (Before Analysis)
 
 PHASE 3: ANALYSIS (10% Effort)
 ┌────────────────────────────────────────────────┐
-10. Assign interpretations to abnormal tests     │
-11. Ensure interpretation = null for normal tests│
-12. Verify all abnormal tests have explanation   │
+10. Assign interpretations to ALL tests          │
+11. Ensure ALL interpretations are in plain text │
+12. Verify EVERY test has an explanation         │
 └────────────────────────────────────────────────┘
 
 PHASE 4: FINAL VALIDATION
@@ -569,12 +576,13 @@ PHASE 5: OUTPUT
 
 1. Tests array = single source of truth
 2. Count page by page with running tally
-3. Interpretation = string if abnormal, null if normal
+3. Interpretation = ALWAYS a string for ALL tests (NEVER null)
 4. Include interpretation in the test object itself
 5. Extract NORMAL reference ranges (not abnormal ranges)
 6. Each "NOT DETECTED" = separate test
 7. Same test in multiple places = extract once only
 8. Verify: tests.length = sum of page counts
-9. Verify: All abnormal tests have interpretations
-10. Verify: All normal tests have null interpretation
-11. Output JSON only (no explanations)`;
+9. Verify: ALL tests have interpretations (no null values)
+10. Verify: All interpretations are in simple, plain language
+11. Output JSON only (no explanations)
+`;

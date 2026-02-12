@@ -160,12 +160,17 @@ function _getPresignedUrlFromR2(fileKey: string): string {
 
 /**
  * Download file from a presigned URL and convert to base64
- * This is the preferred method as it uses pre-authenticated URLs from the client
+ * Uses chunked processing to avoid Maximum call stack size exceeded errors
  */
 async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
   try {
-    console.log(`[PresignedURL] 🚀 Downloading from presigned URL...`);
+    console.log(`[PresignedURL] 🚀 Downloading from presigned URL... (v2.2-chunked)`);
     
+    // Validate URL format roughly
+    if (!presignedUrl || !presignedUrl.startsWith('http')) {
+       throw new Error(`Invalid presigned URL format: ${presignedUrl?.substring(0, 20)}...`);
+    }
+
     const startTime = Date.now();
     const response = await fetch(presignedUrl);
     
@@ -175,7 +180,7 @@ async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
     if (!response.ok) {
       const errorBody = await response.text();
       console.error(`[PresignedURL] ❌ Status ${response.status}: ${errorBody.substring(0, 500)}`);
-      throw new Error(`Presigned URL download failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Presigned URL download failed with status ${response.status}: ${errorBody.substring(0, 200)}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -187,7 +192,19 @@ async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
     if (fileSize === 0) throw new Error('Downloaded file is empty (0 bytes)');
     
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+    
+    // CHUNKED CONVERSION to avoid "Maximum call stack size exceeded"
+    // Apply limit is usually ~65536 arguments
+    const CHUNK_SIZE = 0x8000; // 32768
+    const chunks: string[] = [];
+    
+    for (let i = 0; i < fileSize; i += CHUNK_SIZE) {
+      const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+      chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+    }
+    
+    const binaryString = chunks.join("");
+    const base64 = btoa(binaryString);
     
     console.log(`[PresignedURL] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
     return base64;
@@ -196,7 +213,9 @@ async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
     const stack = error instanceof Error ? error.stack : undefined;
     console.error("[PresignedURL] ❌ Download failed:", msg);
     if (stack) console.error("[PresignedURL] 💥 Stack:", stack);
-    throw new Error(`Presigned URL download failed: ${msg}`);
+    
+    // Re-throw with clear message
+    throw new Error(`Failed to download file from presigned URL: ${msg}`);
   }
 }
 /**
@@ -235,9 +254,18 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
     
     console.log(`[R2] ✅ File downloaded: ${(fileSize / 1024).toFixed(2)} KB in ${downloadTime}ms`);
     
-    // Convert to base64
+    // Convert to base64 using chunking to avoid stack overflow
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+    const CHUNK_SIZE = 0x8000; // 32KB
+    const chunks: string[] = [];
+
+    for (let i = 0; i < fileSize; i += CHUNK_SIZE) {
+      const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+      chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+    }
+    
+    const binaryString = chunks.join("");
+    const base64 = btoa(binaryString);
     
     console.log(`[R2] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
     return base64;
@@ -403,14 +431,60 @@ serve(async (req) => {
         return mappedTest;
       });
 
-      const { error: testsErr } = await supabase
+      const { data: insertedTests, error: testsErr } = await supabase
         .from("test_results")
-        .insert(testResults);
+        .insert(testResults)
+        .select('id, test_name, value, unit, status, ref_min, ref_max, interpretation');
 
       if (testsErr) {
         console.error("[Database] ❌ Failed to insert test results:", testsErr);
       } else {
         console.log(`[Database] ✅ Successfully inserted ${testResults.length} test results`);
+        
+        // 6. Trigger match-biomarkers function (Fire-and-Forget)
+        if (insertedTests && insertedTests.length > 0) {
+          console.log(`[Trigger] 🔫 Invoking match-biomarkers with ${insertedTests.length} tests (Async)`);
+          
+          const matchFunctionUrl = `${SUPABASE_URL}/functions/v1/match-biomarkers`;
+          
+          // Define the async trigger function
+          const triggerMatcher = async () => {
+            try {
+               const startMatch = Date.now();
+               console.log(`[Trigger] 🚀 Sending request to: ${matchFunctionUrl}`);
+               
+               const matchRes = await fetch(matchFunctionUrl, {
+                method: "POST",
+                headers: {
+                  "Authorization": authHeader, // Forwarding USER JWT to fix 401 error
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ tests: insertedTests }),
+              });
+              
+              const matchDuration = Date.now() - startMatch;
+              console.log(`[Trigger] 📡 Match-biomarkers response: ${matchRes.status} (${matchDuration}ms)`);
+              
+              if (!matchRes.ok) {
+                 const errText = await matchRes.text();
+                 console.error(`[Trigger] ❌ Match function error body: ${errText.substring(0, 200)}`);
+              }
+            } catch (err) {
+               console.error(`[Trigger] ❌ Failed to invoke match-biomarkers: ${err}`);
+            }
+          };
+
+          // Use EdgeRuntime.waitUntil to keep the function alive after returning response
+          // @ts-ignore: EdgeRuntime is available in Supabase environment
+          if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+             console.log(`[Trigger] ⏳ Scheduling background task via EdgeRuntime.waitUntil`);
+             // @ts-ignore: EdgeRuntime is available in Supabase environment
+             EdgeRuntime.waitUntil(triggerMatcher());
+          } else {
+             console.warn(`[Trigger] ⚠️ EdgeRuntime.waitUntil not found, executing promise without await (may be flaky locally)`);
+             triggerMatcher();
+          }
+        }
       }
     }
 
