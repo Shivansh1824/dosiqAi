@@ -243,9 +243,52 @@ serve(async (req: Request) => {
     }
 
     // ─────────────────────────────────────────────────────────
-    // Step 6: Return all 3 JSON arrays
+    // Step 7: Trigger process-biomarkers function (Fire-and-Forget)
     // ─────────────────────────────────────────────────────────
-    console.log(`[${requestId}] ✅ Finished. Exact: ${exactMatches.length}, Fuzzy: ${fuzzyMatches.length}, NotFound: ${notFound.length}`);
+    const processFunctionUrl = `${SUPABASE_URL}/functions/v1/process-biomarkers`;
+    const authHeader = req.headers.get("Authorization");
+
+    const triggerProcessor = async () => {
+      try {
+        console.log(`[Trigger] 🚀 Invoking process-biomarkers (Async)`);
+        const processRes = await fetch(processFunctionUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": authHeader || "",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            success: true,
+            counts: {
+              exact: exactMatches.length,
+              fuzzy: fuzzyMatches.length,
+              not_found: notFound.length,
+            },
+            exact_matches: exactMatches,
+            fuzzy_matches: fuzzyMatches,
+            not_found: notFound,
+          }),
+        });
+
+        console.log(`[Trigger] 📡 Process-biomarkers response: ${processRes.status}`);
+        if (!processRes.ok) {
+          const errText = await processRes.text();
+          console.error(`[Trigger] ❌ Process function error: ${errText.substring(0, 200)}`);
+        }
+      } catch (err) {
+        console.error(`[Trigger] ❌ Failed to invoke process-biomarkers: ${err}`);
+      }
+    };
+
+    // Use EdgeRuntime.waitUntil to keep the function alive after returning response
+    // @ts-ignore
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(triggerProcessor());
+    } else {
+      console.warn(`[Trigger] ⚠️ EdgeRuntime.waitUntil not found, executing without await`);
+      triggerProcessor();
+    }
 
     return new Response(JSON.stringify({
       success: true,
