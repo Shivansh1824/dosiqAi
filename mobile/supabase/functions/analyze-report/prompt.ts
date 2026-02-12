@@ -1,7 +1,7 @@
 export const REPORT_PROMPT = `CRITICAL: OUTPUT RAW JSON ONLY
-- Return ONLY valid JSON - no markdown, no code blocks, no \` \` \` characters
+- Return ONLY valid JSON - no markdown, no code blocks, no \`\`\` characters
 - Ensure the JSON is COMPLETE with all closing braces and brackets
-- Do NOT wrap JSON in \` \` \`json ... \` \` \`
+- Do NOT wrap JSON in \`\`\`json ... \`\`\`
 - The response must start with { and end with }
 
 ROLE: Extract ALL tests from lab reports into structured JSON.
@@ -300,6 +300,8 @@ UNIT EXTRACTION:
   If no unit visible, set unit: null
 
 
+
+
 📊 INTERPRETATION GENERATION (INLINE IN TESTS ARRAY)
 
 
@@ -385,7 +387,7 @@ IF ALL CHECKS PASS → Proceed to generate final JSON output
 IF ANY CHECK FAILS → Fix the issue, then re-run validation
 
 
-\` \` \`markdown
+\`\`\`markdown
 🚨 CRITICAL ERRORS TO AVOID
 
 ❌ Missing interpretations for abnormal tests
@@ -408,7 +410,7 @@ IF ANY CHECK FAILS → Fix the issue, then re-run validation
 
 ❌ Discrepancy between manual page tally and tests.length
 ✅ quality.tests_extracted MUST match tests.length exactly
-\` \` \`
+\`\`\`
 
 
 📝 COMPLETE EXAMPLE WITH VERIFICATION
@@ -577,4 +579,5 @@ PHASE 5: OUTPUT
 8. Verify: tests.length = sum of page counts
 9. Verify: All abnormal tests have interpretations
 10. Verify: All normal tests have null interpretation
-11. Output JSON only (no explanations)`;
+11. Output JSON only (no explanations)
+`;
