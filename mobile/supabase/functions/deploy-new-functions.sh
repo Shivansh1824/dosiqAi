@@ -24,6 +24,18 @@ npx supabase functions deploy analyze-report
 echo "✅ analyze-report deployed successfully"
 echo ""
 
+# Deploy match-biomarkers
+echo "📦 Deploying match-biomarkers..."
+npx supabase functions deploy match-biomarkers
+echo "✅ match-biomarkers deployed successfully"
+echo ""
+
+# Deploy process-biomarkers
+echo "📦 Deploying process-biomarkers..."
+npx supabase functions deploy process-biomarkers
+echo "✅ process-biomarkers deployed successfully"
+echo ""
+
 echo "🎉 All edge functions deployed successfully!"
 echo ""
 echo "Next steps:"

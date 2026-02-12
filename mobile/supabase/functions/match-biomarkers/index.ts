@@ -32,8 +32,11 @@ interface BiomarkerAlias {
 // --- Output JSON Types ---
 
 interface ExactMatchResult {
+  id: string;
   test_name: string;
   biomarker_id: string;
+  value: string;
+  db_interpretation: string;
 }
 
 interface FuzzyCandidate {
@@ -44,15 +47,18 @@ interface FuzzyCandidate {
 }
 
 interface FuzzyMatchResult {
+  id: string;
   test_name: string;
+  value: string;
   original_interpretation: string | null;
   fuzzy_candidates: FuzzyCandidate[];
 }
 
 interface NotFoundResult {
+  id: string;
   test_name: string;
   db_interpretation: string | null;
-  value: string | null;
+  value: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -71,8 +77,8 @@ serve(async (req: Request) => {
     const tests = body.tests;
 
     if (!tests || !Array.isArray(tests) || tests.length === 0) {
-       console.log(`[${requestId}] ⚠️ No tests provided in payload:`, JSON.stringify(body));
-       return new Response(JSON.stringify({ success: true, message: "No tests to match" }), {
+      console.log(`[${requestId}] ⚠️ No tests provided in payload:`, JSON.stringify(body));
+      return new Response(JSON.stringify({ success: true, message: "No tests to match" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -95,7 +101,6 @@ serve(async (req: Request) => {
     const exactMatches: ExactMatchResult[] = [];
     const fuzzyMatches: FuzzyMatchResult[] = [];
     const notFound: NotFoundResult[] = [];
-    const updatesToPerform: { id: string; biomarker_id: string }[] = [];
 
     // Normalize helper: lowercase, replace special chars, collapse spaces
     const normalize = (str: string) => str.toLowerCase().replace(/[-/()]/g, " ").replace(/\s+/g, " ").trim();
@@ -106,6 +111,22 @@ serve(async (req: Request) => {
     for (const test of (tests as TestResult[])) {
       if (!test.test_name) continue;
 
+      // ─── NUMERIC FILTER ───
+      const rawValue = test.value;
+      const strippedValue = (typeof rawValue === "string") ? rawValue.replace(/%/g, "").trim() : rawValue;
+
+      // Ensure 0 is accepted, but null, undefined, empty string, or non-numeric text is skipped
+      const isNumeric = strippedValue !== null &&
+        strippedValue !== undefined &&
+        strippedValue !== "" &&
+        !isNaN(Number(strippedValue));
+
+      if (!isNumeric) {
+        console.log(`[${requestId}][Skip] ⏭️ Skipping "${test.test_name}" because value "${test.value}" is not numeric.`);
+        continue;
+      }
+
+      const valueWithUnit = test.unit ? `${test.value} ${test.unit}` : test.value;
       const normalizedTestName = normalize(test.test_name);
 
       // ─── QUERY 1: EXACT MATCH ───
@@ -115,15 +136,13 @@ serve(async (req: Request) => {
 
       if (exactMatch) {
         console.log(`[${requestId}][Exact] ✅ "${test.test_name}" -> ID: ${exactMatch.biomarker_id}`);
-        
-        exactMatches.push({
-          test_name: test.test_name,
-          biomarker_id: exactMatch.biomarker_id
-        });
 
-        updatesToPerform.push({
+        exactMatches.push({
           id: test.id,
-          biomarker_id: exactMatch.biomarker_id
+          test_name: test.test_name,
+          biomarker_id: exactMatch.biomarker_id,
+          value: valueWithUnit,
+          db_interpretation: test.interpretation || ""
         });
 
         // Exact match found — skip fuzzy and not-found for this test
@@ -147,11 +166,13 @@ serve(async (req: Request) => {
         console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
         // Log individual candidates for manual verification
         fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
-          console.log(`  [#${i+1}] ${r.alias_name} (Score: ${r.score.toFixed(4)})`);
+          console.log(`  [#${i + 1}] ${r.alias_name} (Score: ${r.score.toFixed(4)})`);
         });
-        
+
         fuzzyMatches.push({
+          id: test.id,
           test_name: test.test_name,
+          value: valueWithUnit,
           original_interpretation: test.interpretation || null,
           fuzzy_candidates: fuzzyResults.map((r: { score: number; alias_name: string; biomarker_id: string; mastertable_interpretation: string }) => ({
             score: parseFloat(r.score.toFixed(4)),
@@ -169,34 +190,13 @@ serve(async (req: Request) => {
       console.log(`[${requestId}][NotFound] ❓ "${test.test_name}"`);
 
       notFound.push({
+        id: test.id,
         test_name: test.test_name,
         db_interpretation: test.interpretation || null,
-        value: test.value || null,
+        value: valueWithUnit,
       });
     }
 
-    // ─────────────────────────────────────────────────────────
-    // Step 4: Update Database (exact matches only)
-    // ─────────────────────────────────────────────────────────
-    if (updatesToPerform.length > 0) {
-      console.log(`[${requestId}][DB] 💾 Updating ${updatesToPerform.length} test_results...`);
-      
-      const results = await Promise.all(
-        updatesToPerform.map(update => 
-          supabase
-            .from("test_results")
-            .update({ biomarker_id: update.biomarker_id })
-            .eq("id", update.id)
-        )
-      );
-
-      const failures = results.filter(r => r.error);
-      if (failures.length > 0) {
-        console.error(`[${requestId}][DB] ❌ ${failures.length} updates failed:`, failures.map(f => f.error));
-      } else {
-        console.log(`[${requestId}][DB] ✅ All updates saved.`);
-      }
-    }
 
     // ─────────────────────────────────────────────────────────
     // Step 5: Save Debug Logs (Temporary for testing)
@@ -212,7 +212,7 @@ serve(async (req: Request) => {
           fuzzy_matches: fuzzyMatches,
           not_found: notFound
         });
-      
+
       if (debugError) {
         console.error(`[${requestId}][Debug] ❌ Insert failed:`, debugError);
       } else {
@@ -221,9 +221,52 @@ serve(async (req: Request) => {
     }
 
     // ─────────────────────────────────────────────────────────
-    // Step 6: Return all 3 JSON arrays
+    // Step 7: Trigger process-biomarkers function (Fire-and-Forget)
     // ─────────────────────────────────────────────────────────
-    console.log(`[${requestId}] ✅ Finished. Exact: ${exactMatches.length}, Fuzzy: ${fuzzyMatches.length}, NotFound: ${notFound.length}`);
+    const processFunctionUrl = `${SUPABASE_URL}/functions/v1/process-biomarkers`;
+    const authHeader = req.headers.get("Authorization");
+
+    const triggerProcessor = async () => {
+      try {
+        console.log(`[Trigger] 🚀 Invoking process-biomarkers (Async)`);
+        const processRes = await fetch(processFunctionUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": authHeader || "",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            success: true,
+            counts: {
+              exact: exactMatches.length,
+              fuzzy: fuzzyMatches.length,
+              not_found: notFound.length,
+            },
+            exact_matches: exactMatches,
+            fuzzy_matches: fuzzyMatches,
+            not_found: notFound,
+          }),
+        });
+
+        console.log(`[Trigger] 📡 Process-biomarkers response: ${processRes.status}`);
+        if (!processRes.ok) {
+          const errText = await processRes.text();
+          console.error(`[Trigger] ❌ Process function error: ${errText.substring(0, 200)}`);
+        }
+      } catch (err) {
+        console.error(`[Trigger] ❌ Failed to invoke process-biomarkers: ${err}`);
+      }
+    };
+
+    // Use EdgeRuntime.waitUntil to keep the function alive after returning response
+    // @ts-ignore
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(triggerProcessor());
+    } else {
+      console.warn(`[Trigger] ⚠️ EdgeRuntime.waitUntil not found, executing without await`);
+      triggerProcessor();
+    }
 
     return new Response(JSON.stringify({
       success: true,
