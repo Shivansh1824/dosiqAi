@@ -11,11 +11,8 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX IF NOT EXISTS idx_biomarkers_aliases_alias_trgm 
   ON biomarkers_aliases USING GIN (alias_name gin_trgm_ops);
 
--- 3. Create the fuzzy search RPC function
--- Called from match-biomarkers edge function via supabase.rpc('search_biomarker_fuzzy', ...)
 CREATE OR REPLACE FUNCTION search_biomarker_fuzzy(
-  search_term TEXT, 
-  match_limit INT DEFAULT 5
+  search_term TEXT
 )
 RETURNS TABLE(
   alias_name TEXT,
@@ -25,18 +22,35 @@ RETURNS TABLE(
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
-    ba.alias_name::TEXT,
-    ba.biomarker_id,
-    bm.interpretation::TEXT AS mastertable_interpretation,
-    similarity(ba.alias_name, search_term)::REAL AS score
-  FROM biomarkers_aliases ba
-  JOIN biomarkers_mastertable bm ON ba.biomarker_id = bm.biomarker_id
-  WHERE 
-    similarity(ba.alias_name, search_term) >= 0.3
-    OR ba.alias_name ILIKE '%' || search_term || '%'
-    OR bm.interpretation ILIKE '%' || search_term || '%'
-  ORDER BY similarity(ba.alias_name, search_term) DESC
-  LIMIT match_limit;
+  WITH similarity_matches AS (
+    -- Priority 1: Top 4 by name similarity
+    SELECT 
+      ba.alias_name::TEXT,
+      ba.biomarker_id,
+      bm.interpretation::TEXT AS mastertable_interpretation,
+      similarity(ba.alias_name, search_term)::REAL AS score
+    FROM biomarkers_aliases ba
+    JOIN biomarkers_mastertable bm ON ba.biomarker_id = bm.biomarker_id
+    WHERE similarity(ba.alias_name, search_term) >= 0.3
+    ORDER BY score DESC
+    LIMIT 4
+  ),
+  ilike_matches AS (
+    -- Priority 2: Top 3 by interpretation substring match (excluding those already found)
+    SELECT 
+      ba.alias_name::TEXT,
+      ba.biomarker_id,
+      bm.interpretation::TEXT AS mastertable_interpretation,
+      similarity(ba.alias_name, search_term)::REAL AS score
+    FROM biomarkers_aliases ba
+    JOIN biomarkers_mastertable bm ON ba.biomarker_id = bm.biomarker_id
+    WHERE bm.interpretation ILIKE '%' || search_term || '%'
+    AND ba.biomarker_id NOT IN (SELECT sm.biomarker_id FROM similarity_matches sm)
+    ORDER BY score DESC
+    LIMIT 3
+  )
+  SELECT * FROM similarity_matches
+  UNION ALL
+  SELECT * FROM ilike_matches;
 END;
 $$ LANGUAGE plpgsql STABLE;

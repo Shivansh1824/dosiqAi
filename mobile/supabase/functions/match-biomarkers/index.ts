@@ -136,7 +136,6 @@ serve(async (req: Request) => {
       const { data: fuzzyResults, error: fuzzyError } = await supabase
         .rpc("search_biomarker_fuzzy", {
           search_term: test.test_name,
-          match_limit: 5,
         });
 
       if (fuzzyError) {
@@ -145,7 +144,11 @@ serve(async (req: Request) => {
       }
 
       if (fuzzyResults && fuzzyResults.length > 0) {
-        console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}" (Best: ${fuzzyResults[0].score})`);
+        console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
+        // Log individual candidates for manual verification
+        fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
+          console.log(`  [#${i+1}] ${r.alias_name} (Score: ${r.score.toFixed(4)})`);
+        });
         
         fuzzyMatches.push({
           test_name: test.test_name,
