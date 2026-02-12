@@ -34,6 +34,8 @@ interface BiomarkerAlias {
 interface ExactMatchResult {
   test_name: string;
   biomarker_id: string;
+  value: string;
+  db_interpretation: string;
 }
 
 interface FuzzyCandidate {
@@ -45,6 +47,7 @@ interface FuzzyCandidate {
 
 interface FuzzyMatchResult {
   test_name: string;
+  value: string;
   original_interpretation: string | null;
   fuzzy_candidates: FuzzyCandidate[];
 }
@@ -52,7 +55,7 @@ interface FuzzyMatchResult {
 interface NotFoundResult {
   test_name: string;
   db_interpretation: string | null;
-  value: string | null;
+  value: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -71,8 +74,8 @@ serve(async (req: Request) => {
     const tests = body.tests;
 
     if (!tests || !Array.isArray(tests) || tests.length === 0) {
-       console.log(`[${requestId}] ⚠️ No tests provided in payload:`, JSON.stringify(body));
-       return new Response(JSON.stringify({ success: true, message: "No tests to match" }), {
+      console.log(`[${requestId}] ⚠️ No tests provided in payload:`, JSON.stringify(body));
+      return new Response(JSON.stringify({ success: true, message: "No tests to match" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -106,6 +109,22 @@ serve(async (req: Request) => {
     for (const test of (tests as TestResult[])) {
       if (!test.test_name) continue;
 
+      // ─── NUMERIC FILTER ───
+      const rawValue = test.value;
+      const strippedValue = (typeof rawValue === "string") ? rawValue.replace(/%/g, "").trim() : rawValue;
+
+      // Ensure 0 is accepted, but null, undefined, empty string, or non-numeric text is skipped
+      const isNumeric = strippedValue !== null &&
+        strippedValue !== undefined &&
+        strippedValue !== "" &&
+        !isNaN(Number(strippedValue));
+
+      if (!isNumeric) {
+        console.log(`[${requestId}][Skip] ⏭️ Skipping "${test.test_name}" because value "${test.value}" is not numeric.`);
+        continue;
+      }
+
+      const valueWithUnit = test.unit ? `${test.value} ${test.unit}` : test.value;
       const normalizedTestName = normalize(test.test_name);
 
       // ─── QUERY 1: EXACT MATCH ───
@@ -115,10 +134,12 @@ serve(async (req: Request) => {
 
       if (exactMatch) {
         console.log(`[${requestId}][Exact] ✅ "${test.test_name}" -> ID: ${exactMatch.biomarker_id}`);
-        
+
         exactMatches.push({
           test_name: test.test_name,
-          biomarker_id: exactMatch.biomarker_id
+          biomarker_id: exactMatch.biomarker_id,
+          value: valueWithUnit,
+          db_interpretation: test.interpretation || ""
         });
 
         updatesToPerform.push({
@@ -147,11 +168,12 @@ serve(async (req: Request) => {
         console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
         // Log individual candidates for manual verification
         fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
-          console.log(`  [#${i+1}] ${r.alias_name} (Score: ${r.score.toFixed(4)})`);
+          console.log(`  [#${i + 1}] ${r.alias_name} (Score: ${r.score.toFixed(4)})`);
         });
-        
+
         fuzzyMatches.push({
           test_name: test.test_name,
+          value: valueWithUnit,
           original_interpretation: test.interpretation || null,
           fuzzy_candidates: fuzzyResults.map((r: { score: number; alias_name: string; biomarker_id: string; mastertable_interpretation: string }) => ({
             score: parseFloat(r.score.toFixed(4)),
@@ -171,7 +193,7 @@ serve(async (req: Request) => {
       notFound.push({
         test_name: test.test_name,
         db_interpretation: test.interpretation || null,
-        value: test.value || null,
+        value: valueWithUnit,
       });
     }
 
@@ -180,9 +202,9 @@ serve(async (req: Request) => {
     // ─────────────────────────────────────────────────────────
     if (updatesToPerform.length > 0) {
       console.log(`[${requestId}][DB] 💾 Updating ${updatesToPerform.length} test_results...`);
-      
+
       const results = await Promise.all(
-        updatesToPerform.map(update => 
+        updatesToPerform.map(update =>
           supabase
             .from("test_results")
             .update({ biomarker_id: update.biomarker_id })
@@ -212,7 +234,7 @@ serve(async (req: Request) => {
           fuzzy_matches: fuzzyMatches,
           not_found: notFound
         });
-      
+
       if (debugError) {
         console.error(`[${requestId}][Debug] ❌ Insert failed:`, debugError);
       } else {
