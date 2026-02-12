@@ -16,6 +16,7 @@ const corsHeaders = {
 // ═══════════════════════════════════════════════════════════════
 
 interface ExactMatchResult {
+  id: string;
   test_name: string;
   biomarker_id: string;
   value: string;
@@ -30,6 +31,7 @@ interface FuzzyCandidate {
 }
 
 interface FuzzyMatchResult {
+  id: string;
   test_name: string;
   value: string;
   original_interpretation: string | null;
@@ -37,6 +39,7 @@ interface FuzzyMatchResult {
 }
 
 interface NotFoundResult {
+  id: string;
   test_name: string;
   db_interpretation: string | null;
   value: string;

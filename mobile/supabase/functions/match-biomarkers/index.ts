@@ -32,6 +32,7 @@ interface BiomarkerAlias {
 // --- Output JSON Types ---
 
 interface ExactMatchResult {
+  id: string;
   test_name: string;
   biomarker_id: string;
   value: string;
@@ -46,6 +47,7 @@ interface FuzzyCandidate {
 }
 
 interface FuzzyMatchResult {
+  id: string;
   test_name: string;
   value: string;
   original_interpretation: string | null;
@@ -53,6 +55,7 @@ interface FuzzyMatchResult {
 }
 
 interface NotFoundResult {
+  id: string;
   test_name: string;
   db_interpretation: string | null;
   value: string;
@@ -136,6 +139,7 @@ serve(async (req: Request) => {
         console.log(`[${requestId}][Exact] ✅ "${test.test_name}" -> ID: ${exactMatch.biomarker_id}`);
 
         exactMatches.push({
+          id: test.id,
           test_name: test.test_name,
           biomarker_id: exactMatch.biomarker_id,
           value: valueWithUnit,
@@ -172,6 +176,7 @@ serve(async (req: Request) => {
         });
 
         fuzzyMatches.push({
+          id: test.id,
           test_name: test.test_name,
           value: valueWithUnit,
           original_interpretation: test.interpretation || null,
@@ -191,6 +196,7 @@ serve(async (req: Request) => {
       console.log(`[${requestId}][NotFound] ❓ "${test.test_name}"`);
 
       notFound.push({
+        id: test.id,
         test_name: test.test_name,
         db_interpretation: test.interpretation || null,
         value: valueWithUnit,
