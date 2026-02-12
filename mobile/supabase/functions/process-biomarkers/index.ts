@@ -226,9 +226,23 @@ async function processNotFound(
       return;
     }
 
+    // [DEBUG] Log the full content as requested by the user
+    console.log(`[${requestId}][NotFound] Full AI Response:`, content);
+
     // 3. Parse the filtered list of IDs
     const result = parseJSON(content);
-    const filteredIds = Array.isArray(result) ? result.map((item: any) => item.id) : [];
+
+    // Robust parsing: handle both array and object { "biomarkers": [...] } or { "ids": [...] }
+    let filteredIds: string[] = [];
+    if (Array.isArray(result)) {
+      filteredIds = result.map((item: any) => item.id).filter(id => id);
+    } else if (result && typeof result === "object") {
+      // Look for common keys if it's an object
+      const data = result.biomarkers || result.ids || result.items || [];
+      if (Array.isArray(data)) {
+        filteredIds = data.map((item: any) => typeof item === "string" ? item : item.id).filter(id => id);
+      }
+    }
 
     console.log(`[${requestId}][NotFound] AI filtered ${notFound.length} -> ${filteredIds.length} biomarkers to keep.`);
 
@@ -246,6 +260,7 @@ async function processNotFound(
 
       if (insertErr) {
         console.error(`[${requestId}][NotFound] Error inserting into potential_biomarker:`, insertErr.message);
+        console.error(`[${requestId}][NotFound] Failed data:`, JSON.stringify(insertData));
       } else {
         console.log(`[${requestId}][NotFound] Successfully inserted ${filteredIds.length} biomarkers for review.`);
       }

@@ -32,13 +32,13 @@ GREEN FLAGS (likely include):
 - Tests with clear health implications
 
 OUTPUT FORMAT (strict):
-Return ONLY a JSON array of objects, each containing just the "id" field from the input.
+Return ONLY a JSON object containing a "biomarkers" key which is an array of objects, each containing just the "id" field from the input.
 CRITICAL: The "id" MUST be copied EXACTLY as it appears in the input with NO modifications.
 Do NOT generate any other fields. Do NOT include test_name, alias_names, or interpretations.
 
-[{"id": "original-id-from-input"}, {"id": "original-id-from-input"}]
+{ "biomarkers": [{"id": "original-id-from-input"}, {"id": "original-id-from-input"}] }
 
-If no biomarkers pass the filter, return: []
+If no biomarkers pass the filter, return: { "biomarkers": [] }
 
 Examples (for reasoning only, output is always just IDs):
 - "Hemoglobin" → users understand (anemia), actionable (iron intake), popular → KEEP its id
