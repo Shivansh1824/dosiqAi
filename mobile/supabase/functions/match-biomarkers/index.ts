@@ -101,7 +101,6 @@ serve(async (req: Request) => {
     const exactMatches: ExactMatchResult[] = [];
     const fuzzyMatches: FuzzyMatchResult[] = [];
     const notFound: NotFoundResult[] = [];
-    const updatesToPerform: { id: string; biomarker_id: string }[] = [];
 
     // Normalize helper: lowercase, replace special chars, collapse spaces
     const normalize = (str: string) => str.toLowerCase().replace(/[-/()]/g, " ").replace(/\s+/g, " ").trim();
@@ -144,11 +143,6 @@ serve(async (req: Request) => {
           biomarker_id: exactMatch.biomarker_id,
           value: valueWithUnit,
           db_interpretation: test.interpretation || ""
-        });
-
-        updatesToPerform.push({
-          id: test.id,
-          biomarker_id: exactMatch.biomarker_id
         });
 
         // Exact match found — skip fuzzy and not-found for this test
@@ -203,28 +197,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // ─────────────────────────────────────────────────────────
-    // Step 4: Update Database (exact matches only)
-    // ─────────────────────────────────────────────────────────
-    if (updatesToPerform.length > 0) {
-      console.log(`[${requestId}][DB] 💾 Updating ${updatesToPerform.length} test_results...`);
-
-      const results = await Promise.all(
-        updatesToPerform.map(update =>
-          supabase
-            .from("test_results")
-            .update({ biomarker_id: update.biomarker_id })
-            .eq("id", update.id)
-        )
-      );
-
-      const failures = results.filter(r => r.error);
-      if (failures.length > 0) {
-        console.error(`[${requestId}][DB] ❌ ${failures.length} updates failed:`, failures.map(f => f.error));
-      } else {
-        console.log(`[${requestId}][DB] ✅ All updates saved.`);
-      }
-    }
 
     // ─────────────────────────────────────────────────────────
     // Step 5: Save Debug Logs (Temporary for testing)

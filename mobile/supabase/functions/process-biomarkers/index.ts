@@ -66,12 +66,28 @@ interface MatchBiomarkersPayload {
  * These have a confirmed biomarker_id from the alias table.
  */
 async function processExactMatches(
-  _supabase: ReturnType<typeof createClient>,
+  supabase: any,
   exactMatches: ExactMatchResult[],
   requestId: string
 ): Promise<void> {
   console.log(`[${requestId}][Exact] Processing ${exactMatches.length} exact matches...`);
-  // TODO: Implement exact match processing logic
+
+  for (const match of exactMatches) {
+    try {
+      const { error } = await supabase
+        .from("test_results")
+        .update({ biomarker_id: match.biomarker_id })
+        .eq("id", match.id);
+
+      if (error) {
+        console.error(`[${requestId}][Exact] Error updating result ${match.id}:`, error.message);
+      } else {
+        console.log(`[${requestId}][Exact] Successfully updated ${match.test_name} (${match.id}) with biomarker_id: ${match.biomarker_id}`);
+      }
+    } catch (err) {
+      console.error(`[${requestId}][Exact] Unexpected error updating result ${match.id}:`, err);
+    }
+  }
 }
 
 /**
