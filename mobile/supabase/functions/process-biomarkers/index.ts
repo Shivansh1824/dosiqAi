@@ -9,7 +9,7 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 
 // OpenRouter Configuration (same model & settings as analyze-report)
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+const DEFAULT_MODEL = "google/gemini-3-flash-preview";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
 const MAX_TOKENS = 4000;
@@ -33,10 +33,11 @@ interface OpenRouterResponse {
 async function callOpenRouterAPI(
   systemPrompt: string,
   userMessage: string,
+  model: string = DEFAULT_MODEL,
   retryCount: number = 0
 ): Promise<OpenRouterResponse> {
   try {
-    console.log(`[OpenRouter] 📤 Calling Gemini 3 Flash (Attempt ${retryCount + 1})`);
+    console.log(`[OpenRouter] 📤 Calling ${model} (Attempt ${retryCount + 1})`);
 
     const response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
@@ -47,7 +48,7 @@ async function callOpenRouterAPI(
         "X-Title": "dosiqAi",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
@@ -69,7 +70,7 @@ async function callOpenRouterAPI(
       if ([429, 500, 502, 503, 504].includes(response.status) && retryCount < MAX_RETRIES) {
         const delay = RETRY_DELAY_MS * Math.pow(2, retryCount);
         await new Promise(r => setTimeout(r, delay));
-        return callOpenRouterAPI(systemPrompt, userMessage, retryCount + 1);
+        return callOpenRouterAPI(systemPrompt, userMessage, model, retryCount + 1);
       }
       throw new Error(`OpenRouter API failed: ${response.status}`);
     }
@@ -80,7 +81,7 @@ async function callOpenRouterAPI(
       const delay = RETRY_DELAY_MS * Math.pow(2, retryCount);
       console.log(`[OpenRouter] 🔄 Network error, retrying in ${delay}ms...`);
       await new Promise(r => setTimeout(r, delay));
-      return callOpenRouterAPI(systemPrompt, userMessage, retryCount + 1);
+      return callOpenRouterAPI(systemPrompt, userMessage, model, retryCount + 1);
     }
     throw err;
   }
@@ -214,9 +215,10 @@ async function processNotFound(
   try {
     // 1. Prepare the user message (part of the JSON payload)
     const userMessage = JSON.stringify(notFound, null, 2);
+    const model = "x-ai/grok-4.1-fast";
 
     // 2. Call OpenRouter AI
-    const openRouterResponse = await callOpenRouterAPI(NOT_FOUND_PROMPT, userMessage);
+    const openRouterResponse = await callOpenRouterAPI(NOT_FOUND_PROMPT, userMessage, model);
     const content = openRouterResponse.choices[0]?.message?.content;
 
     if (!content) {
@@ -229,11 +231,27 @@ async function processNotFound(
     const filteredIds = Array.isArray(result) ? result.map((item: any) => item.id) : [];
 
     console.log(`[${requestId}][NotFound] AI filtered ${notFound.length} -> ${filteredIds.length} biomarkers to keep.`);
-    if (filteredIds.length > 0) {
-      console.log(`[${requestId}][NotFound] IDs to keep: ${filteredIds.join(", ")}`);
-    }
 
-    // TODO: Next step - do something with these filtered IDs (e.g. save to a specific table or log for review)
+    // 4. Insert into potential_biomarker table
+    if (filteredIds.length > 0) {
+      console.log(`[${requestId}][NotFound] Inserting ${filteredIds.length} IDs into potential_biomarker...`);
+
+      const insertData = filteredIds.map((id: string) => ({
+        test_results_id: id
+      }));
+
+      const { error: insertErr } = await _supabase
+        .from("potential_biomarker")
+        .insert(insertData);
+
+      if (insertErr) {
+        console.error(`[${requestId}][NotFound] Error inserting into potential_biomarker:`, insertErr.message);
+      } else {
+        console.log(`[${requestId}][NotFound] Successfully inserted ${filteredIds.length} biomarkers for review.`);
+      }
+    } else {
+      console.log(`[${requestId}][NotFound] No biomarkers met the tracking criteria. Skipping insertion.`);
+    }
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
