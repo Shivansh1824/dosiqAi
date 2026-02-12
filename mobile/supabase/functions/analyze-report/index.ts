@@ -160,11 +160,11 @@ function _getPresignedUrlFromR2(fileKey: string): string {
 
 /**
  * Download file from a presigned URL and convert to base64
- * This is the preferred method as it uses pre-authenticated URLs from the client
+ * Uses chunked processing to avoid Maximum call stack size exceeded errors
  */
 async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
   try {
-    console.log(`[PresignedURL] 🚀 Downloading from presigned URL... (v2.1-debug)`);
+    console.log(`[PresignedURL] 🚀 Downloading from presigned URL... (v2.2-chunked)`);
     
     // Validate URL format roughly
     if (!presignedUrl || !presignedUrl.startsWith('http')) {
@@ -192,7 +192,19 @@ async function downloadFromPresignedUrl(presignedUrl: string): Promise<string> {
     if (fileSize === 0) throw new Error('Downloaded file is empty (0 bytes)');
     
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+    
+    // CHUNKED CONVERSION to avoid "Maximum call stack size exceeded"
+    // Apply limit is usually ~65536 arguments
+    const CHUNK_SIZE = 0x8000; // 32768
+    const chunks: string[] = [];
+    
+    for (let i = 0; i < fileSize; i += CHUNK_SIZE) {
+      const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+      chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+    }
+    
+    const binaryString = chunks.join("");
+    const base64 = btoa(binaryString);
     
     console.log(`[PresignedURL] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
     return base64;
@@ -242,9 +254,18 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
     
     console.log(`[R2] ✅ File downloaded: ${(fileSize / 1024).toFixed(2)} KB in ${downloadTime}ms`);
     
-    // Convert to base64
+    // Convert to base64 using chunking to avoid stack overflow
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+    const CHUNK_SIZE = 0x8000; // 32KB
+    const chunks: string[] = [];
+
+    for (let i = 0; i < fileSize; i += CHUNK_SIZE) {
+      const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+      chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+    }
+    
+    const binaryString = chunks.join("");
+    const base64 = btoa(binaryString);
     
     console.log(`[R2] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
     return base64;
@@ -420,36 +441,48 @@ serve(async (req) => {
       } else {
         console.log(`[Database] ✅ Successfully inserted ${testResults.length} test results`);
         
-        // 6. Trigger match-biomarkers function
+        // 6. Trigger match-biomarkers function (Fire-and-Forget)
         if (insertedTests && insertedTests.length > 0) {
-          console.log(`[Trigger] 🔫 Invoking match-biomarkers with ${insertedTests.length} tests`);
-          console.log(`[Trigger] Target URL: ${SUPABASE_URL}/functions/v1/match-biomarkers`);
+          console.log(`[Trigger] 🔫 Invoking match-biomarkers with ${insertedTests.length} tests (Async)`);
           
           const matchFunctionUrl = `${SUPABASE_URL}/functions/v1/match-biomarkers`;
           
-          // CRITICAL FIX: Await the response to ensure the Edge Function environment doesn't kill the process
-          // before the request completes. This was likely the cause of instability.
-          try {
-             const startMatch = Date.now();
-             const matchRes = await fetch(matchFunctionUrl, {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ tests: insertedTests }),
-            });
-            
-            const matchDuration = Date.now() - startMatch;
-            console.log(`[Trigger] 📡 Triggered match-biomarkers: Status ${matchRes.status} (${matchDuration}ms)`);
-            
-            if (!matchRes.ok) {
-               const errText = await matchRes.text();
-               console.error(`[Trigger] ❌ Match function error body: ${errText.substring(0, 200)}`);
+          // Define the async trigger function
+          const triggerMatcher = async () => {
+            try {
+               const startMatch = Date.now();
+               console.log(`[Trigger] 🚀 Sending request to: ${matchFunctionUrl}`);
+               
+               const matchRes = await fetch(matchFunctionUrl, {
+                method: "POST",
+                headers: {
+                  "Authorization": authHeader, // Forwarding USER JWT to fix 401 error
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ tests: insertedTests }),
+              });
+              
+              const matchDuration = Date.now() - startMatch;
+              console.log(`[Trigger] 📡 Match-biomarkers response: ${matchRes.status} (${matchDuration}ms)`);
+              
+              if (!matchRes.ok) {
+                 const errText = await matchRes.text();
+                 console.error(`[Trigger] ❌ Match function error body: ${errText.substring(0, 200)}`);
+              }
+            } catch (err) {
+               console.error(`[Trigger] ❌ Failed to invoke match-biomarkers: ${err}`);
             }
-          } catch (err) {
-             console.error(`[Trigger] ❌ Failed to invoke match-biomarkers: ${err}`);
-             // We swallow the error so we don't fail the Report Analysis just because matching failed
+          };
+
+          // Use EdgeRuntime.waitUntil to keep the function alive after returning response
+          // @ts-ignore: EdgeRuntime is available in Supabase environment
+          if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+             console.log(`[Trigger] ⏳ Scheduling background task via EdgeRuntime.waitUntil`);
+             // @ts-ignore: EdgeRuntime is available in Supabase environment
+             EdgeRuntime.waitUntil(triggerMatcher());
+          } else {
+             console.warn(`[Trigger] ⚠️ EdgeRuntime.waitUntil not found, executing promise without await (may be flaky locally)`);
+             triggerMatcher();
           }
         }
       }
