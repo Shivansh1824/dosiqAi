@@ -1,0 +1,179 @@
+{
+  "success": true,
+  "counts": {
+    "exact": 1,
+    "fuzzy": 5,
+    "not_found": 1
+  },
+  "exact_matches": [
+    {
+      "id": "tr_001",
+      "test_name": "Hemoglobin",
+      "biomarker_id": "bm_hb_001",
+      "value": "14.5 g/dL",
+      "db_interpretation": "Normal range."
+    }
+  ],
+  "fuzzy_matches": [
+    {
+      "id": "tr_002",
+      "test_name": "Vit D 25-Hydroxy",
+      "value": "32 ng/mL",
+      "original_interpretation": "Sufficient",
+      "fuzzy_candidates": [
+        {
+          "alias_name": "Vitamin D, 25-Hydroxy",
+          "biomarker_id": "bm_vitd_25oh",
+          "mastertable_interpretation": "Measures total vitamin D levels in the blood, essential for bone health and immune function."
+        },
+        {
+          "alias_name": "25-Hydroxy Vitamin D",
+          "biomarker_id": "bm_vitd_25oh",
+          "mastertable_interpretation": "Total Vitamin D (D2 + D3) level in serum."
+        }
+      ]
+    },
+    {
+      "id": "tr_003",
+      "test_name": "T. Cholesterol",
+      "value": "195 mg/dL",
+      "original_interpretation": "Desirable",
+      "fuzzy_candidates": [
+        {
+          "score": 0.9,
+          "alias_name": "Total Cholesterol",
+          "biomarker_id": "bm_chol_total",
+          "mastertable_interpretation": "A measure of the total amount of cholesterol in your blood, including LDL and HDL."
+        },
+        {
+          "score": 0.7,
+          "alias_name": "Serum Cholesterol",
+          "biomarker_id": "bm_chol_total",
+          "mastertable_interpretation": "The total concentration of cholesterol in the blood plasma."
+        }
+      ]
+    },
+    {
+      "id": "tr_005",
+      "test_name": "Hb-A1c",
+      "value": "5.7 %",
+      "original_interpretation": "Prediabetes range",
+      "fuzzy_candidates": [
+        {
+          "score": 0.95,
+          "alias_name": "HbA1c",
+          "biomarker_id": "bm_hba1c",
+          "mastertable_interpretation": "Measures your average blood sugar levels over the past 2-3 months."
+        },
+        {
+          "score": 0.8,
+          "alias_name": "Glycated Hemoglobin",
+          "biomarker_id": "bm_hba1c",
+          "mastertable_interpretation": "A form of hemoglobin that is measured primarily to identify the average plasma glucose concentration."
+        }
+      ]
+    },
+    {
+      "id": "tr_006",
+      "test_name": "B.U.N.",
+      "value": "15 mg/dL",
+      "original_interpretation": "Normal",
+      "fuzzy_candidates": [
+        {
+          "score": 0.92,
+          "alias_name": "BUN",
+          "biomarker_id": "bm_bun_001",
+          "mastertable_interpretation": "Blood Urea Nitrogen test measures the amount of nitrogen in your blood that comes from the waste product urea."
+        },
+        {
+          "score": 0.88,
+          "alias_name": "Urea Nitrogen",
+          "biomarker_id": "bm_bun_001",
+          "mastertable_interpretation": "A common blood test to evaluate kidney function."
+        }
+      ]
+    },
+    {
+      "id": "tr_007",
+      "test_name": "Thyroid Stim. Horm.",
+      "value": "2.5 mIU/L",
+      "original_interpretation": "Normal",
+      "fuzzy_candidates": [
+        {
+          "score": 0.89,
+          "alias_name": "TSH",
+          "biomarker_id": "bm_tsh_001",
+          "mastertable_interpretation": "Thyroid-stimulating hormone is produced by the pituitary gland to control thyroid hormone production."
+        },
+        {
+          "score": 0.75,
+          "alias_name": "Thyrotropin",
+          "biomarker_id": "bm_tsh_001",
+          "mastertable_interpretation": "Another name for TSH, used to monitor thyroid disorders."
+        }
+      ]
+    }
+  ],
+  "not_found": [
+    {
+      "id": "tr_008",
+      "test_name": "Hemoglobin",
+      "db_interpretation": "Normal level of oxygen-carrying protein.",
+      "value": "13.8 g/dL"
+    },
+    {
+      "id": "tr_009",
+      "test_name": "Blood Glucose (Fasting)",
+      "db_interpretation": "Blood sugar levels are within normal range.",
+      "value": "92 mg/dL"
+    },
+    {
+      "id": "tr_010",
+      "test_name": "TSH (Thyroid Stimulating Hormone)",
+      "db_interpretation": "Thyroid function appears healthy.",
+      "value": "2.45 mIU/L"
+    },
+    {
+      "id": "tr_011",
+      "test_name": "Vitamin B12",
+      "db_interpretation": "Sufficient B12 levels for nerve health.",
+      "value": "450 pg/mL"
+    },
+    {
+      "id": "tr_012",
+      "test_name": "Serum Ferritin",
+      "db_interpretation": "Iron storage levels are adequate.",
+      "value": "85 ng/mL"
+    },
+    {
+      "id": "tr_013",
+      "test_name": "LDL Cholesterol",
+      "db_interpretation": "Bad cholesterol is within desirable limits.",
+      "value": "110 mg/dL"
+    },
+    {
+      "id": "tr_014",
+      "test_name": "HDL Cholesterol",
+      "db_interpretation": "Good cholesterol levels are protective.",
+      "value": "55 mg/dL"
+    },
+    {
+      "id": "tr_015",
+      "test_name": "ALT (SGPT)",
+      "db_interpretation": "Liver enzyme levels are normal.",
+      "value": "28 U/L"
+    },
+    {
+      "id": "tr_016",
+      "test_name": "Serum Creatinine",
+      "db_interpretation": "Kidney waste filtration is working well.",
+      "value": "0.9 mg/dL"
+    },
+    {
+      "id": "tr_017",
+      "test_name": "Uric Acid",
+      "db_interpretation": "Levels are normal, low risk for gout.",
+      "value": "5.2 mg/dL"
+    }
+  ]
+}

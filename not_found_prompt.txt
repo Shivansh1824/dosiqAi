@@ -1,57 +1,39 @@
-Task: Filter biomarkers that health app users commonly track. Keep test_name exact. Return raw JSON only.
+Task: Select potential biomarkers from unmatched lab results that health app users commonly track. Return raw JSON with selected IDs only.
 
-Step 1: Scan input to identify absolute/% pairs.
+INPUT STRUCTURE:
+{
+  "id": "unique_id",
+  "test_name": "name of test",
+  "db_interpretation": "lab interpretation",
+  "value": "numeric value with unit"
+}
 
-Step 2 - EXCLUDE (always reject these):
+SELECTION LOGIC:
+1. Analyze 'test_name' first - Recognize and translate common medical abbreviations (e.g., "Vit" for Vitamin, "HDL" for High-Density Lipoprotein, "B12" for Cobalamin).
+2. If test_name is unclear/vague, use 'value' (including UNIT) + 'db_interpretation' for context. 
+   - UNIT SENSITIVITY: Use units as clues (e.g., mIU/L often indicates Thyroid/TSH, ng/mL often indicates Vitamin D or Ferritin).
+3. Include if: user-friendly, commonly tracked, or has clear health implications.
+   - GOLD STANDARD TARGETS: Glucose, Vitamin D, B12, TSH (Thyroid), Ferritin (Iron), LDL/HDL Cholesterol, Albumin, HbA1c.
 
-Ratios with "/" or "Ratio" in name (calculated from other tests)
-Derived/calculated values (Average Glucose from HbA1c, eAG)
-Absolute counts if percentage version exists in same input
-Subjective observations (Color, Appearance, Odor)
-Microscopy details (Epithelial Cells, Casts, Crystals, Bacteria, Yeast)
-Obscure urine chemicals (Ketones, Nitrite, Urobilinogen, Bile Salts/Pigments)
-Step 3 - EVALUATE each remaining test: Would average health app users track this?
+ALWAYS EXCLUDE:
+- Ratios (contains "/" or "Ratio")
+- Derived/calculated values (eAG, averages)
+- Absolute counts if % version exists in input
+- Subjective markers (Color, Odor, Appearance)
+- Microscopy (Cells, Casts, Crystals, Bacteria, Yeast)
+- Obscure chemicals (Ketones, Nitrite, Urobilinogen, Bile)
+- Technical indices users don't understand (MCH, MCHC, RDW, MPV, PDW, MCV)
+- Cell differentials (Neutrophils%, Lymphocytes%, Monocytes%, Eosinophils%, Basophils%)
+- Redundant tests (PCV when Hb exists, Urea when BUN exists)
+- Tests requiring medical expertise to interpret
 
-Decision criteria (ALL must be YES):
+OUTPUT:
+[{ "id": "tr_xxx" }]
 
-Understandability: Can non-medical users understand what this measures?
-Actionability: Can users take action based on results (diet, lifestyle, doctor visit)?
-Popularity: Is this commonly discussed in health/wellness content?
-Tracking value: Do users benefit from monitoring this over time?
-RED FLAGS (likely exclude):
-
-Technical lab indices (MCH, MCHC, RDW, MPV, PDW, MCV)
-Detailed cell breakdowns (Neutrophils%, Lymphocytes%, Monocytes%, Eosinophils%, Basophils%)
-Redundant measurements (PCV when Hemoglobin exists, Urea when BUN exists)
-Specialist-only tests rarely ordered by GPs
-Tests users can't interpret without medical training
-GREEN FLAGS (likely include):
-
-Tests mentioned in health articles/apps (cholesterol, blood sugar, vitamin levels)
-Tests for common conditions (diabetes, heart disease, thyroid, anemia)
-Tests users ask doctors about regularly
-Tests with clear health implications
-ALIAS NAMES REQUIREMENT (CRITICAL):
-
-Provide EXACTLY 5-6 alternative names
-Include: common abbreviation, full standardized name, clinical variations, informal names
-Order: [Most common abbreviation, Full clinical name, Alternative abbreviation, Informal name, Variation]
-Examples:
-"Hemoglobin" → ["Hb", "HGB", "Hemoglobin Level", "Blood Hemoglobin", "Haemoglobin", "Red Blood Protein"]
-"Cholesterol" → ["Total Cholesterol", "Chol", "Serum Cholesterol", "Blood Cholesterol", "Total Chol", "TC"]
-"HbA1c" → ["Glycosylated Hemoglobin", "A1c", "Glycohemoglobin", "Hemoglobin A1c", "HbA1C", "Glycated Hemoglobin"]
-OUTPUT FORMAT:
-[{
-"test_name": "exact from input",
-"alias_names": ["Alt1", "Alt2", "Alt3", "Alt4", "Alt5", "Alt6"],
-"mastertable_interpretation": "15-25 words patient-friendly"
-}]
+CRITICAL: Keep id exactly as input - never modify.
 
 Examples:
-"Hemoglobin" → users understand (anemia), actionable (iron intake), popular → INCLUDE
-"Cholesterol" → users track for heart health, very popular → INCLUDE
-"HbA1c" → users with diabetes track this, popular → INCLUDE
-"MCH" → technical term, users don't know what it means → EXCLUDE
-"Neutrophils" → users don't understand cell types → EXCLUDE
-"WBC" total → users understand "immune cells" → INCLUDE
-"PCV" when "Hemoglobin" exists → redundant → EXCLUDE
+- "Hemoglobin" → anemia marker, popular → SELECT
+- "Vit D" → abbreviation for Vitamin D → SELECT
+- "Unknown X" (value: "10 mIU/L", interp: "Pituitary hormone") → unit and context show TSH → SELECT
+- "MCH" → technical, not user-friendly → REJECT
