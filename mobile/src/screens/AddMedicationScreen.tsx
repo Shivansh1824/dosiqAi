@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform, Switch, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
@@ -57,8 +57,10 @@ export default function AddMedicationScreen() {
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState<{show: boolean, index: number}>({show: false, index: -1});
     const [showUnitPicker, setShowUnitPicker] = useState(false);
+    const [groupSaveStatus, setGroupSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
     const isInternalSync = React.useRef(false);
+    const isInitialGroupMount = React.useRef(true);
 
     // Initialize
     useEffect(() => {
@@ -91,107 +93,15 @@ export default function AddMedicationScreen() {
         night: activeMember?.night_dose_time
     }), [activeMember?.morning_dose_time, activeMember?.afternoon_dose_time, activeMember?.night_dose_time]);
 
-    // Frequency & Group Sync Logic (copied from modal)
-    useEffect(() => {
-        if (isInternalSync.current) return;
-        if (timesPerDay === reminderTimes.length) return;
-        
-        if (timesPerDay > reminderTimes.length) {
-            const needed = timesPerDay - reminderTimes.length;
-            const newTimes = [...reminderTimes];
-            const addedGroups = [...selectedGroups];
-            
-            const candidates = [
-                { id: 'morning', val: parseTime(memberDoseTimes.morning) || parseTime("08:00:00") },
-                { id: 'afternoon', val: parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00") },
-                { id: 'night', val: parseTime(memberDoseTimes.night) || parseTime("21:00:00") }
-            ];
-
-            const isTimePresent = (t: Date) => newTimes.some(nt => nt.getHours() === t.getHours() && nt.getMinutes() === t.getMinutes());
-            let addedCount = 0;
-            
-            for (const cand of candidates) {
-                if (addedCount >= needed) break;
-                if (cand.val && !isTimePresent(cand.val)) {
-                    newTimes.push(cand.val);
-                    if (!addedGroups.includes(cand.id)) addedGroups.push(cand.id);
-                    addedCount++;
-                }
-            }
-            
-            while (addedCount < needed) {
-                const base = newTimes.length > 0 ? newTimes[newTimes.length - 1] : parseTime("08:00:00");
-                const next = new Date(base!.getTime());
-                next.setHours(next.getHours() + 4);
-                newTimes.push(next);
-                addedCount++;
-            }
-            
-            newTimes.sort((a, b) => a.getTime() - b.getTime());
-            isInternalSync.current = true;
-            setReminderTimes(newTimes);
-            setSelectedGroups(addedGroups);
-            setTimeout(() => isInternalSync.current = false, 0);
-        } else if (timesPerDay < reminderTimes.length) {
-             const newTimes = reminderTimes.slice(0, timesPerDay);
-             const validGroups: string[] = [];
-             const toMinutes = (d: Date) => d.getHours() * 60 + d.getMinutes();
-             const morningMins = (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.morning) || parseTime("08:00:00"))!.getMinutes();
-             const afternoonMins = (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00"))!.getMinutes();
-             const nightMins = (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getHours() * 60 + (parseTime(memberDoseTimes.night) || parseTime("21:00:00"))!.getMinutes();
-
-             newTimes.forEach(t => {
-                 const tm = toMinutes(t);
-                 if (tm === morningMins && !validGroups.includes('morning')) validGroups.push('morning');
-                 if (tm === afternoonMins && !validGroups.includes('afternoon')) validGroups.push('afternoon');
-                 if (tm === nightMins && !validGroups.includes('night')) validGroups.push('night');
-             });
-
-             isInternalSync.current = true;
-             setReminderTimes(newTimes);
-             setSelectedGroups(validGroups);
-             setTimeout(() => isInternalSync.current = false, 0);
-        }
-    }, [timesPerDay, memberDoseTimes]);
-
-    useEffect(() => {
-        if (isInternalSync.current) return;
-        const newTimes: Date[] = [];
-        if (selectedGroups.includes('morning')) {
-            const t = parseTime(memberDoseTimes.morning) || parseTime("08:00:00");
-            if (t) newTimes.push(t);
-        }
-        if (selectedGroups.includes('afternoon')) {
-            const t = parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00");
-            if (t) newTimes.push(t);
-        }
-        if (selectedGroups.includes('night')) {
-             const t = parseTime(memberDoseTimes.night) || parseTime("21:00:00");
-             if (t) newTimes.push(t);
-        }
-        newTimes.sort((a, b) => a.getTime() - b.getTime());
-        isInternalSync.current = true;
-        setReminderTimes(newTimes);
-        setTimesPerDay(newTimes.length || 1);
-        if (newTimes.length === 1) setFrequency('once_daily');
-        else if (newTimes.length === 2) setFrequency('twice_daily');
-        else if (newTimes.length === 3) setFrequency('three_times_daily');
-        setTimeout(() => isInternalSync.current = false, 0);
-    }, [selectedGroups, memberDoseTimes]);
-
-    useEffect(() => {
-        const defaults = MEDICINE_TYPE_DEFAULTS[selectedType] || MEDICINE_TYPE_DEFAULTS.default;
-        setStrengthUnit(defaults.defaultStrengthUnit);
-    }, [selectedType]);
-
+    // 1. Frequency -> TimesPerDay & IntervalDays
     useEffect(() => {
         if (isInternalSync.current) return;
         let newTimesPerDay = timesPerDay;
         let newIntervalDays = intervalDays;
+        
         if (frequency === 'once_daily') { newTimesPerDay = 1; newIntervalDays = '1'; }
         else if (frequency === 'twice_daily') { newTimesPerDay = 2; newIntervalDays = '1'; }
         else if (frequency === 'three_times_daily') { newTimesPerDay = 3; newIntervalDays = '1'; }
-        else if (frequency === 'four_times_daily') { newTimesPerDay = 4; newIntervalDays = '1'; }
         else if (frequency === 'weekly') { newTimesPerDay = 1; newIntervalDays = '7'; }
         else if (frequency === 'monthly') { newTimesPerDay = 1; newIntervalDays = '30'; }
         else if (frequency === 'as_needed') { newTimesPerDay = 1; newIntervalDays = '0'; }
@@ -200,9 +110,154 @@ export default function AddMedicationScreen() {
             isInternalSync.current = true;
             setTimesPerDay(newTimesPerDay);
             setIntervalDays(newIntervalDays);
-            setTimeout(() => isInternalSync.current = false, 0);
+            setTimeout(() => isInternalSync.current = false, 50);
         }
     }, [frequency]);
+
+    // 2. TimesPerDay -> Groups & Reminder Times
+    useEffect(() => {
+        if (isInternalSync.current) return;
+        if (timesPerDay === reminderTimes.length) return;
+
+        const newTimes = [...reminderTimes];
+        const newGroups = [...selectedGroups];
+        const candidates = [
+            { id: 'morning', val: parseTime(memberDoseTimes.morning) || parseTime("08:00:00") },
+            { id: 'afternoon', val: parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00") },
+            { id: 'night', val: parseTime(memberDoseTimes.night) || parseTime("21:00:00") }
+        ];
+
+        if (timesPerDay > reminderTimes.length) {
+            // Add times/groups
+            let added = 0;
+            const diff = timesPerDay - reminderTimes.length;
+            
+            // First try to add from standard groups
+            for (const cand of candidates) {
+                if (added < diff && cand.val && !newTimes.some(t => t.getHours() === cand.val!.getHours())) {
+                    newTimes.push(cand.val);
+                    if (!newGroups.includes(cand.id)) newGroups.push(cand.id);
+                    added++;
+                }
+            }
+            // If still more needed, add +4 hours from last
+            while (added < diff) {
+                const base = newTimes.length > 0 ? newTimes[newTimes.length - 1] : parseTime("08:00:00");
+                const next = new Date(base!.getTime());
+                next.setHours(next.getHours() + 4);
+                newTimes.push(next);
+                added++;
+            }
+        } else {
+            // Remove times/groups
+            newTimes.splice(timesPerDay);
+            // Re-sync groups from remaining times
+            const validGroups: string[] = [];
+            newTimes.forEach(t => {
+                candidates.forEach(c => {
+                    if (c.val && t.getHours() === c.val.getHours() && t.getMinutes() === c.val.getMinutes()) {
+                        if (!validGroups.includes(c.id)) validGroups.push(c.id);
+                    }
+                });
+            });
+            newGroups.length = 0;
+            newGroups.push(...validGroups);
+        }
+
+        newTimes.sort((a, b) => a.getTime() - b.getTime());
+        isInternalSync.current = true;
+        setReminderTimes(newTimes);
+        setSelectedGroups(newGroups);
+        setTimeout(() => isInternalSync.current = false, 50);
+    }, [timesPerDay, memberDoseTimes]);
+
+    // 3. Groups -> Reminder Times & TimesPerDay & Frequency
+    useEffect(() => {
+        if (isInternalSync.current) return;
+        const newTimes: Date[] = [];
+        const candidates = [
+            { id: 'morning', val: parseTime(memberDoseTimes.morning) || parseTime("08:00:00") },
+            { id: 'afternoon', val: parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00") },
+            { id: 'night', val: parseTime(memberDoseTimes.night) || parseTime("21:00:00") }
+        ];
+
+        selectedGroups.forEach(gid => {
+            const cand = candidates.find(c => c.id === gid);
+            if (cand?.val) newTimes.push(cand.val);
+        });
+
+        // Also keep any non-standard times that were manually added? 
+        // For simplicity with "Group" sync, we let groups manage the list.
+        
+        newTimes.sort((a, b) => a.getTime() - b.getTime());
+        
+        isInternalSync.current = true;
+        setReminderTimes(newTimes);
+        setTimesPerDay(newTimes.length || 1);
+        
+        // Update frequency label based on count
+        if (newTimes.length === 1) setFrequency('once_daily');
+        else if (newTimes.length === 2) setFrequency('twice_daily');
+        else if (newTimes.length === 3) setFrequency('three_times_daily');
+        else setFrequency('specific_interval');
+        
+        setTimeout(() => isInternalSync.current = false, 50);
+    }, [selectedGroups, memberDoseTimes]);
+
+    // 4. ReminderTimes -> SelectedGroups & TimesPerDay & Frequency
+    useEffect(() => {
+        if (isInternalSync.current) return;
+        
+        const candidates = [
+            { id: 'morning', val: parseTime(memberDoseTimes.morning) || parseTime("08:00:00") },
+            { id: 'afternoon', val: parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00") },
+            { id: 'night', val: parseTime(memberDoseTimes.night) || parseTime("21:00:00") }
+        ];
+
+        const newGroups: string[] = [];
+        reminderTimes.forEach(t => {
+            candidates.forEach(c => {
+                if (c.val && t.getHours() === c.val.getHours() && t.getMinutes() === c.val.getMinutes()) {
+                    if (!newGroups.includes(c.id)) newGroups.push(c.id);
+                }
+            });
+        });
+
+        isInternalSync.current = true;
+        setSelectedGroups(newGroups);
+        setTimesPerDay(reminderTimes.length || 1);
+        
+        // Update frequency label
+        if (reminderTimes.length === 1) {
+            if (frequency !== 'weekly' && frequency !== 'monthly' && frequency !== 'as_needed') {
+                setFrequency('once_daily');
+            }
+        } else if (reminderTimes.length === 2) setFrequency('twice_daily');
+        else if (reminderTimes.length === 3) setFrequency('three_times_daily');
+        else setFrequency('specific_interval');
+
+        setTimeout(() => isInternalSync.current = false, 50);
+    }, [reminderTimes, memberDoseTimes]);
+
+    // 5. Watch for group changes to show saving effect
+    useEffect(() => {
+        if (showGroupPicker) {
+            if (isInitialGroupMount.current) {
+                isInitialGroupMount.current = false;
+                return;
+            }
+            
+            setGroupSaveStatus('saving');
+            const timer = setTimeout(() => {
+                setGroupSaveStatus('saved');
+                setTimeout(() => setGroupSaveStatus('idle'), 1500);
+            }, 800);
+            return () => clearTimeout(timer);
+        } else {
+            isInitialGroupMount.current = true;
+            setGroupSaveStatus('idle');
+        }
+    }, [selectedGroups, showGroupPicker]);
 
     const handleSave = async () => {
         if (!user?.id) {
@@ -558,7 +613,27 @@ export default function AddMedicationScreen() {
             <Modal visible={showGroupPicker} transparent animationType="fade" onRequestClose={() => setShowGroupPicker(false)}>
                 <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowGroupPicker(false)}>
                     <View style={styles.pickerContent}>
-                        <Text style={styles.pickerTitle}>Select Group</Text>
+                        <View style={styles.modalHeader}>
+                            <TouchableOpacity onPress={() => setShowGroupPicker(false)} style={styles.modalCloseButton}>
+                                <Feather name="x" size={20} color={Colors.textPrimary} />
+                            </TouchableOpacity>
+                            <Text style={styles.pickerTitle}>Select Group</Text>
+                            <View style={styles.headerStatusContainer}>
+                                {groupSaveStatus === 'saving' && (
+                                    <View style={styles.statusIndicator}>
+                                        <ActivityIndicator size="small" color={Colors.primary} style={{ transform: [{ scale: 0.7 }] }} />
+                                        <Text style={styles.statusText}>Saving...</Text>
+                                    </View>
+                                )}
+                                {groupSaveStatus === 'saved' && (
+                                    <View style={styles.statusIndicator}>
+                                        <Feather name="check" size={14} color="#10B981" />
+                                        <Text style={[styles.statusText, { color: '#10B981' }]}>Saved</Text>
+                                    </View>
+                                )}
+                                {groupSaveStatus === 'idle' && <View style={{ width: 32 }} />}
+                            </View>
+                        </View>
                         <TouchableOpacity style={[styles.groupOption, selectedGroups.length === 0 && styles.groupOptionSelected]} onPress={() => { setSelectedGroups([]); setShowGroupPicker(false); }}>
                             <Text style={[styles.groupOptionText, selectedGroups.length === 0 && { color: Colors.primary }]}>None</Text>
                         </TouchableOpacity>
@@ -571,9 +646,6 @@ export default function AddMedicationScreen() {
                                 {selectedGroups.includes(g) && <Feather name="check" size={20} color={Colors.primary} />}
                             </TouchableOpacity>
                         ))}
-                        <TouchableOpacity style={[styles.saveButton, { marginTop: 20 }]} onPress={() => setShowGroupPicker(false)}>
-                            <Text style={styles.saveButtonText}>Done</Text>
-                        </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
             </Modal>
@@ -585,6 +657,13 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.white },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Sizes.lg, paddingVertical: Sizes.md, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
     headerTitle: { ...Typography.styles.h3, color: Colors.textPrimary },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+    modalCloseButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16, backgroundColor: Colors.gray50 },
+    modalDoneButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16, backgroundColor: Colors.primary + '10' },
+    headerStatusContainer: { minWidth: 70, height: 32, justifyContent: 'center', alignItems: 'flex-end' },
+    statusIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, gap: 4 },
+    statusText: { fontSize: 10, fontWeight: '700', color: Colors.gray600 },
+    pickerTitle: { ...Typography.styles.h4, color: Colors.textPrimary, marginBottom: 0 },
     closeButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20, backgroundColor: Colors.gray50 },
     content: { flex: 1, paddingHorizontal: Sizes.lg },
     section: { marginTop: Sizes.xl },
@@ -623,7 +702,6 @@ const styles = StyleSheet.create({
     saveButtonText: { fontSize: 17, fontWeight: '700', color: Colors.white },
     pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     pickerContent: { backgroundColor: Colors.white, borderRadius: 20, padding: Sizes.xl, width: '85%' },
-    pickerTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, textAlign: 'center' },
     pickerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10 },
     pickerItemSelected: { backgroundColor: Colors.primary + '10' },
     pickerItemText: { fontSize: 16, color: Colors.textSecondary },
