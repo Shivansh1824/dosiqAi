@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform, Switch, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
 import { MedicationFrequency, FoodRelationship, medicationColors } from '../types/medication';
 import { MEDICINE_TYPE_DEFAULTS } from '../constants/medicationDefaults';
@@ -15,6 +15,10 @@ import DatePickerModal from '../components/DatePickerModal';
 import { useNotifications } from '../hooks/useNotifications';
 import * as Haptics from 'expo-haptics';
 import { Modal } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown, FadeOut, withSpring, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+
+const { width } = Dimensions.get('window');
 
 // Define MedicineType locally based on ICON_THEMES
 type MedicineType = keyof typeof ICON_THEMES;
@@ -62,6 +66,8 @@ export default function AddMedicationScreen() {
     const [showErrors, setShowErrors] = useState(false);
     const [showCustomModal, setShowCustomModal] = useState(false);
     const [customSaveStatus, setCustomSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [isNameFocused, setIsNameFocused] = useState(false);
+    const [isStrengthFocused, setIsStrengthFocused] = useState(false);
 
     const isInternalSync = React.useRef(false);
     const isInitialGroupMount = React.useRef(true);
@@ -95,9 +101,9 @@ export default function AddMedicationScreen() {
         morning: activeMember?.morning_dose_time,
         afternoon: activeMember?.afternoon_dose_time,
         night: activeMember?.night_dose_time
-    }), [activeMember?.morning_dose_time, activeMember?.afternoon_dose_time, activeMember?.night_dose_time]);
+}), [activeMember?.morning_dose_time, activeMember?.afternoon_dose_time, activeMember?.night_dose_time]);
 
-    // 1. Frequency -> TimesPerDay & Groups & Reminder Times
+// 1. Frequency -> TimesPerDay & Groups & Reminder Times
     useEffect(() => {
         if (isInternalSync.current) return;
         let newTimesPerDay = timesPerDay;
@@ -524,15 +530,45 @@ export default function AddMedicationScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-                    <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Add Medication</Text>
-                <View style={{ width: 40 }} />
+        <View style={styles.container}>
+            {/* Ambient Background */}
+            <View style={StyleSheet.absoluteFillObject}>
+                <LinearGradient
+                    colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+                    style={StyleSheet.absoluteFillObject}
+                />
             </View>
+
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                {/* Elite H-Level Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity 
+                        onPress={() => navigation.goBack()} 
+                        style={styles.backButton}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                    
+                    <View style={styles.headerContent}>
+                        <Text style={styles.headerTitle}>Add Medicine</Text>
+                        <Text style={styles.headerSubtitle}>
+                            {new Date().toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                month: 'long',
+                                day: 'numeric'
+                            })}
+                        </Text>
+                    </View>
+
+                    <TouchableOpacity 
+                        style={styles.doneButton}
+                        onPress={handleSave}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name="check" size={24} color={Colors.primary} />
+                    </TouchableOpacity>
+                </View>
 
             <ScrollView
                 style={styles.content}
@@ -542,69 +578,114 @@ export default function AddMedicationScreen() {
             >
                 {/* Family Member Selection */}
                 {familyMembers.length > 1 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>For Whom?</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContainer}>
+                    <Animated.View entering={FadeInDown.delay(100)} style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>For Whom?</Text>
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberScrollContent}>
                             {familyMembers.map(member => (
                                 <TouchableOpacity
                                     key={member.id}
-                                    style={[styles.chip, selectedMemberId === member.id && styles.chipSelected]}
-                                    onPress={() => setSelectedMemberId(member.id)}
+                                    style={[styles.memberCard, selectedMemberId === member.id && styles.memberCardSelected]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setSelectedMemberId(member.id);
+                                    }}
                                 >
-                                    <MaterialIcons
-                                        name={member.relationship === 'Self' ? 'person' : 'people'}
-                                        size={16}
-                                        color={selectedMemberId === member.id ? Colors.white : Colors.textSecondary}
-                                    />
-                                    <Text style={[styles.chipText, selectedMemberId === member.id && styles.chipTextSelected]}>
+                                    <View style={[styles.memberAvatar, selectedMemberId === member.id && styles.memberAvatarActive]}>
+                                        <MaterialIcons
+                                            name={member.relationship === 'Self' ? 'person' : 'people'}
+                                            size={20}
+                                            color={selectedMemberId === member.id ? Colors.white : Colors.textSecondary}
+                                        />
+                                    </View>
+                                    <Text style={[styles.memberCardName, selectedMemberId === member.id && styles.memberCardNameSelected]}>
                                         {member.name}
                                     </Text>
+                                    {selectedMemberId === member.id && (
+                                        <Animated.View entering={FadeIn.duration(200)} style={styles.memberCheckmark}>
+                                            <MaterialIcons name="check-circle" size={14} color={Colors.primary} />
+                                        </Animated.View>
+                                    )}
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
-                    </View>
+                    </Animated.View>
                 )}
 
                 {/* Medication Details */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Medication Details</Text>
-                    <Text style={styles.label}>Medicine Name *</Text>
-                    <TextInput
-                        style={[styles.input, showErrors && errors.name && styles.inputError]}
-                        placeholder="e.g., Amoxicillin"
-                        value={name}
-                        onChangeText={(text) => setName(text)}
-                    />
-                    {showErrors && errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+                <Animated.View entering={FadeInDown.delay(200)} style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Medication Details</Text>
+                    </View>
+                    
+                    <View style={styles.premiumInputCard}>
+                        <View style={styles.inputLabelRow}>
+                            <Text style={styles.premiumLabel}>Medicine Name *</Text>
+                            {name ? <Feather name="check" size={14} color={Colors.success} /> : null}
+                        </View>
+                        <View style={[
+                            styles.inputContainer, 
+                            isNameFocused && styles.auraFocus,
+                            showErrors && errors.name && styles.inputError
+                        ]}>
+                            <TextInput
+                                style={styles.premiumTextInput}
+                                placeholder="e.g., Amoxicillin"
+                                placeholderTextColor={Colors.textTertiary}
+                                value={name}
+                                onChangeText={(text) => setName(text)}
+                                onFocus={() => setIsNameFocused(true)}
+                                onBlur={() => setIsNameFocused(false)}
+                            />
+                        </View>
+                        {showErrors && errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-                    <Text style={[styles.label, { marginTop: Sizes.md }]}>Strength (Optional)</Text>
-                    <View style={styles.combinedInputContainer}>
-                        <TextInput
-                            style={[styles.inputUnstyled, { flex: 1 }]}
-                            placeholder="e.g., 500"
-                            keyboardType="numeric"
-                            value={strengthValue}
-                            onChangeText={setStrengthValue}
-                        />
-                        <View style={styles.verticalDivider} />
-                        <TouchableOpacity 
-                            style={styles.unitSelector}
-                            onPress={() => setShowUnitPicker(true)}
-                        >
-                            <Text style={styles.unitSelectorText}>{strengthUnit}</Text>
-                            <Feather name="chevron-down" size={16} color={Colors.textSecondary} />
-                        </TouchableOpacity>
+                        <View style={styles.inputLabelRow}>
+                            <Text style={[styles.premiumLabel, { marginTop: Sizes.md }]}>Strength (Optional)</Text>
+                        </View>
+                        <View style={[styles.combinedInputContainer, isStrengthFocused && styles.auraFocus]}>
+                            <TextInput
+                                style={styles.inputUnstyled}
+                                placeholder="e.g., 500"
+                                placeholderTextColor={Colors.textTertiary}
+                                keyboardType="numeric"
+                                value={strengthValue}
+                                onChangeText={setStrengthValue}
+                                onFocus={() => setIsStrengthFocused(true)}
+                                onBlur={() => setIsStrengthFocused(false)}
+                            />
+                            <View style={styles.verticalDivider} />
+                            <TouchableOpacity 
+                                style={styles.unitSelector}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setShowUnitPicker(true);
+                                }}
+                            >
+                                <Text style={styles.unitSelectorText}>{strengthUnit}</Text>
+                                <Feather name="chevron-down" size={16} color={Colors.primary} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
-                    <Text style={[styles.label, { marginTop: Sizes.md }]}>Type</Text>
+                    <View style={[styles.inputLabelRow, { marginTop: Sizes.lg }]}>
+                        <Text style={styles.premiumLabel}>Medicine Type</Text>
+                        <Text style={styles.selectedTypeText}>{selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}</Text>
+                    </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeScrollContent}>
                         {availableTypes.map((type) => (
                             <TouchableOpacity
                                 key={type}
                                 style={[styles.typeCard, selectedType === type && styles.typeCardSelected, showErrors && errors.type && styles.typeCardError]}
-                                onPress={() => setSelectedType(type as MedicineType)}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setSelectedType(type as MedicineType);
+                                }}
                             >
-                                <MedicationIcon form={type} size={24} />
+                                <View style={[styles.typeIconContainer, selectedType === type && styles.typeIconContainerActive]}>
+                                    <MedicationIcon form={type} size={24} color={selectedType === type ? Colors.white : Colors.textSecondary} />
+                                </View>
                                 <Text style={[styles.typeCardLabel, selectedType === type && styles.typeCardLabelSelected]}>
                                     {type.charAt(0).toUpperCase() + type.slice(1)}
                                 </Text>
@@ -612,139 +693,215 @@ export default function AddMedicationScreen() {
                         ))}
                     </ScrollView>
                     {showErrors && errors.type && <Text style={styles.errorText}>{errors.type}</Text>}
-                </View>
+                </Animated.View>
 
-                {/* Group & Instructions */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Dosage & Instructions</Text>
-                    <Text style={styles.label}>Group</Text>
-                    <TouchableOpacity style={styles.groupSelectorBar} onPress={() => setShowGroupPicker(true)}>
-                        <Text style={[styles.groupSelectorText, selectedGroups.length === 0 && { color: Colors.textSecondary }]}>
-                            {selectedGroups.length > 0 ? selectedGroups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(', ') : 'None'}
-                        </Text>
-                        <Feather name="chevron-down" size={20} color={Colors.textSecondary} />
-                    </TouchableOpacity>
+                {/* Dosage & Instructions */}
+                <Animated.View style={styles.section} entering={FadeInDown.delay(300).duration(500)}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Dosage & Instructions</Text>
+                    </View>
 
-                    <Text style={[styles.label, { marginTop: Sizes.md }]}>When to take?</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContainer}>
-                        {(['anytime', 'before_food', 'with_food', 'after_food', 'empty_stomach'] as FoodRelationship[]).map((rel) => (
-                            <TouchableOpacity
-                                key={rel}
-                                style={[styles.chip, foodRelationship === rel && styles.chipSelected]}
-                                onPress={() => setFoodRelationship(rel)}
-                            >
-                                <Text style={[styles.chipText, foodRelationship === rel && styles.chipTextSelected]}>
-                                    {rel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
+                    <View style={styles.premiumInputCard}>
+                        <Text style={styles.premiumLabel}>Time of Day (Group)</Text>
+                        <TouchableOpacity style={[styles.groupSelectorBar, { marginTop: 8 }]} onPress={() => setShowGroupPicker(true)}>
+                            <Text style={[styles.groupSelectorText, selectedGroups.length === 0 && { color: Colors.textSecondary }]}>
+                                {selectedGroups.length > 0 ? selectedGroups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(', ') : 'Select group...'}
+                            </Text>
+                            <Feather name="chevron-down" size={20} color={Colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        <Text style={[styles.premiumLabel, { marginTop: 20 }]}>Food Relationship</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chipContainer, { marginTop: 8, paddingBottom: 5 }]}>
+                            {(['anytime', 'before_food', 'with_food', 'after_food', 'empty_stomach'] as FoodRelationship[]).map((rel) => (
+                                <TouchableOpacity
+                                    key={rel}
+                                    style={[styles.chip, foodRelationship === rel && styles.chipSelected]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setFoodRelationship(rel);
+                                    }}
+                                >
+                                    <Text style={[styles.chipText, foodRelationship === rel && styles.chipTextSelected]}>
+                                        {rel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </Animated.View>
 
                 {/* Schedule */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Schedule</Text>
-                    <Text style={styles.label}>Frequency</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContainer}>
-                        {[
-                            { label: 'Once Daily', val: 'once_daily' },
-                            { label: 'Twice Daily', val: 'twice_daily' },
-                            { label: '3x Daily', val: 'three_times_daily' },
-                            { label: 'Weekly', val: 'weekly' },
-                            { label: 'Custom', val: 'specific_interval' }
-                        ].map((opt) => (
-                            <TouchableOpacity
-                                key={opt.val}
-                                style={[styles.chip, frequency === opt.val && styles.chipSelected]}
-                                onPress={() => {
-                                    setFrequency(opt.val as any);
-                                    if (opt.val === 'specific_interval') {
-                                        setShowCustomModal(true);
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.chipText, frequency === opt.val && styles.chipTextSelected]}>
-                                    {opt.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
+                <Animated.View style={styles.section} entering={FadeInDown.delay(400).duration(500)}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Schedule</Text>
+                    </View>
 
-                    {frequency === 'specific_interval' && timesPerDay > 0 && (
-                        <TouchableOpacity 
-                            style={[styles.customSummaryCard, showErrors && (errors.timesPerDay || errors.intervalDays) && styles.inputError]} 
-                            onPress={() => setShowCustomModal(true)}
-                        >
-                            <View style={styles.customSummaryLeft}>
-                                <View style={styles.customSummaryIcon}>
-                                    <Feather name="calendar" size={18} color={Colors.primary} />
-                                </View>
-                                <View>
-                                    <Text style={styles.customSummaryTitle}>Custom Schedule</Text>
-                                    <Text style={styles.customSummaryText}>
-                                        {timesPerDay} {timesPerDay === 1 ? 'Time' : 'Times'}, {parseInt(intervalDays) === 1 ? 'Everyday' : `Every ${intervalDays} Days`}
+                    <View style={styles.premiumInputCard}>
+                        <Text style={styles.premiumLabel}>Frequency</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chipContainer, { marginTop: 8, paddingBottom: 5 }]}>
+                            {[
+                                { label: 'Once Daily', val: 'once_daily' },
+                                { label: 'Twice Daily', val: 'twice_daily' },
+                                { label: '3x Daily', val: 'three_times_daily' },
+                                { label: 'Weekly', val: 'weekly' },
+                                { label: 'Custom', val: 'specific_interval' }
+                            ].map((opt) => (
+                                <TouchableOpacity
+                                    key={opt.val}
+                                    style={[styles.chip, frequency === opt.val && styles.chipSelected]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setFrequency(opt.val as any);
+                                        if (opt.val === 'specific_interval') {
+                                            setShowCustomModal(true);
+                                        }
+                                    }}
+                                >
+                                    <Text style={[styles.chipText, frequency === opt.val && styles.chipTextSelected]}>
+                                        {opt.label}
                                     </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        {frequency === 'specific_interval' && timesPerDay > 0 && (
+                            <TouchableOpacity 
+                                style={[styles.customSummaryCard, { marginTop: 12 }, showErrors && (errors.timesPerDay || errors.intervalDays) && styles.inputError]} 
+                                onPress={() => setShowCustomModal(true)}
+                            >
+                                <View style={styles.customSummaryLeft}>
+                                    <View style={styles.customSummaryIcon}>
+                                        <Feather name="settings" size={18} color={Colors.primary} />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.customSummaryTitle}>Schedule Config</Text>
+                                        <Text style={styles.customSummaryText}>
+                                            {timesPerDay} {timesPerDay === 1 ? 'Time' : 'Times'}, {parseInt(intervalDays) === 1 ? 'Everyday' : `Every ${intervalDays} Days`}
+                                        </Text>
+                                    </View>
                                 </View>
-                            </View>
-                            <Feather name="edit-2" size={16} color={Colors.textSecondary} />
-                        </TouchableOpacity>
-                    )}
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Sizes.md }}>
-                        <Text style={styles.label}>Reminder Times</Text>
-                        <TouchableOpacity onPress={handleAddTime}>
-                            <Feather name="plus-circle" size={24} color={Colors.primary} />
-                        </TouchableOpacity>
+                                <Feather name="edit-2" size={16} color={Colors.textSecondary} />
+                            </TouchableOpacity>
+                        )}
                     </View>
-                    
-                    <View style={styles.timeGrid}>
-                        {reminderTimes.map((time, index) => (
-                            <View key={index} style={{ position: 'relative' }}>
-                                <TouchableOpacity style={styles.timeChip} onPress={() => setShowTimePicker({ show: true, index })}>
-                                    <Feather name="clock" size={14} color={Colors.primary} />
-                                    <Text style={styles.timeChipText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.removeTimeButton} onPress={() => handleRemoveTime(index)}>
-                                    <Feather name="minus" size={12} color={Colors.white} />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                    </View>
-                    {showErrors && errors.reminderTimes && <Text style={styles.errorText}>{errors.reminderTimes}</Text>}
 
-                    <Text style={[styles.label, { marginTop: Sizes.md }]}>Duration</Text>
-                    <View style={[styles.card, showErrors && errors.endDate && styles.inputError]}>
-                        <View style={styles.rowBetween}>
-                            <Text style={styles.cardLabel}>Continuous Treatment</Text>
-                            <Switch trackColor={{ false: Colors.gray200, true: Colors.primary }} thumbColor={Colors.white} onValueChange={setIsContinuous} value={isContinuous} />
+                    <View style={[styles.premiumInputCard, { marginTop: 12 }]}>
+                        <View style={styles.inputLabelRow}>
+                            <Text style={styles.premiumLabel}>Reminder Times</Text>
+                            <TouchableOpacity onPress={handleAddTime}>
+                                <Feather name="plus-circle" size={22} color={Colors.primary} />
+                            </TouchableOpacity>
                         </View>
-                        <View style={styles.divider} />
-                        <TouchableOpacity style={styles.rowBetween} onPress={() => setShowStartDatePicker(true)}>
-                            <Text style={styles.cardLabel}>Start Date</Text>
-                            <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
+                        
+                        <View style={styles.timeGrid}>
+                            {reminderTimes.map((time, index) => (
+                                <View key={index} style={{ position: 'relative' }}>
+                                    <TouchableOpacity 
+                                        style={styles.timeChip} 
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            setShowTimePicker({ show: true, index });
+                                        }}
+                                    >
+                                        <Feather name="clock" size={14} color={Colors.primary} />
+                                        <Text style={styles.timeChipText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={styles.removeTimeButton} 
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            handleRemoveTime(index);
+                                        }}
+                                    >
+                                        <Feather name="minus" size={12} color={Colors.white} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                        {showErrors && errors.reminderTimes && <Text style={styles.errorText}>{errors.reminderTimes}</Text>}
+                    </View>
+                </Animated.View>
+
+                <Animated.View style={styles.section} entering={FadeInDown.delay(500).duration(500)}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Duration</Text>
+                    </View>
+
+                    <View style={[styles.premiumInputCard, showErrors && errors.endDate && styles.inputError]}>
+                        <View style={styles.rowBetween}>
+                            <Text style={styles.cardLabel}>Continuous treatment</Text>
+                            <Switch 
+                                trackColor={{ false: Colors.gray200, true: Colors.primary }} 
+                                thumbColor={Colors.white} 
+                                onValueChange={(val) => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setIsContinuous(val);
+                                }} 
+                                value={isContinuous} 
+                            />
+                        </View>
+                        <View style={[styles.divider, { marginVertical: 8 }]} />
+                        <TouchableOpacity 
+                            style={styles.rowBetween} 
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setShowStartDatePicker(true);
+                            }}
+                        >
+                            <Text style={styles.cardLabel}>Starts on</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
+                                <Feather name="chevron-right" size={16} color={Colors.primary} />
+                            </View>
                         </TouchableOpacity>
                         {!isContinuous && (
                             <>
-                                <View style={styles.divider} />
-                                <TouchableOpacity style={styles.rowBetween} onPress={() => setShowEndDatePicker(true)}>
-                                    <Text style={styles.cardLabel}>End Date</Text>
-                                    <Text style={[styles.dateValue, !endDate && { color: Colors.textSecondary }]}>
-                                        {endDate ? endDate.toLocaleDateString() : 'Select Date'}
-                                    </Text>
+                                <View style={[styles.divider, { marginVertical: 8 }]} />
+                                <TouchableOpacity 
+                                    style={styles.rowBetween} 
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setShowEndDatePicker(true);
+                                    }}
+                                >
+                                    <Text style={styles.cardLabel}>Ends on</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Text style={[styles.dateValue, !endDate && { color: Colors.textSecondary }]}>
+                                            {endDate ? endDate.toLocaleDateString() : 'Select date'}
+                                        </Text>
+                                        <Feather name="chevron-right" size={16} color={Colors.primary} />
+                                    </View>
                                 </TouchableOpacity>
                             </>
                         )}
                     </View>
                     {showErrors && errors.endDate && <Text style={styles.errorText}>{errors.endDate}</Text>}
-                </View>
+                </Animated.View>
 
-                <View style={styles.section}>
-                    <Text style={styles.label}>Notes (Optional)</Text>
-                    <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} placeholder="e.g., Take with water only" multiline value={notes} onChangeText={setNotes} />
-                </View>
+                <Animated.View style={styles.section} entering={FadeInDown.delay(600).duration(500)}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Instructions</Text>
+                    </View>
+                    <View style={styles.premiumInputCard}>
+                        <Text style={styles.premiumLabel}>Special Notes (Optional)</Text>
+                        <TextInput 
+                            style={[styles.input, { height: 100, textAlignVertical: 'top', marginTop: 8 }]} 
+                            placeholder="e.g., Take with water only, avoid direct sunlight..." 
+                            multiline 
+                            value={notes} 
+                            onChangeText={setNotes} 
+                        />
+                    </View>
+                </Animated.View>
 
                 <View style={styles.footer}>
-                    <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                    <TouchableOpacity 
+                        style={styles.saveButton} 
+                        onPress={() => {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            handleSave();
+                        }}
+                    >
                         <Text style={styles.saveButtonText}>Add Medication</Text>
                     </TouchableOpacity>
                 </View>
@@ -872,73 +1029,275 @@ export default function AddMedicationScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal>
-        </SafeAreaView>
+            </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.white },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Sizes.lg, paddingVertical: Sizes.md, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
-    headerTitle: { ...Typography.styles.h3, color: Colors.textPrimary },
-    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-    modalCloseButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16, backgroundColor: Colors.gray50 },
-    modalDoneButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16, backgroundColor: Colors.primary + '10' },
-    headerStatusContainer: { minWidth: 70, height: 32, justifyContent: 'center', alignItems: 'flex-end' },
-    statusIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, gap: 4 },
-    statusText: { fontSize: 10, fontWeight: '700', color: Colors.gray600 },
-    pickerTitle: { ...Typography.styles.h4, color: Colors.textPrimary, marginBottom: 0 },
-    closeButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20, backgroundColor: Colors.gray50 },
-    content: { flex: 1, paddingHorizontal: Sizes.lg },
-    section: { marginTop: Sizes.xl },
-    sectionTitle: { ...Typography.styles.h4, color: Colors.textPrimary, marginBottom: Sizes.sm },
+    ambientBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 400,
+        opacity: 0.6,
+    },
+    header: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: Sizes.lg,
+        paddingVertical: Sizes.md,
+        backgroundColor: 'transparent',
+    },
+    backButton: { 
+        width: 44, 
+        height: 44, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        marginLeft: -10,
+    },
+    headerContent: { 
+        flex: 1,
+        marginLeft: Sizes.xs,
+    },
+    headerTitle: { 
+        ...Typography.styles.h2,
+        color: Colors.textPrimary,
+        marginBottom: 2,
+    },
+    headerSubtitle: {
+        ...Typography.styles.bodySmall,
+        color: Colors.textSecondary,
+        fontWeight: '600',
+    },
+    doneButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.primary + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerStatusContainer: { width: 80, height: 32, justifyContent: 'center', alignItems: 'flex-end' },
+    statusIndicator: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: Colors.gray50, 
+        paddingHorizontal: 8, 
+        paddingVertical: 4, 
+        borderRadius: 10, 
+        gap: 4 
+    },
+    statusText: { fontSize: 10, fontWeight: '700', color: Colors.textSecondary },
+    
+    content: { flex: 1, paddingHorizontal: 0 },
+    section: { marginTop: 15, width: '100%' },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+        gap: 10,
+        paddingHorizontal: 20,
+    },
+    sectionTitle: { ...Typography.styles.h4, color: Colors.textPrimary, fontWeight: '700', marginBottom: 0 },
+    
     label: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary, marginBottom: 8 },
-    input: { backgroundColor: Colors.gray50, borderRadius: 12, padding: Sizes.md, fontSize: 16, borderWidth: 1, borderColor: Colors.gray200 },
-    chipContainer: { flexDirection: 'row', gap: Sizes.sm },
+    premiumLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+
+    memberScrollContent: { paddingHorizontal: Sizes.lg, paddingBottom: 5 },
+    memberCard: {
+        width: 85,
+        height: 100,
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        borderWidth: 1,
+        borderColor: Colors.gray100,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+    },
+    memberCardSelected: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primary + '05',
+    },
+    memberAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.gray50,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    memberAvatarActive: { backgroundColor: Colors.primary },
+    memberCardName: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+    memberCardNameSelected: { color: Colors.primary, fontWeight: '700' },
+    memberCheckmark: { position: 'absolute', top: 6, right: 6 },
+
+    premiumInputCard: {
+        backgroundColor: '#FCFDFF', // Ambient wash
+        paddingVertical: 20,
+        paddingHorizontal: 20,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: Colors.gray100,
+        width: '100%',
+    },
+    inputLabelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.gray50,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
+    },
+    input: { backgroundColor: Colors.gray50, borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1, borderColor: Colors.gray200 },
+    inputError: { borderColor: Colors.error },
+    premiumTextInput: {
+        flex: 1,
+        height: 48,
+        fontSize: 16,
+        color: Colors.textPrimary,
+        fontWeight: '500',
+    },
+    errorText: { color: Colors.error, fontSize: 12, marginTop: 4, fontWeight: '500' },
+
+    combinedInputContainer: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: Colors.white, 
+        borderRadius: 14, 
+        borderWidth: 1.5, 
+        borderColor: Colors.gray100, 
+        overflow: 'hidden',
+    },
+    inputUnstyled: { flex: 1, height: 48, paddingHorizontal: 16, fontSize: 16, color: Colors.textPrimary },
+    verticalDivider: { width: 1, height: '50%', backgroundColor: Colors.gray200 },
+    unitSelector: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 4 },
+    unitSelectorText: { fontSize: 14, color: Colors.textPrimary, fontWeight: '600' },
+
+    selectedTypeText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+    typeScrollContent: { paddingHorizontal: Sizes.lg, paddingBottom: 5, paddingTop: 4 },
+    typeCard: {
+        width: 85,
+        height: 100,
+        backgroundColor: Colors.white,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        borderWidth: 1.5,
+        borderColor: Colors.gray100,
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+    },
+    typeCardSelected: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primary + '05',
+    },
+    typeCardError: { borderColor: Colors.error },
+    typeIconContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: Colors.gray50,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    typeIconContainerActive: { backgroundColor: Colors.primary },
+    typeCardLabel: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
+    typeCardLabelSelected: { color: Colors.primary, fontWeight: '700' },
+
+    groupSelectorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.gray50, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.gray200 },
+    groupSelectorText: { fontSize: 16, color: Colors.textPrimary },
+    
+    chipContainer: { flexDirection: 'row', gap: 8 },
     chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.gray200, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, marginRight: 8 },
     chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
     chipText: { fontSize: 14, color: Colors.textSecondary },
     chipTextSelected: { color: Colors.white, fontWeight: '600' },
-    combinedInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderRadius: 12, borderWidth: 1, borderColor: Colors.gray200, overflow: 'hidden' },
-    inputUnstyled: { flex: 1, padding: Sizes.md, fontSize: 16 },
-    verticalDivider: { width: 1, height: '60%', backgroundColor: Colors.gray200 },
-    unitSelector: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Sizes.md, gap: 4 },
-    unitSelectorText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600' },
-    typeScrollContent: { paddingVertical: 4, gap: Sizes.md },
-    typeCard: { width: 70, height: 85, backgroundColor: Colors.white, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.gray100, marginRight: Sizes.sm },
-    typeCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary + '10' },
-    typeCardLabel: { fontSize: 11, color: Colors.textSecondary, marginTop: 4 },
-    typeCardLabelSelected: { color: Colors.primary, fontWeight: '700' },
-    groupSelectorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.gray50, borderRadius: 12, padding: Sizes.md, borderWidth: 1, borderColor: Colors.gray200 },
-    groupSelectorText: { fontSize: 16, color: Colors.textPrimary },
-    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Sizes.md, marginTop: Sizes.sm },
-    timeChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary + '10', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 6 },
+
+    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+    timeChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary + '10', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, gap: 8 },
     timeChipText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
     removeTimeButton: { position: 'absolute', top: -8, left: -8, backgroundColor: Colors.primary, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.white },
-    card: { backgroundColor: Colors.gray50, borderRadius: 12, borderWidth: 1, borderColor: Colors.gray200 },
-    rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Sizes.md },
-    cardLabel: { fontSize: 15, color: Colors.textPrimary },
+    
+    card: { 
+        backgroundColor: Colors.white, 
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: Colors.gray100,
+        width: '100%',
+    },
+    rowBetween: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        paddingVertical: 18,
+        paddingHorizontal: Sizes.lg,
+    },
+    cardLabel: { fontSize: 15, color: Colors.textPrimary, fontWeight: '500' },
     dateValue: { fontSize: 15, color: Colors.primary, fontWeight: '600' },
-    divider: { height: 1, backgroundColor: Colors.gray200 },
-    row: { flexDirection: 'row', marginTop: Sizes.md },
-    footer: { paddingVertical: Sizes.xl, backgroundColor: Colors.white },
-    saveButton: { backgroundColor: Colors.primary, borderRadius: 12, padding: Sizes.lg, alignItems: 'center' },
+    divider: { height: 1, backgroundColor: Colors.gray100, marginHorizontal: Sizes.lg },
+    row: { flexDirection: 'row', marginTop: 16 },
+    
+    footer: { paddingVertical: 32, paddingHorizontal: Sizes.lg, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+    saveButton: { backgroundColor: Colors.primary, borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
     saveButtonText: { fontSize: 17, fontWeight: '700', color: Colors.white },
+    
     pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    pickerContent: { backgroundColor: Colors.white, borderRadius: 20, padding: Sizes.xl, width: '85%' },
-    pickerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10 },
+    pickerContent: { backgroundColor: Colors.white, borderRadius: 24, padding: 24, width: '90%', maxHeight: '80%' },
+    pickerTitle: { ...Typography.styles.h4, color: Colors.textPrimary, marginBottom: 8 },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+    modalCloseButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20, backgroundColor: Colors.gray50 },
+    modalDoneButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20, backgroundColor: Colors.primary + '10' },
+    
+    pickerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, marginBottom: 4 },
     pickerItemSelected: { backgroundColor: Colors.primary + '10' },
     pickerItemText: { fontSize: 16, color: Colors.textSecondary },
     pickerItemTextSelected: { color: Colors.primary, fontWeight: '600' },
-    groupOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: Colors.gray50, marginBottom: 8 },
-    groupOptionSelected: { borderColor: Colors.primary, borderWidth: 1 },
+    
+    groupOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, backgroundColor: Colors.gray50, marginBottom: 8, borderWidth: 1, borderColor: 'transparent' },
+    groupOptionSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary + '05' },
     groupOptionText: { fontSize: 16, color: Colors.textSecondary },
-    inputError: { borderColor: '#FF4D4D' },
-    typeCardError: { borderColor: '#FF4D4D' },
-    errorText: { color: '#FF4D4D', fontSize: 12, marginTop: 4, fontWeight: '500' },
-    customSummaryCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary + '05', borderRadius: 16, padding: 16, borderColor: Colors.primary + '20', borderWidth: 1, marginTop: Sizes.sm },
+    
+    customSummaryCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary + '05', borderRadius: 16, padding: 16, borderColor: Colors.primary + '20', borderWidth: 1, marginTop: 8 },
     customSummaryLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     customSummaryIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary + '10', justifyContent: 'center', alignItems: 'center' },
-    customSummaryTitle: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 2 },
-    customSummaryText: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-    helperText: { fontSize: 12, color: Colors.textSecondary, marginTop: 8, fontStyle: 'italic' }
+    customSummaryTitle: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, marginBottom: 2 },
+    customSummaryText: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+    helperText: { fontSize: 12, color: Colors.textSecondary, marginTop: 8, fontStyle: 'italic' },
+    closeButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20, backgroundColor: Colors.gray50 },
+    auraFocus: {
+        borderColor: Colors.primary,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 4,
+    },
 });
