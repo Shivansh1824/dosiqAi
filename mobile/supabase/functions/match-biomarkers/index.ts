@@ -42,7 +42,7 @@ interface ExactMatchResult {
 interface FuzzyCandidate {
   alias_name: string;
   biomarker_id: string;
-  mastertable_interpretation: string;
+  mastertable_description: string;
 }
 
 interface FuzzyMatchResult {
@@ -173,10 +173,10 @@ serve(async (req: Request) => {
           test_name: test.test_name,
           value: valueWithUnit,
           original_interpretation: test.interpretation || null,
-          fuzzy_candidates: fuzzyResults.map((r: { score: number; alias_name: string; biomarker_id: string; mastertable_interpretation: string }) => ({
+          fuzzy_candidates: fuzzyResults.map((r: { score: number; alias_name: string; biomarker_id: string; mastertable_description: string }) => ({
             alias_name: r.alias_name,
             biomarker_id: r.biomarker_id,
-            mastertable_interpretation: r.mastertable_interpretation,
+            mastertable_description: r.mastertable_description,
           })),
         });
 

@@ -120,7 +120,7 @@ interface FuzzyCandidate {
   score: number;
   alias_name: string;
   biomarker_id: string;
-  mastertable_interpretation: string;
+  mastertable_description: string;
 }
 
 interface FuzzyMatchResult {
