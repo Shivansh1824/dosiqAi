@@ -37,7 +37,7 @@ export default function AddMedicationScreen() {
 
     // Schedule
     const [intervalDays, setIntervalDays] = useState('1');
-    const [frequency, setFrequency] = useState<MedicationFrequency | 'specific_interval'>('once_daily');
+    const [frequency, setFrequency] = useState<MedicationFrequency | 'specific_interval' | 'manual'>('once_daily');
     const [timesPerDay, setTimesPerDay] = useState(1);
     const [reminderTimes, setReminderTimes] = useState<Date[]>([]);
     
@@ -58,6 +58,8 @@ export default function AddMedicationScreen() {
     const [showTimePicker, setShowTimePicker] = useState<{show: boolean, index: number}>({show: false, index: -1});
     const [showUnitPicker, setShowUnitPicker] = useState(false);
     const [groupSaveStatus, setGroupSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showErrors, setShowErrors] = useState(false);
 
     const isInternalSync = React.useRef(false);
     const isInitialGroupMount = React.useRef(true);
@@ -74,7 +76,6 @@ export default function AddMedicationScreen() {
             }
         };
         initMember();
-        resetForm();
     }, [user]);
 
     const parseTime = (timeStr?: string) => {
@@ -93,83 +94,133 @@ export default function AddMedicationScreen() {
         night: activeMember?.night_dose_time
     }), [activeMember?.morning_dose_time, activeMember?.afternoon_dose_time, activeMember?.night_dose_time]);
 
-    // 1. Frequency -> TimesPerDay & IntervalDays
+    // 1. Frequency -> TimesPerDay & Groups & Reminder Times
     useEffect(() => {
         if (isInternalSync.current) return;
         let newTimesPerDay = timesPerDay;
         let newIntervalDays = intervalDays;
-        
-        if (frequency === 'once_daily') { newTimesPerDay = 1; newIntervalDays = '1'; }
-        else if (frequency === 'twice_daily') { newTimesPerDay = 2; newIntervalDays = '1'; }
-        else if (frequency === 'three_times_daily') { newTimesPerDay = 3; newIntervalDays = '1'; }
-        else if (frequency === 'weekly') { newTimesPerDay = 1; newIntervalDays = '7'; }
-        else if (frequency === 'monthly') { newTimesPerDay = 1; newIntervalDays = '30'; }
-        else if (frequency === 'as_needed') { newTimesPerDay = 1; newIntervalDays = '0'; }
+        let newGroups = [...selectedGroups];
+        let newTimes = [...reminderTimes];
+        let syncNeeded = false;
 
-        if (newTimesPerDay !== timesPerDay || newIntervalDays !== intervalDays) {
-            isInternalSync.current = true;
-            setTimesPerDay(newTimesPerDay);
-            setIntervalDays(newIntervalDays);
-            setTimeout(() => isInternalSync.current = false, 50);
-        }
-    }, [frequency]);
-
-    // 2. TimesPerDay -> Groups & Reminder Times
-    useEffect(() => {
-        if (isInternalSync.current) return;
-        if (timesPerDay === reminderTimes.length) return;
-
-        const newTimes = [...reminderTimes];
-        const newGroups = [...selectedGroups];
         const candidates = [
             { id: 'morning', val: parseTime(memberDoseTimes.morning) || parseTime("08:00:00") },
             { id: 'afternoon', val: parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00") },
             { id: 'night', val: parseTime(memberDoseTimes.night) || parseTime("21:00:00") }
         ];
-
-        if (timesPerDay > reminderTimes.length) {
-            // Add times/groups
-            let added = 0;
-            const diff = timesPerDay - reminderTimes.length;
-            
-            // First try to add from standard groups
-            for (const cand of candidates) {
-                if (added < diff && cand.val && !newTimes.some(t => t.getHours() === cand.val!.getHours())) {
-                    newTimes.push(cand.val);
-                    if (!newGroups.includes(cand.id)) newGroups.push(cand.id);
-                    added++;
-                }
-            }
-            // If still more needed, add +4 hours from last
-            while (added < diff) {
-                const base = newTimes.length > 0 ? newTimes[newTimes.length - 1] : parseTime("08:00:00");
-                const next = new Date(base!.getTime());
-                next.setHours(next.getHours() + 4);
-                newTimes.push(next);
-                added++;
-            }
-        } else {
-            // Remove times/groups
-            newTimes.splice(timesPerDay);
-            // Re-sync groups from remaining times
-            const validGroups: string[] = [];
-            newTimes.forEach(t => {
-                candidates.forEach(c => {
-                    if (c.val && t.getHours() === c.val.getHours() && t.getMinutes() === c.val.getMinutes()) {
-                        if (!validGroups.includes(c.id)) validGroups.push(c.id);
-                    }
-                });
-            });
-            newGroups.length = 0;
-            newGroups.push(...validGroups);
+        
+        if (frequency === 'once_daily' || frequency === 'weekly' || frequency === 'monthly') { 
+            newTimesPerDay = 1; 
+            newIntervalDays = frequency === 'weekly' ? '7' : (frequency === 'monthly' ? '30' : '1'); 
+            newGroups = ['morning'];
+            newTimes = [candidates[0].val!];
+            syncNeeded = true;
+        }
+        else if (frequency === 'twice_daily') { 
+            newTimesPerDay = 2; 
+            newIntervalDays = '1'; 
+            newGroups = ['morning', 'night'];
+            newTimes = [candidates[0].val!, candidates[2].val!].sort((a,b) => a.getTime() - b.getTime());
+            syncNeeded = true;
+        }
+        else if (frequency === 'three_times_daily') { 
+            newTimesPerDay = 3; 
+            newIntervalDays = '1'; 
+            newGroups = ['morning', 'afternoon', 'night'];
+            newTimes = candidates.map(c => c.val!).filter(v => !!v).sort((a,b) => a.getTime() - b.getTime()) as Date[];
+            syncNeeded = true;
+        }
+        else if (frequency === 'as_needed') { 
+            newTimesPerDay = 1; 
+            newIntervalDays = '0'; 
+            syncNeeded = newTimesPerDay !== timesPerDay || newIntervalDays !== intervalDays;
         }
 
+        if (syncNeeded) {
+            isInternalSync.current = true;
+            setTimesPerDay(newTimesPerDay);
+            setIntervalDays(newIntervalDays);
+            if (['once_daily', 'twice_daily', 'three_times_daily', 'weekly', 'monthly'].includes(frequency)) {
+                setSelectedGroups(newGroups);
+                setReminderTimes(newTimes);
+            }
+            setTimeout(() => isInternalSync.current = false, 50);
+        }
+    }, [frequency, memberDoseTimes]);
+
+    // 2. TimesPerDay -> Groups & Reminder Times
+    useEffect(() => {
+        if (isInternalSync.current) return;
+        if (timesPerDay === 0 || timesPerDay === reminderTimes.length) return;
+
+        const morningBase = parseTime(memberDoseTimes.morning) || parseTime("08:00:00")!;
+        const afternoonBase = parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00")!;
+        const nightBase = parseTime(memberDoseTimes.night) || parseTime("21:00:00")!;
+
+        const newTimes: Date[] = [];
+        const newGroups: string[] = [];
+
+        // Determine how many slots each group gets
+        let mCount = 0, aCount = 0, nCount = 0;
+        
+        const count = timesPerDay;
+        if (count === 1) { mCount = 1; }
+        else if (count === 2) { mCount = 1; nCount = 1; }
+        else if (count === 3) { mCount = 1; aCount = 1; nCount = 1; }
+        else if (count === 4) { mCount = 2; aCount = 1; nCount = 1; }
+        else if (count === 5) { mCount = 2; aCount = 2; nCount = 1; }
+        else if (count === 6) { mCount = 2; aCount = 2; nCount = 2; }
+        else if (count === 7) { mCount = 3; aCount = 2; nCount = 2; }
+        else if (count === 8) { mCount = 3; aCount = 3; nCount = 2; }
+        else if (count === 9) { mCount = 3; aCount = 3; nCount = 3; }
+        else {
+            // For > 9, distribute evenly
+            const base = Math.floor(count / 3);
+            const extra = count % 3;
+            mCount = base + (extra >= 1 ? 1 : 0);
+            aCount = base + (extra >= 2 ? 1 : 0);
+            nCount = base;
+        }
+
+        const addSlots = (base: Date, num: number, groupId: string) => {
+            if (num > 0 && !newGroups.includes(groupId)) newGroups.push(groupId);
+            for (let i = 0; i < num; i++) {
+                const t = new Date(base.getTime());
+                if (num <= 2) {
+                    // offsets: 0, 60 mins
+                    t.setMinutes(t.getMinutes() + i * 60);
+                } else {
+                    // offsets: 0, 30, 60, 90... mins
+                    t.setMinutes(t.getMinutes() + i * 30);
+                }
+                newTimes.push(t);
+            }
+        };
+
+        addSlots(morningBase, mCount, 'morning');
+        addSlots(afternoonBase, aCount, 'afternoon');
+        addSlots(nightBase, nCount, 'night');
+
         newTimes.sort((a, b) => a.getTime() - b.getTime());
+        
         isInternalSync.current = true;
         setReminderTimes(newTimes);
         setSelectedGroups(newGroups);
+
+        // Update frequency if it matches defaults
+        if (intervalDays === '1') {
+            if (count === 1) setFrequency('once_daily');
+            else if (count === 2) setFrequency('twice_daily');
+            else if (count === 3) setFrequency('three_times_daily');
+            else setFrequency('specific_interval');
+        } else if (intervalDays === '7' && count === 1) {
+            setFrequency('weekly');
+        } else {
+            setFrequency('specific_interval');
+        }
+
         setTimeout(() => isInternalSync.current = false, 50);
-    }, [timesPerDay, memberDoseTimes]);
+    }, [timesPerDay, intervalDays, memberDoseTimes]);
 
     // 3. Groups -> Reminder Times & TimesPerDay & Frequency
     useEffect(() => {
@@ -193,14 +244,18 @@ export default function AddMedicationScreen() {
         
         isInternalSync.current = true;
         setReminderTimes(newTimes);
-        setTimesPerDay(newTimes.length || 1);
-        
-        // Update frequency label based on count
-        if (newTimes.length === 1) setFrequency('once_daily');
-        else if (newTimes.length === 2) setFrequency('twice_daily');
-        else if (newTimes.length === 3) setFrequency('three_times_daily');
-        else setFrequency('specific_interval');
-        
+        // Update frequency label based on count and interval
+        if (intervalDays === '1') {
+            if (newTimes.length === 1) setFrequency('once_daily');
+            else if (newTimes.length === 2) setFrequency('twice_daily');
+            else if (newTimes.length === 3) setFrequency('three_times_daily');
+            else setFrequency('specific_interval');
+        } else if (intervalDays === '7' && newTimes.length === 1) {
+            setFrequency('weekly');
+        } else {
+            setFrequency('specific_interval');
+        }
+
         setTimeout(() => isInternalSync.current = false, 50);
     }, [selectedGroups, memberDoseTimes]);
 
@@ -225,19 +280,22 @@ export default function AddMedicationScreen() {
 
         isInternalSync.current = true;
         setSelectedGroups(newGroups);
-        setTimesPerDay(reminderTimes.length || 1);
+        setTimesPerDay(reminderTimes.length);
         
-        // Update frequency label
-        if (reminderTimes.length === 1) {
-            if (frequency !== 'weekly' && frequency !== 'monthly' && frequency !== 'as_needed') {
-                setFrequency('once_daily');
-            }
-        } else if (reminderTimes.length === 2) setFrequency('twice_daily');
-        else if (reminderTimes.length === 3) setFrequency('three_times_daily');
-        else setFrequency('specific_interval');
+        // Auto-select frequency label based on count and interval
+        if (intervalDays === '1') {
+            if (reminderTimes.length === 1) setFrequency('once_daily');
+            else if (reminderTimes.length === 2) setFrequency('twice_daily');
+            else if (reminderTimes.length === 3) setFrequency('three_times_daily');
+            else setFrequency('specific_interval');
+        } else if (intervalDays === '7' && reminderTimes.length === 1) {
+            setFrequency('weekly');
+        } else {
+            setFrequency('specific_interval');
+        }
 
         setTimeout(() => isInternalSync.current = false, 50);
-    }, [reminderTimes, memberDoseTimes]);
+    }, [reminderTimes, intervalDays, memberDoseTimes]);
 
     // 5. Watch for group changes to show saving effect
     useEffect(() => {
@@ -259,15 +317,51 @@ export default function AddMedicationScreen() {
         }
     }, [selectedGroups, showGroupPicker]);
 
+    const validateForm = () => {
+        const newErrors: Record<string, string> = {};
+
+        if (!name.trim()) {
+            newErrors.name = 'Medicine name is required';
+        }
+
+        if (!selectedType) {
+            newErrors.type = 'Medicine type is required';
+        }
+
+        if (frequency === 'specific_interval') {
+            if (!timesPerDay || timesPerDay <= 0) {
+                newErrors.timesPerDay = 'Times per day is required';
+            }
+            if (!intervalDays || parseInt(intervalDays) <= 0) {
+                newErrors.intervalDays = 'Interval (Days) is required';
+            }
+        }
+
+        if (reminderTimes.length === 0) {
+            newErrors.reminderTimes = 'At least one reminder time is required';
+        }
+
+        if (!isContinuous && !endDate) {
+            newErrors.endDate = 'End date is required for non-continuous treatment';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSave = async () => {
         if (!user?.id) {
             alert('User not authenticated');
             return;
         }
-        if (!name) {
-            alert('Please fill in Medicine Name');
+
+        const isValid = validateForm();
+        if (!isValid) {
+            setShowErrors(true);
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             return;
         }
+
         if (!selectedMemberId) {
              alert('Please select a family member');
              return;
@@ -284,7 +378,11 @@ export default function AddMedicationScreen() {
             strength: strengthValue ? `${strengthValue} ${strengthUnit}` : '',
             dosage: '',
             frequency: (frequency === 'specific_interval' ? 'custom' : frequency) as any,
-            time_of_day: reminderTimes.map(d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })),
+            time_of_day: reminderTimes.map(d => {
+                const hh = d.getHours().toString().padStart(2, '0');
+                const mm = d.getMinutes().toString().padStart(2, '0');
+                return `${hh}:${mm}`;
+            }),
             interval_days: parseInt(intervalDays) || 1,
             times_per_day: timesPerDay,
             start_date: startDate.toISOString().split('T')[0],
@@ -327,6 +425,8 @@ export default function AddMedicationScreen() {
         setFoodRelationship('anytime');
         setNotes('');
         setShowSuggestions(false);
+        setErrors({});
+        setShowErrors(false);
         setTimeout(() => isInternalSync.current = false, 100);
     };
 
@@ -426,11 +526,12 @@ export default function AddMedicationScreen() {
                     <Text style={styles.sectionTitle}>Medication Details</Text>
                     <Text style={styles.label}>Medicine Name *</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, showErrors && errors.name && styles.inputError]}
                         placeholder="e.g., Amoxicillin"
                         value={name}
                         onChangeText={(text) => setName(text)}
                     />
+                    {showErrors && errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
                     <Text style={[styles.label, { marginTop: Sizes.md }]}>Strength (Optional)</Text>
                     <View style={styles.combinedInputContainer}>
@@ -456,7 +557,7 @@ export default function AddMedicationScreen() {
                         {availableTypes.map((type) => (
                             <TouchableOpacity
                                 key={type}
-                                style={[styles.typeCard, selectedType === type && styles.typeCardSelected]}
+                                style={[styles.typeCard, selectedType === type && styles.typeCardSelected, showErrors && errors.type && styles.typeCardError]}
                                 onPress={() => setSelectedType(type as MedicineType)}
                             >
                                 <MedicationIcon form={type} size={24} />
@@ -466,6 +567,7 @@ export default function AddMedicationScreen() {
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
+                    {showErrors && errors.type && <Text style={styles.errorText}>{errors.type}</Text>}
                 </View>
 
                 {/* Group & Instructions */}
@@ -520,16 +622,30 @@ export default function AddMedicationScreen() {
                     </ScrollView>
 
                     {frequency === 'specific_interval' && (
-                        <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: Sizes.sm }}>
-                                <Text style={styles.label}>Times/Day</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={timesPerDay.toString()} onChangeText={(t) => setTimesPerDay(parseInt(t) || 1)} />
+                        <>
+                            <View style={styles.row}>
+                                <View style={{ flex: 1, marginRight: Sizes.sm }}>
+                                    <Text style={styles.label}>Times/Day</Text>
+                                    <TextInput 
+                                        style={[styles.input, showErrors && errors.timesPerDay && styles.inputError]} 
+                                        keyboardType="numeric" 
+                                        value={timesPerDay === 0 ? '' : timesPerDay.toString()} 
+                                        onChangeText={(t) => setTimesPerDay(t === '' ? 0 : parseInt(t) || 0)} 
+                                    />
+                                    {showErrors && errors.timesPerDay && <Text style={styles.errorText}>{errors.timesPerDay}</Text>}
+                                </View>
+                                <View style={{ flex: 1, marginLeft: Sizes.sm }}>
+                                    <Text style={styles.label}>Interval (Days)</Text>
+                                    <TextInput 
+                                        style={[styles.input, showErrors && errors.intervalDays && styles.inputError]} 
+                                        keyboardType="numeric" 
+                                        value={intervalDays === '0' || intervalDays === '' ? '' : intervalDays} 
+                                        onChangeText={(t) => setIntervalDays(t === '' ? '0' : t)} 
+                                    />
+                                    {showErrors && errors.intervalDays && <Text style={styles.errorText}>{errors.intervalDays}</Text>}
+                                </View>
                             </View>
-                            <View style={{ flex: 1, marginLeft: Sizes.sm }}>
-                                <Text style={styles.label}>Interval (Days)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={intervalDays} onChangeText={setIntervalDays} />
-                            </View>
-                        </View>
+                        </>
                     )}
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Sizes.md }}>
@@ -552,9 +668,10 @@ export default function AddMedicationScreen() {
                             </View>
                         ))}
                     </View>
+                    {showErrors && errors.reminderTimes && <Text style={styles.errorText}>{errors.reminderTimes}</Text>}
 
                     <Text style={[styles.label, { marginTop: Sizes.md }]}>Duration</Text>
-                    <View style={styles.card}>
+                    <View style={[styles.card, showErrors && errors.endDate && styles.inputError]}>
                         <View style={styles.rowBetween}>
                             <Text style={styles.cardLabel}>Continuous Treatment</Text>
                             <Switch trackColor={{ false: Colors.gray200, true: Colors.primary }} thumbColor={Colors.white} onValueChange={setIsContinuous} value={isContinuous} />
@@ -576,6 +693,7 @@ export default function AddMedicationScreen() {
                             </>
                         )}
                     </View>
+                    {showErrors && errors.endDate && <Text style={styles.errorText}>{errors.endDate}</Text>}
                 </View>
 
                 <View style={styles.section}>
@@ -708,5 +826,8 @@ const styles = StyleSheet.create({
     pickerItemTextSelected: { color: Colors.primary, fontWeight: '600' },
     groupOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: Colors.gray50, marginBottom: 8 },
     groupOptionSelected: { borderColor: Colors.primary, borderWidth: 1 },
-    groupOptionText: { fontSize: 16, color: Colors.textSecondary }
+    groupOptionText: { fontSize: 16, color: Colors.textSecondary },
+    inputError: { borderColor: '#FF4D4D' },
+    typeCardError: { borderColor: '#FF4D4D' },
+    errorText: { color: '#FF4D4D', fontSize: 12, marginTop: 4, fontWeight: '500' }
 });
