@@ -60,9 +60,12 @@ export default function AddMedicationScreen() {
     const [groupSaveStatus, setGroupSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showErrors, setShowErrors] = useState(false);
+    const [showCustomModal, setShowCustomModal] = useState(false);
+    const [customSaveStatus, setCustomSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
     const isInternalSync = React.useRef(false);
     const isInitialGroupMount = React.useRef(true);
+    const isInitialCustomMount = React.useRef(true);
 
     // Initialize
     useEffect(() => {
@@ -151,76 +154,85 @@ export default function AddMedicationScreen() {
     // 2. TimesPerDay -> Groups & Reminder Times
     useEffect(() => {
         if (isInternalSync.current) return;
-        if (timesPerDay === 0 || timesPerDay === reminderTimes.length) return;
+        if (timesPerDay !== 0 && timesPerDay !== reminderTimes.length) {
+            const morningBase = parseTime(memberDoseTimes.morning) || parseTime("08:00:00")!;
+            const afternoonBase = parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00")!;
+            const nightBase = parseTime(memberDoseTimes.night) || parseTime("21:00:00")!;
 
-        const morningBase = parseTime(memberDoseTimes.morning) || parseTime("08:00:00")!;
-        const afternoonBase = parseTime(memberDoseTimes.afternoon) || parseTime("13:00:00")!;
-        const nightBase = parseTime(memberDoseTimes.night) || parseTime("21:00:00")!;
+            const newTimes: Date[] = [];
+            const newGroups: string[] = [];
 
-        const newTimes: Date[] = [];
-        const newGroups: string[] = [];
+            // Determine how many slots each group gets
+            let mCount = 0, aCount = 0, nCount = 0;
+            
+            const count = timesPerDay;
+            if (count === 1) { mCount = 1; }
+            else if (count === 2) { mCount = 1; nCount = 1; }
+            else if (count === 3) { mCount = 1; aCount = 1; nCount = 1; }
+            else if (count === 4) { mCount = 2; aCount = 1; nCount = 1; }
+            else if (count === 5) { mCount = 2; aCount = 2; nCount = 1; }
+            else if (count === 6) { mCount = 2; aCount = 2; nCount = 2; }
+            else if (count === 7) { mCount = 3; aCount = 2; nCount = 2; }
+            else if (count === 8) { mCount = 3; aCount = 3; nCount = 2; }
+            else if (count === 9) { mCount = 3; aCount = 3; nCount = 3; }
+            else {
+                // For > 9, distribute evenly
+                const base = Math.floor(count / 3);
+                const extra = count % 3;
+                mCount = base + (extra >= 1 ? 1 : 0);
+                aCount = base + (extra >= 2 ? 1 : 0);
+                nCount = base;
+            }
 
-        // Determine how many slots each group gets
-        let mCount = 0, aCount = 0, nCount = 0;
-        
-        const count = timesPerDay;
-        if (count === 1) { mCount = 1; }
-        else if (count === 2) { mCount = 1; nCount = 1; }
-        else if (count === 3) { mCount = 1; aCount = 1; nCount = 1; }
-        else if (count === 4) { mCount = 2; aCount = 1; nCount = 1; }
-        else if (count === 5) { mCount = 2; aCount = 2; nCount = 1; }
-        else if (count === 6) { mCount = 2; aCount = 2; nCount = 2; }
-        else if (count === 7) { mCount = 3; aCount = 2; nCount = 2; }
-        else if (count === 8) { mCount = 3; aCount = 3; nCount = 2; }
-        else if (count === 9) { mCount = 3; aCount = 3; nCount = 3; }
-        else {
-            // For > 9, distribute evenly
-            const base = Math.floor(count / 3);
-            const extra = count % 3;
-            mCount = base + (extra >= 1 ? 1 : 0);
-            aCount = base + (extra >= 2 ? 1 : 0);
-            nCount = base;
+            const addSlots = (base: Date, num: number, groupId: string) => {
+                if (num > 0 && !newGroups.includes(groupId)) newGroups.push(groupId);
+                for (let i = 0; i < num; i++) {
+                    const t = new Date(base.getTime());
+                    if (num <= 2) {
+                        t.setMinutes(t.getMinutes() + i * 60);
+                    } else {
+                        t.setMinutes(t.getMinutes() + i * 30);
+                    }
+                    newTimes.push(t);
+                }
+            };
+
+            addSlots(morningBase, mCount, 'morning');
+            addSlots(afternoonBase, aCount, 'afternoon');
+            addSlots(nightBase, nCount, 'night');
+
+            newTimes.sort((a, b) => a.getTime() - b.getTime());
+            
+            isInternalSync.current = true;
+            setReminderTimes(newTimes);
+            setSelectedGroups(newGroups);
+        } else if (isInternalSync.current) {
+            // If internal sync is already true, don't start a new one but don't stop mapping freq
+        } else {
+            isInternalSync.current = true;
         }
 
-        const addSlots = (base: Date, num: number, groupId: string) => {
-            if (num > 0 && !newGroups.includes(groupId)) newGroups.push(groupId);
-            for (let i = 0; i < num; i++) {
-                const t = new Date(base.getTime());
-                if (num <= 2) {
-                    // offsets: 0, 60 mins
-                    t.setMinutes(t.getMinutes() + i * 60);
-                } else {
-                    // offsets: 0, 30, 60, 90... mins
-                    t.setMinutes(t.getMinutes() + i * 30);
-                }
-                newTimes.push(t);
-            }
-        };
-
-        addSlots(morningBase, mCount, 'morning');
-        addSlots(afternoonBase, aCount, 'afternoon');
-        addSlots(nightBase, nCount, 'night');
-
-        newTimes.sort((a, b) => a.getTime() - b.getTime());
+        // Atomic Frequency Update - Runs even if count matches to catch manual-to-custom-to-preset cases
+        let detectedFreq: MedicationFrequency | 'specific_interval' | 'manual' = 'specific_interval';
+        const count = timesPerDay;
         
-        isInternalSync.current = true;
-        setReminderTimes(newTimes);
-        setSelectedGroups(newGroups);
-
-        // Update frequency if it matches defaults
-        if (intervalDays === '1') {
-            if (count === 1) setFrequency('once_daily');
-            else if (count === 2) setFrequency('twice_daily');
-            else if (count === 3) setFrequency('three_times_daily');
-            else setFrequency('specific_interval');
-        } else if (intervalDays === '7' && count === 1) {
-            setFrequency('weekly');
-        } else {
-            setFrequency('specific_interval');
+        if (count === 0) {
+            detectedFreq = 'manual'; // No chip selected
+        } else if (intervalDays === '7') {
+            detectedFreq = 'weekly';
+        } else if (intervalDays === '1') {
+            if (count === 1) detectedFreq = 'once_daily';
+            else if (count === 2) detectedFreq = 'twice_daily';
+            else if (count === 3) detectedFreq = 'three_times_daily';
+        }
+        
+        if (detectedFreq !== frequency) {
+            setFrequency(detectedFreq);
         }
 
         setTimeout(() => isInternalSync.current = false, 50);
-    }, [timesPerDay, intervalDays, memberDoseTimes]);
+    }, [timesPerDay, intervalDays, memberDoseTimes, frequency]);
+
 
     // 3. Groups -> Reminder Times & TimesPerDay & Frequency
     useEffect(() => {
@@ -244,14 +256,15 @@ export default function AddMedicationScreen() {
         
         isInternalSync.current = true;
         setReminderTimes(newTimes);
+        
         // Update frequency label based on count and interval
-        if (intervalDays === '1') {
+        if (newTimes.length === 0) setFrequency('manual');
+        else if (intervalDays === '7') setFrequency('weekly');
+        else if (intervalDays === '1') {
             if (newTimes.length === 1) setFrequency('once_daily');
             else if (newTimes.length === 2) setFrequency('twice_daily');
             else if (newTimes.length === 3) setFrequency('three_times_daily');
             else setFrequency('specific_interval');
-        } else if (intervalDays === '7' && newTimes.length === 1) {
-            setFrequency('weekly');
         } else {
             setFrequency('specific_interval');
         }
@@ -283,13 +296,13 @@ export default function AddMedicationScreen() {
         setTimesPerDay(reminderTimes.length);
         
         // Auto-select frequency label based on count and interval
-        if (intervalDays === '1') {
+        if (reminderTimes.length === 0) setFrequency('manual');
+        else if (intervalDays === '7') setFrequency('weekly');
+        else if (intervalDays === '1') {
             if (reminderTimes.length === 1) setFrequency('once_daily');
             else if (reminderTimes.length === 2) setFrequency('twice_daily');
             else if (reminderTimes.length === 3) setFrequency('three_times_daily');
             else setFrequency('specific_interval');
-        } else if (intervalDays === '7' && reminderTimes.length === 1) {
-            setFrequency('weekly');
         } else {
             setFrequency('specific_interval');
         }
@@ -316,6 +329,37 @@ export default function AddMedicationScreen() {
             setGroupSaveStatus('idle');
         }
     }, [selectedGroups, showGroupPicker]);
+    // 6. Watch for custom schedule changes to show saving effect
+    useEffect(() => {
+        if (showCustomModal) {
+            if (isInitialCustomMount.current) {
+                isInitialCustomMount.current = false;
+                return;
+            }
+            
+            setCustomSaveStatus('saving');
+            const timer = setTimeout(() => {
+                setCustomSaveStatus('saved');
+                
+                // Debounced Auto-Close: Close modal automatically for ANY valid schedule
+                // after the user has seen the "Saved" indicator for a moment.
+                const closeTimer = setTimeout(() => {
+                    setShowCustomModal(false);
+                }, 1200);
+                
+                const idleTimer = setTimeout(() => setCustomSaveStatus('idle'), 1500);
+                
+                return () => {
+                    clearTimeout(closeTimer);
+                    clearTimeout(idleTimer);
+                };
+            }, 800);
+            return () => clearTimeout(timer);
+        } else {
+            isInitialCustomMount.current = true;
+            setCustomSaveStatus('idle');
+        }
+    }, [timesPerDay, intervalDays, showCustomModal]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -612,7 +656,12 @@ export default function AddMedicationScreen() {
                             <TouchableOpacity
                                 key={opt.val}
                                 style={[styles.chip, frequency === opt.val && styles.chipSelected]}
-                                onPress={() => setFrequency(opt.val as any)}
+                                onPress={() => {
+                                    setFrequency(opt.val as any);
+                                    if (opt.val === 'specific_interval') {
+                                        setShowCustomModal(true);
+                                    }
+                                }}
                             >
                                 <Text style={[styles.chipText, frequency === opt.val && styles.chipTextSelected]}>
                                     {opt.label}
@@ -621,31 +670,24 @@ export default function AddMedicationScreen() {
                         ))}
                     </ScrollView>
 
-                    {frequency === 'specific_interval' && (
-                        <>
-                            <View style={styles.row}>
-                                <View style={{ flex: 1, marginRight: Sizes.sm }}>
-                                    <Text style={styles.label}>Times/Day</Text>
-                                    <TextInput 
-                                        style={[styles.input, showErrors && errors.timesPerDay && styles.inputError]} 
-                                        keyboardType="numeric" 
-                                        value={timesPerDay === 0 ? '' : timesPerDay.toString()} 
-                                        onChangeText={(t) => setTimesPerDay(t === '' ? 0 : parseInt(t) || 0)} 
-                                    />
-                                    {showErrors && errors.timesPerDay && <Text style={styles.errorText}>{errors.timesPerDay}</Text>}
+                    {frequency === 'specific_interval' && timesPerDay > 0 && (
+                        <TouchableOpacity 
+                            style={[styles.customSummaryCard, showErrors && (errors.timesPerDay || errors.intervalDays) && styles.inputError]} 
+                            onPress={() => setShowCustomModal(true)}
+                        >
+                            <View style={styles.customSummaryLeft}>
+                                <View style={styles.customSummaryIcon}>
+                                    <Feather name="calendar" size={18} color={Colors.primary} />
                                 </View>
-                                <View style={{ flex: 1, marginLeft: Sizes.sm }}>
-                                    <Text style={styles.label}>Interval (Days)</Text>
-                                    <TextInput 
-                                        style={[styles.input, showErrors && errors.intervalDays && styles.inputError]} 
-                                        keyboardType="numeric" 
-                                        value={intervalDays === '0' || intervalDays === '' ? '' : intervalDays} 
-                                        onChangeText={(t) => setIntervalDays(t === '' ? '0' : t)} 
-                                    />
-                                    {showErrors && errors.intervalDays && <Text style={styles.errorText}>{errors.intervalDays}</Text>}
+                                <View>
+                                    <Text style={styles.customSummaryTitle}>Custom Schedule</Text>
+                                    <Text style={styles.customSummaryText}>
+                                        {timesPerDay} {timesPerDay === 1 ? 'Time' : 'Times'}, {parseInt(intervalDays) === 1 ? 'Everyday' : `Every ${intervalDays} Days`}
+                                    </Text>
                                 </View>
                             </View>
-                        </>
+                            <Feather name="edit-2" size={16} color={Colors.textSecondary} />
+                        </TouchableOpacity>
                     )}
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Sizes.md }}>
@@ -724,6 +766,69 @@ export default function AddMedicationScreen() {
                                 {strengthUnit === unit && <Feather name="check" size={20} color={Colors.primary} />}
                             </TouchableOpacity>
                         ))}
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            <Modal visible={showCustomModal} transparent animationType="fade" onRequestClose={() => setShowCustomModal(false)}>
+                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowCustomModal(false)}>
+                    <View style={styles.pickerContent}>
+                        <View style={styles.modalHeader}>
+                            <TouchableOpacity onPress={() => setShowCustomModal(false)} style={styles.modalCloseButton}>
+                                <Feather name="x" size={20} color={Colors.textPrimary} />
+                            </TouchableOpacity>
+                            <Text style={styles.pickerTitle}>Custom Schedule</Text>
+                            <View style={styles.headerStatusContainer}>
+                                {customSaveStatus === 'saving' && (
+                                    <View style={styles.statusIndicator}>
+                                        <ActivityIndicator size="small" color={Colors.primary} style={{ transform: [{ scale: 0.7 }] }} />
+                                        <Text style={styles.statusText}>Saving...</Text>
+                                    </View>
+                                )}
+                                {customSaveStatus === 'saved' && (
+                                    <View style={styles.statusIndicator}>
+                                        <Feather name="check" size={14} color="#10B981" />
+                                        <Text style={[styles.statusText, { color: '#10B981' }]}>Saved</Text>
+                                    </View>
+                                )}
+                                {customSaveStatus === 'idle' && <View style={{ width: 32 }} />}
+                            </View>
+                        </View>
+                        
+                        <Text style={styles.label}>Times Per Day</Text>
+                        <TextInput 
+                            style={[styles.input, { marginBottom: Sizes.md }]} 
+                            keyboardType="numeric" 
+                            autoFocus
+                            value={timesPerDay === 0 ? '' : timesPerDay.toString()} 
+                            onChangeText={(t) => {
+                                const val = t === '' ? 0 : parseInt(t) || 0;
+                                setTimesPerDay(val);
+                            }} 
+                            onBlur={() => {
+                                // Enforce minimum 1 on blur
+                                if (timesPerDay < 1) setTimesPerDay(1);
+                            }}
+                            placeholder="e.g., 4"
+                        />
+                        
+                        <Text style={styles.label}>Interval (Days)</Text>
+                        <TextInput 
+                            style={styles.input} 
+                            keyboardType="numeric" 
+                            value={intervalDays === '0' || intervalDays === '' ? '' : intervalDays} 
+                            onChangeText={(t) => {
+                                const val = t === '' ? '0' : t;
+                                setIntervalDays(val);
+                            }}
+                            onBlur={() => {
+                                // Enforce minimum 1 on blur
+                                const val = parseInt(intervalDays);
+                                if (isNaN(val) || val < 1) setIntervalDays('1');
+                            }}
+                            placeholder="e.g., 7"
+                        />
+                        <Text style={styles.helperText}>Example: 3 times every 7 days means you take 3 doses on 1 day a week.</Text>
                     </View>
                 </TouchableOpacity>
             </Modal>
@@ -829,5 +934,11 @@ const styles = StyleSheet.create({
     groupOptionText: { fontSize: 16, color: Colors.textSecondary },
     inputError: { borderColor: '#FF4D4D' },
     typeCardError: { borderColor: '#FF4D4D' },
-    errorText: { color: '#FF4D4D', fontSize: 12, marginTop: 4, fontWeight: '500' }
+    errorText: { color: '#FF4D4D', fontSize: 12, marginTop: 4, fontWeight: '500' },
+    customSummaryCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary + '05', borderRadius: 16, padding: 16, borderColor: Colors.primary + '20', borderWidth: 1, marginTop: Sizes.sm },
+    customSummaryLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    customSummaryIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary + '10', justifyContent: 'center', alignItems: 'center' },
+    customSummaryTitle: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 2 },
+    customSummaryText: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+    helperText: { fontSize: 12, color: Colors.textSecondary, marginTop: 8, fontStyle: 'italic' }
 });
