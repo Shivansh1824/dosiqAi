@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import { Colors, Typography } from '../../constants';
 import { getTimeOfDayCategory, normalizeTime } from '../../types/medicationSchedule';
 import { cleanMedicationName } from '../../utils/medicationParser';
@@ -35,135 +36,43 @@ interface ReminderTimesSectionProps {
     originalTotalTimes?: number;
     originalInterval?: number;
     shouldAnimate?: boolean; // New prop to control animation
-    inactiveReminderTimes?: string[]; // New: Track inactive custom times
-    onDeleteCustomReminder?: (time: string) => void; // New: Explicit delete handler
+    inactiveReminderTimes?: string[];
+    onDeleteCustomReminder?: (time: string) => void;
     isVerified?: boolean;
     preferredTimes?: {
         morning?: string;
         afternoon?: string;
         night?: string;
     };
+    suppressDefaultBatches?: boolean;
+    error?: string;
 }
 
-/**
- * Format time for display (24h -> 12h with AM/PM)
- */
-const formatTimeDisplay = (time24: string): string => {
-    if (!time24) return '';
-    const [hours, minutes] = time24.split(':').map(Number);
-    if (isNaN(minutes)) return ''; // Handle invalid format
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12;
-    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+// --- Helpers ---
+
+const formatTimeDisplay = (time: string) => {
+    if (!time) return '';
+    try {
+        const [hours, minutes] = time.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes);
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {
+        return time;
+    }
 };
 
-/**
- * Normalize time string to HH:mm format for reliable comparison
- */
-// normalizeTime imported from types/medicationSchedule
-
-// ... helpers getMealLabel, getCleanMedicineName kept as is via context ... Actually I can't skip helpers if I replace a large chunk.
-// I will target specific blocks to be safer.
-
-/**
- * Get dynamic meal label based on time, dosage pattern, and total_times_per_day
- */
-const getMealLabel = (
-    time: string,
-    index: number,
-    foodRelationship?: string,
-    totalTimesPerDay?: number,
-    timingDosage?: string,
-    customLabel?: string // NEW: Optional custom override
-): string | null => {
-    // 1. Priority: Custom Label
-    // If it is explicitly an empty string, we return null (Not Specified)
-    if (customLabel !== undefined) {
-        return customLabel === "" ? null : customLabel;
-    }
-
-    // If no meal relationship or it's 'any'/'anytime', return null
-    if (!foodRelationship || foodRelationship === 'any' || foodRelationship === 'anytime') return null;
-
-    // Determine prefix based on meal relationship
-    const prefix = foodRelationship === 'before_food' ? 'Before' :
-        foodRelationship === 'after_food' ? 'After' :
-            foodRelationship === 'with_food' ? 'With' : null;
-
-    if (!prefix) return null;
-
-    // If total_times_per_day > 3, show generic meal label
-    if (totalTimesPerDay && totalTimesPerDay > 3) {
-        return `${prefix} Meal`;
-    }
-
-    // If total_times_per_day <= 3, show specific meal based on time of day
-    if (totalTimesPerDay && totalTimesPerDay <= 3) {
-        const timeCategory = getTimeOfDayCategory(time);
-
-        const mealMap: Record<string, string> = {
-            'morning': 'Breakfast',
-            'afternoon': 'Lunch',
-            'night': 'Dinner'
-        };
-
-        const mealName = timeCategory ? mealMap[timeCategory] : undefined;
-
-        if (mealName) {
-            return `${prefix} ${mealName}`;
-        }
-    }
-
-    // Fallback: show generic meal label if we have data but couldn't determine specific meal
-    if (totalTimesPerDay || timingDosage) {
-        return `${prefix} Meal`;
-    }
-
-    return null;
-};
-
-// Animated Number Component - provides smooth fade/slide when numbers change
-const AnimatedNumber = ({ number, style }: { number: number | null; style: any }) => {
-    if (number === null) {
-        return <View style={style} />;
-    }
-
+const AnimatedNumber = ({ number, style }: { number: number | null, style?: any }) => {
+    if (number === null) return null;
     return (
-        <Animated.Text
-            key={`num-${number}`}
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(150)}
-            layout={LinearTransition.duration(200)}
-            style={style}
+        <Animated.View 
+            entering={FadeIn.duration(300)} 
+            exiting={FadeOut.duration(300)}
         >
-            {`${number}.`}
-        </Animated.Text>
+            <Text style={style}>{number}</Text>
+        </Animated.View>
     );
 };
-
-// Morning Sunrise SVG Component
-const MorningSunrise = () => (
-    <View style={StyleSheet.absoluteFill}>
-        <Svg height="100%" width="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {/* Rays - Darker Orange */}
-            <G origin="50, 100" rotation="-90">
-                {/* We want rays coming out from the bottom center (50,100) */}
-                <Line x1="50" y1="100" x2="50" y2="70" stroke="#F59E0B" strokeWidth="2" strokeOpacity="0.6" />
-                <Line x1="50" y1="100" x2="30" y2="75" stroke="#F59E0B" strokeWidth="2" strokeOpacity="0.6" />
-                <Line x1="50" y1="100" x2="70" y2="75" stroke="#F59E0B" strokeWidth="2" strokeOpacity="0.6" />
-                <Line x1="50" y1="100" x2="15" y2="85" stroke="#F59E0B" strokeWidth="2" strokeOpacity="0.6" />
-                <Line x1="50" y1="100" x2="85" y2="85" stroke="#F59E0B" strokeWidth="2" strokeOpacity="0.6" />
-            </G>
-
-            {/* Sun Semicircle - Attached to bottom */}
-            <Path
-                d="M 35 100 A 15 15 0 0 1 65 100 L 35 100 Z"
-                fill="#F59E0B"
-            />
-        </Svg>
-    </View>
-);
-
 
 export function ReminderTimesSection({
     reminderTimes,
@@ -185,11 +94,13 @@ export function ReminderTimesSection({
     sourceName,
     originalTotalTimes,
     originalInterval,
-    shouldAnimate = false, // Default to false if not provided
-    inactiveReminderTimes = [], // Default empty
+    shouldAnimate = false,
+    inactiveReminderTimes = [],
     onDeleteCustomReminder,
     isVerified = false,
     preferredTimes,
+    suppressDefaultBatches = false,
+    error,
 }: ReminderTimesSectionProps) {
     // Track which notes are expanded
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -246,7 +157,6 @@ export function ReminderTimesSection({
         }, 500); // Check every 500ms
 
         return () => clearInterval(interval);
-        return () => clearInterval(interval);
     }, [hasAnimated, shouldAnimate]);
 
 
@@ -279,8 +189,10 @@ export function ReminderTimesSection({
 
         let rows: any[] = [];
 
-        // 1. Generate standard batches based on dosage (3 batches: Morning, Afternoon, Night)
-        if (totalTimesPerDay && totalTimesPerDay <= 3 && timingDosage) {
+        if (suppressDefaultBatches) {
+             // Manual Mode: Start empty, only render what is in reminderTimes (via Step 2)
+             rows = [];
+        } else if (totalTimesPerDay && totalTimesPerDay <= 3 && timingDosage) {
             const parts = timingDosage.split('-').map(Number);
             if (parts.length === 3) {
                 // Standard 3-batch pattern: Morning-Afternoon-Night
@@ -411,7 +323,7 @@ export function ReminderTimesSection({
         // Removing reminderTimes from dependency array to prevent auto-re-enabling when user toggles off
     }, [totalTimesPerDay, timingDosage, preferredTimes]); // Added preferredTimes to trigger re-sync when preferences change
 
-    if (reminderTimes.length === 0 && inactiveReminderTimes.length === 0) return null;
+    // if (reminderTimes.length === 0 && inactiveReminderTimes.length === 0) return null; // FIX: Do not return null, otherwise we can't add back reminders!
 
 
 
@@ -525,7 +437,7 @@ export function ReminderTimesSection({
             {/* Section Header */}
             <View style={styles.reminderHeader}>
                 <View style={styles.reminderHeaderLeft}>
-                    <Feather name="bell" size={16} color={Colors.primary} />
+                    <Feather name="bell" size={14} color={Colors.primary} />
                     <Text style={styles.reminderTitle}>DOSE SCHEDULE</Text>
                     <TouchableOpacity
                         onPress={() => {
@@ -557,6 +469,14 @@ export function ReminderTimesSection({
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {error && (
+                <View style={{ marginBottom: 12, marginTop: -8 }}>
+                   <Text style={{ color: Colors.error, fontSize: 12, ...Typography.fontWeights.medium }}>
+                        {error}
+                   </Text>
+                </View>
+            )}
 
             {/* Removed inline explanatoryText */}
 
@@ -612,14 +532,13 @@ export function ReminderTimesSection({
                                     </View>
 
                                     <View style={styles.barWithNoteContainer}>
-                                        <View style={[styles.timeBarModern, swipedRightRadiusStyle]}>
+                                        <BlurView intensity={20} tint="light" style={[styles.timeBarModern, swipedRightRadiusStyle]}>
                                             {/* Left: Clickable Time */}
                                             <TouchableOpacity
                                                 onPress={() => handleTimeClick(batch.defaultTime)}
                                                 style={styles.timeButton}
                                             >
                                                 <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
-
                                             </TouchableOpacity>
 
                                             {/* Right Group */}
@@ -646,7 +565,7 @@ export function ReminderTimesSection({
                                                     />
                                                 </TouchableOpacity>
                                             </View>
-                                        </View>
+                                        </BlurView>
 
                                         {/* Creating Note Input */}
                                         {expandedNotes[batch.id] && (
@@ -1124,8 +1043,8 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     reminderBarsContainer: {
-        paddingHorizontal: 16,
-        marginTop: 12,
+        paddingHorizontal: 20,
+        marginTop: 24, // Increased spacing from Course Period
         marginBottom: 0,
     },
     reminderHeader: {
@@ -1141,10 +1060,10 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     reminderTitle: {
-        fontSize: 11,
-        ...Typography.fontWeights.bold,
-        color: Colors.gray500,
-        letterSpacing: 0.5,
+        fontSize: 13,
+        ...Typography.fontWeights.extrabold,
+        color: Colors.gray600,
+        letterSpacing: 1.2,
     },
     explanatoryText: {
         fontSize: 12,
@@ -1303,11 +1222,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#EFF6FF',
-        borderRadius: 12,
-        height: 45, // Standardized 45px height
-        paddingLeft: 12,
-        paddingRight: 8, // Standardized 8
+        backgroundColor: 'rgba(219, 234, 254, 0.8)', // Darker Blue-ish Tint (Blue-100 at 0.8)
+        borderRadius: 16, 
+        height: 52, 
+        paddingLeft: 16,
+        paddingRight: 8,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(191, 219, 254, 1)', // Solid Blue-200 border
     },
     timeBarTimeLeft: {
         fontSize: 15,
@@ -1385,12 +1307,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         gap: 6,
-        paddingVertical: 12,
-        borderRadius: 12,
+        paddingVertical: 14,
+        borderRadius: 30, // Pill Shape
+        backgroundColor: Colors.primary + '08', // Very subtle fill
         borderWidth: 1,
-        borderColor: Colors.primary,
-        borderStyle: 'dashed',
-        backgroundColor: Colors.primary + '05',
+        borderColor: Colors.primary + '30', // Soft solid border
+        // borderStyle: 'dashed', // Removed
     },
     addTimeCleanText: {
         fontSize: 13,
