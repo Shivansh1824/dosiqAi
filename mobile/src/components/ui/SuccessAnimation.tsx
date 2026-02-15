@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions, Text } from 'react-native';
-import Svg, { Circle, Path, G } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import Animated, { 
     useSharedValue, 
     useAnimatedProps, 
@@ -10,12 +10,14 @@ import Animated, {
     Easing,
     useAnimatedStyle,
     interpolate,
-    Extrapolation
+    Extrapolation,
+    runOnJS
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants';
+// import { Audio } from 'expo-av'; // Sound effect if needed later
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // Create animated components properly
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -32,6 +34,10 @@ export const SuccessAnimation: React.FC<SuccessAnimationProps> = ({ visible, onA
     const progress = useSharedValue(0);
     const opacity = useSharedValue(0);
     
+    // Ripple Effect Values
+    const rippleScale = useSharedValue(0.8);
+    const rippleOpacity = useSharedValue(0);
+
     // Checkmark Path Length (Approx)
     const checkmarkLength = 100; 
 
@@ -41,49 +47,74 @@ export const SuccessAnimation: React.FC<SuccessAnimationProps> = ({ visible, onA
             scale.value = 0;
             progress.value = 0;
             opacity.value = 1;
+            rippleScale.value = 0.8;
+            rippleOpacity.value = 0;
 
-            // 1. Elegant Scale Up (No Bounce)
-            // Start slightly larger than 0 to avoid "pop"
-            scale.value = 0.8; 
-            scale.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) });
+            // 1. Spring Scale Up (Bouncy "Pop")
+            // Damping: 10, Stiffness: 100 for a nice organic bounce
+            scale.value = withDelay(100, withSpring(1, { 
+                damping: 12, 
+                stiffness: 100,
+                mass: 1 
+            }));
 
-            // 2. Draw Checkmark (Sophisticated flow)
-            progress.value = withDelay(200, withTiming(1, { duration: 800, easing: Easing.inOut(Easing.quad) }));
+            // 2. Ripple Effect (Explosion behind)
+            // Starts slightly after scale begins
+            rippleOpacity.value = withDelay(150, withTiming(0.4, { duration: 100 }));
+            rippleScale.value = withDelay(150, withTiming(2, { duration: 600, easing: Easing.out(Easing.quad) }, () => {
+                rippleOpacity.value = withTiming(0, { duration: 400 });
+            }));
 
-            // 3. Close Logic
+            // 3. Draw Checkmark (Sophisticated flow)
+            // Sync with the impact of the spring
+            progress.value = withDelay(300, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
+
+            // 4. Close Logic
             const timeout = setTimeout(() => {
                  // Fade Out before unmounting
                  opacity.value = withTiming(0, { duration: 300 }, (finished) => {
                      if (finished && onAnimationFinish) {
-                         // Cannot call callback directly from UI thread context if purely reanimated callback, 
-                         // but runOnJS works. Using simple setTimeout for now is often safer without runOnJS complexity here.
+                         runOnJS(onAnimationFinish)();
                      }
                  });
-                 // Call parent finish slightly after fade starts or ends
-                 setTimeout(() => onAnimationFinish && onAnimationFinish(), 300);
-            }, 1800); // Display for ~1.8s total
+            }, 2200); // slightly longer display to relish the bounce
 
             return () => clearTimeout(timeout);
         }
     }, [visible]);
 
-    // Animated Props for SVG Path (DashOffset trick)
-    const animatedPathProps = useAnimatedProps(() => {
-        const strokeDashoffset = interpolate(
-            progress.value, 
-            [0, 1], 
-            [checkmarkLength, 0], 
+    // Animated Props for Circle Path
+    const circleAnimatedProps = useAnimatedProps(() => ({
+        strokeDashoffset: interpolate(
+            progress.value,
+            [0, 0.6], // Draw circle first
+            [283, 0],
             Extrapolation.CLAMP
-        );
-        return {
-            strokeDashoffset,
-        };
-    });
+        )
+    }));
+
+    // Animated Props for Checkmark Path
+    const checkmarkAnimatedProps = useAnimatedProps(() => ({
+        strokeDashoffset: interpolate(
+            progress.value, 
+            [0.5, 1], // Start drawing tick halfway through
+            [100, 0], 
+            Extrapolation.CLAMP
+        )
+    }));
+    
+    // ... (rest of styles)
 
     // Styles for Container Animation
     const containerStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
         opacity: opacity.value
+    }));
+
+    // Style for Ripple
+    const rippleStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: rippleScale.value }],
+        opacity: rippleOpacity.value * opacity.value // Hide when parent fades
     }));
 
     // Style for Background Fade
@@ -100,29 +131,51 @@ export const SuccessAnimation: React.FC<SuccessAnimationProps> = ({ visible, onA
     if (!visible) return null;
 
     return (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, justifyContent: 'center', alignItems: 'center' }]} pointerEvents="box-none">
             {/* Blurry Background Overlay */}
             <Animated.View style={[StyleSheet.absoluteFill, bgStyle]}>
-                <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.4)' }]} />
+                <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.7)' }]} />
             </Animated.View>
+
+            {/* Ripple Circle (Behind) */}
+            <Animated.View style={[styles.ripple, rippleStyle]} />
 
             {/* Success Card */}
             <Animated.View style={[styles.card, containerStyle]}>
-                <Svg width="100" height="100" viewBox="0 0 100 100" fill="none">
-                    {/* Green Circle Background */}
-                    <Circle cx="50" cy="50" r="48" fill={Colors.success + '20'} /> 
-                    <Circle cx="50" cy="50" r="40" fill={Colors.success} /> 
+                <Svg width="120" height="120" viewBox="0 0 100 100" fill="none">
+                    {/* Ripple Effect (Optional internal glow) */}
                     
-                    {/* Animated Checkmark */}
+                    {/* Circle Outline */}
+                    <Circle 
+                        cx="50" 
+                        cy="50" 
+                        r="45" 
+                        stroke={Colors.success} 
+                        strokeWidth="4"
+                        fill="none" // Ensure transparent center as requested
+                        strokeOpacity={0.2} // Base ring
+                    />
+                    
+                     <AnimatedPath
+                        d="M 50, 50 m -45, 0 a 45,45 0 1,0 90,0 a 45,45 0 1,0 -90,0"
+                        stroke={Colors.success}
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={[283, 283]} // 2 * pi * 45 ≈ 282.7
+                        animatedProps={circleAnimatedProps}
+                    />
+
+                    
+                    {/* Animated Checkmark - Green */}
                     <AnimatedPath
-                        d="M28 50 L43 65 L72 35"
-                        stroke="#FFFFFF"
+                        d="M28 52 L42 66 L72 36" // Adjusted coordinates for better centering in outline
+                        stroke={Colors.success} 
                         strokeWidth="6"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeDasharray={[checkmarkLength, checkmarkLength]}
-                        animatedProps={animatedPathProps}
+                        strokeDasharray={[100, 100]}
+                        animatedProps={checkmarkAnimatedProps}
                     />
                 </Svg>
                 
@@ -147,12 +200,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.15,
-        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 15 },
+        shadowOpacity: 0.1,
+        shadowRadius: 30,
         elevation: 12,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.8)'
+    },
+    ripple: {
+        position: 'absolute',
+        width: 150,
+        height: 150,
+        borderRadius: 75,
+        backgroundColor: Colors.success,
+        zIndex: -1, // Behind the card
     },
     successText: {
         marginTop: 24,

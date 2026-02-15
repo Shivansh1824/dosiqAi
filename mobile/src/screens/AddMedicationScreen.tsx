@@ -235,15 +235,25 @@ export default function AddMedicationScreen() {
         };
 
         try {
-            const newMed = await addMedication(medication as any);
-            if (newMed) {
-                await scheduleAllForMedication(newMed);
-                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setShowSuccess(true); // Trigger Victory Lap
-            }
-            // navigation.goBack(); // Handled by Animation Callback
+            // Optimistic Update: Show Success Immediately
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setShowSuccess(true); 
+
+            // Perform Async Operations in Background
+            // We don't await here to keep the UI unblocked. 
+            // The SuccessAnimation duration (~2s) covers this time.
+            addMedication(medication as any).then(async (newMed) => {
+                 if (newMed) {
+                    await scheduleAllForMedication(newMed);
+                 }
+            }).catch(error => {
+                 console.error('Failed to add medication in background:', error);
+                 // Optional: Revert success state or show alert if critical
+                 // alert('Failed to save. Please try again.');
+            });
+
         } catch (error) {
-            console.error('Failed to add medication:', error);
+            console.error('Failed to initiate add medication:', error);
             alert('Failed to add medication. Please try again.');
         }
     };
