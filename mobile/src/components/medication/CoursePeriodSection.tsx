@@ -116,7 +116,7 @@ export function CoursePeriodSection({
                         <View style={{ marginTop: 12 }}>
                             <Text style={styles.bentoLabel}>END DATE</Text>
                             <Text style={styles.bentoValue}>
-                                {hasEndDate ? formatDateDisplay(endDate) : 'Ongoing'}
+                                {hasEndDate ? formatDateDisplay(endDate) : 'Continuous'}
                             </Text>
                         </View>
                     </BlurView>
