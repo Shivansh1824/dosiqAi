@@ -31,7 +31,7 @@ BEGIN
       similarity(ba.alias_name, search_term)::REAL AS score
     FROM biomarkers_aliases ba
     JOIN biomarkers_mastertable bm ON ba.biomarker_id = bm.biomarker_id
-    WHERE similarity(ba.alias_name, search_term) >= 0.3
+    WHERE similarity(ba.alias_name, search_term) >= 0.6
     ORDER BY score DESC
     LIMIT 4
   ),

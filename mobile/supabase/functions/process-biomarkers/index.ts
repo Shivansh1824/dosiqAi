@@ -188,7 +188,7 @@ async function processExactMatches(
  * These have candidate suggestions but need resolution.
  */
 async function processFuzzyMatches(
-  _supabase: ReturnType<typeof createClient>,
+  _supabase: any,
   fuzzyMatches: FuzzyMatchResult[],
   requestId: string
 ): Promise<void> {
@@ -201,7 +201,7 @@ async function processFuzzyMatches(
  * These had no match in the database at all.
  */
 async function processNotFound(
-  _supabase: ReturnType<typeof createClient>,
+  _supabase: any,
   notFound: NotFoundResult[],
   requestId: string
 ): Promise<void> {
@@ -246,23 +246,27 @@ async function processNotFound(
 
     console.log(`[${requestId}][NotFound] AI filtered ${notFound.length} -> ${filteredIds.length} biomarkers to keep.`);
 
-    // 4. Insert into potential_biomarker table
+    // 4. Upsert into potential_biomarker table (Insert or Update)
     if (filteredIds.length > 0) {
-      console.log(`[${requestId}][NotFound] Inserting ${filteredIds.length} IDs into potential_biomarker...`);
+      console.log(`[${requestId}][NotFound] Upserting ${filteredIds.length} items into potential_biomarker...`);
 
-      const insertData = filteredIds.map((id: string) => ({
-        test_results_id: id
-      }));
+      const upsertData = filteredIds.map((id: string) => {
+        const originalItem = notFound.find(item => item.id === id);
+        return {
+          test_results_id: id,
+          test_name: originalItem?.test_name,
+        };
+      }).filter((item): item is { test_results_id: string; test_name: string } => !!item.test_name);
 
-      const { error: insertErr } = await _supabase
+      const { error: upsertErr } = await _supabase
         .from("potential_biomarker")
-        .insert(insertData);
+        .upsert(upsertData, { onConflict: "test_name" });
 
-      if (insertErr) {
-        console.error(`[${requestId}][NotFound] Error inserting into potential_biomarker:`, insertErr.message);
-        console.error(`[${requestId}][NotFound] Failed data:`, JSON.stringify(insertData));
+      if (upsertErr) {
+        console.error(`[${requestId}][NotFound] Error upserting into potential_biomarker:`, upsertErr.message);
+        console.error(`[${requestId}][NotFound] Failed data:`, JSON.stringify(upsertData));
       } else {
-        console.log(`[${requestId}][NotFound] Successfully inserted ${filteredIds.length} biomarkers for review.`);
+        console.log(`[${requestId}][NotFound] Successfully upserted ${filteredIds.length} biomarkers for review.`);
       }
     } else {
       console.log(`[${requestId}][NotFound] No biomarkers met the tracking criteria. Skipping insertion.`);

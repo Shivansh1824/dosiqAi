@@ -43,6 +43,8 @@ interface FuzzyCandidate {
   alias_name: string;
   biomarker_id: string;
   mastertable_description: string;
+  score?: number;
+  match_type?: string;
 }
 
 interface FuzzyMatchResult {
@@ -165,7 +167,8 @@ serve(async (req: Request) => {
         console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
         // Log individual candidates for manual verification
         fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
-          console.log(`  [#${i + 1}] ${r.alias_name}`);
+          const typeLabel = r.match_type === 'keyword' ? '🔑 Keyword' : '✨ Fuzzy';
+          console.log(`  [#${i + 1}] ${typeLabel} (Score: ${r.score?.toFixed(2)}) -> ${r.alias_name}`);
         });
 
         fuzzyMatches.push({
