@@ -675,6 +675,7 @@ export default function MedicationVerificationCard({
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={(e) => handleTooltipPress(e, 'Medication Type')}
                 >
                   <LinearGradient
@@ -694,6 +695,7 @@ export default function MedicationVerificationCard({
 
                 <TouchableOpacity
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
                 >
                   <LinearGradient

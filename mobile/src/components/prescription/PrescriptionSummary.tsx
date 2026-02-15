@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 0, // Removing bottom margin when collapsed
-        paddingVertical: 4, // Add touch target helper
+        paddingVertical: 12, // Increased for Fitts's Law (44dp target)
     },
     headerLeft: {
         flexDirection: 'row',
