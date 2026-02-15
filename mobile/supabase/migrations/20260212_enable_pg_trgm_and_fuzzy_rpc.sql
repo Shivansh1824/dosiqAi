@@ -17,7 +17,7 @@ CREATE OR REPLACE FUNCTION search_biomarker_fuzzy(
 RETURNS TABLE(
   alias_name TEXT,
   biomarker_id UUID,
-  mastertable_interpretation TEXT,
+  mastertable_description TEXT,
   score REAL
 ) AS $$
 BEGIN
@@ -27,24 +27,24 @@ BEGIN
     SELECT 
       ba.alias_name::TEXT,
       ba.biomarker_id,
-      bm.interpretation::TEXT AS mastertable_interpretation,
+      bm.description::TEXT AS mastertable_description,
       similarity(ba.alias_name, search_term)::REAL AS score
     FROM biomarkers_aliases ba
     JOIN biomarkers_mastertable bm ON ba.biomarker_id = bm.biomarker_id
-    WHERE similarity(ba.alias_name, search_term) >= 0.3
+    WHERE similarity(ba.alias_name, search_term) >= 0.6
     ORDER BY score DESC
     LIMIT 4
   ),
   ilike_matches AS (
-    -- Priority 2: Top 3 by interpretation substring match (excluding those already found)
+    -- Priority 2: Top 3 by description substring match (excluding those already found)
     SELECT 
       ba.alias_name::TEXT,
       ba.biomarker_id,
-      bm.interpretation::TEXT AS mastertable_interpretation,
+      bm.description::TEXT AS mastertable_description,
       similarity(ba.alias_name, search_term)::REAL AS score
     FROM biomarkers_aliases ba
     JOIN biomarkers_mastertable bm ON ba.biomarker_id = bm.biomarker_id
-    WHERE bm.interpretation ILIKE '%' || search_term || '%'
+    WHERE bm.description ILIKE '%' || search_term || '%'
     AND ba.biomarker_id NOT IN (SELECT sm.biomarker_id FROM similarity_matches sm)
     ORDER BY score DESC
     LIMIT 3
