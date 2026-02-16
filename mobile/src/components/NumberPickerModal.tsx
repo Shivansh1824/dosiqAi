@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, FlatList, TouchableWithoutFeedback } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
 
@@ -39,7 +39,10 @@ export default function NumberPickerModal({
         return (
             <TouchableOpacity
                 style={[styles.item, isSelected && styles.selectedItem]}
-                onPress={() => setSelectedValue(item)}
+                onPress={() => {
+                    setSelectedValue(item);
+                    onConfirm(item); // Auto save
+                }}
             >
                 <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
                     {item === 1 ? 'Everyday' : `Every ${item} Days`}
@@ -58,41 +61,33 @@ export default function NumberPickerModal({
             transparent={true}
             onRequestClose={onCancel}
         >
-            <View style={styles.overlay}>
-                <View style={styles.modalContent}>
-                    <View style={styles.header}>
-                        <Text style={styles.title}>{title}</Text>
-                        <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
-                            <Feather name="x" size={24} color={Colors.textPrimary} />
-                        </TouchableOpacity>
-                    </View>
+            <TouchableWithoutFeedback onPress={onCancel}>
+                <View style={styles.overlay}>
+                    <TouchableWithoutFeedback>
+                        <View style={styles.modalContent}>
+                            <View style={styles.header}>
+                                <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
+                                    <Feather name="x" size={24} color={Colors.textPrimary} />
+                                </TouchableOpacity>
+                                <Text style={styles.title}>{title}</Text>
+                            </View>
 
-                    <View style={styles.listContainer}>
-                        <FlatList
-                            data={data}
-                            renderItem={renderItem}
-                            keyExtractor={(item) => item.toString()}
-                            showsVerticalScrollIndicator={false}
-                            getItemLayout={(data, index) => (
-                                { length: 48, offset: 48 * index, index }
-                            )}
-                            initialScrollIndex={Math.max(0, (initialValue || 1) - min - 2)} // Roughly center the selection
-                        />
-                    </View>
-
-                    <View style={styles.actions}>
-                        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.confirmButton}
-                            onPress={() => onConfirm(selectedValue)}
-                        >
-                            <Text style={styles.confirmButtonText}>Confirm</Text>
-                        </TouchableOpacity>
-                    </View>
+                            <View style={styles.listContainer}>
+                                <FlatList
+                                    data={data}
+                                    renderItem={renderItem}
+                                    keyExtractor={(item) => item.toString()}
+                                    showsVerticalScrollIndicator={false}
+                                    getItemLayout={(data, index) => (
+                                        { length: 64, offset: 64 * index, index } // Updated height
+                                    )}
+                                    initialScrollIndex={Math.max(0, (initialValue || 1) - min - 2)}
+                                />
+                            </View>
+                        </View>
+                    </TouchableWithoutFeedback>
                 </View>
-            </View>
+            </TouchableWithoutFeedback>
         </Modal>
     );
 }
@@ -105,24 +100,26 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: Colors.white,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: Sizes.lg,
-        maxHeight: '80%',
+        maxHeight: '60%',
+        paddingBottom: 40,
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: Sizes.md,
+        justifyContent: 'flex-start', // Left align
+        marginBottom: Sizes.xl, // More space
+        gap: 16,
     },
     title: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '700',
         color: Colors.textPrimary,
     },
     closeButton: {
-        padding: Sizes.xs,
+        padding: 4,
     },
     listContainer: {
         height: 300,
@@ -132,50 +129,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        marginBottom: 4,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderRadius: 16,
+        marginBottom: 8,
+        backgroundColor: Colors.gray50,
     },
     selectedItem: {
-        backgroundColor: '#EFF6FF', // Light blue background
+        backgroundColor: Colors.primary + '10',
+        borderColor: Colors.primary,
+        borderWidth: 1,
     },
     itemText: {
         fontSize: 16,
-        color: Colors.gray800,
+        fontWeight: '500',
+        color: Colors.textSecondary,
     },
     selectedItemText: {
         color: Colors.primary,
-        fontWeight: '600',
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: Sizes.md,
-        marginTop: Sizes.lg,
-    },
-    cancelButton: {
-        flex: 1,
-        paddingVertical: Sizes.md,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Colors.gray300,
-        alignItems: 'center',
-    },
-    cancelButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textSecondary,
-    },
-    confirmButton: {
-        flex: 1,
-        backgroundColor: Colors.primary,
-        paddingVertical: Sizes.md,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    confirmButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.white,
+        fontWeight: '700',
     },
 });

@@ -7,7 +7,6 @@ import { Colors, Sizes, Typography } from '../constants';
 import { useNavigation } from '@react-navigation/native';
 import CalendarStrip from '../components/CalendarStrip';
 import MedicationCard from '../components/MedicationCard';
-import AddMedicationModal from '../components/AddMedicationModal';
 import CalendarModal, { CalendarEvent } from '../components/CalendarModal';
 import { MedicationWithStatus, getTimeOfDayCategory, mapFoodRelationshipToInstruction } from '../types/medicationSchedule';
 import { useMedicationsStore } from '../store/medicationsStore';
@@ -28,7 +27,6 @@ export default function MedicationsScreen() {
     const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
     const [refreshing, setRefreshing] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
     const [showCalendarModal, setShowCalendarModal] = useState(false);
 
     // Rescheduling state
@@ -133,7 +131,7 @@ export default function MedicationsScreen() {
                     status: log?.status || 'pending',
                     taken_at: log?.taken_at,
                     dosage: med.dosage,
-                    frequency: getFrequencyText(med.frequency),
+                    frequency: med.frequency,
                     times: med.time_of_day,
                     type: (med.medicine_type || med.form || 'tablet') as any,
                     form: med.form || med.medicine_type,
@@ -380,26 +378,11 @@ export default function MedicationsScreen() {
 
     // Handle add medication
     const handleAddMedication = () => {
-        setShowAddModal(true);
+        // @ts-ignore - Dynamic navigation
+        navigation.navigate('AddMedication');
     };
 
-    // Handle save medication
-    const handleSaveMedication = async (medication: any) => {
-        try {
-            const newMed = await useMedicationsStore.getState().addMedication(medication);
 
-            if (newMed) {
-                await scheduleAllForMedication(newMed);
-                console.log('✅ Scheduled notifications for new med:', newMed.name);
-            }
-
-            setShowAddModal(false);
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (error) {
-            console.error('Failed to add medication:', error);
-            alert('Failed to add medication. Please try again.');
-        }
-    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -516,12 +499,7 @@ export default function MedicationsScreen() {
                 )}
             </ScrollView>
 
-            {/* Add Medication Modal */}
-            <AddMedicationModal
-                visible={showAddModal}
-                onClose={() => setShowAddModal(false)}
-                onSave={handleSaveMedication}
-            />
+
 
             {/* Calendar Modal */}
             <CalendarModal

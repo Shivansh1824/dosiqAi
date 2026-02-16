@@ -11,7 +11,7 @@ import DatePickerModal from './DatePickerModal';
 import { calculateEndDate, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
-import { ReminderTimesSection } from './medication/ReminderTimesSection';
+import { ReminderTimesSectionLegacy } from './medication/ReminderTimesSectionLegacy';
 import AddReminderModal from './medication/AddReminderModal';
 import { InfoModal } from './InfoModal';
 import { AnimatedTooltip } from './AnimatedTooltip';
@@ -675,6 +675,7 @@ export default function MedicationVerificationCard({
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={(e) => handleTooltipPress(e, 'Medication Type')}
                 >
                   <LinearGradient
@@ -694,6 +695,7 @@ export default function MedicationVerificationCard({
 
                 <TouchableOpacity
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
                 >
                   <LinearGradient
@@ -781,7 +783,7 @@ export default function MedicationVerificationCard({
             {/* Reminder Times Section */}
             {!isAsNeeded && (
               <>
-                <ReminderTimesSection
+                <ReminderTimesSectionLegacy
                   key={`times-section-${resetKey}`}
                   reminderTimes={getReminderTimes()}
                   intervalText={getIntervalText()}

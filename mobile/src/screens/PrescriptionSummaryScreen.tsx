@@ -37,6 +37,7 @@ import Pdf from 'react-native-pdf-jsi';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
+import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
 
 type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
@@ -113,6 +114,18 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const [tooltipContent, setTooltipContent] = useState('');
+
+  // Duplicate Resolution State
+  const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
+  const [pendingDuplicateData, setPendingDuplicateData] = useState<{
+    newMed: import('../types/medicationVerification').ParsedMedication;
+    existingMed: import('../types/medication').Medication;
+    startDate: string;
+    resolve: () => void;
+    reject: (reason?: any) => void;
+  } | null>(null);
+  
+
 
   const handleTooltipPress = (event: any, content: string) => {
     const { pageX, pageY } = event.nativeEvent;
@@ -647,6 +660,58 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     });
   };
 
+  // Handle Duplicate Resolution Actions
+  const handleResolveDuplicate = async (action: 'replace' | 'add') => {
+    if (!pendingDuplicateData || !user) return;
+    const { newMed, existingMed, startDate, resolve, reject } = pendingDuplicateData;
+
+    try {
+      setDuplicateModalVisible(false);
+      
+      const addedMed = await addMedicationFromAI(
+        newMed,
+        user.id,
+        document!.id,
+        displayTitle,
+        startDate,
+        document!.family_member_id!
+      );
+
+      if (addedMed) {
+        await scheduleAllForMedication(addedMed);
+      }
+
+      if (action === 'replace') {
+         // Mark old as inactive (set end_date to yesterday)
+         const yesterday = new Date();
+         yesterday.setDate(yesterday.getDate() - 1);
+         await useMedicationsStore.getState().updateMedication(existingMed.id, {
+           end_date: yesterday.toISOString().split('T')[0],
+         });
+         Alert.alert('Success', 'Medication updated in tracker!');
+      } else {
+         Alert.alert('Success', 'Medication added to tracker!');
+      }
+      
+      // Mark as verified
+      setVerifiedMedications(prev => new Set(prev).add(newMed.name));
+      resolve();
+    } catch (error) {
+      reject(error);
+      Alert.alert('Error', 'Failed to resolve duplicate.');
+    } finally {
+      setPendingDuplicateData(null);
+    }
+  };
+
+  const handleCancelDuplicate = () => {
+    if (pendingDuplicateData) {
+      pendingDuplicateData.reject(new Error('User cancelled'));
+      setPendingDuplicateData(null);
+    }
+    setDuplicateModalVisible(false);
+  };
+
   // Handle verify and add medication from AI extraction
   const handleVerifyAndAddMedication = async (parsedMed: import('../types/medicationVerification').ParsedMedication, startDate: string) => {
     if (!user) {
@@ -664,83 +729,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       );
 
       if (duplicate) {
-        // Show duplicate alert with options
+        // Show duplicate modal instead of alert
         return new Promise<void>((resolve, reject) => {
-          Alert.alert(
-            'Duplicate Medication Detected',
-            `"${parsedMed.name}" is similar to "${duplicate.name}" which is already in your tracker.\n\nWhat would you like to do? `,
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: () => reject(new Error('User cancelled')),
-              },
-              {
-                text: 'Replace Existing',
-                onPress: async () => {
-                  try {
-                    const addedMed = await addMedicationFromAI(
-                      parsedMed,
-                      user.id,
-                      document.id,
-                      displayTitle,
-                      startDate,
-                      document.family_member_id!
-                    );
-
-                    // Schedule reminders
-                    if (addedMed) {
-                      await scheduleAllForMedication(addedMed);
-                    }
-
-                    // Mark old as inactive (set end_date to yesterday)
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    await useMedicationsStore.getState().updateMedication(duplicate.id, {
-                      end_date: yesterday.toISOString().split('T')[0],
-                    });
-
-                    // Mark as verified
-                    setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
-
-                    Alert.alert('Success', 'Medication updated in tracker!');
-                    resolve();
-                  } catch (error) {
-                    reject(error);
-                  }
-                },
-              },
-              {
-                text: 'Add Both',
-                onPress: async () => {
-                  try {
-                    const addedMed = await addMedicationFromAI(
-                      parsedMed,
-                      user.id,
-                      document.id,
-                      displayTitle,
-                      startDate,
-                      document.family_member_id!
-                    );
-
-                    // Schedule reminders
-                    if (addedMed) {
-                      await scheduleAllForMedication(addedMed);
-                    }
-
-                    // Mark as verified
-                    setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
-
-                    Alert.alert('Success', 'Medication added to tracker!');
-                    resolve();
-                  } catch (error) {
-                    reject(error);
-                  }
-                },
-              },
-            ],
-            { cancelable: true }
-          );
+          setPendingDuplicateData({
+            newMed: parsedMed,
+            existingMed: duplicate,
+            startDate,
+            resolve,
+            reject,
+          });
+          setDuplicateModalVisible(true);
         });
       }
 
@@ -1305,6 +1303,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         content={tooltipContent}
         targetPosition={tooltipPosition}
         onClose={() => setTooltipVisible(false)}
+      />
+
+      {/* Duplicate Medication Modal */}
+      <DuplicateMedicationModal
+        visible={duplicateModalVisible}
+        onClose={handleCancelDuplicate}
+        newMedication={pendingDuplicateData?.newMed || null}
+        existingMedication={pendingDuplicateData?.existingMed || null}
+        onReplace={() => handleResolveDuplicate('replace')}
+        onAddBoth={() => handleResolveDuplicate('add')}
       />
     </SafeAreaView >
   );

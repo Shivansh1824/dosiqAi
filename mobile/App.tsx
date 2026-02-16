@@ -73,6 +73,7 @@ import PdfViewerScreen from './src/screens/PdfViewerScreen';
 import LabReportDetailScreen from './src/screens/LabReportDetailScreen';
 import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
 import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
+import AddMedicationScreen from './src/screens/AddMedicationScreen';
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
 import { useMedicationLogsStore } from './src/store/medicationLogsStore';
@@ -105,6 +106,7 @@ export type RootStackParamList = {
   LabReportDetail: { labReportId: string };
   LabMetricTrend: { testResultId: string; familyMemberId: string; testCode: string; testName: string };
   MedicineAlarm: { medicationId?: string; medicationName?: string; dosage?: string; scheduleId?: string; instructions?: string; } | undefined;
+  AddMedication: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -492,6 +494,15 @@ export default function App() {
                         gestureEnabled: true,
                         gestureDirection: 'horizontal',
                         cardStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                    <Stack.Screen
+                      name="AddMedication"
+                      component={AddMedicationScreen}
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
                       }}
                     />
                   </Stack.Navigator>
