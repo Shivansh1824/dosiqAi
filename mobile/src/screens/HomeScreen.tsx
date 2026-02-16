@@ -24,7 +24,7 @@ import ActionSheet from '../components/ActionSheet';
 import { reconcileReminders } from '../services/notificationService';
 
 interface HomeScreenProps {
-  onNavigate: (screen: string, params?: any) => void;
+  onNavigate: (screen: 'scan' | 'document' | 'documents' | 'medications' | 'medicationList' | 'health' | 'profile' | 'medicineAlarm' | 'preferenceOnboarding' | 'PrescriptionRecord' | 'ReportSummary' | 'Timeline', params?: any) => void;
   onProfileSwitch: () => void;
 }
 
@@ -667,6 +667,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             </View>
           </View>
 
+
           {/* AI Health Insights Card */}
           <TouchableOpacity style={styles.insightsCard} activeOpacity={0.85}>
             <View style={styles.insightsContent}>
@@ -780,22 +781,37 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Developer Preview</Text>
             </View>
-            <View style={styles.developerGrid}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+              style={{ marginTop: 10 }}
+            >
               <TouchableOpacity
-                style={styles.developerCard}
+                style={[styles.developerCard, { marginRight: 12, width: 160 }]}
+                onPress={() => onNavigate('Timeline')}
+              >
+                <View style={[styles.developerIcon, { backgroundColor: '#EEF2FF' }]}>
+                  <Feather name="clock" size={20} color="#6366F1" />
+                </View>
+                <Text style={styles.developerLabel}>Medical Timeline</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.developerCard, { marginRight: 12, width: 160 }]}
                 onPress={() => {
                    // Using fixed ID as requested for easier understanding
                    onNavigate('PrescriptionRecord', { documentId: '704145be-a05a-4c4c-a111-25d8d0c353b0' });
                 }}
               >
-                <View style={[styles.developerIcon, { backgroundColor: '#EEF2FF' }]}>
-                  <Feather name="file-text" size={20} color="#6366F1" />
+                <View style={[styles.developerIcon, { backgroundColor: '#F0F9FF' }]}>
+                  <Feather name="file-text" size={20} color="#0EA5E9" />
                 </View>
                 <Text style={styles.developerLabel}>Prescription Record</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.developerCard}
+                style={[styles.developerCard, { marginRight: 12, width: 160 }]}
                 onPress={() => {
                    if (recentDocuments.length > 0) {
                      // Navigating to the summary screen for verification testing
@@ -809,7 +825,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                 </View>
                 <Text style={styles.developerLabel}>Medical Summary</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
 
           <View style={{ height: 120 }} />

@@ -76,6 +76,7 @@ import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
 import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
 import AddMedicationScreen from './src/screens/AddMedicationScreen';
 import PrescriptionRecordScreen from './src/screens/PrescriptionRecordScreen';
+import TimelineScreen from './src/screens/TimelineScreen';
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
 import { useMedicationsStore } from './src/store/medicationsStore';
@@ -112,7 +113,9 @@ export type RootStackParamList = {
   MedicineAlarm: { medicationId?: string; medicationName?: string; dosage?: string; scheduleId?: string; instructions?: string; } | undefined;
   AddMedication: undefined;
   PrescriptionRecord: { document?: Document; documentId?: string };
+  Timeline: undefined;
 };
+
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -428,6 +431,7 @@ export default function App() {
                             else if (screen === 'profile') navigation.navigate('Profile');
                             else if (screen === 'medicineAlarm') navigation.navigate('MedicineAlarm', params);
                             else if (screen === 'preferenceOnboarding') navigation.navigate('PreferenceOnboarding');
+                            else if (screen === 'Timeline') navigation.navigate('Timeline');
                           }}
                           onProfileSwitch={() => setShowProfileModal(true)}
                         />
@@ -569,6 +573,7 @@ export default function App() {
                         gestureDirection: 'horizontal',
                       }}
                     />
+                    <Stack.Screen name="Timeline" component={TimelineScreen} />
                   </Stack.Navigator>
 
                   {/* Profile Switcher Modal */}
