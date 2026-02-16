@@ -39,6 +39,9 @@ const Header = () => {
         onPress={() => navigation.goBack()}
         style={styles.backButton}
         activeOpacity={0.7}
+        accessibilityLabel="Go back"
+        accessibilityRole="button"
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Fitts's Law: Larger touch target
       >
         <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
       </TouchableOpacity>
@@ -117,7 +120,8 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, showDate }: Time
 
   return (
     <Animated.View 
-      entering={FadeInUp.delay(index * 50).duration(400)}
+      // Doherty Threshold: Cap delay to ensure perceived speed (<400ms)
+      entering={FadeInUp.delay(Math.min(index * 30, 300)).duration(400).springify()}
       style={styles.itemRow}
     >
       {/* Left: Date */}
@@ -148,8 +152,12 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, showDate }: Time
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={styles.cardContainer}
+        // Accessibility: Essential for universal access
+        accessibilityLabel={`View details for ${status} document from ${dayOfWeek}, ${day}`}
+        accessibilityRole="button"
+        accessibilityHint="Double tap to open document details"
       >
-        <Animated.View style={[styles.card, animatedStyle]}>
+        <Animated.View style={[styles.card, animatedStyle, { shadowColor: statusColor, shadowOpacity: 0.06 }]}>
 
            
            <View style={styles.cardContent}>
@@ -251,12 +259,22 @@ export default function TimelineScreen() {
       
       {/* Background */}
       {/* Background - Consistent with Medications Screen */}
-      <LinearGradient
-        colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
+      {/* Background - Fluid Depth (Aesthetic-Usability Effect) */}
+      <View style={StyleSheet.absoluteFill}>
+        <LinearGradient
+            colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+        />
+        {/* Organic shapes for depth */}
+        <View style={[styles.blob, { backgroundColor: '#E0F2FE', top: -100, left: -60, opacity: 0.6 }]} />
+        <View style={[styles.blob, { backgroundColor: '#F0FDFA', top: '40%', right: -100, opacity: 0.5 }]} />
+        <View style={[styles.blob, { backgroundColor: '#EEF2FF', bottom: -50, left: -40, opacity: 0.6 }]} />
+        
+        {/* Glass overlay */}
+        <BlurView intensity={40} style={StyleSheet.absoluteFill} tint="light" />
+      </View>
       
       <SafeAreaView style={{ flex: 1 }}>
       <Header />
@@ -281,7 +299,13 @@ export default function TimelineScreen() {
               <Text style={styles.emptySub}>Your medical timeline will appear here.</Text>
            </View>
         )}
-        ListFooterComponent={<View style={{ height: 100 }} />}
+        ListFooterComponent={
+            <View style={{ alignItems: 'center', paddingVertical: 40, paddingBottom: 100 }}>
+                {/* Peak-End Rule: End with a positive affirmation */}
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 12 }} />
+                <Text style={{ color: '#94A3B8', fontSize: 13, fontWeight: '500' }}>You're all caught up</Text>
+            </View>
+        }
       />
       </SafeAreaView>
     </View>
