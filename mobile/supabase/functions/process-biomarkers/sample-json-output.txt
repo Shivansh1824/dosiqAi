@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "message": "All biomarkers processed",
+  "processed": {
+    "exact": 5,
+    "fuzzy": 2,
+    "not_found": 3
+  }
+}

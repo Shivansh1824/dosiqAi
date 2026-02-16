@@ -9,27 +9,35 @@
     {
       "id": "test-uuid-1",
       "test_name": "Hemoglobin",
-      "biomarker_id": "bio-uuid-101",
-      "value": "14.5 g/dL",
-      "db_interpretation": "Your hemoglobin is within the normal range."
+      "biomarker_id": "biomarker-uuid-hb",
+      "value": 14.5,
+      "unit": "g/dL",
+      "ref_min": 13.5,
+      "ref_max": 17.5,
+      "ref_type": "between",
+      "status": "NORMAL"
     }
   ],
   "fuzzy_matches": [
     {
       "id": "test-uuid-2",
-      "test_name": "Vit D",
-      "value": "30 ng/mL",
-      "original_interpretation": "Slightly low vitamin D levels.",
+      "test_name": "Glukose",
+      "value": 110,
+      "unit": "mg/dL",
+      "ref_min": 70,
+      "ref_max": 100,
+      "ref_type": "between",
+      "status": "HIGH",
       "fuzzy_candidates": [
         {
-          "alias_name": "Vitamin D, 25-Hydroxy",
-          "biomarker_id": "bio-uuid-202",
-          "mastertable_description": "Measures the level of vitamin D in your blood."
+          "alias_name": "Glucose",
+          "biomarker_id": "biomarker-uuid-glucose",
+          "mastertable_description": "Blood sugar concentration"
         },
         {
-          "alias_name": "Vitamin D2",
-          "biomarker_id": "bio-uuid-203",
-          "mastertable_description": "Specific test for ergocalciferol."
+          "alias_name": "Glucose, Fasting",
+          "biomarker_id": "biomarker-uuid-glucose-fasting",
+          "mastertable_description": "Blood sugar concentration after fasting"
         }
       ]
     }
@@ -37,9 +45,13 @@
   "not_found": [
     {
       "id": "test-uuid-3",
-      "test_name": "Unknown Mystery Marker",
-      "db_interpretation": null,
-      "value": "99 units"
+      "test_name": "Unknown Marker X",
+      "value": "Positive",
+      "unit": Y,
+      "ref_min": null,
+      "ref_max": null,
+      "ref_type": "text",
+      "status": "ABNORMAL"
     }
   ]
 }
