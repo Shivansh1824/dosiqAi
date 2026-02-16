@@ -126,7 +126,7 @@ export interface TimeSeriesDataPoint {
   date: string; // ISO date string for display
   value: number; // Original value
   unit: string | null;
-  status: 'normal' | 'high' | 'low' | 'critical' | null;
+  status: 'normal' | 'low' | 'high' | 'borderline' | 'critical' | 'abnormal' | null;
   abnormalFlag: string | null;
   labReportId: string;
   testResultId: string;
@@ -170,6 +170,8 @@ export interface LabReportSummary {
   highCount: number;
   lowCount: number;
   criticalCount: number;
+  borderlineCount: number;
+  abnormalCount: number;
   hasHistoricalData: boolean; // true if any test has previous results
 }
 
@@ -214,7 +216,7 @@ export interface ChartConfig {
 // Status and Color Types
 // ============================================================================
 
-export type TestStatus = 'normal' | 'high' | 'low' | 'critical';
+export type TestStatus = 'normal' | 'low' | 'high' | 'borderline' | 'critical' | 'abnormal';
 
 export interface StatusColor {
   primary: string;
@@ -228,20 +230,30 @@ export const STATUS_COLORS: Record<TestStatus, StatusColor> = {
     light: '#D1FAE5', // Light green background
     dark: '#059669', // Dark green text
   },
+  low: {
+    primary: '#3B82F6', // Blue
+    light: '#DBEAFE', // Light blue background
+    dark: '#2563EB', // Dark blue text
+  },
   high: {
     primary: '#F59E0B', // Amber
     light: '#FEF3C7', // Light amber background
     dark: '#D97706', // Dark amber text
   },
-  low: {
-    primary: '#3B82F6', // Blue (different from high)
-    light: '#DBEAFE', // Light blue background
-    dark: '#2563EB', // Dark blue text
+  borderline: {
+    primary: '#6366F1', // Indigo
+    light: '#E0E7FF', // Light indigo background
+    dark: '#4338CA', // Dark indigo text
   },
   critical: {
     primary: '#EF4444', // Red
     light: '#FEE2E2', // Light red background
     dark: '#DC2626', // Dark red text
+  },
+  abnormal: {
+    primary: '#8B5CF6', // Violet
+    light: '#EDE9FE', // Light violet background
+    dark: '#6D28D9', // Dark violet text
   },
 };
 
@@ -251,20 +263,30 @@ export const COLOR_BLIND_PALETTE: Record<TestStatus, StatusColor> = {
     light: '#D1E9F6',
     dark: '#00558B',
   },
-  high: {
-    primary: '#EE7733', // Orange
-    light: '#FFE8D9',
-    dark: '#CC5511',
-  },
   low: {
     primary: '#009988', // Teal
     light: '#D1F2ED',
     dark: '#006655',
   },
+  high: {
+    primary: '#EE7733', // Orange
+    light: '#FFE8D9',
+    dark: '#CC5511',
+  },
+  borderline: {
+    primary: '#CCBB44', // Yellow
+    light: '#FFF9C4',
+    dark: '#998811',
+  },
   critical: {
     primary: '#CC3311', // Red
     light: '#F7D7D0',
     dark: '#991100',
+  },
+  abnormal: {
+    primary: '#AA3377', // Magenta
+    light: '#F0D4E3',
+    dark: '#661144',
   },
 };
 

@@ -110,6 +110,11 @@ function groupTestResultsByCategory(testResults: TestResult[]): GroupedTestResul
         result.abnormal_flag === 'CRITICAL'
       ) {
         acc[category].criticalCount++;
+      } else if (
+        result.abnormal_flag === 'A' ||
+        result.abnormal_flag === 'ABNORMAL'
+      ) {
+        acc[category].abnormalCount++;
       }
     }
 
@@ -133,6 +138,8 @@ function calculateSummary(labReport: LabReportWithResults): LabReportSummary {
     highCount: 0,
     lowCount: 0,
     criticalCount: 0,
+    borderlineCount: 0,
+    abnormalCount: 0,
     hasHistoricalData: false,
   };
 
@@ -146,23 +153,32 @@ function calculateSummary(labReport: LabReportWithResults): LabReportSummary {
     if (!result.abnormal_flag || result.abnormal_flag === '') {
       summary.normalCount++;
     } else if (
-      result.abnormal_flag === 'C' ||
-      result.abnormal_flag === 'CC' ||
-      result.abnormal_flag === 'CRITICAL'
+      result.abnormal_flag === 'CRITICAL' ||
+      result.abnormal_flag === 'C'
     ) {
       summary.criticalCount++;
     } else if (
-      result.abnormal_flag === 'H' ||
-      result.abnormal_flag === 'HH' ||
-      result.abnormal_flag === 'HIGH'
+      result.abnormal_flag === 'HIGH' ||
+      result.abnormal_flag === 'H'
     ) {
       summary.highCount++;
     } else if (
-      result.abnormal_flag === 'L' ||
-      result.abnormal_flag === 'LL' ||
-      result.abnormal_flag === 'LOW'
+      result.abnormal_flag === 'LOW' ||
+      result.abnormal_flag === 'L'
     ) {
       summary.lowCount++;
+    } else if (
+      result.abnormal_flag === 'BORDERLINE' ||
+      result.abnormal_flag === 'B'
+    ) {
+      // @ts-ignore: added borderlineCount to summary
+      summary.borderlineCount++;
+    } else if (
+      result.abnormal_flag === 'ABNORMAL' ||
+      result.abnormal_flag === 'A'
+    ) {
+      // @ts-ignore: added abnormalCount to summary
+      summary.abnormalCount++;
     }
   });
 
@@ -522,13 +538,17 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
           value: result.result_numeric!,
           unit: result.unit,
           status: result.abnormal_flag
-            ? result.abnormal_flag === 'C'
+            ? result.abnormal_flag === 'CRITICAL' || result.abnormal_flag === 'C'
               ? 'critical'
-              : result.abnormal_flag === 'H'
-              ? 'high'
-              : result.abnormal_flag === 'L'
-              ? 'low'
-              : 'normal'
+              : result.abnormal_flag === 'HIGH' || result.abnormal_flag === 'H'
+                ? 'high'
+                : result.abnormal_flag === 'LOW' || result.abnormal_flag === 'L'
+                  ? 'low'
+                  : result.abnormal_flag === 'BORDERLINE' || result.abnormal_flag === 'B'
+                    ? 'borderline'
+                    : result.abnormal_flag === 'ABNORMAL' || result.abnormal_flag === 'A'
+                      ? 'abnormal'
+                      : 'normal'
             : 'normal',
           abnormalFlag: result.abnormal_flag,
           labReportId: result.lab_report_id,

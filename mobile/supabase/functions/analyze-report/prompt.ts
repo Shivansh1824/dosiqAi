@@ -193,7 +193,7 @@ SECTION F: OUTPUT SCHEMA
       "ref_max": "number | null",
       "ref_type": "between | min | max | exact | text",
       "interpretation": "string (Simple explanation for ALL tests - NEVER null. Use plain language for people with NO medical background.)",
-      "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL"
+      "status": "NORMAL | LOW | HIGH | BORDERLINE | CRITICAL | ABNORMAL"
     }
   ],
   "quality": {
@@ -268,11 +268,17 @@ FOR ref_type = "min":
 
 FOR ref_type = "exact":
   if value = "NOT DETECTED" or "NEGATIVE" (when that's normal) → "NORMAL"
-  if value = "DETECTED" or "POSITIVE" (when that's abnormal) → "DETECTED"
+  if value = "DETECTED" or "POSITIVE" (when that's abnormal) → "ABNORMAL"
 
 FOR ref_type = "text":
   if descriptive value seems normal → "NORMAL"
-  otherwise → use simple logic to explain status
+  if descriptive value is clinically abnormal → "ABNORMAL"
+  if descriptive value suggests borderline/equivocal → "BORDERLINE"
+
+⛔ STRICT RULE: The "status" field MUST be one of EXACTLY these 6 values:
+NORMAL | LOW | HIGH | BORDERLINE | CRITICAL | ABNORMAL
+Do NOT use any other value. Do NOT invent new statuses like "DETECTED", "ELEVATED", "POSITIVE", etc.
+If unsure, default to: null
 
 EXAMPLE - HDL Status Assignment:
 Report shows: "HDL: 53.9 mg/dL" 
