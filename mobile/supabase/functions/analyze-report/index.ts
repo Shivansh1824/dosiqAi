@@ -433,7 +433,7 @@ serve(async (req) => {
       const { data: insertedTests, error: testsErr } = await supabase
         .from("test_results")
         .insert(testResults)
-        .select('id, test_name, value, unit, status, ref_min, ref_max');
+        .select('id, test_name, value, unit, status, ref_min, ref_max, ref_type');
 
       if (testsErr) {
         console.error("[Database] ❌ Failed to insert test results:", testsErr);

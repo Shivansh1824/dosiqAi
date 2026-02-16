@@ -17,7 +17,7 @@ const corsHeaders = {
 
 interface TestResult {
   id: string;
-  name: string;
+  test_name: string;
   value: string | number;
   unit: string | null;
   ref_min: number | null;
@@ -99,7 +99,7 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[${requestId}] 📋 Processing ${tests.length} tests: ${tests.map((t: TestResult) => t.name).join(", ")}`);
+    console.log(`[${requestId}] 📋 Processing ${tests.length} tests: ${tests.map((t: TestResult) => t.test_name).join(", ")}`);
 
     // ─────────────────────────────────────────────────────────
     // Step 0: Fetch all Biomarker Aliases (for exact matching)
@@ -125,7 +125,7 @@ serve(async (req: Request) => {
     // Step 1-3: Loop each test → Exact → Fuzzy → Not Found
     // ─────────────────────────────────────────────────────────
     for (const test of (tests as TestResult[])) {
-      if (!test.name) continue;
+      if (!test.test_name) continue;
 
       // ─── NUMERIC FILTER ───
       // Only process numeric tests (ref_type: "between", "min", "max")
@@ -143,12 +143,12 @@ serve(async (req: Request) => {
           !isNaN(Number(strippedValue));
 
         if (!isNumeric) {
-          console.log(`[${requestId}][Skip] ⏭️ Skipping "${test.name}" because value "${test.value}" is not numeric.`);
+          console.log(`[${requestId}][Skip] ⏭️ Skipping "${test.test_name}" because value "${test.value}" is not numeric.`);
           continue;
         }
       }
 
-      const normalizedTestName = normalize(test.name);
+      const normalizedTestName = normalize(test.test_name);
 
       // ─── QUERY 1: EXACT MATCH ───
       const exactMatch = (aliases as BiomarkerAlias[]).find(
@@ -156,11 +156,11 @@ serve(async (req: Request) => {
       );
 
       if (exactMatch) {
-        console.log(`[${requestId}][Exact] ✅ "${test.name}" -> ID: ${exactMatch.biomarker_id}`);
+        console.log(`[${requestId}][Exact] ✅ "${test.test_name}" -> ID: ${exactMatch.biomarker_id}`);
 
         exactMatches.push({
           id: test.id,
-          test_name: test.name,
+          test_name: test.test_name,
           biomarker_id: exactMatch.biomarker_id,
           value: test.value,
           unit: test.unit,
@@ -175,20 +175,20 @@ serve(async (req: Request) => {
       }
 
       // ─── QUERY 2: FUZZY SEARCH (pg_trgm) ───
-      console.log(`[${requestId}][Fuzzy] 🔍 Trying "${test.name}"...`);
+      console.log(`[${requestId}][Fuzzy] 🔍 Trying "${test.test_name}"...`);
 
       const { data: fuzzyResults, error: fuzzyError } = await supabase
         .rpc("search_biomarker_fuzzy", {
-          search_term: test.name,
+          search_term: test.test_name,
         });
 
       if (fuzzyError) {
-        console.error(`[${requestId}][Fuzzy] ❌ Error for "${test.name}":`, fuzzyError);
+        console.error(`[${requestId}][Fuzzy] ❌ Error for "${test.test_name}":`, fuzzyError);
         // On error, fall through to not-found
       }
 
       if (fuzzyResults && fuzzyResults.length > 0) {
-        console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.name}"`);
+        console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
         // Log individual candidates for manual verification
         fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
           const typeLabel = r.match_type === 'keyword' ? '🔑 Keyword' : '✨ Fuzzy';
@@ -197,7 +197,7 @@ serve(async (req: Request) => {
 
         fuzzyMatches.push({
           id: test.id,
-          test_name: test.name,
+          test_name: test.test_name,
           value: test.value,
           unit: test.unit,
           ref_min: test.ref_min,
@@ -216,11 +216,11 @@ serve(async (req: Request) => {
       }
 
       // ─── QUERY 3: NOT FOUND ───
-      console.log(`[${requestId}][NotFound] ❓ "${test.name}"`);
+      console.log(`[${requestId}][NotFound] ❓ "${test.test_name}"`);
 
       notFound.push({
         id: test.id,
-        test_name: test.name,
+        test_name: test.test_name,
         value: test.value,
         unit: test.unit,
         ref_min: test.ref_min,
@@ -234,7 +234,7 @@ serve(async (req: Request) => {
     // ─────────────────────────────────────────────────────────
     // Step 5: Save Debug Logs (Temporary for testing)
     // ─────────────────────────────────────────────────────────
-    const firstTestName = tests[0]?.name;
+    const firstTestName = tests[0]?.test_name;
     if (firstTestName) {
       console.log(`[${requestId}][Debug] 📝 Logging results (Ref: ${firstTestName})...`);
       const { error: debugError } = await supabase
