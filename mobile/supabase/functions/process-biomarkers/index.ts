@@ -267,8 +267,9 @@ async function processNotFound(
         return {
           test_results_id: id,
           test_name: originalItem?.test_name,
+          source: "not_found",
         };
-      }).filter((item): item is { test_results_id: string; test_name: string } => !!item.test_name);
+      }).filter((item): item is { test_results_id: string; test_name: string; source: string } => !!item.test_name);
 
       const { error: upsertErr } = await _supabase
         .from("potential_biomarker")
