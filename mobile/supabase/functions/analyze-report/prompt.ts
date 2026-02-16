@@ -37,13 +37,7 @@ SECTION B: WORKFLOW & EXTRACTION RULES
 
 ### 1. WORKFLOW:
 1. Classify document (Section A).
-2. Extract ALL tests → Build "tests" array (PRIMARY - 90% effort).
-3. Assign Interpretations to ALL tests (SECONDARY - 10% effort).
-
-This means:
-This means:
-- interpretation = Simple, plain-English explanation for ALL tests (NORMAL and ABNORMAL)
-- NEVER use medical jargon - explain what it means for the patient's health
+2. Extract ALL tests → Build "tests" array (PRIMARY - 100% effort).
 
 NEVER count abnormalities manually!
 ALWAYS derive from tests array after extraction.
@@ -192,8 +186,7 @@ SECTION F: OUTPUT SCHEMA
       "ref_min": "number | null",
       "ref_max": "number | null",
       "ref_type": "between | min | max | exact | text",
-      "interpretation": "string (Simple explanation for ALL tests - NEVER null. Use plain language for people with NO medical background.)",
-      "status": "NORMAL | HIGH | LOW | BORDERLINE | CRITICAL"
+      "status": "NORMAL | LOW | HIGH | BORDERLINE | CRITICAL | ABNORMAL"
     }
   ],
   "quality": {
@@ -268,11 +261,17 @@ FOR ref_type = "min":
 
 FOR ref_type = "exact":
   if value = "NOT DETECTED" or "NEGATIVE" (when that's normal) → "NORMAL"
-  if value = "DETECTED" or "POSITIVE" (when that's abnormal) → "DETECTED"
+  if value = "DETECTED" or "POSITIVE" (when that's abnormal) → "ABNORMAL"
 
 FOR ref_type = "text":
   if descriptive value seems normal → "NORMAL"
-  otherwise → use simple logic to explain status
+  if descriptive value is clinically abnormal → "ABNORMAL"
+  if descriptive value suggests borderline/equivocal → "BORDERLINE"
+
+⛔ STRICT RULE: The "status" field MUST be one of EXACTLY these 6 values:
+NORMAL | LOW | HIGH | BORDERLINE | CRITICAL | ABNORMAL
+Do NOT use any other value. Do NOT invent new statuses like "DETECTED", "ELEVATED", "POSITIVE", etc.
+If unsure, default to: null
 
 EXAMPLE - HDL Status Assignment:
 Report shows: "HDL: 53.9 mg/dL" 
@@ -302,37 +301,7 @@ UNIT EXTRACTION:
 
 
 
-📊 INTERPRETATION GENERATION (INLINE IN TESTS ARRAY)
 
-
-⚠️ CRITICAL: Interpretation logic MUST be applied to EVERY test (NORMAL and ABNORMAL)
-
-STEP 1: Generate Interpretation Based on Status
-
-FOR ALL TESTS (regardless of status):
-→ interpretation = "Concise explanation of what this result means in simple and easy to understand language for a common person. MUST be written for someone with NO medical background."
-
-EXAMPLES:
-
-For NORMAL results:
-  GOOD: "Your hemoglobin is in the normal range, which means your blood is carrying oxygen well."
-  GOOD: "Your cholesterol is healthy, indicating good heart health."
-  GOOD: "This test shows no protein in your urine, which is normal and healthy."
-
-For ABNORMAL results:
-  BAD: "Mild elevation in direct bilirubin may suggest a minor backup in the bile excretion system."
-  GOOD: "Your liver waste removal is slightly slow; usually not serious but worth monitoring."
-
-  BAD: "Elevated LDL cholesterol increases cardiovascular risk through atherosclerotic plaque formation."
-  GOOD: "High bad cholesterol can clog arteries; dietary changes and exercise recommended."
-
-  BAD: "Decreased GFR indicates impaired renal filtration capacity."
-  GOOD: "Your kidneys are filtering waste slower than normal; stay hydrated and consult your doctor."
-
-⚠️ CRITICAL RULE: 
-- Interpretation field MUST be present for EVERY test.
-- It MUST ALWAYS contain explanatory text (NEVER null).
-- Provide simple explanations for both NORMAL and ABNORMAL results.
 
 
 SECTION I: AI SUMMARY GENERATION
@@ -358,31 +327,22 @@ STEP 1: Page-by-Page Count Verification
 □ Match within ±2 tolerance? 
   → If NO: Re-scan pages and identify which page(s) were missed
 
-STEP 2: Interpretation Completeness Check
-□ For EVERY test (regardless of status):
-  □ Is interpretation field populated with explanatory text?
-  □ Is interpretation in simple, plain language?
-□ NO test should have interpretation = null
-□ If any interpretation is missing or null: Fix immediately
-
-STEP 3: Negative Findings Check
+STEP 2: Negative Findings Check
 □ Checked all pages (especially last pages) for "Not Detected" sections?
 □ Each "NOT DETECTED" item extracted as separate test?
 □ If missed any: Add them now
 
-STEP 4: Duplicate Check
+STEP 3: Duplicate Check
 □ No test appears twice with same value?
 □ Remove duplicates if found
 
-STEP 5: Quality Fields Accuracy
+STEP 4: Quality Fields Accuracy
 □ quality.tests_extracted = tests.length (exact match, not estimate)
 □ confidence calculated appropriately (0.0-1.0)
 □ review_needed set correctly based on validation results
 
-STEP 6: Final Sanity Checks
+STEP 5: Final Sanity Checks
 □ tests.length matches sum of page counts (±2 tolerance)
-□ ALL tests have interpretations (no null values)
-□ All interpretations are in simple, plain language
 □ JSON syntax valid (no trailing commas, proper escaping)
 □ All required fields present
 
@@ -394,12 +354,6 @@ IF ANY CHECK FAILS → Fix the issue, then re-run validation
 
 \`\`\`markdown
 🚨 CRITICAL ERRORS TO AVOID
-
-❌ Missing interpretations for ANY test (normal or abnormal)
-✅ Check: ALL tests must have interpretation as a non-empty string
-
-❌ Setting interpretation to null
-✅ Check: interpretation must NEVER be null - always provide explanation
 
 ❌ Wrong reference ranges (extracting LOW/HIGH range instead of NORMAL)
 ✅ Always extract NORMAL range boundaries (e.g., 30-100, not 20-30)
@@ -478,7 +432,6 @@ OUTPUT JSON:
       "ref_min": 12.0,
       "ref_max": 16.0,
       "ref_type": "between",
-      "interpretation": "Low hemoglobin indicates anemia requiring further investigation including iron studies.",
       "status": "LOW"
     },
     {
@@ -488,7 +441,6 @@ OUTPUT JSON:
       "ref_min": null,
       "ref_max": 200.0,
       "ref_type": "max",
-      "interpretation": "High cholesterol can clog arteries; dietary changes and exercise recommended.",
       "status": "HIGH"
     },
     {
@@ -498,7 +450,6 @@ OUTPUT JSON:
       "ref_min": null,
       "ref_max": null,
       "ref_type": "text",
-      "interpretation": "Your urine color is normal, indicating good hydration.",
       "status": "NORMAL"
     },
     {
@@ -508,7 +459,6 @@ OUTPUT JSON:
       "ref_min": null,
       "ref_max": null,
       "ref_type": "exact",
-      "interpretation": "No protein found in urine, which is normal and indicates healthy kidney function.",
       "status": "NORMAL"
     },
   ],
@@ -524,8 +474,6 @@ FINAL VERIFICATION:
 ✓ Page count sum: 12
 ✓ tests.length: 12
 ✓ Match: YES
-✓ All 12 tests have interpretations: YES
-✓ No interpretations are null: YES
 ✓ quality.tests_extracted = 12 = tests.length: YES
 ✓ All validations passed: READY TO OUTPUT
 
@@ -533,7 +481,7 @@ FINAL VERIFICATION:
 🎯 COMPLETE WORKFLOW SUMMARY (Follow This Order)
 
 
-PHASE 1: EXTRACTION (90% Effort)
+PHASE 1: EXTRACTION (100% Effort)
 ┌────────────────────────────────────────────────┐
 │ 1. Process report page by page                 │
 │ 2. For each page: Count tests as you extract   │
@@ -542,7 +490,7 @@ PHASE 1: EXTRACTION (90% Effort)
 │ 5. Sum all page counts = expected total        │
 └────────────────────────────────────────────────┘
 
-PHASE 2: VERIFICATION (Before Analysis)
+PHASE 2: VERIFICATION
 ┌────────────────────────────────────────────────┐
 │ 6. Verify: tests.length = sum of page counts   │
 │ 7. If mismatch > 2: Identify & re-scan missing │
@@ -550,24 +498,16 @@ PHASE 2: VERIFICATION (Before Analysis)
 │ 9. Verify: All "NOT DETECTED" extracted        │
 └────────────────────────────────────────────────┘
 
-PHASE 3: ANALYSIS (10% Effort)
+PHASE 3: FINAL VALIDATION
 ┌────────────────────────────────────────────────┐
-10. Assign interpretations to ALL tests          │
-11. Ensure ALL interpretations are in plain text │
-12. Verify EVERY test has an explanation         │
+│ 10. Re-verify: tests.length = page sum         │
+│ 11. Set quality.tests_extracted = tests.length │
+│ 12. Validate JSON syntax                       │
 └────────────────────────────────────────────────┘
 
-PHASE 4: FINAL VALIDATION
+PHASE 4: OUTPUT
 ┌────────────────────────────────────────────────┐
-│ 16. Re-verify: tests.length = page sum         │
-│ 17. Re-verify: Abnormals have interpretations  │
-│ 18. Set quality.tests_extracted = tests.length │
-│ 19. Validate JSON syntax                       │
-└────────────────────────────────────────────────┘
-
-PHASE 5: OUTPUT
-┌────────────────────────────────────────────────┐
-│ 20. Generate final JSON output                 │
+│ 13. Generate final JSON output                 │
 └────────────────────────────────────────────────┘
 
 
@@ -576,13 +516,9 @@ PHASE 5: OUTPUT
 
 1. Tests array = single source of truth
 2. Count page by page with running tally
-3. Interpretation = ALWAYS a string for ALL tests (NEVER null)
-4. Include interpretation in the test object itself
-5. Extract NORMAL reference ranges (not abnormal ranges)
-6. Each "NOT DETECTED" = separate test
-7. Same test in multiple places = extract once only
-8. Verify: tests.length = sum of page counts
-9. Verify: ALL tests have interpretations (no null values)
-10. Verify: All interpretations are in simple, plain language
-11. Output JSON only (no explanations)
+3. Extract NORMAL reference ranges (not abnormal ranges)
+4. Each "NOT DETECTED" = separate test
+5. Same test in multiple places = extract once only
+6. Verify: tests.length = sum of page counts
+7. Output JSON only (no explanations)
 `;

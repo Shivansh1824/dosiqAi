@@ -368,16 +368,25 @@ function parseNumericValue(value: string): number | null {
  * Map status to abnormal flag
  */
 function mapStatusToAbnormalFlag(
-  status: 'normal' | 'high' | 'low' | 'critical' | undefined
+  status: 'normal' | 'low' | 'high' | 'borderline' | 'critical' | 'abnormal' | undefined
 ): string | null {
-  switch (status) {
-    case 'critical':
+  if (!status) return null;
+
+  // Normalize to uppercase for flag storage
+  const normalizedStatus = status.toUpperCase();
+
+  switch (normalizedStatus) {
+    case 'CRITICAL':
       return 'C';
-    case 'high':
+    case 'HIGH':
       return 'H';
-    case 'low':
+    case 'LOW':
       return 'L';
-    case 'normal':
+    case 'BORDERLINE':
+      return 'B';
+    case 'ABNORMAL':
+      return 'A';
+    case 'NORMAL':
     default:
       return null;
   }
@@ -496,8 +505,8 @@ export function decimateDataPoints<T extends { x: Date; y: number }>(
 
       const area = Math.abs(
         prevPoint.x.getTime() * (data[j].y - nextAvgY) +
-          data[j].x.getTime() * (nextAvgY - prevPoint.y) +
-          nextAvgX * (prevPoint.y - data[j].y)
+        data[j].x.getTime() * (nextAvgY - prevPoint.y) +
+        nextAvgX * (prevPoint.y - data[j].y)
       );
 
       if (area > maxArea) {

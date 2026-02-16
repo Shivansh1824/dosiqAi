@@ -57,7 +57,7 @@ export interface LabMetric {
   value: string;
   unit?: string;
   reference_range?: string;
-  status?: 'normal' | 'high' | 'low' | 'critical';
+  status?: 'normal' | 'low' | 'high' | 'borderline' | 'critical' | 'abnormal';
 }
 
 // Grouped lab metrics

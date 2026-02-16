@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "counts": {
+    "exact": 1,
+    "fuzzy": 1,
+    "not_found": 1
+  },
+  "exact_matches": [
+    {
+      "id": "test-uuid-1",
+      "test_name": "Hemoglobin",
+      "biomarker_id": "biomarker-uuid-hb",
+      "value": 14.5,
+      "unit": "g/dL",
+      "ref_min": 13.5,
+      "ref_max": 17.5,
+      "ref_type": "between",
+      "status": "NORMAL"
+    }
+  ],
+  "fuzzy_matches": [
+    {
+      "id": "test-uuid-2",
+      "test_name": "Glukose",
+      "value": 110,
+      "unit": "mg/dL",
+      "ref_min": 70,
+      "ref_max": 100,
+      "ref_type": "between",
+      "status": "HIGH",
+      "fuzzy_candidates": [
+        {
+          "alias_name": "Glucose",
+          "biomarker_id": "biomarker-uuid-glucose",
+          "mastertable_description": "Blood sugar concentration"
+        },
+        {
+          "alias_name": "Glucose, Fasting",
+          "biomarker_id": "biomarker-uuid-glucose-fasting",
+          "mastertable_description": "Blood sugar concentration after fasting"
+        }
+      ]
+    }
+  ],
+  "not_found": [
+    {
+      "id": "test-uuid-3",
+      "test_name": "Unknown Marker X",
+      "value": "Positive",
+      "unit": Y,
+      "ref_min": null,
+      "ref_max": null,
+      "ref_type": "text",
+      "status": "ABNORMAL"
+    }
+  ]
+}

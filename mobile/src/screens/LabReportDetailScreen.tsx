@@ -133,11 +133,17 @@ export default function LabReportDetailScreen({
       if (summary.criticalCount > 0) {
         shareText += `Critical: ${summary.criticalCount}\n`;
       }
+      if (summary.abnormalCount > 0) {
+        shareText += `Abnormal: ${summary.abnormalCount}\n`;
+      }
       if (summary.highCount > 0) {
         shareText += `High: ${summary.highCount}\n`;
       }
       if (summary.lowCount > 0) {
         shareText += `Low: ${summary.lowCount}\n`;
+      }
+      if (summary.borderlineCount > 0) {
+        shareText += `Borderline: ${summary.borderlineCount}\n`;
       }
       shareText += `Normal: ${summary.normalCount}\n\n`;
 
@@ -149,8 +155,14 @@ export default function LabReportDetailScreen({
           shareText += `  • ${result.test_name}: ${result.result_value}`;
           if (result.unit) shareText += ` ${result.unit}`;
           if (result.abnormal_flag) {
-            const status = result.abnormal_flag === 'C' ? 'CRITICAL' :
-              result.abnormal_flag === 'H' ? 'HIGH' : 'LOW';
+            const statusMap: Record<string, string> = {
+              'C': 'CRITICAL',
+              'H': 'HIGH',
+              'L': 'LOW',
+              'B': 'BORDERLINE',
+              'A': 'ABNORMAL'
+            };
+            const status = statusMap[result.abnormal_flag] || result.abnormal_flag;
             shareText += ` [${status}]`;
           }
           shareText += `\n`;
@@ -243,20 +255,33 @@ export default function LabReportDetailScreen({
             <View
               style={[
                 styles.statusBadge,
-                result.abnormal_flag === 'C' && { backgroundColor: STATUS_COLORS.critical.light },
-                result.abnormal_flag === 'H' && { backgroundColor: STATUS_COLORS.high.light },
-                result.abnormal_flag === 'L' && { backgroundColor: STATUS_COLORS.low.light },
+                (result.abnormal_flag === 'C' || result.abnormal_flag === 'CRITICAL') && { backgroundColor: STATUS_COLORS.critical.light },
+                (result.abnormal_flag === 'H' || result.abnormal_flag === 'HIGH') && { backgroundColor: STATUS_COLORS.high.light },
+                (result.abnormal_flag === 'L' || result.abnormal_flag === 'LOW') && { backgroundColor: STATUS_COLORS.low.light },
+                (result.abnormal_flag === 'B' || result.abnormal_flag === 'BORDERLINE') && { backgroundColor: STATUS_COLORS.borderline.light },
+                (result.abnormal_flag === 'A' || result.abnormal_flag === 'ABNORMAL') && { backgroundColor: STATUS_COLORS.abnormal.light },
               ]}
             >
               <Text
                 style={[
                   styles.statusBadgeText,
-                  result.abnormal_flag === 'C' && { color: STATUS_COLORS.critical.dark },
-                  result.abnormal_flag === 'H' && { color: STATUS_COLORS.high.dark },
-                  result.abnormal_flag === 'L' && { color: STATUS_COLORS.low.dark },
+                  (result.abnormal_flag === 'C' || result.abnormal_flag === 'CRITICAL') && { color: STATUS_COLORS.critical.dark },
+                  (result.abnormal_flag === 'H' || result.abnormal_flag === 'HIGH') && { color: STATUS_COLORS.high.dark },
+                  (result.abnormal_flag === 'L' || result.abnormal_flag === 'LOW') && { color: STATUS_COLORS.low.dark },
+                  (result.abnormal_flag === 'B' || result.abnormal_flag === 'BORDERLINE') && { color: STATUS_COLORS.borderline.dark },
+                  (result.abnormal_flag === 'A' || result.abnormal_flag === 'ABNORMAL') && { color: STATUS_COLORS.abnormal.dark },
                 ]}
               >
-                {result.abnormal_flag === 'C' ? 'CRITICAL' : result.abnormal_flag === 'H' ? 'HIGH' : 'LOW'}
+                {(() => {
+                  const statusMap: Record<string, string> = {
+                    'C': 'CRITICAL',
+                    'H': 'HIGH',
+                    'L': 'LOW',
+                    'B': 'BORDERLINE',
+                    'A': 'ABNORMAL'
+                  };
+                  return statusMap[result.abnormal_flag] || result.abnormal_flag;
+                })()}
               </Text>
             </View>
           )}
@@ -450,8 +475,10 @@ export default function LabReportDetailScreen({
           <Text style={styles.statusSummaryTitle}>Status Summary</Text>
           <View style={styles.statusPillsContainer}>
             {renderStatusPill('Critical', summary.criticalCount, 'critical')}
+            {renderStatusPill('Abnormal', summary.abnormalCount, 'abnormal')}
             {renderStatusPill('High', summary.highCount, 'high')}
             {renderStatusPill('Low', summary.lowCount, 'low')}
+            {renderStatusPill('Borderline', summary.borderlineCount, 'borderline')}
             {renderStatusPill('Normal', summary.normalCount, 'normal')}
           </View>
         </View>
