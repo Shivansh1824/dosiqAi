@@ -13,9 +13,7 @@ import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
 import { supabase } from '../services/supabaseClient';
-import {
-  METRIC_STATUS_COLORS,
-} from '../types/medicalReport';
+
 import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
 import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -26,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNotifications } from '../hooks/useNotifications';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
-import { AnalysisResultsDisplay } from '../components/prescription/AnalysisResultsDisplay';
+
 import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 import { AnimatedTooltip } from '../components/AnimatedTooltip';
@@ -103,8 +101,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   };
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState<any>(null);
-  const [labReportId, setLabReportId] = useState<string | null>(null);
+
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -138,7 +135,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const documentType = useMemo(() => {
     const type = initialDocument?.ai_analysis_result?.document_type?.toLowerCase();
     if (type === 'prescription') return 'prescription';
-    if (type === 'lab_report' || type === 'report' || type === 'medical_report') return 'report';
     return 'other';
   }, [initialDocument?.ai_analysis_result]);
 
@@ -345,40 +341,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     loadDismissedMedications();
   }, [DISMISSED_MEDS_STORAGE_KEY]);
 
-  // Load lab report ID if this document is a lab report
-  useEffect(() => {
-    const loadLabReportId = async () => {
-      if (!document) return;
-      try {
-        const { data, error } = await supabase
-          .from('lab_reports')
-          .select('id')
-          .eq('document_id', document.id)
-          .single();
 
-        if (error) {
-          if (error.code !== 'PGRST116') {
-            // PGRST116 = no rows returned (not a lab report)
-            console.error('[PrescriptionSummary] Error loading lab report:', error);
-          }
-          setLabReportId(null);
-        } else if (data) {
-          setLabReportId(data.id);
-          console.log('[PrescriptionSummary] Found lab report ID:', data.id);
-        }
-      } catch (error) {
-        console.error('[PrescriptionSummary] Error querying lab_reports:', error);
-        setLabReportId(null);
-      }
-    };
-
-    // Only query if document has AI analysis and is a lab report
-    if (document?.ai_analysis_result && document.ai_analysis_result.document_type?.toLowerCase() === 'lab_report') {
-      loadLabReportId();
-    } else {
-      setLabReportId(null);
-    }
-  }, [document?.id, document?.ai_analysis_result, document?.ai_analysis_result?.document_type]);
 
   const { isGenerating: isGeneratingAnalysis, generateAndShare: handleShareAnalysis } = useAnalysisPDF({
     analysis: document?.ai_analysis_result,
@@ -977,20 +940,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
 
 
-            {/* Detailed Medical Report Analysis - Always show for medical reports */}
-            {document?.ai_analysis_status === 'completed' &&
-              document?.ai_analysis_result?.document_type === 'medical_report' &&
-              (() => {
-                if (document?.ai_analysis_status === 'completed' && document?.ai_analysis_result) {
-                  return (
-                    <AnalysisResultsDisplay
-                      result={document.ai_analysis_result}
-                      labReportId={labReportId}
-                    />
-                  );
-                }
-                return null;
-              })()}
+
 
 
 
@@ -1003,7 +953,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 <>
                   {/* AI Summary Section - Show greyed-out when already added, hidden only during session verification */}
                   {document?.ai_analysis_status === 'completed' &&
-                    document?.ai_analysis_result?.document_type !== 'medical_report' &&
                     summary &&
                     (hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                       <PrescriptionSummary
@@ -2681,148 +2630,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
-  // Detailed Medical Report Inline Styles
-  detailedReportContainer: {
-    marginTop: 0,
-    marginBottom: Sizes.lg,
-  },
-  reportAnalysisSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.sm,
-    paddingHorizontal: Sizes.lg,
-    marginBottom: Sizes.lg,
-    paddingBottom: Sizes.md,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary + '20',
-  },
-  reportAnalysisSectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    letterSpacing: 0.3,
-  },
-  medicalReportPatientCard: {
-    marginBottom: 12,
-    paddingHorizontal: Sizes.md,
-    paddingVertical: Sizes.md,
-  },
-  medicalReportPatientIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Sizes.md,
-  },
-  medicalReportPatientName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: Sizes.sm,
-    lineHeight: 26,
-  },
-  medicalReportPatientDetailsRow: {
-    flexDirection: 'row',
-    gap: Sizes.sm,
-    marginBottom: Sizes.md,
-  },
-  medicalReportPatientDetailBadge: {
-    backgroundColor: Colors.gray100,
-    paddingHorizontal: Sizes.md,
-    paddingVertical: Sizes.sm,
-    borderRadius: 16,
-  },
-  medicalReportPatientDetailText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  medicalReportDivider: {
-    height: 1,
-    backgroundColor: Colors.gray200,
-    marginVertical: Sizes.lg,
-  },
-  medicalReportStatusCard: {
-    marginBottom: 12,
-    paddingHorizontal: Sizes.md,
-    paddingVertical: Sizes.md,
-  },
-  medicalReportStatusTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: Sizes.md,
-  },
-  medicalReportStatusPillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Sizes.sm,
-    marginBottom: Sizes.md,
-  },
-  medicalReportStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Sizes.md,
-    paddingVertical: Sizes.sm,
-    borderRadius: 20,
-    gap: Sizes.sm,
-  },
-  medicalReportStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  medicalReportStatusPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  medicalReportTotalTestsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Sizes.md,
-    paddingVertical: Sizes.sm,
-    paddingHorizontal: Sizes.md,
-    backgroundColor: Colors.gray50,
-    borderRadius: 12,
-    gap: Sizes.sm,
-  },
-  medicalReportTotalTestsLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  medicalReportTotalTestsValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  medicalReportLabNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.sm,
-    paddingTop: Sizes.sm,
-  },
-  medicalReportLabNameText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  medicalReportCategoriesContainer: {
-    gap: Sizes.sm,
-  },
-  medicalReportCategoryAbnormalBadge: {
-    backgroundColor: METRIC_STATUS_COLORS.abnormal.light,
-    paddingHorizontal: Sizes.sm,
-    paddingVertical: Sizes.xs,
-    borderRadius: 12,
-  },
-  medicalReportCategoryAbnormalText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: METRIC_STATUS_COLORS.abnormal.dark,
-  },
+
 
   // AI Summary Card Styles
   aiSummaryCard: {

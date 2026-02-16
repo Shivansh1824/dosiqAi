@@ -62,7 +62,7 @@ export function CoursePeriodSection({
                         style={styles.frequencyChip} // New Chip Style
                     >
                         <Text style={styles.frequencyText}>{getIntervalLabel()}</Text>
-                        <Feather name="chevron-down" size={14} color={Colors.primary} />
+                        {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
                     </TouchableOpacity>
                 )}
             </View>

@@ -6,6 +6,7 @@ import { Colors, Sizes, Typography } from '../constants';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
+import { useMedicationsStore } from '../store/medicationsStore';
 
 export default function DocumentsScreen() {
     const navigation = useNavigation();
@@ -101,7 +102,18 @@ export default function DocumentsScreen() {
                                 key={doc.id}
                                 style={styles.documentCard}
                                 activeOpacity={0.7}
-                                onPress={() => (navigation as any).navigate('PrescriptionSummary', { documentId: doc.id })}
+                                onPress={() => {
+                                    const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
+                                    
+                                    if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
+                                        (navigation as any).navigate('ReportSummary', { document: doc, documentId: doc.id });
+                                    } else {
+                                        const medications = useMedicationsStore.getState().medications;
+                                        const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;
+                                        const screen = isAlreadyAdded ? 'PrescriptionRecord' : 'PrescriptionSummary';
+                                        (navigation as any).navigate(screen, { document: doc, documentId: doc.id });
+                                    }
+                                }}
                             >
                                 <View style={[styles.documentIconContainer, { backgroundColor: doc.color + '15' }]}>
                                     <Feather name="file-text" size={24} color={doc.color} />

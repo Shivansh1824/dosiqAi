@@ -63,6 +63,7 @@ import SignupScreen from './src/screens/SignupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ScanDocumentScreen from './src/screens/ScanDocumentScreen';
 import PrescriptionSummaryScreen from './src/screens/PrescriptionSummaryScreen';
+import ReportSummaryScreen from './src/screens/ReportSummaryScreen';
 import DocumentsScreen from './src/screens/DocumentsScreen';
 import MedicationsScreen from './src/screens/MedicationsScreen';
 import MedicationHomeScreen from './src/screens/MedicationHomeScreen';
@@ -74,8 +75,11 @@ import LabReportDetailScreen from './src/screens/LabReportDetailScreen';
 import LabMetricTrendScreen from './src/screens/LabMetricTrendScreen';
 import MedicineAlarmScreen from './src/screens/MedicineAlarmScreen';
 import AddMedicationScreen from './src/screens/AddMedicationScreen';
+import PrescriptionRecordScreen from './src/screens/PrescriptionRecordScreen';
+import TimelineScreen from './src/screens/TimelineScreen';
 // Store & Hooks
 import { useAuthStore } from './src/store/authStore';
+import { useMedicationsStore } from './src/store/medicationsStore';
 import { useMedicationLogsStore } from './src/store/medicationLogsStore';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
 import { useMedicineAlarmCheck } from './src/hooks/useMedicineAlarmCheck';
@@ -96,7 +100,8 @@ export type RootStackParamList = {
   Signup: undefined;
   Home: undefined;
   Scan: undefined;
-  PrescriptionSummary: { document: Document };
+  PrescriptionSummary: { document: Document; documentId?: string };
+  ReportSummary: { document: Document; documentId?: string };
   Documents: undefined;
   Medications: undefined;
   MedicationList: undefined;
@@ -107,7 +112,10 @@ export type RootStackParamList = {
   LabMetricTrend: { testResultId: string; familyMemberId: string; testCode: string; testName: string };
   MedicineAlarm: { medicationId?: string; medicationName?: string; dosage?: string; scheduleId?: string; instructions?: string; } | undefined;
   AddMedication: undefined;
+  PrescriptionRecord: { document?: Document; documentId?: string };
+  Timeline: undefined;
 };
+
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -394,7 +402,27 @@ export default function App() {
                         <HomeScreen
                           onNavigate={(screen, params) => {
                             if (screen === 'scan') navigation.navigate('Scan');
-                            else if (screen === 'document') navigation.navigate('PrescriptionSummary', params);
+                            else if (screen === 'PrescriptionRecord') navigation.navigate('PrescriptionRecord', params);
+                            else if (screen === 'ReportSummary') navigation.navigate('ReportSummary', params);
+                            else if (screen === 'document') {
+                              // Detailed routing logic based on document type
+                              const doc = params?.document;
+                              const docType = doc?.ai_analysis_result?.document_type?.toLowerCase() || doc?.type?.toLowerCase();
+                              
+                              if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
+                                navigation.navigate('ReportSummary', params);
+                              } else {
+                                // For prescriptions, check if already added to tracker
+                                const medications = useMedicationsStore.getState().medications;
+                                const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;
+                                
+                                if (isAlreadyAdded) {
+                                  navigation.navigate('PrescriptionRecord', params);
+                                } else {
+                                  navigation.navigate('PrescriptionSummary', params);
+                                }
+                              }
+                            }
                             else if (screen === 'documents') navigation.navigate('Documents');
                             else if (screen === 'medications') navigation.navigate('Medications');
                             else if (screen === 'medicationList') navigation.navigate('MedicationList');
@@ -403,6 +431,7 @@ export default function App() {
                             else if (screen === 'profile') navigation.navigate('Profile');
                             else if (screen === 'medicineAlarm') navigation.navigate('MedicineAlarm', params);
                             else if (screen === 'preferenceOnboarding') navigation.navigate('PreferenceOnboarding');
+                            else if (screen === 'Timeline') navigation.navigate('Timeline');
                           }}
                           onProfileSwitch={() => setShowProfileModal(true)}
                         />
@@ -426,6 +455,26 @@ export default function App() {
                         const params = route.params as unknown as { document?: Document; documentId?: string };
                         return (
                           <PrescriptionSummaryScreen
+                            document={params?.document}
+                            documentId={params?.documentId}
+                            navigation={navigation}
+                            onBack={() => {
+                              if (navigation.canGoBack()) {
+                                navigation.goBack();
+                              } else {
+                                navigation.navigate('Home');
+                              }
+                            }}
+                          />
+                        );
+                      }}
+                    </Stack.Screen>
+
+                    <Stack.Screen name="ReportSummary">
+                      {({ navigation, route }) => {
+                        const params = route.params as unknown as { document?: Document; documentId?: string };
+                        return (
+                          <ReportSummaryScreen
                             document={params?.document}
                             documentId={params?.documentId}
                             navigation={navigation}
@@ -496,6 +545,25 @@ export default function App() {
                         cardStyle: { backgroundColor: 'transparent' },
                       }}
                     />
+                    <Stack.Screen name="PrescriptionRecord">
+                      {({ navigation, route }) => {
+                        const params = route.params as unknown as { document?: Document; documentId?: string };
+                        return (
+                          <PrescriptionRecordScreen
+                            document={params?.document}
+                            documentId={params?.documentId}
+                            navigation={navigation}
+                            onBack={() => {
+                              if (navigation.canGoBack()) {
+                                navigation.goBack();
+                              } else {
+                                navigation.navigate('Home');
+                              }
+                            }}
+                          />
+                        );
+                      }}
+                    </Stack.Screen>
                     <Stack.Screen
                       name="AddMedication"
                       component={AddMedicationScreen}
@@ -505,6 +573,7 @@ export default function App() {
                         gestureDirection: 'horizontal',
                       }}
                     />
+                    <Stack.Screen name="Timeline" component={TimelineScreen} />
                   </Stack.Navigator>
 
                   {/* Profile Switcher Modal */}
