@@ -113,7 +113,6 @@ interface ExactMatchResult {
   test_name: string;
   biomarker_id: string;
   value: string;
-  db_interpretation: string;
 }
 
 interface FuzzyCandidate {
@@ -127,14 +126,12 @@ interface FuzzyMatchResult {
   id: string;
   test_name: string;
   value: string;
-  original_interpretation: string | null;
   fuzzy_candidates: FuzzyCandidate[];
 }
 
 interface NotFoundResult {
   id: string;
   test_name: string;
-  db_interpretation: string | null;
   value: string;
 }
 

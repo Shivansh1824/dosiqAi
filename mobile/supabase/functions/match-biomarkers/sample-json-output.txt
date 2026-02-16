@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "counts": {
+    "exact": 1,
+    "fuzzy": 1,
+    "not_found": 1
+  },
+  "exact_matches": [
+    {
+      "id": "test-uuid-1",
+      "test_name": "Hemoglobin",
+      "biomarker_id": "bio-uuid-101",
+      "value": "14.5 g/dL",
+      "db_interpretation": "Your hemoglobin is within the normal range."
+    }
+  ],
+  "fuzzy_matches": [
+    {
+      "id": "test-uuid-2",
+      "test_name": "Vit D",
+      "value": "30 ng/mL",
+      "original_interpretation": "Slightly low vitamin D levels.",
+      "fuzzy_candidates": [
+        {
+          "alias_name": "Vitamin D, 25-Hydroxy",
+          "biomarker_id": "bio-uuid-202",
+          "mastertable_description": "Measures the level of vitamin D in your blood."
+        },
+        {
+          "alias_name": "Vitamin D2",
+          "biomarker_id": "bio-uuid-203",
+          "mastertable_description": "Specific test for ergocalciferol."
+        }
+      ]
+    }
+  ],
+  "not_found": [
+    {
+      "id": "test-uuid-3",
+      "test_name": "Unknown Mystery Marker",
+      "db_interpretation": null,
+      "value": "99 units"
+    }
+  ]
+}

@@ -17,10 +17,13 @@ const corsHeaders = {
 
 interface TestResult {
   id: string;
-  test_name: string;
-  value: string;
-  unit: string;
-  interpretation?: string;
+  name: string;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
 }
 
 interface BiomarkerAlias {
@@ -35,8 +38,12 @@ interface ExactMatchResult {
   id: string;
   test_name: string;
   biomarker_id: string;
-  value: string;
-  db_interpretation: string;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
 }
 
 interface FuzzyCandidate {
@@ -50,16 +57,24 @@ interface FuzzyCandidate {
 interface FuzzyMatchResult {
   id: string;
   test_name: string;
-  value: string;
-  original_interpretation: string | null;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
   fuzzy_candidates: FuzzyCandidate[];
 }
 
 interface NotFoundResult {
   id: string;
   test_name: string;
-  db_interpretation: string | null;
-  value: string;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -84,7 +99,7 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[${requestId}] 📋 Processing ${tests.length} tests: ${tests.map((t: TestResult) => t.test_name).join(", ")}`);
+    console.log(`[${requestId}] 📋 Processing ${tests.length} tests: ${tests.map((t: TestResult) => t.name).join(", ")}`);
 
     // ─────────────────────────────────────────────────────────
     // Step 0: Fetch all Biomarker Aliases (for exact matching)
@@ -110,25 +125,30 @@ serve(async (req: Request) => {
     // Step 1-3: Loop each test → Exact → Fuzzy → Not Found
     // ─────────────────────────────────────────────────────────
     for (const test of (tests as TestResult[])) {
-      if (!test.test_name) continue;
+      if (!test.name) continue;
 
       // ─── NUMERIC FILTER ───
-      const rawValue = test.value;
-      const strippedValue = (typeof rawValue === "string") ? rawValue.replace(/%/g, "").trim() : rawValue;
+      // Only process numeric tests (ref_type: "between", "min", "max")
+      // Skip text-based or exact match tests (ref_type: "text", "exact")
+      const shouldSkipNonNumeric = test.ref_type === "text" || test.ref_type === "exact";
 
-      // Ensure 0 is accepted, but null, undefined, empty string, or non-numeric text is skipped
-      const isNumeric = strippedValue !== null &&
-        strippedValue !== undefined &&
-        strippedValue !== "" &&
-        !isNaN(Number(strippedValue));
+      if (!shouldSkipNonNumeric) {
+        const rawValue = test.value;
+        const strippedValue = (typeof rawValue === "string") ? rawValue.replace(/%/g, "").trim() : rawValue;
 
-      if (!isNumeric) {
-        console.log(`[${requestId}][Skip] ⏭️ Skipping "${test.test_name}" because value "${test.value}" is not numeric.`);
-        continue;
+        // Ensure 0 is accepted, but null, undefined, empty string, or non-numeric text is skipped
+        const isNumeric = strippedValue !== null &&
+          strippedValue !== undefined &&
+          strippedValue !== "" &&
+          !isNaN(Number(strippedValue));
+
+        if (!isNumeric) {
+          console.log(`[${requestId}][Skip] ⏭️ Skipping "${test.name}" because value "${test.value}" is not numeric.`);
+          continue;
+        }
       }
 
-      const valueWithUnit = test.unit ? `${test.value} ${test.unit}` : test.value;
-      const normalizedTestName = normalize(test.test_name);
+      const normalizedTestName = normalize(test.name);
 
       // ─── QUERY 1: EXACT MATCH ───
       const exactMatch = (aliases as BiomarkerAlias[]).find(
@@ -136,14 +156,18 @@ serve(async (req: Request) => {
       );
 
       if (exactMatch) {
-        console.log(`[${requestId}][Exact] ✅ "${test.test_name}" -> ID: ${exactMatch.biomarker_id}`);
+        console.log(`[${requestId}][Exact] ✅ "${test.name}" -> ID: ${exactMatch.biomarker_id}`);
 
         exactMatches.push({
           id: test.id,
-          test_name: test.test_name,
+          test_name: test.name,
           biomarker_id: exactMatch.biomarker_id,
-          value: valueWithUnit,
-          db_interpretation: test.interpretation || ""
+          value: test.value,
+          unit: test.unit,
+          ref_min: test.ref_min,
+          ref_max: test.ref_max,
+          ref_type: test.ref_type,
+          status: test.status,
         });
 
         // Exact match found — skip fuzzy and not-found for this test
@@ -151,20 +175,20 @@ serve(async (req: Request) => {
       }
 
       // ─── QUERY 2: FUZZY SEARCH (pg_trgm) ───
-      console.log(`[${requestId}][Fuzzy] 🔍 Trying "${test.test_name}"...`);
+      console.log(`[${requestId}][Fuzzy] 🔍 Trying "${test.name}"...`);
 
       const { data: fuzzyResults, error: fuzzyError } = await supabase
         .rpc("search_biomarker_fuzzy", {
-          search_term: test.test_name,
+          search_term: test.name,
         });
 
       if (fuzzyError) {
-        console.error(`[${requestId}][Fuzzy] ❌ Error for "${test.test_name}":`, fuzzyError);
+        console.error(`[${requestId}][Fuzzy] ❌ Error for "${test.name}":`, fuzzyError);
         // On error, fall through to not-found
       }
 
       if (fuzzyResults && fuzzyResults.length > 0) {
-        console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.test_name}"`);
+        console.log(`[${requestId}][Fuzzy] 🔎 Found ${fuzzyResults.length} candidates for "${test.name}"`);
         // Log individual candidates for manual verification
         fuzzyResults.forEach((r: FuzzyCandidate, i: number) => {
           const typeLabel = r.match_type === 'keyword' ? '🔑 Keyword' : '✨ Fuzzy';
@@ -173,9 +197,13 @@ serve(async (req: Request) => {
 
         fuzzyMatches.push({
           id: test.id,
-          test_name: test.test_name,
-          value: valueWithUnit,
-          original_interpretation: test.interpretation || null,
+          test_name: test.name,
+          value: test.value,
+          unit: test.unit,
+          ref_min: test.ref_min,
+          ref_max: test.ref_max,
+          ref_type: test.ref_type,
+          status: test.status,
           fuzzy_candidates: fuzzyResults.map((r: { score: number; alias_name: string; biomarker_id: string; mastertable_description: string }) => ({
             alias_name: r.alias_name,
             biomarker_id: r.biomarker_id,
@@ -188,13 +216,17 @@ serve(async (req: Request) => {
       }
 
       // ─── QUERY 3: NOT FOUND ───
-      console.log(`[${requestId}][NotFound] ❓ "${test.test_name}"`);
+      console.log(`[${requestId}][NotFound] ❓ "${test.name}"`);
 
       notFound.push({
         id: test.id,
-        test_name: test.test_name,
-        db_interpretation: test.interpretation || null,
-        value: valueWithUnit,
+        test_name: test.name,
+        value: test.value,
+        unit: test.unit,
+        ref_min: test.ref_min,
+        ref_max: test.ref_max,
+        ref_type: test.ref_type,
+        status: test.status,
       });
     }
 
@@ -202,13 +234,13 @@ serve(async (req: Request) => {
     // ─────────────────────────────────────────────────────────
     // Step 5: Save Debug Logs (Temporary for testing)
     // ─────────────────────────────────────────────────────────
-    const firstTestId = tests[0]?.id;
-    if (firstTestId) {
-      console.log(`[${requestId}][Debug] 📝 Logging results (Ref: ${firstTestId})...`);
+    const firstTestName = tests[0]?.name;
+    if (firstTestName) {
+      console.log(`[${requestId}][Debug] 📝 Logging results (Ref: ${firstTestName})...`);
       const { error: debugError } = await supabase
         .from("biomarker_debug_logs")
         .insert({
-          test_reference: firstTestId,
+          test_reference: firstTestName,
           exact_matches: exactMatches,
           fuzzy_matches: fuzzyMatches,
           not_found: notFound
