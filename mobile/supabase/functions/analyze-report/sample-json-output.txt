@@ -1,0 +1,101 @@
+{
+  "file_name": "Nippun Rana - CBC & Lipid Profile - 2024-02-16",
+  "document_type": "LAB REPORT",
+  "error_response": {
+    "is_error": false,
+    "technical_reason": null
+  },
+  "patient_info": {
+    "name": "Nippun Rana",
+    "age": "29",
+    "gender": "Male",
+    "age_gender": "29 / Male"
+  },
+  "report_meta": {
+    "lab_name": "Dr. Lal PathLabs",
+    "collection_date": "2024-02-15",
+    "report_date": "2024-02-16"
+  },
+  "common_data": {
+    "ai_summary": "This report shows mostly healthy blood counts and kidney function. However, your Total Cholesterol is slightly high at 245 mg/dL, and your Hemoglobin is a bit low at 11.2 g/dL. These findings suggest a need for dietary adjustments to manage cholesterol and potentially checking for mild anemia. Please consult your physician for a detailed review."
+  },
+  "tests": [
+    {
+      "name": "Hemoglobin",
+      "value": 11.2,
+      "unit": "g/dL",
+      "ref_min": 12.0,
+      "ref_max": 16.0,
+      "ref_type": "between",
+      "status": "LOW"
+    },
+    {
+      "name": "WBC Count",
+      "value": 8200,
+      "unit": "/µL",
+      "ref_min": 4000,
+      "ref_max": 11000,
+      "ref_type": "between",
+      "status": "NORMAL"
+    },
+    {
+      "name": "Platelets",
+      "value": 245000,
+      "unit": "/µL",
+      "ref_min": 150000,
+      "ref_max": 400000,
+      "ref_type": "between",
+      "status": "NORMAL"
+    },
+    {
+      "name": "Total Cholesterol",
+      "value": 245,
+      "unit": "mg/dL",
+      "ref_min": null,
+      "ref_max": 200,
+      "ref_type": "max",
+      "status": "HIGH"
+    },
+    {
+      "name": "HDL Cholesterol",
+      "value": 48.2,
+      "unit": "mg/dL",
+      "ref_min": 35,
+      "ref_max": 55,
+      "ref_type": "between",
+      "status": "BORDERLINE"
+    },
+    {
+      "name": "Triglycerides",
+      "value": 185,
+      "unit": "mg/dL",
+      "ref_min": null,
+      "ref_max": 150,
+      "ref_type": "max",
+      "status": "HIGH"
+    },
+    {
+      "name": "Protein (Urine)",
+      "value": "NEGATIVE",
+      "unit": null,
+      "ref_min": null,
+      "ref_max": null,
+      "ref_type": "exact",
+      "status": "NORMAL"
+    },
+    {
+      "name": "Glucose (Urine)",
+      "value": "NOT DETECTED",
+      "unit": null,
+      "ref_min": null,
+      "ref_max": null,
+      "ref_type": "exact",
+      "status": "NORMAL"
+    }
+  ],
+  "quality": {
+    "tests_extracted": 8,
+    "confidence": 0.98,
+    "review_needed": false
+  }
+}

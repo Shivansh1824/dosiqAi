@@ -112,8 +112,12 @@ interface ExactMatchResult {
   id: string;
   test_name: string;
   biomarker_id: string;
-  value: string;
-  db_interpretation: string;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
 }
 
 interface FuzzyCandidate {
@@ -126,16 +130,24 @@ interface FuzzyCandidate {
 interface FuzzyMatchResult {
   id: string;
   test_name: string;
-  value: string;
-  original_interpretation: string | null;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
   fuzzy_candidates: FuzzyCandidate[];
 }
 
 interface NotFoundResult {
   id: string;
   test_name: string;
-  db_interpretation: string | null;
-  value: string;
+  value: string | number;
+  unit: string | null;
+  ref_min: number | null;
+  ref_max: number | null;
+  ref_type: string | null;
+  status: string | null;
 }
 
 interface MatchBiomarkersPayload {

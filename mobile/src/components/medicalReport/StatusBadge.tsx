@@ -10,7 +10,7 @@ interface StatusBadgeProps {
 
 export default function StatusBadge({ status, label, size = 'small' }: StatusBadgeProps) {
   const colors = METRIC_STATUS_COLORS[status];
-  const displayLabel = label || (status === 'normal' ? 'NORMAL' : 'ABNORMAL');
+  const displayLabel = label || status.toUpperCase();
 
   return (
     <View

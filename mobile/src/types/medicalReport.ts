@@ -87,7 +87,7 @@ export interface MedicalReportSummary {
   hasSummary: boolean;
 }
 
-export type MetricStatus = 'normal' | 'abnormal';
+export type MetricStatus = 'normal' | 'low' | 'high' | 'borderline' | 'critical' | 'abnormal';
 
 // ============================================================================
 // Status Colors (for UI components)
@@ -102,13 +102,33 @@ export interface StatusColor {
 export const METRIC_STATUS_COLORS: Record<MetricStatus, StatusColor> = {
   normal: {
     primary: '#10B981', // Green
-    light: '#D1FAE5',   // Light green background
-    dark: '#059669',    // Dark green text
+    light: '#D1FAE5', // Light green background
+    dark: '#059669', // Dark green text
+  },
+  low: {
+    primary: '#3B82F6', // Blue
+    light: '#DBEAFE', // Light blue background
+    dark: '#2563EB', // Dark blue text
+  },
+  high: {
+    primary: '#F59E0B', // Amber
+    light: '#FEF3C7', // Light amber background
+    dark: '#D97706', // Dark amber text
+  },
+  borderline: {
+    primary: '#6366F1', // Indigo
+    light: '#E0E7FF', // Light indigo background
+    dark: '#4338CA', // Dark indigo text
+  },
+  critical: {
+    primary: '#EF4444', // Red
+    light: '#FEE2E2', // Light red background
+    dark: '#DC2626', // Dark red text
   },
   abnormal: {
-    primary: '#EF4444', // Red
-    light: '#FEE2E2',   // Light red background
-    dark: '#DC2626',    // Dark red text
+    primary: '#8B5CF6', // Violet
+    light: '#EDE9FE', // Light violet background
+    dark: '#6D28D9', // Dark violet text
   },
 };
 
