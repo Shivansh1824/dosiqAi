@@ -10,6 +10,8 @@ import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { DocumentPreview } from '../components/prescription';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getAbsolutePath, fileExists } from '../utils/fileStorage';
 
 type PrescriptionRecordNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionRecord'>;
 
@@ -23,6 +25,10 @@ interface PrescriptionRecordScreenProps {
 export default function PrescriptionRecordScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionRecordScreenProps) {
   const { documents } = useDocumentsStore();
   const { familyMembers } = useFamilyMembersStore();
+  
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [fileNotFound, setFileNotFound] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Resolve document
   const document = useMemo(() => {
@@ -49,6 +55,47 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     return { titleText: title, subtitleText: parts.join(' • ') };
   }, [document, analysis, prescriptionData]);
 
+  // Check file existence
+  React.useEffect(() => {
+    const checkFile = async () => {
+      if (!document?.local_file_path) {
+        setFileNotFound(true);
+        return;
+      }
+      
+      try {
+        const absolutePath = getAbsolutePath(document.local_file_path);
+        const exists = await fileExists(absolutePath);
+        
+        if (exists) {
+          setImageUri(absolutePath);
+          setFileNotFound(false);
+        } else {
+          setFileNotFound(true);
+        }
+      } catch (error) {
+        console.error('Error checking file:', error);
+        setFileNotFound(true);
+      }
+    };
+    
+    checkFile();
+  }, [document?.local_file_path]);
+
+  // Handle Download
+  const handleDownload = async () => {
+    if (!imageUri) return;
+    try {
+      setDownloading(true);
+      await Sharing.shareAsync(imageUri);
+    } catch (error) {
+      console.error('Error sharing:', error);
+      Alert.alert('Error', 'Failed to share file');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // Handle Share
   const handleShare = async () => {
     if (!document?.local_file_path) {
@@ -74,7 +121,14 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
@@ -135,30 +189,36 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
         </View>
 
         {/* Document Preview */}
+
         <DocumentPreview 
-          document={document} 
-          onViewFull={() => {
+          imageUri={imageUri}
+          isPdf={document.local_file_path?.toLowerCase().endsWith('.pdf') || false}
+          fileNotFound={fileNotFound}
+          downloading={downloading}
+          onDownload={handleDownload}
+          onView={() => {
             // Navigation to PDF viewer or Image viewer could be added here
-            if (document.local_file_path?.endsWith('.pdf')) {
+            if (document.local_file_path?.toLowerCase().endsWith('.pdf')) {
                navigation.navigate('PdfViewer', {
-                 uri: document.local_file_path, // Note: needs absolute path logic in real app
+                 uri: imageUri || '', 
                  title: titleText
                });
             } else {
-               // Handle image view
+               // Handle image view - placeholder
+               Alert.alert('View', 'Full screen viewing coming soon');
             }
           }} 
         />
         
       </ScrollView>
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',

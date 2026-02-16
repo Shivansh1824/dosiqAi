@@ -761,7 +761,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
       {/* Modern Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -1263,14 +1270,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         onReplace={() => handleResolveDuplicate('replace')}
         onAddBoth={() => handleResolveDuplicate('add')}
       />
-    </SafeAreaView >
+    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bgSecondary,
   },
 
   // Header

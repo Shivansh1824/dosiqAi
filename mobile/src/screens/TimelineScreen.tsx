@@ -1,59 +1,180 @@
 import React, { useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SectionList, SafeAreaView, Dimensions, Platform, StatusBar } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { 
-  FadeInLeft, 
-  FadeInRight, 
   FadeInUp, 
   useSharedValue, 
   useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
-  withSequence,
+  withSpring,
+  interpolate,
+  Extrapolation,
+  SharedValue,
   useAnimatedScrollHandler
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Colors } from '../constants';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { Document } from '../types/document';
-// import Svg, { Path } from 'react-native-svg'; // Could use for advanced curves, but simple circles + lines is cleaner for now
+import * as Haptics from 'expo-haptics';
+import { Colors, Sizes, Typography } from '../constants';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.42; // Width of cards in snake layout
-const MIDDLE_GAP = 40; // Space in middle for spine
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+// --- Components ---
 
-// --- Micro-Interaction Components ---
+/**
+ * A sleek, glassmorphic header
+ */
+/**
+ * Header component matching Medications Screen style
+ */
+const Header = () => {
+  const navigation = useNavigation();
 
-const BreathingDot = ({ color, size = 12 }: { color: string, size?: number }) => {
-  const opacity = useSharedValue(0.4);
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+        activeOpacity={0.7}
+      >
+        <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+      </TouchableOpacity>
+
+      <View style={styles.headerContent}>
+        <Text style={styles.headerTitle}>Your Journey</Text>
+        <Text style={styles.headerSubtitle}>Track your medical history</Text>
+      </View>
+      
+      {/* Spacer to balance the back button if no action button exists */}
+      <View style={{ width: 44 }} />
+    </View>
+  );
+};
+
+// --- Timeline Item Component ---
+
+interface TimelineItemProps {
+  doc: Document;
+  index: number;
+  isLast: boolean;
+  onPress: (doc: Document) => void;
+}
+
+const TimelineItem = React.memo(({ doc, index, isLast, onPress }: TimelineItemProps) => {
+  const { medications } = useMedicationsStore();
+  
+  // Memoized derived state
+  const { status, statusColor, statusBg, iconName } = useMemo(() => {
+    const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
+    
+    // Status Logic
+    let statusText = 'Prescription';
+    let color = '#6366F1'; // Indigo
+    let bg = '#EEF2FF';
+    let icon = 'file-text';
+
+    if (docType.includes('report') || docType.includes('lab')) {
+      statusText = 'Report';
+      color = '#0EA5E9'; // Sky
+      bg = '#F0F9FF';
+      icon = 'activity';
+    } else {
+      const isVerified = medications.some((med: any) => med.source_document_id === doc.id);
+      if (isVerified) {
+        statusText = 'Verified';
+        color = '#10B981'; // Emerald
+        bg = '#ECFDF5';
+        icon = 'check-circle';
+      }
+    }
+
+    return { status: statusText, statusColor: color, statusBg: bg, iconName: icon as any };
+  }, [doc, medications]);
+
+  const date = new Date(doc.created_at);
+  const day = date.getDate();
+  const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  // Animation
   const scale = useSharedValue(1);
+  
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97);
+  };
 
-  useEffect(() => {
-    opacity.value = withRepeat(withSequence(withTiming(0.8, { duration: 1500 }), withTiming(0.4, { duration: 1500 })), -1, true);
-    scale.value = withRepeat(withSequence(withTiming(1.3, { duration: 1500 }), withTiming(1, { duration: 1500 })), -1, true);
-  }, []);
+  const handlePressOut = () => {
+    scale.value = withSpring(1);
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
     transform: [{ scale: scale.value }],
   }));
 
   return (
-    <View style={[styles.dotContainer, { width: size + 4, height: size + 4, borderRadius: (size + 4)/2, borderColor: color }]}>
-       <Animated.View style={[
-         StyleSheet.absoluteFill, 
-         { backgroundColor: color, borderRadius: (size + 4)/2 },
-         animatedStyle 
-       ]} />
-       <View style={[styles.dotCore, { width: size - 2, height: size - 2, borderRadius: (size - 2)/2, backgroundColor: color }]} />
-    </View>
+    <Animated.View 
+      entering={FadeInUp.delay(index * 50).duration(400)}
+      style={styles.itemRow}
+    >
+      {/* Left: Date */}
+      <View style={styles.dateColumn}>
+        <Text style={styles.dateDay}>{day}</Text>
+        <Text style={styles.dateWeek}>{dayOfWeek}</Text>
+      </View>
+
+      {/* Middle: Spine & Dot */}
+      <View style={styles.spineColumn}>
+        <View style={[styles.spineLine, { bottom: isLast ? 0 : -24 }]} />
+        <View style={[styles.spineDot, { borderColor: statusColor, backgroundColor: '#fff' }]}>
+            <View style={[styles.spineDotInner, { backgroundColor: statusColor }]} />
+        </View>
+      </View>
+
+      {/* Right: Card */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => {
+          Haptics.selectionAsync();
+          onPress(doc);
+        }}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.cardContainer}
+      >
+        <Animated.View style={[styles.card, animatedStyle]}>
+           <View style={[styles.statusStrip, { backgroundColor: statusColor }]} />
+           
+           <View style={styles.cardContent}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconBadge, { backgroundColor: statusBg }]}>
+                  <Feather name={iconName} size={14} color={statusColor} />
+                </View>
+                <Text style={[styles.statusText, { color: statusColor }]}>{status}</Text>
+                <Text style={styles.timeText}>{time}</Text>
+              </View>
+
+              <Text style={styles.cardTitle} numberOfLines={2}>
+                {doc.ai_analysis_result?.file_name || doc.local_file_path?.split('/').pop() || 'Untitled Document'}
+              </Text>
+           </View>
+        </Animated.View>
+      </TouchableOpacity>
+    </Animated.View>
   );
-};
+});
+
+const SectionHeader = ({ title }: { title: string }) => (
+  <View style={styles.sectionHeaderContainer}>
+     <BlurView intensity={Platform.OS === 'ios' ? 80 : 0} tint="light" style={StyleSheet.absoluteFill} />
+     <Text style={styles.sectionHeaderTitle}>{title}</Text>
+  </View>
+);
+
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
+
 
 export default function TimelineScreen() {
   const navigation = useNavigation();
@@ -65,8 +186,8 @@ export default function TimelineScreen() {
     scrollY.value = event.contentOffset.y;
   });
 
-  // Group documents by Month/Year
-  const groupedDocuments = useMemo(() => {
+  // Grouping for SectionList
+  const sections = useMemo(() => {
     const groups: { [key: string]: Document[] } = {};
     const sortedDocs = [...documents].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -75,17 +196,19 @@ export default function TimelineScreen() {
     sortedDocs.forEach(doc => {
       const date = new Date(doc.created_at);
       const key = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      if (!groups[key]) {
-        groups[key] = [];
-      }
+      if (!groups[key]) groups[key] = [];
       groups[key].push(doc);
     });
-    return groups;
+
+    return Object.entries(groups).map(([title, data]) => ({
+      title,
+      data
+    }));
   }, [documents]);
 
   const handleDocumentPress = (doc: Document) => {
     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
-    if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
+    if (docType.includes('report') || docType.includes('lab')) {
       (navigation as any).navigate('ReportSummary', { document: doc, documentId: doc.id });
     } else {
       const isVerified = medications.some((med: any) => med.source_document_id === doc.id);
@@ -97,190 +220,57 @@ export default function TimelineScreen() {
     }
   };
 
-  const getDocStatus = (doc: Document) => {
-    const type = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
-    if (type.includes('report')) return 'Report';
-    const isVerified = medications.some((med: any) => med.source_document_id === doc.id);
-    return isVerified ? 'Verified' : 'Prescription';
-  };
+  const renderSectionHeader = ({ section: { title } }: any) => (
+    <SectionHeader title={title} />
+  );
+
+  const renderItem = ({ item, index, section }: any) => (
+    <TimelineItem 
+      doc={item} 
+      index={index} 
+      isLast={index === section.data.length - 1}
+      onPress={handleDocumentPress}
+    />
+  );
 
   return (
     <View style={styles.container}>
-      {/* 2026 Organic Background */}
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Background */}
+      {/* Background - Consistent with Medications Screen */}
       <LinearGradient
-        colors={['#FDFBF9', '#F0F9FF', '#FDFBF9']}
+        colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
       />
       
-      {/* Decorative Orbs */}
-      <View style={[styles.ambientOrb, { top: -80, right: -40, backgroundColor: 'rgba(99, 102, 241, 0.06)' }]} />
-      <View style={[styles.ambientOrb, { bottom: 200, left: -60, backgroundColor: 'rgba(16, 185, 129, 0.06)' }]} />
-
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Glassmorphic Header */}
-        <BlurView intensity={90} tint="light" style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()} 
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Feather name="arrow-left" size={24} color="#1E293B" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Your Journey</Text>
-          <TouchableOpacity style={styles.filterButton}>
-             <Feather name="more-horizontal" size={24} color="#64748B" />
-          </TouchableOpacity>
-        </BlurView>
+      <Header />
 
-        <Animated.ScrollView 
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-          style={styles.content} 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {Object.keys(groupedDocuments).length === 0 ? (
-             <Animated.View 
-               entering={FadeInUp.delay(300).springify().damping(12)}
-               style={styles.emptyContainer}
-             >
-               <View style={styles.emptyIconContainer}>
-                 <Feather name="activity" size={40} color="#818CF8" />
-               </View>
-               <Text style={styles.emptyText}>Start Your Timeline</Text>
-               <Text style={styles.emptySubtext}>Medical events will appear here\nin a chronological journey.</Text>
-             </Animated.View>
-          ) : (
-            <View style={styles.timelineWrapper}>
-              
-              {/* Central Spine Line */}
-              <View style={styles.centralSpine} />
-
-              {Object.entries(groupedDocuments).map(([month, docs], groupIndex) => (
-                <View key={month} style={styles.monthGroup}>
-                  
-                  {/* Month Header Pillage */}
-                  <View style={styles.monthHeaderContainer}>
-                    <View style={styles.monthPill}>
-                      <Text style={styles.monthText}>{month}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.snakeList}>
-                    {docs.map((doc, index) => {
-                      const status = getDocStatus(doc);
-                      const isVerified = status === 'Verified';
-                      const isReport = status === 'Report';
-                      const isEven = index % 2 === 0; // Left side if even (0, 2, 4...)
-                      
-                      let statusColor: string;
-                      let statusBg: string;
-                      let iconName: any;
-                      
-                      if (isVerified) {
-                        statusColor = '#10B981'; 
-                        statusBg = '#ECFDF5';
-                        iconName = 'check-circle';
-                      } else if (isReport) {
-                        statusColor = '#0EA5E9'; 
-                        statusBg = '#F0F9FF';
-                        iconName = 'activity';
-                      } else {
-                        statusColor = '#6366F1'; 
-                        statusBg = '#EEF2FF';
-                        iconName = 'file-text';
-                      }
-
-                      return (
-                        <View key={doc.id} style={styles.snakeRow}>
-                          
-                          {/* Left Side */}
-                          <View style={styles.sideContainer}>
-                            {isEven && (
-                              <Animated.View entering={FadeInLeft.delay(index * 100).springify().damping(14)}>
-                                <AnimatedTouchable 
-                                  style={[styles.snakeCard, { borderLeftColor: statusColor, borderLeftWidth: 4 }]} 
-                                  onPress={() => handleDocumentPress(doc)}
-                                  activeOpacity={0.9}
-                                >
-                                   <View style={styles.cardInternal}>
-                                     <Text style={[styles.cardTitle, { textAlign: 'right' }]} numberOfLines={2}>
-                                        {doc.ai_analysis_result?.file_name || doc.local_file_path?.split('/').pop() || 'Medical Document'}
-                                     </Text>
-                                     <Text style={[styles.cardSubtitle, { textAlign: 'right' }]}>{status}</Text>
-                                   </View>
-                                </AnimatedTouchable>
-                              </Animated.View>
-                            )}
-                            {!isEven && (
-                              <View style={styles.dateLabelRight}>
-                                <Text style={styles.weekdayText}>
-                                  {new Date(doc.created_at).toLocaleDateString('en-US', { weekday: 'long' })}
-                                </Text>
-                                <Text style={styles.dateText}>
-                                  {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-
-                          {/* Center Spine Marker */}
-                          <View style={styles.spineMarkerContainer}>
-                             <BreathingDot color={statusColor} size={14} />
-                             {/* Optional horizontal connector line */}
-                             <View style={[
-                               styles.horizontalConnector, 
-                               { 
-                                 backgroundColor: statusColor,
-                                 left: isEven ? -20 : undefined,
-                                 right: !isEven ? -20 : undefined,
-                                 width: 20
-                               } 
-                             ]} />
-                          </View>
-
-                          {/* Right Side */}
-                          <View style={styles.sideContainer}>
-                            {!isEven && (
-                              <Animated.View entering={FadeInRight.delay(index * 100).springify().damping(14)}>
-                                <AnimatedTouchable 
-                                  style={[styles.snakeCard, { borderRightColor: statusColor, borderRightWidth: 4 }]} 
-                                  onPress={() => handleDocumentPress(doc)}
-                                  activeOpacity={0.9}
-                                >
-                                   <View style={styles.cardInternal}>
-                                     <Text style={[styles.cardTitle, { textAlign: 'left' }]} numberOfLines={2}>
-                                        {doc.ai_analysis_result?.file_name || doc.local_file_path?.split('/').pop() || 'Medical Document'}
-                                     </Text>
-                                     <Text style={[styles.cardSubtitle, { textAlign: 'left' }]}>{status}</Text>
-                                   </View>
-                                </AnimatedTouchable>
-                              </Animated.View>
-                            )}
-                            {isEven && (
-                              <View style={styles.dateLabelLeft}>
-                                <Text style={styles.weekdayText}>
-                                  {new Date(doc.created_at).toLocaleDateString('en-US', { weekday: 'long' })}
-                                </Text>
-                                <Text style={styles.dateText}>
-                                  {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-          <View style={{ height: 100 }} />
-        </Animated.ScrollView>
+      <AnimatedSectionList
+        sections={sections}
+        keyExtractor={(item: any) => item.id}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        stickySectionHeadersEnabled={true}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={null}
+        ListEmptyComponent={() => (
+           <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                 <Feather name="clock" size={32} color="#94A3B8" />
+              </View>
+              <Text style={styles.emptyText}>No records yet</Text>
+              <Text style={styles.emptySub}>Your medical timeline will appear here.</Text>
+           </View>
+        )}
+        ListFooterComponent={<View style={{ height: 100 }} />}
+      />
       </SafeAreaView>
     </View>
   );
@@ -289,207 +279,211 @@ export default function TimelineScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FDFBF9',
+    backgroundColor: '#F8FAFC',
   },
-  ambientOrb: {
+  blob: {
     position: 'absolute',
-    width: 400,
-    height: 400,
-    borderRadius: 200,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.65)',
+    alignItems: 'center',
+    paddingHorizontal: Sizes.lg,
+    paddingVertical: Sizes.md,
+    backgroundColor: 'transparent',
+    zIndex: 100,
+    borderBottomWidth: 1, // The requested "line"
+    borderBottomColor: '#E2E8F0', // Mild separation
+  },
+  headerContent: {
+    flex: 1,
+    paddingHorizontal: 12,
+    alignItems: 'flex-start', // Left align
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    alignItems: 'center',
+    width: 44,
+    height: 44,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    alignItems: 'center',
+    borderRadius: 22,
+    // Removed background color (was rgba(255,255,255,0.5)) to match MedicationsScreen clean look
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: Sizes.sm,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E293B',
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 2,
     letterSpacing: -0.5,
+    textAlign: 'left',
   },
-  filterButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
+  headerSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    textAlign: 'left',
   },
   scrollContent: {
-    paddingTop: 10,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 150,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#334155',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 15,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  timelineWrapper: {
-    position: 'relative',
-    width: '100%',
+    paddingTop: 0, // Remove space
     paddingBottom: 40,
   },
-  centralSpine: {
-    position: 'absolute',
-    top: 60, // Start below first header
-    bottom: 0,
-    left: '50%',
-    width: 2,
-    backgroundColor: '#E2E8F0',
-    marginLeft: -1, // Center exactly
-    zIndex: 0,
+  headerSpacer: {
+    height: 10,
   },
-  monthGroup: {
-    marginBottom: 10,
+  sectionHeaderContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(248, 250, 252, 0.85)', // Semi-transparent for blur effect
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(226, 232, 240, 0.6)',
+    marginBottom: 16,
   },
-  monthHeaderContainer: {
-    alignItems: 'center',
-    marginVertical: 24,
-    zIndex: 2,
-  },
-  monthPill: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  monthText: {
-    fontSize: 14,
+  sectionHeaderTitle: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  snakeList: {
-    width: '100%',
-  },
-  snakeRow: {
+  itemRow: {
     flexDirection: 'row',
+    marginBottom: 0, // Handled by padding in container/list
+    paddingHorizontal: 20, // Reduced from 24
+    minHeight: 100,
+  },
+  dateColumn: {
+    width: 36, // Reduced from 40
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32, // Space between items
-    height: 100, // Fixed height area for easier alignment
+    paddingTop: 0,
   },
-  sideContainer: {
-    flex: 1,
-    height: '100%',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    // Debug colors: backgroundColor: 'rgba(0,0,0,0.05)',
-  },
-  spineMarkerContainer: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  horizontalConnector: {
-    position: 'absolute',
-    height: 2,
-    opacity: 0.5,
-  },
-  snakeCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    minHeight: 80,
-    justifyContent: 'center',
-  },
-  cardInternal: {
-    // 
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  dateDay: {
+    fontSize: 18,
+    fontWeight: '800', // Extra bold
     color: '#334155',
-    marginBottom: 4,
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  cardSubtitle: {
+  dateWeek: {
     fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
     textTransform: 'uppercase',
+    marginTop: -2,
   },
-  dateLabelLeft: {
-    alignItems: 'flex-start',
-    paddingLeft: 10,
+  spineColumn: {
+    width: 24, // Reduced from 30
+    alignItems: 'center',
+    position: 'relative',
   },
-  dateLabelRight: {
-    alignItems: 'flex-end',
-    paddingRight: 10,
+  spineLine: {
+    position: 'absolute',
+    top: 0,
+    width: 2,
+    backgroundColor: '#E2E8F0',
+    zIndex: 0,
+    left: 11, // Center of 24 is 12, minus 1 = 11
   },
-  dateText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#334155', // Slate 700
-    marginTop: 2,
-  },
-  weekdayText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94A3B8', // Slate 400
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dotContainer: {
+  spineDot: {
+    width: 12, // Slightly smaller dot
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    zIndex: 1,
+    marginTop: 6, 
     backgroundColor: '#fff',
-    zIndex: 2,
   },
-  dotCore: {
-    //
+  spineDotInner: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  cardContainer: {
+    flex: 1,
+    paddingLeft: 10, // Reduced from 12
+    paddingBottom: 24, 
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  statusStrip: {
+    height: 4,
+    width: '100%',
+  },
+  cardContent: {
+    padding: 16,
+    paddingTop: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  iconBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 'auto',
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    lineHeight: 22,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  emptySub: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 4,
   },
 });
