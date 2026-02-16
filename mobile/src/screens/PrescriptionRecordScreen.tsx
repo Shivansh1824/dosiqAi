@@ -368,6 +368,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
                 recommendedTests={analysis?.prescription_data?.recommended_tests}
                 otherInformation={analysis?.prescription_data?.other_information}
                 style={{ marginBottom: 0 }}
+                defaultExpanded={true}
               />
             )}
 
