@@ -869,20 +869,13 @@ export default function MedicationVerificationCard({
           </View>
 
           {/* Action Status / Warning Banner */}
-          {isVerified ? (
-            <View style={[styles.verifiedBanner, { marginTop: 8 }]}>
-              <Feather name="check-circle" size={16} color={Colors.success} />
-              <Text style={styles.verifiedText}>Added to tracker</Text>
+          {!isVerified && duplicateOf && (
+            <View style={styles.duplicateWarning}>
+              <Feather name="alert-triangle" size={16} color={Colors.warning} />
+              <Text style={styles.duplicateText}>
+                Previously prescribed: {duplicateOf.name}
+              </Text>
             </View>
-          ) : (
-            duplicateOf && (
-              <View style={styles.duplicateWarning}>
-                <Feather name="alert-triangle" size={16} color={Colors.warning} />
-                <Text style={styles.duplicateText}>
-                  Previously prescribed: {duplicateOf.name}
-                </Text>
-              </View>
-            )
           )}
         </>
       )}
@@ -995,23 +988,6 @@ const styles = StyleSheet.create({
     color: Colors.warningDark,
     flex: 1,
     fontFamily: Typography.fontFamily.medium,
-  },
-  verifiedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ECFDF5', // Colors.successLight
-    marginHorizontal: 18,
-    marginBottom: 16,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)', // Colors.success + '30'
-  },
-  verifiedText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#059669', // Colors.success
   },
   summaryContainer: {
     marginTop: 0,

@@ -285,11 +285,8 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         extension
       );
 
-      // Determine document type based on extension and isReport flag
-      let docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
-      if (isReport) {
-        docType = 'Lab Report';
-      }
+      // Determine document type based on user's explicit selection
+      let docType: DocumentType = isReport ? 'Lab Report' : 'Prescription';
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[HomeScreen] 📋 DOCUMENT TYPE DETERMINATION');
@@ -736,7 +733,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                     <TouchableOpacity
                       key={doc.id}
                       style={[styles.documentCardNew, { borderLeftColor: colorScheme.borderColor }]}
-                      onPress={() => onNavigate('document', { documentId: doc.id })}
+                      onPress={() => onNavigate('document', { document: doc, documentId: doc.id })}
                       activeOpacity={0.85}
                     >
                       <View style={styles.documentCardContent}>
@@ -776,6 +773,44 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
 
 
+
+
+          {/* Developer Preview Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Developer Preview</Text>
+            </View>
+            <View style={styles.developerGrid}>
+              <TouchableOpacity
+                style={styles.developerCard}
+                onPress={() => {
+                   // Using fixed ID as requested for easier understanding
+                   onNavigate('PrescriptionRecord', { documentId: '704145be-a05a-4c4c-a111-25d8d0c353b0' });
+                }}
+              >
+                <View style={[styles.developerIcon, { backgroundColor: '#EEF2FF' }]}>
+                  <Feather name="file-text" size={20} color="#6366F1" />
+                </View>
+                <Text style={styles.developerLabel}>Prescription Record</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.developerCard}
+                onPress={() => {
+                   if (recentDocuments.length > 0) {
+                     // Navigating to the summary screen for verification testing
+                     // This would normally be accessed after upload, but we show it here for dev
+                   }
+                   Alert.alert('Info', 'Use the timeline to see verified records.');
+                }}
+              >
+                <View style={[styles.developerIcon, { backgroundColor: '#FFF7ED' }]}>
+                  <Feather name="shield" size={20} color="#F97316" />
+                </View>
+                <Text style={styles.developerLabel}>Medical Summary</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -1570,6 +1605,37 @@ const styles = StyleSheet.create({
     ...Typography.fontWeights.semibold,
     color: Colors.primary,
   },
-
-
+  developerGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  developerCard: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  developerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  developerLabel: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: Colors.gray800,
+    textAlign: 'center',
+  },
 });
