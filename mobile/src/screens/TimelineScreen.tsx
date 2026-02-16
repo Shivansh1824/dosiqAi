@@ -61,9 +61,10 @@ interface TimelineItemProps {
   index: number;
   isLast: boolean;
   onPress: (doc: Document) => void;
+  showDate: boolean;
 }
 
-const TimelineItem = React.memo(({ doc, index, isLast, onPress }: TimelineItemProps) => {
+const TimelineItem = React.memo(({ doc, index, isLast, onPress, showDate }: TimelineItemProps) => {
   const { medications } = useMedicationsStore();
   
   // Memoized derived state
@@ -121,8 +122,12 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress }: TimelineItemPr
     >
       {/* Left: Date */}
       <View style={styles.dateColumn}>
-        <Text style={styles.dateDay}>{day}</Text>
-        <Text style={styles.dateWeek}>{dayOfWeek}</Text>
+        {showDate && (
+           <Animated.View entering={FadeInUp.duration(400)}>
+             <Text style={styles.dateDay}>{day}</Text>
+             <Text style={styles.dateWeek}>{dayOfWeek}</Text>
+           </Animated.View>
+        )}
       </View>
 
       {/* Middle: Spine & Dot */}
@@ -145,7 +150,7 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress }: TimelineItemPr
         style={styles.cardContainer}
       >
         <Animated.View style={[styles.card, animatedStyle]}>
-           <View style={[styles.statusStrip, { backgroundColor: statusColor }]} />
+
            
            <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
@@ -224,14 +229,21 @@ export default function TimelineScreen() {
     <SectionHeader title={title} />
   );
 
-  const renderItem = ({ item, index, section }: any) => (
-    <TimelineItem 
-      doc={item} 
-      index={index} 
-      isLast={index === section.data.length - 1}
-      onPress={handleDocumentPress}
-    />
-  );
+  const renderItem = ({ item, index, section }: any) => {
+    // Check if this is the first item of the day in this section
+    const prevItem = index > 0 ? section.data[index - 1] : null;
+    const isFirstOfDay = !prevItem || new Date(prevItem.created_at).getDate() !== new Date(item.created_at).getDate();
+
+    return (
+      <TimelineItem 
+        doc={item} 
+        index={index} 
+        isLast={index === section.data.length - 1}
+        onPress={handleDocumentPress}
+        showDate={isFirstOfDay}
+      />
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -418,49 +430,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(241, 245, 249, 1)', // Very subtle border
   },
-  statusStrip: {
-    height: 4,
-    width: '100%',
-  },
+
   cardContent: {
     padding: 16,
-    paddingTop: 12,
+    paddingVertical: 14,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   iconBadge: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 8, // Soft square
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 10,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     marginRight: 'auto',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   timeText: {
     fontSize: 12,
     color: '#94A3B8',
+    fontWeight: '500',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#1E293B',
-    lineHeight: 22,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   emptyState: {
     alignItems: 'center',
