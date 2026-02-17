@@ -359,7 +359,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         console.error('[HomeScreen] Background analysis failed:', error);
       });
 
-      Alert.alert('Success', 'Document uploaded successfully! Analyzing...');
+      Alert.alert('Success', 'Document uploaded successfully!');
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');
@@ -385,6 +385,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   }>({ options: [] });
 
   const [uploadType, setUploadType] = useState<'prescription' | 'report'>('prescription');
+  const pendingAction = useRef<(() => void) | null>(null);
 
   const showUploadTypeSelection = () => {
     // Universal Custom Action Sheet (iOS & Android)
@@ -396,22 +397,18 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Upload Prescription',
           icon: 'file-text',
           onPress: () => {
-            setActionSheetVisible(false); // Close first sheet
             setUploadType('prescription');
-            setTimeout(() => {
-                showSourceOptions();
-            }, 300);
+            pendingAction.current = () => showSourceOptions('prescription');
+            setActionSheetVisible(false);
           },
         },
         {
           label: 'Upload Report',
           icon: 'activity',
           onPress: () => {
-            setActionSheetVisible(false);
             setUploadType('report');
-            setTimeout(() => {
-                  showSourceOptions();
-            }, 300);
+            pendingAction.current = () => showSourceOptions('report');
+            setActionSheetVisible(false);
           },
         },
       ],
@@ -419,8 +416,9 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     setActionSheetVisible(true);
   };
 
-  const showSourceOptions = () => {
-    const title = uploadType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
+  const showSourceOptions = (type?: 'prescription' | 'report') => {
+    const currentType = type || uploadType;
+    const title = currentType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
     
     // Universal Custom Action Sheet (iOS & Android)
     setActionSheetConfig({
@@ -431,24 +429,24 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Photo Library',
           icon: 'image',
           onPress: () => {
+            pendingAction.current = () => pickImage();
             setActionSheetVisible(false);
-            setTimeout(pickImage, 200);
           },
         },
         {
           label: 'Take Photo',
           icon: 'camera',
           onPress: () => {
+            pendingAction.current = () => takePhoto();
             setActionSheetVisible(false);
-            setTimeout(takePhoto, 200);
           },
         },
         {
           label: 'Choose Files',
           icon: 'folder',
           onPress: () => {
+            pendingAction.current = () => pickDocument();
             setActionSheetVisible(false);
-            setTimeout(pickDocument, 200);
           },
         },
       ],
@@ -919,10 +917,16 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         }}
       />
 
-      {/* Custom Action Sheet for Android */}
+      {/* Custom Action Sheet */}
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
+        onDismissed={() => {
+          if (pendingAction.current) {
+            pendingAction.current();
+            pendingAction.current = null;
+          }
+        }}
         title={actionSheetConfig.title}
         subtitle={actionSheetConfig.subtitle}
         options={actionSheetConfig.options}

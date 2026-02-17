@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -139,10 +139,8 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         const uri = result.assets[0].uri;
         const fileName = result.assets[0].name;
 
-        // Check if it's an image (compress) or PDF (skip compression)
         const isImage = fileName?.toLowerCase().match(/\.(jpg|jpeg|png|heic|webp)$/i);
 
-        // Show Preview instead of uploading directly
         setSelectedFile({
           uri: uri,
           type: isImage ? 'image' : 'document',
@@ -315,7 +313,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       // Show success alert and navigate back
       Alert.alert(
         'Success',
-        'Document uploaded successfully! Analyzing...',
+        'Document uploaded successfully!',
         [
           {
             text: 'OK',
@@ -333,6 +331,8 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     }
   };
 
+  const pendingAction = useRef<(() => void) | null>(null);
+
   // Show custom action sheet for upload options
   const showUploadOptions = () => {
     setActionSheetConfig({
@@ -343,24 +343,24 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
           label: 'Photo Library',
           icon: 'image',
           onPress: () => {
+            pendingAction.current = () => pickImage();
             setActionSheetVisible(false);
-            setTimeout(pickImage, 200);
           },
         },
         {
           label: 'Take Photo',
           icon: 'camera',
           onPress: () => {
+            pendingAction.current = () => takePhoto();
             setActionSheetVisible(false);
-            setTimeout(takePhoto, 200);
           },
         },
         {
           label: 'Choose Files',
           icon: 'folder',
           onPress: () => {
+            pendingAction.current = () => pickDocument();
             setActionSheetVisible(false);
-            setTimeout(pickDocument, 200);
           },
         },
       ],
@@ -499,6 +499,12 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
+        onDismissed={() => {
+          if (pendingAction.current) {
+            pendingAction.current();
+            pendingAction.current = null;
+          }
+        }}
         title={actionSheetConfig.title}
         subtitle={actionSheetConfig.subtitle}
         options={actionSheetConfig.options}

@@ -24,6 +24,7 @@ export interface ActionSheetOption {
 interface ActionSheetProps {
   visible: boolean;
   onClose: () => void;
+  onDismissed?: () => void;
   title?: string;
   subtitle?: string;
   options: ActionSheetOption[];
@@ -34,6 +35,7 @@ const { width } = Dimensions.get('window');
 export default function ActionSheet({
   visible,
   onClose,
+  onDismissed,
   title,
   subtitle,
   options,
@@ -44,9 +46,12 @@ export default function ActionSheet({
 
   // Track visibility to handle closing animation
   const [showModal, setShowModal] = useState(visible);
+  // Track whether we need to fire onDismissed after modal fully unmounts
+  const pendingDismissCallback = useRef(false);
 
   useEffect(() => {
     if (visible) {
+      pendingDismissCallback.current = false;
       setShowModal(true);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -63,6 +68,7 @@ export default function ActionSheet({
         }),
       ]).start();
     } else {
+      pendingDismissCallback.current = true;
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -74,7 +80,15 @@ export default function ActionSheet({
           duration: 250,
           useNativeDriver: true,
         }),
-      ]).start(() => setShowModal(false));
+      ]).start(() => {
+        setShowModal(false);
+        if (pendingDismissCallback.current) {
+          pendingDismissCallback.current = false;
+          setTimeout(() => {
+            onDismissed?.();
+          }, 350);
+        }
+      });
     }
   }, [visible]);
 
