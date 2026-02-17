@@ -1,6 +1,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { NOT_FOUND_PROMPT } from "./prompt_not_found.ts";
+import { FUZZY_PROMPT } from "./prompt_fuzzy.ts";
 
 // Environment variables
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -196,16 +197,126 @@ async function processExactMatches(
 }
 
 /**
+ * Look up fuzzy match records by their IDs and return them as NotFoundResult[].
+ * Strips fuzzy_candidates so the data fits the processNotFound pipeline.
+ */
+function lookupFuzzyById(
+  ids: string[],
+  fuzzyMatches: FuzzyMatchResult[]
+): NotFoundResult[] {
+  return ids
+    .map((id) => {
+      const match = fuzzyMatches.find((m) => m.id === id);
+      if (!match) return null;
+      return {
+        id: match.id,
+        test_name: match.test_name,
+        value: match.value,
+        unit: match.unit,
+        ref_min: match.ref_min,
+        ref_max: match.ref_max,
+        ref_type: match.ref_type,
+        status: match.status,
+      };
+    })
+    .filter((item): item is NotFoundResult => item !== null);
+}
+
+/**
  * Process fuzzy-matched biomarkers.
- * These have candidate suggestions but need resolution.
+ * These have candidate suggestions but need AI resolution via Grok.
+ * After AI resolution:
+ *   - "found" items → update test_results with biomarker_id
+ *   - "not_found" items → enrich with original data and route to processNotFound
  */
 async function processFuzzyMatches(
-  _supabase: any,
+  supabase: any,
   fuzzyMatches: FuzzyMatchResult[],
   requestId: string
 ): Promise<void> {
-  console.log(`[${requestId}][Fuzzy] Processing ${fuzzyMatches.length} fuzzy matches...`);
-  // TODO: Implement fuzzy match processing logic
+  if (fuzzyMatches.length === 0) {
+    console.log(`[${requestId}][Fuzzy] No fuzzy matches to process.`);
+    return;
+  }
+
+  console.log(`[${requestId}][Fuzzy] Processing ${fuzzyMatches.length} fuzzy matches via AI...`);
+
+  try {
+    // 1. Prepare the user message (full fuzzy_matches array with candidates)
+    const userMessage = JSON.stringify(fuzzyMatches, null, 2);
+    const model = "x-ai/grok-4.1-fast";
+
+    // 2. Call Grok AI via OpenRouter
+    const openRouterResponse = await callOpenRouterAPI(FUZZY_PROMPT, userMessage, model);
+    const content = openRouterResponse.choices[0]?.message?.content;
+
+    if (!content) {
+      console.warn(`[${requestId}][Fuzzy] AI returned empty response.`);
+      return;
+    }
+
+    // [DEBUG] Log the full content
+    console.log(`[${requestId}][Fuzzy] Full AI Response:`, content);
+
+    // 3. Parse the AI response
+    const result = parseJSON(content);
+
+    const found = Array.isArray(result?.found) ? result.found : [];
+    const notFound = Array.isArray(result?.not_found) ? result.not_found : [];
+
+    console.log(`[${requestId}][Fuzzy] AI resolved ${fuzzyMatches.length} -> ${found.length} found, ${notFound.length} not found.`);
+
+    // 4. Handle found items — update test_results with biomarker_id
+    for (const item of found) {
+      const { error } = await supabase
+        .from("test_results")
+        .update({ biomarker_id: item.biomarker_id })
+        .eq("id", item.id);
+
+      if (error) {
+        console.error(`[${requestId}][Fuzzy] Error updating ${item.id}:`, error.message);
+      } else {
+        console.log(`[${requestId}][Fuzzy] Updated ${item.id} with biomarker_id: ${item.biomarker_id}`);
+      }
+    }
+
+    // 4.5. Upsert found items into potential_biomarker table
+    if (found.length > 0) {
+      console.log(`[${requestId}][Fuzzy] Upserting ${found.length} matched items into potential_biomarker...`);
+      const potentialData = found.map((item: any) => {
+        const original = fuzzyMatches.find((m) => m.id === item.id);
+        return {
+          test_results_id: item.id,
+          test_name: original?.test_name,
+          source: "fuzzy",
+        };
+      }).filter((item: any) => item.test_name);
+
+      if (potentialData.length > 0) {
+        const { error: upsertErr } = await supabase
+          .from("potential_biomarker")
+          .upsert(potentialData, { onConflict: "test_name" });
+
+        if (upsertErr) {
+          console.error(`[${requestId}][Fuzzy] Error upserting into potential_biomarker:`, upsertErr.message);
+        } else {
+          console.log(`[${requestId}][Fuzzy] Successfully upserted ${potentialData.length} biomarkers.`);
+        }
+      }
+    }
+
+    // 5. Handle not_found items — enrich with original data and route to processNotFound
+    if (notFound.length > 0) {
+      const notFoundIds = notFound.map((item: any) => item.id);
+      const enrichedNotFound = lookupFuzzyById(notFoundIds, fuzzyMatches);
+      console.log(`[${requestId}][Fuzzy] Routing ${enrichedNotFound.length} unmatched items to NotFound pipeline...`);
+      await processNotFound(supabase, enrichedNotFound, requestId, "fuzzy_not_found");
+    }
+
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[${requestId}][Fuzzy] AI processing failed:`, msg);
+  }
 }
 
 /**
@@ -215,7 +326,8 @@ async function processFuzzyMatches(
 async function processNotFound(
   _supabase: any,
   notFound: NotFoundResult[],
-  requestId: string
+  requestId: string,
+  sourceOverride?: string
 ): Promise<void> {
   if (notFound.length === 0) {
     console.log(`[${requestId}][NotFound] No not-found items to process.`);
@@ -267,8 +379,9 @@ async function processNotFound(
         return {
           test_results_id: id,
           test_name: originalItem?.test_name,
+          source: sourceOverride || "not_found",
         };
-      }).filter((item): item is { test_results_id: string; test_name: string } => !!item.test_name);
+      }).filter((item): item is { test_results_id: string; test_name: string; source: string } => !!item.test_name);
 
       const { error: upsertErr } = await _supabase
         .from("potential_biomarker")

@@ -228,14 +228,14 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
 
       // Save file locally with UUID filename to flat documents folder
-      const { filename, relativePath, fileSize, absolutePath, r2UploadPromise } = await saveFileLocallyWithUUID(
+      const { filename, relativePath, fileSize, absolutePath, startR2Upload } = await saveFileLocallyWithUUID(
         uri,
         extension
       );
 
       // Determine document type based on extension
       let docType: DocumentType = extension.toLowerCase() === 'pdf' ? 'Report' : 'Imaging';
-      
+
       // If we have an override or if fileName contains "Report"
       const isReport = isReportOverride || fileName?.toLowerCase().includes('report') || extension.toLowerCase() === 'pdf';
       if (isReport) {
@@ -259,8 +259,8 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       console.log('[ScanDocument] Setting up R2 upload promise handler...');
       console.log('[ScanDocument] Document ID for cloud key update:', actualDocumentId);
 
-      r2UploadPromise
-        .then(async (cloudFileKey) => {
+      startR2Upload()
+        .then(async (cloudFileKey: string | null) => {
           console.log('[ScanDocument] R2 upload promise resolved with key:', cloudFileKey);
 
           if (cloudFileKey && actualDocumentId) {
@@ -277,7 +277,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
             console.warn('[ScanDocument] Skipping cloud key update - cloudFileKey:', cloudFileKey, 'documentId:', actualDocumentId);
           }
         })
-        .catch((error) => {
+        .catch((error: any) => {
           console.error('[ScanDocument] R2 upload promise rejected:', error);
         });
 
@@ -295,6 +295,14 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       // Get absolute path for analysis
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 
+      // Trigger analysis in background (non-blocking) with correct document ID
+      console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId, 'isReport:', isReport);
+      console.log('[ScanDocument] Analysis path:', analysisPath);
+
+      triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
+        console.error('[ScanDocument] Background analysis failed:', error);
+      });
+
       // Show success alert and navigate back
       Alert.alert(
         'Success',
@@ -304,14 +312,6 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
             text: 'OK',
             onPress: () => {
               onBack();
-
-              // Trigger analysis in background (non-blocking) with correct document ID
-              console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId, 'isReport:', isReport);
-              console.log('[ScanDocument] Analysis path:', analysisPath);
-              
-              triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
-                console.error('[ScanDocument] Background analysis failed:', error);
-              });
             },
           },
         ]
