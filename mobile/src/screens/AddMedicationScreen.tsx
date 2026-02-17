@@ -271,12 +271,10 @@ export default function AddMedicationScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Ambient Background - Standardized */}
+            {/* Ambient Background - Standardized & Reversed */}
             <View style={StyleSheet.absoluteFillObject}>
                 <LinearGradient
-                    colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                    colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
                     style={StyleSheet.absoluteFillObject}
                 />
             </View>

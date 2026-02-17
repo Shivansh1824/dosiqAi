@@ -358,10 +358,10 @@ export default function PreferenceOnboardingScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Soft Ambient Background - Modified for Modern Clean Look */}
+            {/* Ambient Background - Standardized & Reversed for UX */}
             <View style={StyleSheet.absoluteFillObject}>
                 <LinearGradient
-                    colors={['#FFFFFF', '#F8FAFC', '#EFF6FF']} // Subtler, cleaner gradient
+                    colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
                     style={StyleSheet.absoluteFillObject}
                 />
             </View>

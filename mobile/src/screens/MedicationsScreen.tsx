@@ -387,10 +387,8 @@ export default function MedicationsScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <LinearGradient
-                colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+                colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
                 style={StyleSheet.absoluteFill}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
             />
             {/* Header */}
             <View style={styles.header}>

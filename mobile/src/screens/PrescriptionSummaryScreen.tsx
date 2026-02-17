@@ -763,10 +763,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
+        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
         style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
       />
     <SafeAreaView style={{ flex: 1 }} edges={['top']}>
       {/* Modern Header */}
@@ -1574,14 +1572,14 @@ const styles = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: 'transparent',
     // Removed: borderRadius, shadow*, elevation
     padding: 16, // MD3: Reduced from 20
-    marginBottom: 12, // Minimal spacing
+    marginBottom: 0, // Minimal spacing
     // Flat design - no shadows
   },
   medicationsCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: 'transparent',
     paddingTop: 0,
     paddingBottom: 0,
     paddingHorizontal: 0,

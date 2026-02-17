@@ -80,10 +80,14 @@ export default function ActionSheet({
 
   if (!showModal) return null;
 
+  // Platform-specific animation configs
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [600, 0], // Slide from bottom
+    outputRange: [600, 0], 
   });
+
+  // Calculate container style based on Platform
+  const containerStyle = Platform.OS === 'ios' ? styles.iosSheetContainer : styles.androidSheetContainer;
 
   return (
     <Modal
@@ -94,7 +98,7 @@ export default function ActionSheet({
       animationType="none"
     >
       <View style={styles.overlay}>
-        {/* Backdrop - Dims background */}
+        {/* Backdrop */}
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
         </TouchableWithoutFeedback>
@@ -102,66 +106,119 @@ export default function ActionSheet({
         {/* Action Sheet Container */}
         <Animated.View
           style={[
-            styles.sheetContainer,
+            containerStyle,
             { transform: [{ translateY }] },
           ]}
         >
-            {/* Handle/Indicator */}
-            <View style={styles.handleContainer}>
-                <View style={styles.handle} />
-            </View>
+          {Platform.OS === 'ios' ? (
+            /* -------------------------------------------------------------------------- */
+            /*                               iOS CLASSIC UI                               */
+            /* -------------------------------------------------------------------------- */
+            <View style={{ paddingBottom: 34 }}> 
+               {/* Main Options Group */}
+               <View style={styles.iosGroup}>
+                  {/* Title / Subtitle Area */}
+                  {(title || subtitle) && (
+                    <View style={styles.iosHeader}>
+                      {title && <Text style={styles.iosTitle}>{title}</Text>}
+                      {subtitle && <Text style={styles.iosSubtitle}>{subtitle}</Text>}
+                    </View>
+                  )}
 
-          {/* Header */}
-          {(title || subtitle) && (
-            <View style={styles.header}>
-              {title && <Text style={styles.title}>{title}</Text>}
-              {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+                  {/* Separator if title exists */}
+                  {(title || subtitle) && <View style={styles.iosSeparator} />}
+
+                  {/* Options */}
+                  {options.map((option, index) => (
+                    <View key={index}>
+                      <TouchableOpacity
+                        style={[styles.iosButton, { minHeight: 56 }]}
+                        onPress={option.onPress}
+                        activeOpacity={0.7}
+                      >
+                         <Text
+                           style={[
+                             styles.iosButtonText,
+                             option.isDestructive && styles.destructiveLabel,
+                           ]}
+                         >
+                           {option.label}
+                         </Text>
+                      </TouchableOpacity>
+                      {index < options.length - 1 && <View style={styles.iosSeparator} />}
+                    </View>
+                  ))}
+               </View>
+
+               {/* Cancel Button - Separate Group */}
+               <TouchableOpacity
+                 style={[styles.iosGroup, styles.iosCancelButton]}
+                 onPress={onClose}
+                 activeOpacity={0.7}
+               >
+                 <Text style={[styles.iosButtonText, { fontWeight: '600' }]}>Cancel</Text>
+               </TouchableOpacity>
             </View>
+          ) : (
+            /* -------------------------------------------------------------------------- */
+            /*                               ANDROID UI                                   */
+            /* -------------------------------------------------------------------------- */
+            <>
+               {/* Handle */}
+               <View style={styles.handleContainer}>
+                  <View style={styles.handle} />
+               </View>
+
+               {/* Header */}
+               {(title || subtitle) && (
+                 <View style={styles.header}>
+                   {title && <Text style={styles.title}>{title}</Text>}
+                   {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+                 </View>
+               )}
+
+               {/* Options */}
+               <View style={styles.optionsContainer}>
+                 {options.map((option, index) => (
+                   <TouchableOpacity
+                     key={index}
+                     style={[
+                         styles.optionButton,
+                         index < options.length - 1 && styles.optionDivider
+                     ]}
+                     onPress={option.onPress}
+                     activeOpacity={0.7}
+                   >
+                     <View style={[styles.iconContainer, { backgroundColor: option.isDestructive ? '#FEE2E2' : '#F3F4F6' }]}>
+                         <Feather
+                         name={(option.icon as any) || 'circle'}
+                         size={20}
+                         color={option.isDestructive ? '#EF4444' : '#374151'}
+                         />
+                     </View>
+                     <Text
+                       style={[
+                         styles.optionLabel,
+                         option.isDestructive && styles.destructiveLabel,
+                       ]}
+                     >
+                       {option.label}
+                     </Text>
+                     <Feather name="chevron-right" size={16} color="#D1D5DB" />
+                   </TouchableOpacity>
+                 ))}
+               </View>
+
+               {/* Cancel Button */}
+               <TouchableOpacity
+                 style={styles.cancelButton}
+                 onPress={onClose}
+                 activeOpacity={0.8}
+               >
+                 <Text style={styles.cancelLabel}>Cancel</Text>
+               </TouchableOpacity>
+            </>
           )}
-
-          {/* Options */}
-          <View style={styles.optionsContainer}>
-            {options.map((option, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                    styles.optionButton,
-                    index < options.length - 1 && styles.optionDivider
-                ]}
-                onPress={() => {
-                  // Optional: wait a microsecond for ripple or just fire
-                  option.onPress();
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: option.isDestructive ? '#FEE2E2' : '#F3F4F6' }]}>
-                    <Feather
-                    name={(option.icon as any) || 'circle'}
-                    size={20}
-                    color={option.isDestructive ? '#EF4444' : '#374151'}
-                    />
-                </View>
-                <Text
-                  style={[
-                    styles.optionLabel,
-                    option.isDestructive && styles.destructiveLabel,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                <Feather name="chevron-right" size={16} color="#D1D5DB" />
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Cancel Button */}
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={onClose}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.cancelLabel}>Cancel</Text>
-          </TouchableOpacity>
         </Animated.View>
       </View>
     </Modal>
@@ -178,15 +235,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
-  sheetContainer: {
+  
+  // -- ANDROID STYLES --
+  androidSheetContainer: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingBottom: 24,
     paddingHorizontal: 24,
     paddingTop: 12,
     overflow: 'hidden',
-    // Shadow for elevation feel
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
@@ -268,5 +326,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#374151',
+  },
+
+  // -- iOS CLASSIC STYLES --
+  iosSheetContainer: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingBottom: 0, 
+    width: '100%',
+  },
+  iosGroup: {
+    backgroundColor: 'rgba(249, 249, 249, 0.94)', // Standard iOS milky white
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  iosHeader: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent', // Let group bg show
+    borderBottomWidth: 0, // Separator handles it if needed
+  },
+  iosTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8F8F8F', // Grayish
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  iosSubtitle: {
+    fontSize: 13,
+    color: '#8F8F8F',
+    textAlign: 'center',
+  },
+  iosButton: {
+    height: 57,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent', 
+  },
+  iosButtonText: {
+    fontSize: 20,
+    color: '#007AFF', // System Blue
+    fontWeight: '400',
+  },
+  iosCancelButton: {
+    height: 57,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF', // Cancel is usually pure white
+  },
+  iosSeparator: {
+    height: 1, // Hairline
+    backgroundColor: 'rgba(60, 60, 67, 0.2)', // Standard iOS separator color
   },
 });

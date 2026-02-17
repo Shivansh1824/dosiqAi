@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Colors, Typography } from '../constants';
 import { Document, DocumentAnalysisResult } from '../types/document';
@@ -17,6 +18,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import ShareModal from '../components/ShareModal';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
 import { PrescriptionSummary, DocumentPreviewLoading } from '../components/prescription';
+import { PrescriptionMetadataCard } from '../components/prescription/PrescriptionMetadataCard';
 import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
 import MedicationVerificationCard from '../components/MedicationVerificationCard';
 import { RootStackParamList } from '../../App';
@@ -232,6 +234,11 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
   const getSummary = (res?: DocumentAnalysisResult) => res?.common_data?.summary || res?.summary;
 
   return (
+    <View style={{ flex: 1 }}>
+      <LinearGradient
+        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
+      />
     <SafeAreaView style={styles.container} edges={['top']}>
 
       {/* Modern Header */}
@@ -361,6 +368,21 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
         {/* AI Analysis Sections */}
         {document.ai_analysis_status === 'completed' && (
           <>
+             {/* Prescription Metadata Card */}
+             {analysis?.prescription_data && (
+                <PrescriptionMetadataCard
+                    patientName={analysis.patient_info?.name}
+                    patientAge={analysis.patient_info?.age}
+                    patientGender={analysis.patient_info?.gender}
+                    doctorName={analysis.prescription_data.doctor_name}
+                    hospitalName={analysis.prescription_data.hospital_name}
+                    visitDate={analysis.common_data?.visit_date}
+                    followUpDate={analysis.prescription_data.follow_up?.follow_up_date}
+                    followUpDays={analysis.prescription_data.follow_up?.follow_up_days}
+                    diagnosis={analysis.prescription_data.medical_issue_diagnosis}
+                />
+             )}
+
             {/* AI Summary Section */}
             {getSummary(analysis) && (
               <PrescriptionSummary
@@ -457,13 +479,14 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
 
       <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing health analysis..." />
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bgSecondary,
+    backgroundColor: 'transparent',
   },
 
   // Header
@@ -612,9 +635,9 @@ const styles = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgSecondary,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   cardHeader: {
     marginBottom: 4,
@@ -631,7 +654,7 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
   },
   medicationsCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgSecondary,
     paddingTop: 0,
     paddingBottom: 0,
     paddingHorizontal: 0,
