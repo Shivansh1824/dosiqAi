@@ -70,7 +70,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   // New State for Preview Modal
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
-  
+
   // Animations
   const fabScale = useRef(new Animated.Value(1)).current;
   const fabPulse = useRef(new Animated.Value(1)).current;
@@ -280,7 +280,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
 
       // Save file locally with UUID filename to flat documents folder
-      const { filename, relativePath, fileSize, absolutePath, r2UploadPromise } = await saveFileLocallyWithUUID(
+      const { filename, relativePath, fileSize, absolutePath, startR2Upload } = await saveFileLocallyWithUUID(
         uri,
         extension
       );
@@ -310,11 +310,12 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
       const actualDocumentId = savedDocument?.id || filename;
 
-      // Await R2 upload and save cloud_file_key to database (non-blocking for UI)
+      // Start R2 upload AFTER DB insert succeeds to avoid network contention
+      // The upload runs in the background and saves cloud_file_key when done
       console.log('[HomeScreen] Setting up R2 upload promise handler...');
       console.log('[HomeScreen] Document ID for cloud key update:', actualDocumentId);
 
-      r2UploadPromise
+      startR2Upload()
         .then(async (cloudFileKey) => {
           console.log('[HomeScreen] R2 upload promise resolved with key:', cloudFileKey);
 
@@ -351,18 +352,14 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       console.log('[HomeScreen] Expected prompt:', isReport ? 'REPORT_PROMPT' : 'DOCUMENT_ANALYSIS_PROMPT');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      Alert.alert('Success', 'Document uploaded successfully! Analyzing...', [
-        {
-          text: 'OK',
-          onPress: () => {
-            const { triggerAnalysis } = useDocumentsStore.getState();
-            console.log('[HomeScreen] Triggering background analysis: id=', actualDocumentId, 'path=', analysisPath, 'isReport=', isReport);
-            triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
-              console.error('[HomeScreen] Background analysis failed:', error);
-            });
-          },
-        },
-      ]);
+      // Trigger analysis immediately in background (non-blocking)
+      const { triggerAnalysis } = useDocumentsStore.getState();
+      console.log('[HomeScreen] Triggering background analysis: id=', actualDocumentId, 'path=', analysisPath, 'isReport=', isReport);
+      triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
+        console.error('[HomeScreen] Background analysis failed:', error);
+      });
+
+      Alert.alert('Success', 'Document uploaded successfully! Analyzing...');
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');
@@ -378,7 +375,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   /* -------------------------------------------------------------------------- */
   /*                                Upload Logic                                */
   /* -------------------------------------------------------------------------- */
-  
+
   // Custom Action Sheet State
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [actionSheetConfig, setActionSheetConfig] = useState<{
@@ -399,7 +396,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         (buttonIndex) => {
           if (buttonIndex === 1) {
             setUploadType('prescription');
-            setTimeout(showSourceOptions, 300); 
+            setTimeout(showSourceOptions, 300);
           } else if (buttonIndex === 2) {
             setUploadType('report');
             setTimeout(showSourceOptions, 300);
@@ -419,7 +416,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               setActionSheetVisible(false); // Close first sheet
               setUploadType('prescription');
               setTimeout(() => {
-                  showSourceOptions();
+                showSourceOptions();
               }, 300);
             },
           },
@@ -430,7 +427,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               setActionSheetVisible(false);
               setUploadType('report');
               setTimeout(() => {
-                   showSourceOptions();
+                showSourceOptions();
               }, 300);
             },
           },
@@ -442,7 +439,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
   const showSourceOptions = () => {
     const title = uploadType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
-    
+
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -474,24 +471,24 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             label: 'Photo Library',
             icon: 'image',
             onPress: () => {
-                setActionSheetVisible(false);
-                setTimeout(pickImage, 200);
+              setActionSheetVisible(false);
+              setTimeout(pickImage, 200);
             },
           },
           {
             label: 'Take Photo',
             icon: 'camera',
             onPress: () => {
-                setActionSheetVisible(false);
-                setTimeout(takePhoto, 200);
+              setActionSheetVisible(false);
+              setTimeout(takePhoto, 200);
             },
           },
           {
             label: 'Choose Files',
             icon: 'folder',
             onPress: () => {
-                setActionSheetVisible(false);
-                setTimeout(pickDocument, 200);
+              setActionSheetVisible(false);
+              setTimeout(pickDocument, 200);
             },
           },
         ],
@@ -781,9 +778,9 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Developer Preview</Text>
             </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
               style={{ marginTop: 10 }}
             >
@@ -800,8 +797,8 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               <TouchableOpacity
                 style={[styles.developerCard, { marginRight: 12, width: 160 }]}
                 onPress={() => {
-                   // Using fixed ID as requested for easier understanding
-                   onNavigate('PrescriptionRecord', { documentId: '704145be-a05a-4c4c-a111-25d8d0c353b0' });
+                  // Using fixed ID as requested for easier understanding
+                  onNavigate('PrescriptionRecord', { documentId: '704145be-a05a-4c4c-a111-25d8d0c353b0' });
                 }}
               >
                 <View style={[styles.developerIcon, { backgroundColor: '#F0F9FF' }]}>
@@ -813,11 +810,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               <TouchableOpacity
                 style={[styles.developerCard, { marginRight: 12, width: 160 }]}
                 onPress={() => {
-                   if (recentDocuments.length > 0) {
-                     // Navigating to the summary screen for verification testing
-                     // This would normally be accessed after upload, but we show it here for dev
-                   }
-                   Alert.alert('Info', 'Use the timeline to see verified records.');
+                  if (recentDocuments.length > 0) {
+                    // Navigating to the summary screen for verification testing
+                    // This would normally be accessed after upload, but we show it here for dev
+                  }
+                  Alert.alert('Info', 'Use the timeline to see verified records.');
                 }}
               >
                 <View style={[styles.developerIcon, { backgroundColor: '#FFF7ED' }]}>
@@ -963,7 +960,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         }}
       />
 
-        {/* Custom Action Sheet for Android */}
+      {/* Custom Action Sheet for Android */}
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}

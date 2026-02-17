@@ -107,7 +107,7 @@ export const saveFileLocallyWithUUID = async (
     absolutePath: string;
     relativePath: string;
     fileSize: number;
-    r2UploadPromise: Promise<string | null>;
+    startR2Upload: () => Promise<string | null>;
 }> => {
     try {
         const docsDirPath = await getDocumentsDirectory();
@@ -133,38 +133,42 @@ export const saveFileLocallyWithUUID = async (
         console.log(`[FileStorage] Saved file with UUID: ${filename} (${(fileSize / 1024).toFixed(2)} KB)`);
         console.log(`[FileStorage] Relative path: ${relativePath}`);
 
-        // R2 Upload Integration - Returns promise that resolves to cloud_file_key
-        const r2UploadPromise = (async (): Promise<string | null> => {
-            try {
-                // Get current user ID
-                const user = useAuthStore.getState().user;
-                const userId = user?.id;
+        // R2 Upload Integration - Returns a deferred function (NOT an IIFE)
+        // The caller controls when the upload starts to avoid network contention
+        // with concurrent Supabase DB operations.
+        const startR2Upload = (): Promise<string | null> => {
+            return (async (): Promise<string | null> => {
+                try {
+                    // Get current user ID
+                    const user = useAuthStore.getState().user;
+                    const userId = user?.id;
 
-                if (userId) {
-                    console.log('[FileStorage] Triggering R2 upload for:', filename);
-                    const cloudFileKey = await uploadFileToR2(absolutePath, filename, userId);
-                    await logR2Status(true, filename, `Uploaded successfully for user ${userId}`);
-                    console.log('[FileStorage] R2 upload complete, cloud key:', cloudFileKey);
-                    return cloudFileKey;
-                } else {
-                    console.warn('[FileStorage] User not logged in, skipping R2 upload');
-                    await logR2Status(false, filename, 'Skipped - User not logged in');
+                    if (userId) {
+                        console.log('[FileStorage] Triggering R2 upload for:', filename);
+                        const cloudFileKey = await uploadFileToR2(absolutePath, filename, userId);
+                        await logR2Status(true, filename, `Uploaded successfully for user ${userId}`);
+                        console.log('[FileStorage] R2 upload complete, cloud key:', cloudFileKey);
+                        return cloudFileKey;
+                    } else {
+                        console.warn('[FileStorage] User not logged in, skipping R2 upload');
+                        await logR2Status(false, filename, 'Skipped - User not logged in');
+                        return null;
+                    }
+                } catch (error) {
+                    console.error('[FileStorage] R2 Background Upload Failed:', error);
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    await logR2Status(false, filename, `Upload failed: ${errorMessage}`);
                     return null;
                 }
-            } catch (error) {
-                console.error('[FileStorage] R2 Background Upload Failed:', error);
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                await logR2Status(false, filename, `Upload failed: ${errorMessage}`);
-                return null;
-            }
-        })();
+            })();
+        };
 
         return {
             filename,
             absolutePath,
             relativePath,
             fileSize,
-            r2UploadPromise
+            startR2Upload
         };
     } catch (error) {
         console.error('[FileStorage] Error saving file with UUID:', error);
