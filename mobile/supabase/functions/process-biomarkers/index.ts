@@ -280,6 +280,31 @@ async function processFuzzyMatches(
       }
     }
 
+    // 4.5. Upsert found items into potential_biomarker table
+    if (found.length > 0) {
+      console.log(`[${requestId}][Fuzzy] Upserting ${found.length} matched items into potential_biomarker...`);
+      const potentialData = found.map((item: any) => {
+        const original = fuzzyMatches.find((m) => m.id === item.id);
+        return {
+          test_results_id: item.id,
+          test_name: original?.test_name,
+          source: "fuzzy",
+        };
+      }).filter((item: any) => item.test_name);
+
+      if (potentialData.length > 0) {
+        const { error: upsertErr } = await supabase
+          .from("potential_biomarker")
+          .upsert(potentialData, { onConflict: "test_name" });
+
+        if (upsertErr) {
+          console.error(`[${requestId}][Fuzzy] Error upserting into potential_biomarker:`, upsertErr.message);
+        } else {
+          console.log(`[${requestId}][Fuzzy] Successfully upserted ${potentialData.length} biomarkers.`);
+        }
+      }
+    }
+
     // 5. Handle not_found items — enrich with original data and route to processNotFound
     if (notFound.length > 0) {
       const notFoundIds = notFound.map((item: any) => item.id);
