@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -129,11 +129,13 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
 
   // Pick document file
   const pickDocument = async () => {
+    console.log('[ScanDocument] 📂 pickDocument() called — about to open native picker');
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
+      console.log('[ScanDocument] 📂 pickDocument() result:', result.canceled ? 'CANCELLED' : 'SUCCESS');
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
@@ -151,7 +153,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('[ScanDocument] ❌ Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
     }
   };
@@ -333,6 +335,8 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     }
   };
 
+  const pendingAction = useRef<(() => void) | null>(null);
+
   // Show custom action sheet for upload options
   const showUploadOptions = () => {
     setActionSheetConfig({
@@ -343,24 +347,27 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
           label: 'Photo Library',
           icon: 'image',
           onPress: () => {
+            console.log('[ScanDocument] 🖼️ Selected: Photo Library — setting pending action');
+            pendingAction.current = () => pickImage();
             setActionSheetVisible(false);
-            setTimeout(pickImage, 200);
           },
         },
         {
           label: 'Take Photo',
           icon: 'camera',
           onPress: () => {
+            console.log('[ScanDocument] 📷 Selected: Take Photo — setting pending action');
+            pendingAction.current = () => takePhoto();
             setActionSheetVisible(false);
-            setTimeout(takePhoto, 200);
           },
         },
         {
           label: 'Choose Files',
           icon: 'folder',
           onPress: () => {
+            console.log('[ScanDocument] 📁 Selected: Choose Files — setting pending action');
+            pendingAction.current = () => pickDocument();
             setActionSheetVisible(false);
-            setTimeout(pickDocument, 200);
           },
         },
       ],
@@ -499,6 +506,14 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
+        onDismissed={() => {
+          console.log('[ScanDocument] ⚡ onDismissed fired — pendingAction:', pendingAction.current ? 'YES' : 'NONE');
+          if (pendingAction.current) {
+            console.log('[ScanDocument] ▶️ Executing pending action NOW (modal is fully gone)');
+            pendingAction.current();
+            pendingAction.current = null;
+          }
+        }}
         title={actionSheetConfig.title}
         subtitle={actionSheetConfig.subtitle}
         options={actionSheetConfig.options}

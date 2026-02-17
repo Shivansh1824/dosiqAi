@@ -198,11 +198,13 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   };
 
   const pickDocument = async () => {
+    console.log('[HomeScreen] 📂 pickDocument() called — about to open native picker');
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
+      console.log('[HomeScreen] 📂 pickDocument() result:', result.canceled ? 'CANCELLED' : 'SUCCESS');
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
@@ -217,7 +219,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('[HomeScreen] ❌ Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
     }
   };
@@ -385,6 +387,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   }>({ options: [] });
 
   const [uploadType, setUploadType] = useState<'prescription' | 'report'>('prescription');
+  const pendingAction = useRef<(() => void) | null>(null);
 
   const showUploadTypeSelection = () => {
     // Universal Custom Action Sheet (iOS & Android)
@@ -396,22 +399,20 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Upload Prescription',
           icon: 'file-text',
           onPress: () => {
-            setActionSheetVisible(false); // Close first sheet
+            console.log('[HomeScreen] 🔵 Selected: Upload Prescription — setting pending action');
             setUploadType('prescription');
-            setTimeout(() => {
-                showSourceOptions();
-            }, 300);
+            pendingAction.current = () => showSourceOptions('prescription');
+            setActionSheetVisible(false);
           },
         },
         {
           label: 'Upload Report',
           icon: 'activity',
           onPress: () => {
-            setActionSheetVisible(false);
+            console.log('[HomeScreen] 🟠 Selected: Upload Report — setting pending action');
             setUploadType('report');
-            setTimeout(() => {
-                  showSourceOptions();
-            }, 300);
+            pendingAction.current = () => showSourceOptions('report');
+            setActionSheetVisible(false);
           },
         },
       ],
@@ -419,8 +420,9 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     setActionSheetVisible(true);
   };
 
-  const showSourceOptions = () => {
-    const title = uploadType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
+  const showSourceOptions = (type?: 'prescription' | 'report') => {
+    const currentType = type || uploadType;
+    const title = currentType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
     
     // Universal Custom Action Sheet (iOS & Android)
     setActionSheetConfig({
@@ -431,24 +433,27 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Photo Library',
           icon: 'image',
           onPress: () => {
+            console.log('[HomeScreen] 🖼️ Selected: Photo Library — setting pending action');
+            pendingAction.current = () => pickImage();
             setActionSheetVisible(false);
-            setTimeout(pickImage, 200);
           },
         },
         {
           label: 'Take Photo',
           icon: 'camera',
           onPress: () => {
+            console.log('[HomeScreen] 📷 Selected: Take Photo — setting pending action');
+            pendingAction.current = () => takePhoto();
             setActionSheetVisible(false);
-            setTimeout(takePhoto, 200);
           },
         },
         {
           label: 'Choose Files',
           icon: 'folder',
           onPress: () => {
+            console.log('[HomeScreen] 📁 Selected: Choose Files — setting pending action');
+            pendingAction.current = () => pickDocument();
             setActionSheetVisible(false);
-            setTimeout(pickDocument, 200);
           },
         },
       ],
@@ -919,10 +924,18 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         }}
       />
 
-      {/* Custom Action Sheet for Android */}
+      {/* Custom Action Sheet */}
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
+        onDismissed={() => {
+          console.log('[HomeScreen] ⚡ onDismissed fired — pendingAction:', pendingAction.current ? 'YES' : 'NONE');
+          if (pendingAction.current) {
+            console.log('[HomeScreen] ▶️ Executing pending action NOW (modal is fully gone)');
+            pendingAction.current();
+            pendingAction.current = null;
+          }
+        }}
         title={actionSheetConfig.title}
         subtitle={actionSheetConfig.subtitle}
         options={actionSheetConfig.options}

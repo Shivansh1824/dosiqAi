@@ -24,6 +24,7 @@ export interface ActionSheetOption {
 interface ActionSheetProps {
   visible: boolean;
   onClose: () => void;
+  onDismissed?: () => void;
   title?: string;
   subtitle?: string;
   options: ActionSheetOption[];
@@ -34,6 +35,7 @@ const { width } = Dimensions.get('window');
 export default function ActionSheet({
   visible,
   onClose,
+  onDismissed,
   title,
   subtitle,
   options,
@@ -44,9 +46,13 @@ export default function ActionSheet({
 
   // Track visibility to handle closing animation
   const [showModal, setShowModal] = useState(visible);
+  // Track whether we need to fire onDismissed after modal fully unmounts
+  const pendingDismissCallback = useRef(false);
 
   useEffect(() => {
     if (visible) {
+      console.log('[ActionSheet] 🟢 Opening modal');
+      pendingDismissCallback.current = false;
       setShowModal(true);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -63,6 +69,8 @@ export default function ActionSheet({
         }),
       ]).start();
     } else {
+      console.log('[ActionSheet] 🔴 Close animation starting (250ms)');
+      pendingDismissCallback.current = true;
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -74,7 +82,20 @@ export default function ActionSheet({
           duration: 250,
           useNativeDriver: true,
         }),
-      ]).start(() => setShowModal(false));
+      ]).start(() => {
+        console.log('[ActionSheet] 📦 JS animation done — unmounting Modal');
+        setShowModal(false);
+        // After setShowModal(false), the <Modal> component unmounts from React tree.
+        // But the NATIVE iOS UIViewController may still be in the presentedViewController chain.
+        // We add a delay to let the native side fully clean up before firing onDismissed.
+        if (pendingDismissCallback.current) {
+          pendingDismissCallback.current = false;
+          setTimeout(() => {
+            console.log('[ActionSheet] ✅ Native VC settle delay done — firing onDismissed');
+            onDismissed?.();
+          }, 350);
+        }
+      });
     }
   }, [visible]);
 
