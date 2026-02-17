@@ -197,11 +197,40 @@ async function processExactMatches(
 }
 
 /**
+ * Look up fuzzy match records by their IDs and return them as NotFoundResult[].
+ * Strips fuzzy_candidates so the data fits the processNotFound pipeline.
+ */
+function lookupFuzzyById(
+  ids: string[],
+  fuzzyMatches: FuzzyMatchResult[]
+): NotFoundResult[] {
+  return ids
+    .map((id) => {
+      const match = fuzzyMatches.find((m) => m.id === id);
+      if (!match) return null;
+      return {
+        id: match.id,
+        test_name: match.test_name,
+        value: match.value,
+        unit: match.unit,
+        ref_min: match.ref_min,
+        ref_max: match.ref_max,
+        ref_type: match.ref_type,
+        status: match.status,
+      };
+    })
+    .filter((item): item is NotFoundResult => item !== null);
+}
+
+/**
  * Process fuzzy-matched biomarkers.
  * These have candidate suggestions but need AI resolution via Grok.
+ * After AI resolution:
+ *   - "found" items → update test_results with biomarker_id
+ *   - "not_found" items → enrich with original data and route to processNotFound
  */
 async function processFuzzyMatches(
-  _supabase: any,
+  supabase: any,
   fuzzyMatches: FuzzyMatchResult[],
   requestId: string
 ): Promise<void> {
@@ -237,7 +266,27 @@ async function processFuzzyMatches(
 
     console.log(`[${requestId}][Fuzzy] AI resolved ${fuzzyMatches.length} -> ${found.length} found, ${notFound.length} not found.`);
 
-    // TODO: Handle found items (update test_results with biomarker_id) and not_found items in follow-up
+    // 4. Handle found items — update test_results with biomarker_id
+    for (const item of found) {
+      const { error } = await supabase
+        .from("test_results")
+        .update({ biomarker_id: item.biomarker_id })
+        .eq("id", item.id);
+
+      if (error) {
+        console.error(`[${requestId}][Fuzzy] Error updating ${item.id}:`, error.message);
+      } else {
+        console.log(`[${requestId}][Fuzzy] Updated ${item.id} with biomarker_id: ${item.biomarker_id}`);
+      }
+    }
+
+    // 5. Handle not_found items — enrich with original data and route to processNotFound
+    if (notFound.length > 0) {
+      const notFoundIds = notFound.map((item: any) => item.id);
+      const enrichedNotFound = lookupFuzzyById(notFoundIds, fuzzyMatches);
+      console.log(`[${requestId}][Fuzzy] Routing ${enrichedNotFound.length} unmatched items to NotFound pipeline...`);
+      await processNotFound(supabase, enrichedNotFound, requestId);
+    }
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
