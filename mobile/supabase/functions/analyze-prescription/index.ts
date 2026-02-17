@@ -27,12 +27,13 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { DOCUMENT_ANALYSIS_PROMPT } from "./prompt_prescription_analysis.ts";
 
 // Environment variables (automatically available in Edge Functions)
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const DOCUMENT_ANALYSIS_PROMPT = Deno.env.get("DOCUMENT_ANALYSIS_PROMPT") || "";
+// const DOCUMENT_ANALYSIS_PROMPT = Deno.env.get("DOCUMENT_ANALYSIS_PROMPT") || "";
 
 // R2 Configuration (for downloading files from Cloudflare R2)
 const R2_ENDPOINT = Deno.env.get("R2_ENDPOINT") || "";
@@ -205,7 +206,7 @@ function parseAnalysisResult(analysisText: string): Record<string, unknown> {
     console.error("[Parser] ❌ Failed to parse JSON");
     console.error("[Parser] Error details:", parseError instanceof Error ? parseError.message : String(parseError));
     console.error("[Parser] First 500 chars of response:", analysisText.substring(0, 500));
-    
+
     return {
       rawText: analysisText,
       parseError: "Could not parse as JSON",
@@ -220,18 +221,18 @@ function parseAnalysisResult(analysisText: string): Record<string, unknown> {
 async function downloadFileAsBase64(fileKey: string): Promise<string> {
   try {
     console.log(`[R2] Downloading file: ${fileKey}`);
-    
+
     if (!R2_ENDPOINT || !R2_BUCKET_NAME) {
       throw new Error("R2 configuration is incomplete");
     }
-    
+
     const startTime = Date.now();
     // Construct R2 URL - including bucket name for S3-compatible API
     const fileUrl = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${fileKey}`;
-    
+
     console.log(`[R2] Fetching from: ${fileUrl}`);
     const response = await fetch(fileUrl);
-    
+
     if (!response.ok) {
       throw new Error(`R2 download failed: ${response.status} ${response.statusText}`);
     }
@@ -239,12 +240,12 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
     const arrayBuffer = await response.arrayBuffer();
     const fileSize = arrayBuffer.byteLength;
     const downloadTime = Date.now() - startTime;
-    
+
     console.log(`[R2] ✅ File downloaded: ${(fileSize / 1024).toFixed(2)} KB in ${downloadTime}ms`);
-    
+
     const uint8Array = new Uint8Array(arrayBuffer);
     const base64 = btoa(String.fromCharCode(...uint8Array));
-    
+
     console.log(`[R2] ✅ Converted to base64: ${(base64.length / 1024).toFixed(2)} KB`);
     return base64;
   } catch (error: unknown) {
@@ -280,12 +281,6 @@ serve(async (req: Request) => {
     if (!OPENROUTER_API_KEY) {
       console.error("[Config] OPENROUTER_API_KEY not configured");
       throw new Error("Analysis service not configured");
-    }
-
-    // Validate Document Analysis Prompt
-    if (!DOCUMENT_ANALYSIS_PROMPT) {
-      console.error("[Config] DOCUMENT_ANALYSIS_PROMPT not configured");
-      throw new Error("Prescription analysis prompt not configured");
     }
 
     // Initialize Supabase client with service role key
@@ -418,7 +413,7 @@ serve(async (req: Request) => {
         ai_analysis_status: "processing",
       })
       .eq("id", documentId);
-    
+
     if (processingError) {
       console.error("[Status] Failed to mark as processing:", processingError);
       // We continue anyway, but log it
