@@ -420,6 +420,9 @@ export default function MedicationsScreen() {
                 </TouchableOpacity>
             </View>
 
+            {/* Divider after Header */}
+            <View style={styles.divider} />
+
             {/* Calendar Strip */}
             <CalendarStrip
                 selectedDate={selectedDate}
@@ -436,6 +439,9 @@ export default function MedicationsScreen() {
                 <Feather name="calendar" size={16} color={Colors.primary} />
                 <Text style={styles.calendarButtonText}>View Full Calendar</Text>
             </TouchableOpacity>
+
+            {/* Divider after Calendar Button */}
+            <View style={styles.divider} />
 
             {/* Medications Timeline */}
             <ScrollView
@@ -538,8 +544,15 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Sizes.lg,
-        paddingVertical: Sizes.md,
+        paddingTop: Sizes.md, // Changed from paddingVertical to paddingTop only, since we add a divider
+        paddingBottom: Sizes.md,
         backgroundColor: 'transparent',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: Colors.gray200,
+        width: '100%',
+        opacity: 0.8,
     },
     backButton: {
         width: 44,
@@ -586,8 +599,8 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 20,
         marginHorizontal: Sizes.lg,
-        marginTop: Sizes.sm,
-        marginBottom: Sizes.md,
+        marginTop: 10,
+        marginBottom: 12,
         backgroundColor: Colors.primary + '10',
         borderRadius: 12,
         borderWidth: 1,
