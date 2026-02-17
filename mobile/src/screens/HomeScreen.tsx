@@ -359,7 +359,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         console.error('[HomeScreen] Background analysis failed:', error);
       });
 
-      Alert.alert('Success', 'Document uploaded successfully! Analyzing...');
+      Alert.alert('Success', 'Document uploaded successfully!');
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');

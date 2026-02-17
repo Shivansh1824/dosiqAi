@@ -313,7 +313,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       // Show success alert and navigate back
       Alert.alert(
         'Success',
-        'Document uploaded successfully! Analyzing...',
+        'Document uploaded successfully!',
         [
           {
             text: 'OK',
