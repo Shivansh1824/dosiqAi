@@ -169,7 +169,7 @@ If uncertain → is_identified: false
 
 ---
 
-### 5. strength & form (Separate Fields)
+**LAYER 5: strength & form (Separate Fields)**
 
 **Rule:** Extract medicine strength and form separately for programmatic use.
 
@@ -179,12 +179,12 @@ If uncertain → is_identified: false
 
 ---
 
-### 6. timing (Structured Schedule)
+**LAYER 6: timing (Structured Schedule)**
 
 **Rule:** Extract timing as structured data with frequency interval and time of day.
 
 **A) relation_to_meal values:**
-- "before_food" (AC, Before meals, Empty stomach)
+- "before_food" (AC, Before meals)
 - "after_food" (PC, After meals, After food)
 - "with_food" (With meals, During food)
 - "empty_stomach" (EM, On empty stomach)
@@ -220,6 +220,8 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 - OD → interval_days: 1, dosage: "1-0-0"
 - BD → interval_days: 1, dosage: "1-0-1"
 - TDS → interval_days: 1, dosage: "1-1-1"
+- QID → interval_days: 1, dosage: null, total_times_per_day: 4 (exceeds 3-slot format)
+- HS (bedtime) → interval_days: 1, dosage: "0-0-1"
 - Weekly → interval_days: 7
 - Alternate days → interval_days: 2
 - SOS → interval_days: 0
@@ -269,7 +271,7 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 
 **Look for:** "Review after [X] days/weeks", "Follow up on [date]", "Next visit: [date]"
 
-**Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_days: Original text
+**Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_days: Number of days as integer (e.g., "2 weeks" → 14, "1 month" → 30, "15 days" → 15) or null
 
 ---
 
@@ -315,7 +317,7 @@ SECTION C: SUMMARY GENERATION (PATIENT-FRIENDLY FORMAT)
 
 **Rules:**
 - **NEVER** use patient salutations
-- **ALWAYS** use "Dr." prefix for doctor names
+- **ALWAYS** use "Dr " prefix for doctor names (no period, matching the doctor_name field)
 - List 2-4 key medicines (not all if >5)
 - Include scientific names AND purposes ONLY if is_identified: true
 
