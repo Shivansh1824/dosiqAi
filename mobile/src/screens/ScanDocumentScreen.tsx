@@ -129,22 +129,18 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
 
   // Pick document file
   const pickDocument = async () => {
-    console.log('[ScanDocument] 📂 pickDocument() called — about to open native picker');
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
-      console.log('[ScanDocument] 📂 pickDocument() result:', result.canceled ? 'CANCELLED' : 'SUCCESS');
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
         const fileName = result.assets[0].name;
 
-        // Check if it's an image (compress) or PDF (skip compression)
         const isImage = fileName?.toLowerCase().match(/\.(jpg|jpeg|png|heic|webp)$/i);
 
-        // Show Preview instead of uploading directly
         setSelectedFile({
           uri: uri,
           type: isImage ? 'image' : 'document',
@@ -153,7 +149,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error('[ScanDocument] ❌ Error picking document:', error);
+      console.error('Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
     }
   };
@@ -347,7 +343,6 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
           label: 'Photo Library',
           icon: 'image',
           onPress: () => {
-            console.log('[ScanDocument] 🖼️ Selected: Photo Library — setting pending action');
             pendingAction.current = () => pickImage();
             setActionSheetVisible(false);
           },
@@ -356,7 +351,6 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
           label: 'Take Photo',
           icon: 'camera',
           onPress: () => {
-            console.log('[ScanDocument] 📷 Selected: Take Photo — setting pending action');
             pendingAction.current = () => takePhoto();
             setActionSheetVisible(false);
           },
@@ -365,7 +359,6 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
           label: 'Choose Files',
           icon: 'folder',
           onPress: () => {
-            console.log('[ScanDocument] 📁 Selected: Choose Files — setting pending action');
             pendingAction.current = () => pickDocument();
             setActionSheetVisible(false);
           },
@@ -507,9 +500,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
         onDismissed={() => {
-          console.log('[ScanDocument] ⚡ onDismissed fired — pendingAction:', pendingAction.current ? 'YES' : 'NONE');
           if (pendingAction.current) {
-            console.log('[ScanDocument] ▶️ Executing pending action NOW (modal is fully gone)');
             pendingAction.current();
             pendingAction.current = null;
           }

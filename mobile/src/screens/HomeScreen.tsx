@@ -198,13 +198,11 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   };
 
   const pickDocument = async () => {
-    console.log('[HomeScreen] 📂 pickDocument() called — about to open native picker');
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
-      console.log('[HomeScreen] 📂 pickDocument() result:', result.canceled ? 'CANCELLED' : 'SUCCESS');
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
@@ -219,7 +217,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error('[HomeScreen] ❌ Error picking document:', error);
+      console.error('Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
     }
   };
@@ -399,7 +397,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Upload Prescription',
           icon: 'file-text',
           onPress: () => {
-            console.log('[HomeScreen] 🔵 Selected: Upload Prescription — setting pending action');
             setUploadType('prescription');
             pendingAction.current = () => showSourceOptions('prescription');
             setActionSheetVisible(false);
@@ -409,7 +406,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Upload Report',
           icon: 'activity',
           onPress: () => {
-            console.log('[HomeScreen] 🟠 Selected: Upload Report — setting pending action');
             setUploadType('report');
             pendingAction.current = () => showSourceOptions('report');
             setActionSheetVisible(false);
@@ -433,7 +429,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Photo Library',
           icon: 'image',
           onPress: () => {
-            console.log('[HomeScreen] 🖼️ Selected: Photo Library — setting pending action');
             pendingAction.current = () => pickImage();
             setActionSheetVisible(false);
           },
@@ -442,7 +437,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Take Photo',
           icon: 'camera',
           onPress: () => {
-            console.log('[HomeScreen] 📷 Selected: Take Photo — setting pending action');
             pendingAction.current = () => takePhoto();
             setActionSheetVisible(false);
           },
@@ -451,7 +445,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           label: 'Choose Files',
           icon: 'folder',
           onPress: () => {
-            console.log('[HomeScreen] 📁 Selected: Choose Files — setting pending action');
             pendingAction.current = () => pickDocument();
             setActionSheetVisible(false);
           },
@@ -929,9 +922,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
         onDismissed={() => {
-          console.log('[HomeScreen] ⚡ onDismissed fired — pendingAction:', pendingAction.current ? 'YES' : 'NONE');
           if (pendingAction.current) {
-            console.log('[HomeScreen] ▶️ Executing pending action NOW (modal is fully gone)');
             pendingAction.current();
             pendingAction.current = null;
           }
