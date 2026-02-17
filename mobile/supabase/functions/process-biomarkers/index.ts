@@ -1,6 +1,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { NOT_FOUND_PROMPT } from "./prompt_not_found.ts";
+import { FUZZY_PROMPT } from "./prompt_fuzzy.ts";
 
 // Environment variables
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -197,15 +198,51 @@ async function processExactMatches(
 
 /**
  * Process fuzzy-matched biomarkers.
- * These have candidate suggestions but need resolution.
+ * These have candidate suggestions but need AI resolution via Grok.
  */
 async function processFuzzyMatches(
   _supabase: any,
   fuzzyMatches: FuzzyMatchResult[],
   requestId: string
 ): Promise<void> {
-  console.log(`[${requestId}][Fuzzy] Processing ${fuzzyMatches.length} fuzzy matches...`);
-  // TODO: Implement fuzzy match processing logic
+  if (fuzzyMatches.length === 0) {
+    console.log(`[${requestId}][Fuzzy] No fuzzy matches to process.`);
+    return;
+  }
+
+  console.log(`[${requestId}][Fuzzy] Processing ${fuzzyMatches.length} fuzzy matches via AI...`);
+
+  try {
+    // 1. Prepare the user message (full fuzzy_matches array with candidates)
+    const userMessage = JSON.stringify(fuzzyMatches, null, 2);
+    const model = "x-ai/grok-4.1-fast";
+
+    // 2. Call Grok AI via OpenRouter
+    const openRouterResponse = await callOpenRouterAPI(FUZZY_PROMPT, userMessage, model);
+    const content = openRouterResponse.choices[0]?.message?.content;
+
+    if (!content) {
+      console.warn(`[${requestId}][Fuzzy] AI returned empty response.`);
+      return;
+    }
+
+    // [DEBUG] Log the full content
+    console.log(`[${requestId}][Fuzzy] Full AI Response:`, content);
+
+    // 3. Parse the AI response
+    const result = parseJSON(content);
+
+    const found = Array.isArray(result?.found) ? result.found : [];
+    const notFound = Array.isArray(result?.not_found) ? result.not_found : [];
+
+    console.log(`[${requestId}][Fuzzy] AI resolved ${fuzzyMatches.length} -> ${found.length} found, ${notFound.length} not found.`);
+
+    // TODO: Handle found items (update test_results with biomarker_id) and not_found items in follow-up
+
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[${requestId}][Fuzzy] AI processing failed:`, msg);
+  }
 }
 
 /**
