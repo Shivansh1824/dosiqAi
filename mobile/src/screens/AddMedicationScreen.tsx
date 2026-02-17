@@ -16,8 +16,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import DatePickerModal from '../components/DatePickerModal';
-import { CoursePeriodSection } from '../components/medication/CoursePeriodSection';
-import { ReminderTimesSection } from '../components/medication/ReminderTimesSection';
+import { InfoModal } from '../components/InfoModal';
+import { AddMedCoursePeriodSection as CoursePeriodSection } from '../components/medication/AddMedCoursePeriodSection';
+import { AddMedReminderTimesSection as ReminderTimesSection } from '../components/medication/AddMedReminderTimesSection';
 import AddReminderModal from '../components/medication/AddReminderModal';
 import UnitPickerModal from '../components/UnitPickerModal';
 import { SuccessAnimation } from '../components/ui/SuccessAnimation';
@@ -58,7 +59,7 @@ export default function AddMedicationScreen() {
 
     // Reminders
     // Default: NO reminders set initially (User must add them)
-    // Was: ['09:00']
+    // Was: ['09:00'] -> Now []
     const [customReminderTimes, setCustomReminderTimes] = useState<string[]>([]);
     const [reminderToggles, setReminderToggles] = useState<boolean[]>([]);
     const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
@@ -66,6 +67,9 @@ export default function AddMedicationScreen() {
     const [inactiveReminders, setInactiveReminders] = useState<string[]>([]);
     const [showAddReminderModal, setShowAddReminderModal] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+
+    // Info Modals State
+    const [activeInfo, setActiveInfo] = useState<'medDetails' | 'coursePeriod' | 'doseSchedule' | null>(null);
 
     // Handlers
     const getReminderTimes = () => customReminderTimes;
@@ -267,12 +271,10 @@ export default function AddMedicationScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Ambient Background - 2026 Fluid Mesh */}
+            {/* Ambient Background - Standardized & Reversed */}
             <View style={StyleSheet.absoluteFillObject}>
                 <LinearGradient
-                    colors={['#F0F4FF', '#E8EEFF', '#FFFFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                    colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
                     style={StyleSheet.absoluteFillObject}
                 />
             </View>
@@ -318,9 +320,16 @@ export default function AddMedicationScreen() {
 
                 {/* Medication Details */}
                 <Animated.View style={[styles.section, { marginTop: 24 }]}>
-                    <View style={styles.sectionHeader}>
-                         <MaterialCommunityIcons name="pill" size={14} color={Colors.primary} />
-                        <Text style={styles.sectionTitle}>MEDICINE DETAILS</Text>
+                    <View style={[styles.sectionHeader, { gap: 6, marginBottom: 0 }]}>
+                        <MaterialCommunityIcons name="pill" size={14} color={Colors.primary} />
+                        <Text style={styles.sectionTitle}>MED DETAILS</Text>
+                        <TouchableOpacity 
+                            onPress={() => setActiveInfo('medDetails')} 
+                            hitSlop={10}
+                            style={{ marginLeft: 4, padding: 2 }}
+                        >
+                            <Feather name="info" size={16} color={Colors.gray400} />
+                        </TouchableOpacity>
                     </View>
                     <View style={styles.premiumInputCard}>
                         <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
@@ -391,6 +400,7 @@ export default function AddMedicationScreen() {
                         onIntervalChange={handleIntervalChange}
                         hasEndDate={hasEndDate}
                         onToggleEndDate={setHasEndDate}
+                        onInfoPress={() => setActiveInfo('coursePeriod')}
                     />
 
                     <ReminderTimesSection
@@ -428,6 +438,7 @@ export default function AddMedicationScreen() {
                         }}
                         suppressDefaultBatches={true}
                         error={showErrors ? errors.reminderTimes : undefined}
+                        onInfoPress={() => setActiveInfo('doseSchedule')}
                     />
                 </Animated.View>
 
@@ -448,11 +459,63 @@ export default function AddMedicationScreen() {
                     date={endDate}
                     onConfirm={(date) => {
                         setEndDate(date);
-                        setShowEndDatePicker(false);
+                        setHasEndDate(true);
+                        setShowEndDatePicker(false); 
                     }}
                     onCancel={() => setShowEndDatePicker(false)}
                     minimumDate={startDate}
                 />
+
+                {/* Info Modals */}
+                <InfoModal
+                    visible={activeInfo === 'medDetails'}
+                    onClose={() => setActiveInfo(null)}
+                    title="Medicine Details"
+                    hideIcon={true}
+                    content={[
+                        {
+                            label: 'What is this?',
+                            text: 'Basic information about the medication such as name, strength, and type.'
+                        },
+                        {
+                            label: 'Behavior',
+                            text: 'This information helps identify the medication and ensure correct dosage tracking.'
+                        }
+                    ]}
+                />
+                <InfoModal
+                    visible={activeInfo === 'coursePeriod'}
+                    onClose={() => setActiveInfo(null)}
+                    title="Course Period"
+                    hideIcon={true}
+                    content={[
+                        {
+                            label: 'What is this?',
+                            text: 'The start and end dates for your medication regimen.'
+                        },
+                        {
+                            label: 'Behavior',
+                            text: 'Reminders will be scheduled within this date range. If no end date is set, it will continue indefinitely.'
+                        }
+                    ]}
+                />
+                <InfoModal
+                    visible={activeInfo === 'doseSchedule'}
+                    onClose={() => setActiveInfo(null)}
+                    title="Dose Schedule"
+                    hideIcon={true}
+                    content={[
+                        {
+                            label: 'What is this?',
+                            text: 'The specific times of day you need to take your medication.'
+                        },
+                        {
+                            label: 'Behavior',
+                            text: 'Notifications will be sent at these exact times locally on your device.'
+                        }
+                    ]}
+                />
+
 
                 <AddReminderModal
                     visible={showAddReminderModal}
@@ -607,42 +670,59 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.6)', // Glassy input
+        backgroundColor: Colors.white, // Solid White
         borderRadius: 16,
-        paddingHorizontal: 12,
-        borderWidth: 1, // Layout Stability: Always reserve border space
-        borderColor: 'transparent',
+        paddingHorizontal: 16, // Increased padding
+        height: 56, // Fixed height for consistency
+        borderWidth: 1,
+        borderColor: Colors.gray100, // Subtle border
+        // Shadow for depth
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.03, // Very subtle shadow
+        shadowRadius: 8,
+        elevation: 2,
     },
     input: { backgroundColor: Colors.white, borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1, borderColor: Colors.gray200 },
-    inputError: { borderColor: Colors.error }, // Just change color
+    inputError: { borderColor: Colors.error },
     premiumTextInput: {
         flex: 1,
-        height: 48,
         fontSize: 16,
         color: Colors.textPrimary,
         fontWeight: '500',
+        height: '100%', // Fill container
     },
     errorText: { color: Colors.error, fontSize: 12, marginTop: 4, fontWeight: '500' },
 
     combinedInputContainer: { 
         flexDirection: 'row', 
         alignItems: 'center', 
-        backgroundColor: 'rgba(255,255,255,0.6)', // Glassy
+        backgroundColor: Colors.white, // Solid White
         borderRadius: 16, 
         overflow: 'hidden',
-        borderWidth: 1, // Layout Stability
-        borderColor: 'transparent',
+        height: 56, // Fixed height
+        borderWidth: 1,
+        borderColor: Colors.gray100,
+        // Shadow matches above
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
     },
-    inputUnstyled: { flex: 1, height: 48, paddingHorizontal: 16, fontSize: 16, color: Colors.textPrimary },
-    verticalDivider: { width: 1, height: '50%', backgroundColor: Colors.gray200 },
+    inputUnstyled: { flex: 1, height: '100%', paddingHorizontal: 16, fontSize: 16, color: Colors.textPrimary },
+    verticalDivider: { width: 1, height: '60%', backgroundColor: Colors.gray100 },
     unitSelector: { 
         flexDirection: 'row', 
         alignItems: 'center', 
         paddingHorizontal: 16, 
         gap: 6,
-        height: '100%', // Fitts's Law: Maximize touch target height
+        height: '100%', 
         justifyContent: 'center',
-        backgroundColor: Colors.gray50, // Slight contrast for affordance
+        backgroundColor: 'transparent', // Integrated look
     },
     unitSelectorText: { fontSize: 15, color: Colors.textPrimary, fontWeight: '600' },
 
@@ -693,7 +773,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20, // Slightly more padding for the "floating" feel
     },
     sectionTitle: {
-        fontSize: 13,
+        fontSize: 16,
         ...Typography.fontWeights.extrabold,
         color: Colors.gray600,
         letterSpacing: 1.2,

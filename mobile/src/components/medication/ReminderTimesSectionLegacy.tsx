@@ -626,14 +626,15 @@ export function ReminderTimesSectionLegacy({
                                             <View style={styles.timeBarRightGroup}>
                                                 <Text style={styles.timeBarDoseLabel} numberOfLines={1}>{cleanName}</Text>
 
-                                                <Switch
-                                                    value={isOn}
-                                                    onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                    trackColor={{ false: Colors.gray200, true: Colors.success }}
-                                                    thumbColor={Colors.white}
-                                                    style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                    disabled={isVerified}
-                                                />
+                                                {!isVerified && (
+                                                    <Switch
+                                                        value={isOn}
+                                                        onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                        trackColor={{ false: Colors.gray200, true: Colors.success }}
+                                                        thumbColor={Colors.white}
+                                                        style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                    />
+                                                )}
 
                                                 <TouchableOpacity
                                                     style={styles.noteIconButton}
@@ -739,14 +740,15 @@ export function ReminderTimesSectionLegacy({
                                                     </View>
 
                                                     <View style={styles.timeBarRightGroup}>
+                                                    {!isVerified && (
                                                         <Switch
                                                             value={isOn}
                                                             onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
                                                             trackColor={{ false: Colors.gray200, true: Colors.success }}
                                                             thumbColor={Colors.white}
                                                             style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                            disabled={isVerified}
                                                         />
+                                                    )}
 
                                                         <TouchableOpacity
                                                             style={styles.noteIconButton}
@@ -867,13 +869,15 @@ export function ReminderTimesSectionLegacy({
                                                     </View>
 
                                                     <View style={styles.timeBarRightGroup}>
-                                                        <Switch
-                                                            value={isOn}
-                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                            trackColor={{ false: '#334155', true: Colors.success }}
-                                                            thumbColor={Colors.white}
-                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                        />
+                                                        {!isVerified && (
+                                                            <Switch
+                                                                value={isOn}
+                                                                onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                                trackColor={{ false: '#334155', true: Colors.success }}
+                                                                thumbColor={Colors.white}
+                                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                            />
+                                                        )}
 
                                                         <TouchableOpacity
                                                             style={styles.noteIconButton}
@@ -910,13 +914,15 @@ export function ReminderTimesSectionLegacy({
                                                 </View>
 
                                                 <View style={styles.timeBarRightGroup}>
-                                                    <Switch
-                                                        value={isOn}
-                                                        onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                        trackColor={{ false: Colors.gray200, true: Colors.success }}
-                                                        thumbColor={Colors.white}
-                                                        style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                    />
+                                                    {!isVerified && (
+                                                        <Switch
+                                                            value={isOn}
+                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                            trackColor={{ false: Colors.gray200, true: Colors.success }}
+                                                            thumbColor={Colors.white}
+                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                        />
+                                                    )}
 
                                                     <TouchableOpacity
                                                         style={styles.noteIconButton}

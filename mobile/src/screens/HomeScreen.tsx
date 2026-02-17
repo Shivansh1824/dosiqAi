@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, ActionSheetIOS, RefreshControl, Modal, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, RefreshControl, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
@@ -387,114 +387,73 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const [uploadType, setUploadType] = useState<'prescription' | 'report'>('prescription');
 
   const showUploadTypeSelection = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
+    // Universal Custom Action Sheet (iOS & Android)
+    setActionSheetConfig({
+      title: 'Upload Document',
+      subtitle: 'What would you like to upload?',
+      options: [
         {
-          options: ['Cancel', 'Upload Prescription', 'Upload Report'],
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
+          label: 'Upload Prescription',
+          icon: 'file-text',
+          onPress: () => {
+            setActionSheetVisible(false); // Close first sheet
             setUploadType('prescription');
-            setTimeout(showSourceOptions, 300);
-          } else if (buttonIndex === 2) {
+            setTimeout(() => {
+                showSourceOptions();
+            }, 300);
+          },
+        },
+        {
+          label: 'Upload Report',
+          icon: 'activity',
+          onPress: () => {
+            setActionSheetVisible(false);
             setUploadType('report');
-            setTimeout(showSourceOptions, 300);
-          }
-        }
-      );
-    } else {
-      // Android - Use Custom Action Sheet
-      setActionSheetConfig({
-        title: 'Upload Document',
-        subtitle: 'What would you like to upload?',
-        options: [
-          {
-            label: 'Upload Prescription',
-            icon: 'file-text',
-            onPress: () => {
-              setActionSheetVisible(false); // Close first sheet
-              setUploadType('prescription');
-              setTimeout(() => {
-                showSourceOptions();
-              }, 300);
-            },
+            setTimeout(() => {
+                  showSourceOptions();
+            }, 300);
           },
-          {
-            label: 'Upload Report',
-            icon: 'activity',
-            onPress: () => {
-              setActionSheetVisible(false);
-              setUploadType('report');
-              setTimeout(() => {
-                showSourceOptions();
-              }, 300);
-            },
-          },
-        ],
-      });
-      setActionSheetVisible(true);
-    }
+        },
+      ],
+    });
+    setActionSheetVisible(true);
   };
 
   const showSourceOptions = () => {
     const title = uploadType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
+    
+    // Universal Custom Action Sheet (iOS & Android)
+    setActionSheetConfig({
+      title: title,
+      subtitle: 'Choose an option',
+      options: [
         {
-          title: title,
-          options: ['Cancel', 'Photo Library', 'Take Photo or Video', 'Choose Files'],
-          cancelButtonIndex: 0,
+          label: 'Photo Library',
+          icon: 'image',
+          onPress: () => {
+            setActionSheetVisible(false);
+            setTimeout(pickImage, 200);
+          },
         },
-        (buttonIndex) => {
-          switch (buttonIndex) {
-            case 1:
-              pickImage();
-              break;
-            case 2:
-              takePhoto();
-              break;
-            case 3:
-              pickDocument();
-              break;
-          }
-        }
-      );
-    } else {
-      // Android - Use Custom Action Sheet
-      setActionSheetConfig({
-        title: title,
-        subtitle: 'Choose an option',
-        options: [
-          {
-            label: 'Photo Library',
-            icon: 'image',
-            onPress: () => {
-              setActionSheetVisible(false);
-              setTimeout(pickImage, 200);
-            },
+        {
+          label: 'Take Photo',
+          icon: 'camera',
+          onPress: () => {
+            setActionSheetVisible(false);
+            setTimeout(takePhoto, 200);
           },
-          {
-            label: 'Take Photo',
-            icon: 'camera',
-            onPress: () => {
-              setActionSheetVisible(false);
-              setTimeout(takePhoto, 200);
-            },
+        },
+        {
+          label: 'Choose Files',
+          icon: 'folder',
+          onPress: () => {
+            setActionSheetVisible(false);
+            setTimeout(pickDocument, 200);
           },
-          {
-            label: 'Choose Files',
-            icon: 'folder',
-            onPress: () => {
-              setActionSheetVisible(false);
-              setTimeout(pickDocument, 200);
-            },
-          },
-        ],
-      });
-      setActionSheetVisible(true);
-    }
+        },
+      ],
+    });
+    setActionSheetVisible(true);
   };
 
   // Replaces the old showUploadOptions

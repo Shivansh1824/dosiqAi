@@ -761,7 +761,12 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
+      />
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
       {/* Modern Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -1263,14 +1268,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         onReplace={() => handleResolveDuplicate('replace')}
         onAddBoth={() => handleResolveDuplicate('add')}
       />
-    </SafeAreaView >
+    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bgSecondary,
   },
 
   // Header
@@ -1567,14 +1572,14 @@ const styles = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: 'transparent',
     // Removed: borderRadius, shadow*, elevation
     padding: 16, // MD3: Reduced from 20
-    marginBottom: 12, // Minimal spacing
+    marginBottom: 0, // Minimal spacing
     // Flat design - no shadows
   },
   medicationsCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: 'transparent',
     paddingTop: 0,
     paddingBottom: 0,
     paddingHorizontal: 0,

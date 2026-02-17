@@ -176,10 +176,10 @@ export default function CalendarStrip({ selectedDate, onDateSelect, events = {} 
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Colors.white,
-        paddingVertical: Sizes.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.gray100,
+        backgroundColor: 'transparent',
+        paddingTop: 12,
+        paddingBottom: 12,    // Reduced from 16 to 12
+        // Removed border to blend seamlessly
     },
     scrollContent: {
         paddingHorizontal: Sizes.lg,

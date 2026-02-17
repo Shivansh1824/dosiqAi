@@ -109,6 +109,7 @@ export interface DocumentAnalysisResult {
     diagnosis_source?: 'explicit' | 'inferred';  // NEW: How diagnosis was determined
     follow_up?: {                                 // NEW: Follow-up info
       follow_up_date?: string;
+      follow_up_days?: number;
       follow_up_notes?: string;
     };
     recommended_tests?: RecommendedTest[];

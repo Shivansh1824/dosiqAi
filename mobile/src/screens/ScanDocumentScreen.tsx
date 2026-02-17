@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert, ActionSheetIOS, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
@@ -15,6 +15,7 @@ import { compressImage } from '../utils/imageCompression';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 import { incrementUploadCount } from '../services/documentAnalysisService';
 import FilePreviewModal from '../components/FilePreviewModal';
+import ActionSheet from '../components/ActionSheet';
 
 interface ScanDocumentScreenProps {
   onBack: () => void;
@@ -36,6 +37,14 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
   // New State for Preview Modal
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
+
+  // Custom Action Sheet State
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [actionSheetConfig, setActionSheetConfig] = useState<{
+    title?: string;
+    subtitle?: string;
+    options: import('../components/ActionSheet').ActionSheetOption[];
+  }>({ options: [] });
 
   // Load upload limit on mount
   useEffect(() => {
@@ -324,41 +333,39 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     }
   };
 
-  // Show iOS action sheet for upload options
+  // Show custom action sheet for upload options
   const showUploadOptions = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
+    setActionSheetConfig({
+      title: 'Upload Document',
+      subtitle: 'Choose an option',
+      options: [
         {
-          options: ['Cancel', 'Photo Library', 'Take Photo or Video', 'Choose Files'],
-          cancelButtonIndex: 0,
+          label: 'Photo Library',
+          icon: 'image',
+          onPress: () => {
+            setActionSheetVisible(false);
+            setTimeout(pickImage, 200);
+          },
         },
-        (buttonIndex) => {
-          switch (buttonIndex) {
-            case 1:
-              pickImage();
-              break;
-            case 2:
-              takePhoto();
-              break;
-            case 3:
-              pickDocument();
-              break;
-          }
-        }
-      );
-    } else {
-      // Android - show Alert with options
-      Alert.alert(
-        'Upload Document',
-        'Choose an option',
-        [
-          { text: 'Photo Library', onPress: pickImage },
-          { text: 'Take Photo', onPress: takePhoto },
-          { text: 'Choose Files', onPress: pickDocument },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    }
+        {
+          label: 'Take Photo',
+          icon: 'camera',
+          onPress: () => {
+            setActionSheetVisible(false);
+            setTimeout(takePhoto, 200);
+          },
+        },
+        {
+          label: 'Choose Files',
+          icon: 'folder',
+          onPress: () => {
+            setActionSheetVisible(false);
+            setTimeout(pickDocument, 200);
+          },
+        },
+      ],
+    });
+    setActionSheetVisible(true);
   };
 
   return (
@@ -486,6 +493,15 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
           setSelectedFile(null);
         }}
         isUploading={isUploading || isCompressing}
+      />
+
+      {/* Custom Action Sheet */}
+      <ActionSheet
+        visible={actionSheetVisible}
+        onClose={() => setActionSheetVisible(false)}
+        title={actionSheetConfig.title}
+        subtitle={actionSheetConfig.subtitle}
+        options={actionSheetConfig.options}
       />
     </View>
   );
