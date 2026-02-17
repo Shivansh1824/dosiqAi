@@ -72,7 +72,7 @@ export default function MedicationVerificationCard({
   familyMember,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
-  const backgroundColor = '#FFFFFF';
+  const backgroundColor = isVerified ? Colors.gray50 : '#FFFFFF';
   const [medication, setMedication] = useState<ParsedMedication>(initialMedication);
   const [isEditing, setIsEditing] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
@@ -635,7 +635,7 @@ export default function MedicationVerificationCard({
   return (
     <View style={[
       styles.card, 
-      { backgroundColor, paddingBottom: isVerified || isDismissed ? 12 : 24 }
+      { backgroundColor, paddingBottom: isVerified || isDismissed ? 12 : 24, opacity: isVerified ? 0.95 : 1 }
     ]}>
       {/* Header */}
       <MedicationHeader
