@@ -292,8 +292,8 @@ CREATE TABLE public.test_results (
   CONSTRAINT test_results_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
-CREATE INDEX IF NOT EXISTS idx_test_results_lab_report ON public.test_results USING btree (lab_report_id);
-CREATE INDEX IF NOT EXISTS idx_test_results_user_name ON public.test_results USING btree (user_id, test_name);
+CREATE INDEX IF NOT EXISTS idx_test_results_lab_report ON public.test_results USING btree (lab_report_id) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_test_results_user_name ON public.test_results USING btree (user_id, test_name) TABLESPACE pg_default;
 
 -- [medication_logs]
 CREATE TABLE public.medication_logs (
@@ -365,6 +365,7 @@ CREATE TABLE public.metric_annotations (
   updated_at timestamp with time zone NULL DEFAULT now(),
   CONSTRAINT metric_annotations_pkey PRIMARY KEY (id),
   CONSTRAINT metric_annotations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE,
+  CONSTRAINT metric_annotations_test_result_id_fkey FOREIGN KEY (test_result_id) REFERENCES test_results (id) ON DELETE CASCADE,
   CONSTRAINT metric_annotations_event_type_check CHECK (event_type = ANY (ARRAY['medication_change'::text, 'lifestyle_change'::text, 'symptom'::text, 'other'::text]))
 ) TABLESPACE pg_default;
 
@@ -378,7 +379,7 @@ CREATE TABLE public.potential_biomarker (
   test_name text NOT NULL,
   source text NULL,
   CONSTRAINT potential_biomarker_pkey PRIMARY KEY (test_name),
-  CONSTRAINT fk_test_results FOREIGN KEY (test_results_id) REFERENCES test_results (id) ON DELETE SET NULL
+  CONSTRAINT fk_test_results FOREIGN KEY (test_results_id) REFERENCES test_results (id) ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
 -- [upload_limits]
