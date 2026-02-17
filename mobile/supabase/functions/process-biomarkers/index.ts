@@ -310,7 +310,7 @@ async function processFuzzyMatches(
       const notFoundIds = notFound.map((item: any) => item.id);
       const enrichedNotFound = lookupFuzzyById(notFoundIds, fuzzyMatches);
       console.log(`[${requestId}][Fuzzy] Routing ${enrichedNotFound.length} unmatched items to NotFound pipeline...`);
-      await processNotFound(supabase, enrichedNotFound, requestId);
+      await processNotFound(supabase, enrichedNotFound, requestId, "fuzzy_not_found");
     }
 
   } catch (err: unknown) {
@@ -326,7 +326,8 @@ async function processFuzzyMatches(
 async function processNotFound(
   _supabase: any,
   notFound: NotFoundResult[],
-  requestId: string
+  requestId: string,
+  sourceOverride?: string
 ): Promise<void> {
   if (notFound.length === 0) {
     console.log(`[${requestId}][NotFound] No not-found items to process.`);
@@ -378,7 +379,7 @@ async function processNotFound(
         return {
           test_results_id: id,
           test_name: originalItem?.test_name,
-          source: "not_found",
+          source: sourceOverride || "not_found",
         };
       }).filter((item): item is { test_results_id: string; test_name: string; source: string } => !!item.test_name);
 
