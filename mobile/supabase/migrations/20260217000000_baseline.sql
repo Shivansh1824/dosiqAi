@@ -155,6 +155,8 @@ CREATE TABLE public.documents (
   ai_analysis_tokens_used integer NULL,
   cloud_file_key text NULL,
   ai_analysis_error jsonb NULL,
+  patient_name text NULL,
+  diagnosis text NULL,
   CONSTRAINT documents_pkey PRIMARY KEY (id),
   CONSTRAINT documents_family_member_id_fkey FOREIGN KEY (family_member_id) REFERENCES family_members (id) ON DELETE CASCADE,
   CONSTRAINT documents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE,
