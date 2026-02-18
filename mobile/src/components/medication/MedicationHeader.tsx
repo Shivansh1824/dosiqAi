@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
 import { InfoModal } from '../InfoModal';
-import { MedicationIcon, getHeaderBackgroundColor } from './MedicationIcons';
+import { getHeaderBackgroundColor } from './MedicationIcons';
 
 interface MedicationHeaderProps {
     name: string;
@@ -111,9 +111,7 @@ export function MedicationHeader({
                             <View style={styles.serialNumberDivider} />
                         </>
                     )}
-                    <View style={[styles.iconContainer, { backgroundColor: 'transparent' }]}>
-                        <MedicationIcon form={form} size={28} />
-                    </View>
+
                     <View style={styles.headerTitleContainer}>
                         {isEditing ? (
                             <TextInput

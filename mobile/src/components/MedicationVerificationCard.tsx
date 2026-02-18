@@ -48,6 +48,7 @@ interface MedicationVerificationCardProps {
   isDismissed?: boolean; // NEW: Whether medication is dismissed/deleted
   onRestore?: () => void; // NEW: Callback to restore dismissed medication
   familyMember?: FamilyMember;
+  followUpDays?: number; // NEW: Default duration for SOS
 }
 
 /**
@@ -70,6 +71,7 @@ export default function MedicationVerificationCard({
   isDismissed = false,
   onRestore,
   familyMember,
+  followUpDays,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
   const backgroundColor = isVerified ? Colors.gray50 : '#FFFFFF';
@@ -82,7 +84,7 @@ export default function MedicationVerificationCard({
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   // Initialize endDate with the default calculated date so it doesn't float with startDate changes
   const [endDate, setEndDate] = useState<string>(
-    calculateEndDate(parseDateOnly(suggestedStartDate), initialMedication.duration_days ?? 5)
+    calculateEndDate(parseDateOnly(suggestedStartDate), initialMedication.duration_days ?? followUpDays ?? 5)
   );
 
   // Editable fields state
@@ -95,49 +97,70 @@ export default function MedicationVerificationCard({
   // NEW: Inactive custom reminders (toggled off but not deleted)
   const [inactiveReminders, setInactiveReminders] = useState<string[]>([]);
 
-  // Reminder default notes state (for note feature)
-  const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
+  // Helper to compute initial reminder times (moved before state declarations that depend on it)
+  const getInitialTimes = (): string[] => {
+      const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
+      
+      // 1. If prescription has explicit times, use them
+      if (medication.time_of_day?.length > 0) {
+          return medication.time_of_day;
+      }
+      
+      // 2. If it has a frequency (times per day), use user's preferred times
+      if (timesPerDay > 0) {
+          const morning = familyMember?.morning_dose_time || '';
+          const afternoon = familyMember?.afternoon_dose_time || '';
+          const night = familyMember?.night_dose_time || '';
+          
+          if (timesPerDay === 1) return [morning];
+          if (timesPerDay === 2) return [morning, night];
+          if (timesPerDay === 3) return [morning, afternoon, night];
+          
+          const baseTimes = [morning, afternoon, night];
+          const result = [...baseTimes];
+          const extrasNeeded = timesPerDay - 3;
 
-    const getInitialTimes = (): string[] => {
-        const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
-        
-        // 1. If prescription has explicit times, use them
-        if (medication.time_of_day?.length > 0) {
-            return medication.time_of_day;
-        }
-        
-        // 2. If it has a frequency (times per day), use user's preferred times
-        if (timesPerDay > 0) {
-            const morning = familyMember?.morning_dose_time || '';
-            const afternoon = familyMember?.afternoon_dose_time || '';
-            const night = familyMember?.night_dose_time || '';
-            
-            if (timesPerDay === 1) return [morning];
-            if (timesPerDay === 2) return [morning, night];
-            if (timesPerDay === 3) return [morning, afternoon, night];
-            
-            // For > 3, we can still use generateCyclicReminderTimes but maybe it should be updated?
-            // For now, let's just use the cyclic utility as it handles extras
-            // But actually, generateCyclicReminderTimes is hardcoded. 
-            // I'll manually implement a preference-aware version for > 3 here.
-            const baseTimes = [morning, afternoon, night];
-            const result = [...baseTimes];
-            const extrasNeeded = timesPerDay - 3;
+          for (let i = 0; i < extrasNeeded; i++) {
+              const cycleIndex = i % 3;
+              const offsetPass = Math.floor(i / 3) + 1;
+              const baseTime = baseTimes[cycleIndex];
+              const [h, m] = baseTime.split(':').map(Number);
+              let newHour = h + offsetPass;
+              if (newHour >= 24) newHour -= 24;
+              const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+              result.push(newTime);
+          }
+          return result.sort();
+      }
+      return [];
+  };
 
-            for (let i = 0; i < extrasNeeded; i++) {
-                const cycleIndex = i % 3;
-                const offsetPass = Math.floor(i / 3) + 1;
-                const baseTime = baseTimes[cycleIndex];
-                const [h, m] = baseTime.split(':').map(Number);
-                let newHour = h + offsetPass;
-                if (newHour >= 24) newHour -= 24;
-                const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                result.push(newTime);
-            }
-            return result.sort();
-        }
-        return [];
-    };
+  // Reminder default notes state — initialized SYNCHRONOUSLY so notes are available from first paint.
+  // useEffect runs AFTER paint, so lazy useState is the only way to guarantee notes on first frame.
+  const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>(() => {
+    const relation = initialMedication.food_relationship || initialMedication.source_raw?.timing?.relation_to_meal;
+    if (!relation || relation === 'anytime' || relation === 'any') return {};
+
+    const noteText = getMealTimingLabel(relation);
+    const initialTimes = getInitialTimes();
+    
+    // Also pre-compute the "expected" batch times from family preferences,
+    // since the child component will auto-add these anyway.
+    // This ensures notes are ready even for times that getInitialTimes doesn't return
+    // (e.g., getInitialTimes returns [morning] but dosage pattern shows Night only).
+    const allPossibleTimes = new Set<string>(initialTimes.filter(t => t));
+    
+    // Add all family member preferred times — the child's renderGroupedView will show these
+    if (familyMember?.morning_dose_time) allPossibleTimes.add(familyMember.morning_dose_time);
+    if (familyMember?.afternoon_dose_time) allPossibleTimes.add(familyMember.afternoon_dose_time);
+    if (familyMember?.night_dose_time) allPossibleTimes.add(familyMember.night_dose_time);
+
+    const notes: Record<string, string> = {};
+    allPossibleTimes.forEach(time => {
+      notes[time] = noteText;
+    });
+    return notes;
+  });
 
   // Custom reminder times state (for time picker changes)
   // Initialize with defaults immediately so empty array is valid "all off" state
@@ -168,10 +191,13 @@ export default function MedicationVerificationCard({
 
 
   // Check if frequency is "As Needed"
-  const isAsNeeded = isAsNeededFrequency(
+  const isPureAsNeeded = isAsNeededFrequency(
     medication.timing_dosage ?? medication.source_raw?.timing?.dosage,
     medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day
   );
+
+  // If it's SOS but user has added reminders, we treat it as NOT as-needed for UI purposes (show schedule)
+  const isAsNeeded = isPureAsNeeded && customReminderTimes.length === 0;
 
   // Auto-generate reminder times is now handled by shared utility
 
@@ -196,17 +222,24 @@ export default function MedicationVerificationCard({
     return newNotes;
   }, [medication]);
 
-  // Initial Population of Notes
+  // Reactive Population of Notes — fires whenever customReminderTimes changes
+  // (including the child's auto-sync on mount). Fills gaps without overwriting user edits.
   useEffect(() => {
-    // Only populate if empty (initial load)
-    if (Object.keys(reminderDefaultNotes).length === 0) {
-      const times = getReminderTimes();
-      const initialNotes = generateFoodRelationNotes(times);
-      if (Object.keys(initialNotes).length > 0) {
-        setReminderDefaultNotes(initialNotes);
+    if (customReminderTimes.length > 0) {
+      const newNotes = generateFoodRelationNotes(customReminderTimes);
+      if (Object.keys(newNotes).length > 0) {
+        setReminderDefaultNotes(prev => {
+          // Merge: new defaults fill gaps, existing user edits take priority
+          const merged = { ...newNotes, ...prev };
+          // Only update if there are actual changes to avoid unnecessary re-renders
+          if (JSON.stringify(merged) !== JSON.stringify(prev)) {
+            return merged;
+          }
+          return prev;
+        });
       }
     }
-  }, []); // Run once on mount (effectively) - usually we depend on medication but we only want initial population
+  }, [customReminderTimes, generateFoodRelationNotes]);
 
   // Get interval display text
   const getIntervalText = (): string => {
@@ -474,6 +507,12 @@ export default function MedicationVerificationCard({
     // Broadcast live update
     onLiveUpdate?.({ current_reminder_times: updatedTimes });
 
+    // Populate note if adding
+    if (isEnabled) {
+       const defaults = generateFoodRelationNotes([defaultTime]);
+       setReminderDefaultNotes(prev => ({ ...defaults, ...prev }));
+    }
+
     // Sync toggles state (optimistic)
     setReminderToggles(new Array(updatedTimes.length).fill(true));
   };
@@ -510,6 +549,10 @@ export default function MedicationVerificationCard({
   const handleUpdateReminderTimes = (newTimes: string[]) => {
     setCustomReminderTimes(newTimes);
     onLiveUpdate?.({ current_reminder_times: newTimes });
+
+    // Populate notes for these times (filling gaps)
+    const defaults = generateFoodRelationNotes(newTimes);
+    setReminderDefaultNotes(prev => ({ ...defaults, ...prev }));
   };
 
   const handleIntervalChange = (days: number) => {
@@ -673,6 +716,7 @@ export default function MedicationVerificationCard({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.aiButtonsRow}
               >
+                {medication.medicine_type && (
                 <TouchableOpacity
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -688,11 +732,13 @@ export default function MedicationVerificationCard({
                       <Feather name="layers" size={10} color={Colors.primary} />
                     </View>
                     <Text style={styles.aiButtonText}>
-                      {medication.medicine_type || 'Medicine Type'}
+                      {medication.medicine_type}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
+                )}
 
+                {medication.medicine_purpose && (
                 <TouchableOpacity
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -708,27 +754,28 @@ export default function MedicationVerificationCard({
                       <Feather name="activity" size={10} color={Colors.primary} />
                     </View>
                     <Text style={styles.aiButtonText}>
-                      {medication.medicine_purpose || 'Medicine Purpose'}
+                      {medication.medicine_purpose}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
 
-            <View style={styles.divider} />
+            {(medication.medicine_type || medication.medicine_purpose) && <View style={styles.divider} />}
 
             {/* Course Period Section */}
-            {!isAsNeeded && (
-              <CoursePeriodSection
-                startDate={startDate}
-                endDate={endDate}
-                interval={medication.interval_days ?? medication.source_raw?.interval_days}
-                onStartDatePress={() => setShowDatePicker(true)}
-                onEndDatePress={() => setShowEndDatePicker(true)}
-                onIntervalChange={handleIntervalChange}
-                isVerified={isVerified}
-              />
-            )}
+            {/* Course Period Section */}
+            <CoursePeriodSection
+              startDate={startDate}
+              endDate={endDate}
+              interval={medication.interval_days ?? medication.source_raw?.interval_days}
+              onStartDatePress={() => setShowDatePicker(true)}
+              onEndDatePress={() => setShowEndDatePicker(true)}
+              onIntervalChange={handleIntervalChange}
+              isVerified={isVerified}
+              fixedFrequencyText={isAsNeeded && customReminderTimes.length === 0 ? "SOS FOR PAIN" : undefined}
+            />
 
             {/* Start Date Picker Modal */}
             <DatePickerModal
@@ -816,54 +863,24 @@ export default function MedicationVerificationCard({
                   }}
                 />
 
-                <AddReminderModal
-                  visible={showAddReminderModal}
-                  onClose={() => setShowAddReminderModal(false)}
-                  onAdd={handleAddReminderObject}
-                  existingTimes={getReminderTimes()}
-                  preferredTimes={{
-                    morning: familyMember?.morning_dose_time || undefined,
-                    afternoon: familyMember?.afternoon_dose_time || undefined,
-                    night: familyMember?.night_dose_time || undefined,
-                  }}
-                  timingDosage={medication.timing_dosage}
-                />
               </>
             )}
 
+            <AddReminderModal
+              visible={showAddReminderModal}
+              onClose={() => setShowAddReminderModal(false)}
+              onAdd={handleAddReminderObject}
+              existingTimes={getReminderTimes()}
+              preferredTimes={{
+                morning: familyMember?.morning_dose_time || undefined,
+                afternoon: familyMember?.afternoon_dose_time || undefined,
+                night: familyMember?.night_dose_time || undefined,
+              }}
+              timingDosage={medication.timing_dosage}
+            />
 
-            {/* Notes Section (Compact) - Only for As Needed (SOS) or when editing */}
-            {((medication.notes && isAsNeeded) || isEditing) && (
-              <View style={styles.detailsGrid}>
-                <View style={styles.notesCompactContainer}>
-                  {!isEditing ? (
-                    <View style={styles.notesRow}>
-                      <View style={styles.notesHeaderGroup}>
-                        <Feather name="info" size={14} color={Colors.textSecondary} />
-                        <Text style={styles.notesLabel}>Note :</Text>
-                      </View>
-                      <Text style={styles.notesValue}>
-                        {medication.notes}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.notesEditContainer}>
-                      <View style={styles.notesHeaderGroup}>
-                        <Feather name="info" size={14} color={Colors.textSecondary} />
-                        <Text style={styles.notesLabel}>Note :</Text>
-                      </View>
-                      <TextInput
-                        style={styles.notesInput}
-                        value={editedNotes}
-                        onChangeText={setEditedNotes}
-                        placeholder="Add note..."
-                        multiline
-                      />
-                    </View>
-                  )}
-                </View>
-              </View>
-            )}
+
+            {/* Notes Section Removed as per user request */}
 
             {/* Duplicate Warning */}
           </View>
@@ -880,7 +897,35 @@ export default function MedicationVerificationCard({
         </>
       )}
 
-      {/* Information Modal */}
+            {/* SOS / As Needed Reminder Button */}
+            {isPureAsNeeded && customReminderTimes.length === 0 && !isVerified && (
+              <View style={styles.sosReminderContainer}>
+                <View style={styles.sosHeader}>
+                  <View style={styles.sosHeaderLeft}>
+                    <Feather name="bell" size={16} color={Colors.primary} />
+                    <Text style={styles.sosTitle}>DOSE SCHEDULE</Text>
+                    <Feather name="info" size={14} color={Colors.gray400} />
+                  </View>
+                </View>
+                
+                {/* Indented Container to match ReminderTimesSectionLegacy layout */}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 32, marginRight: 4 }} />
+                    <View style={{ flex: 1 }}>
+                        <TouchableOpacity 
+                          style={styles.addSOSReminderButton}
+                          onPress={() => setShowAddReminderModal(true)}
+                          activeOpacity={0.7}
+                        >
+                            <Feather name="plus-circle" size={18} color={Colors.primary} />
+                            <Text style={styles.addSOSReminderText}>Add Reminder</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+              </View>
+            )}
+
+            {/* Information Modal */}
       <InfoModal
         visible={infoModalVisible}
         title={infoModalTitle}
@@ -1121,4 +1166,43 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     fontSize: 12, // Smaller size
   },
+  sosReminderContainer: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  sosHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sosHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sosTitle: {
+    fontSize: 11, // Standard: 11
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.gray500,
+    letterSpacing: 0.5, // Standard: 0.5
+  },
+  addSOSReminderButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: Colors.white, // Changed from light blue to white as per request
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12, // Standard: 12
+    gap: 6, // Standard: 6
+  },
+  addSOSReminderText: {
+    fontSize: 13, // Standard: 13
+    fontFamily: Typography.fontFamily.semibold, // Standard: semibold
+    color: Colors.primary,
+  },
+  // Removed unused styles
 });

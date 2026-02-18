@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Pdf from 'react-native-pdf-jsi';
+import Pdf from 'react-native-pdf';
 import { Colors } from '../../constants';
 import { DocumentPreviewLoading } from './DocumentPreviewLoading';
 
