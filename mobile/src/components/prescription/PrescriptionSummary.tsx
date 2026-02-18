@@ -29,7 +29,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
 
     // Consolidated display logic: show nothing by default (except header), show all when expanded
     return (
-        <Animated.View 
+        <Animated.View
             layout={LinearTransition.springify().damping(15)}
             style={[styles.aiSummaryCard, style]}
         >
@@ -50,7 +50,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
             </TouchableOpacity>
 
             {isExpanded && (
-                <Animated.View 
+                <Animated.View
                     entering={FadeIn.duration(300)}
                     exiting={FadeOut.duration(200)}
                     style={styles.contentContainer}
@@ -61,7 +61,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
 
                     {/* Follow-up Section - Normal Text Display */}
                     {followUp && (followUp.follow_up_date || followUp.follow_up_days) && (
-                         <Text style={[styles.aiSummaryText, { marginTop: 12 }]}>
+                        <Text style={[styles.aiSummaryText, { marginTop: 12 }]}>
                             <Text style={styles.boldText}>Follow Up. </Text>
                             {followUp.follow_up_days && followUp.follow_up_date
                                 ? `Advised to follow up with the doctor after ${followUp.follow_up_days} days, on ${followUp.follow_up_date}.`
@@ -92,46 +92,58 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
 
 const styles = StyleSheet.create({
     aiSummaryCard: {
-        backgroundColor: 'transparent',
-        borderRadius: 0,
+        backgroundColor: Colors.white,
+        borderRadius: 20,
         marginBottom: 0,
-        padding: 16,
+        marginHorizontal: 16,
+        marginTop: 8,
+        padding: 0,
+        shadowColor: '#1a1a2e',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 2,
+        overflow: 'hidden',
     },
     aiSummaryHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 0, // Removing bottom margin when collapsed
-        paddingVertical: 12, // Increased for Fitts's Law (44dp target)
+        marginBottom: 0,
+        paddingVertical: 14,
+        paddingHorizontal: 18,
     },
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
     },
     contentContainer: {
-        marginTop: 12, // Move margin here so it only applies when expanded
+        marginTop: 0,
+        paddingHorizontal: 18,
+        paddingBottom: 18,
+        borderTopWidth: 1,
+        borderTopColor: Colors.gray100,
+        paddingTop: 14,
     },
     aiSummaryTitle: {
-        fontSize: 18,
-        ...Typography.fontWeights.extrabold,
+        fontSize: 16,
+        ...Typography.fontWeights.bold,
         color: Colors.gray900,
-        letterSpacing: 0.8,
-        textTransform: 'uppercase',
+        letterSpacing: -0.2,
     },
     aiSummaryText: {
         fontSize: 14,
-        lineHeight: 20,
-        color: Colors.gray700,
+        lineHeight: 21,
+        color: Colors.gray600,
         ...Typography.fontWeights.regular,
     },
-    // Removed readMore styles as they are no longer needed
     extraInfoContainer: {
         marginTop: 12,
         gap: 8,
     },
     sectionContainer: {
-        marginTop: 4,
+        marginTop: 8,
     },
     sectionTitle: {
         fontSize: 14,
@@ -144,7 +156,7 @@ const styles = StyleSheet.create({
     },
     boldText: {
         ...Typography.fontWeights.bold,
-        color: Colors.gray900,
+        color: Colors.gray800,
     }
 });
 
