@@ -239,11 +239,10 @@ Integer count of total doses per day
 
 ---
 
-### 8. FILE NAMING
+### 8. PATIENT NAME & DIAGNOSIS (TOP LEVEL)
 
-**Format:** [Patient Name] - [Diagnosis] Prescription - [D Mon YYYY]
-
-**Rules:** Use normalized name (no salutations), Use extracted/inferred diagnosis, Unknown diagnosis -> "General Health"
+**patient_name:** Use normalized patient name (remove salutations as per Rule 1).
+**diagnosis:** A brief 2-3 word description of the condition (e.g., "Bacterial Infection", "Fever Management", "Diabetes Review").
 
 ---
 
@@ -363,7 +362,8 @@ Output ONLY a valid JSON object matching this structure:
 {
   "reasoning": "String (100-200 words)",
   "document_type": "prescription | invalid",
-  "file_name": "String or null",
+  "patient_name": "String or null",
+  "diagnosis": "String (2-3 words) or null",
   "analysis_metadata": {
     "confidence_score": 0.0-1.0,
     "scan_clarity": "clear | blurry | unreadable",
@@ -465,7 +465,7 @@ Before outputting JSON, verify:
 
 **Output:**
 - [ ] Summary is 2-3 sentences, max 50 words
-- [ ] file_name follows format
+- [ ] patient_name and diagnosis (2-3 words) are populated at the top level
 - [ ] NO markdown code blocks
 - [ ] All arrays are [] not null
 `;
