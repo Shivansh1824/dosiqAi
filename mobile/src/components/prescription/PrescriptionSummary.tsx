@@ -98,6 +98,8 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         marginTop: 8,
         padding: 0,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
         shadowColor: '#1a1a2e',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,

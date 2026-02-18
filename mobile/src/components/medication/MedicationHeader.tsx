@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../../constants';
 import { VerificationConfidence } from '../../types/medicationVerification';
 import { InfoModal } from '../InfoModal';
-import { getHeaderBackgroundColor } from './MedicationIcons';
+
 
 interface MedicationHeaderProps {
     name: string;
@@ -103,7 +103,7 @@ export function MedicationHeader({
 
     return (
         <View style={styles.cardHeader}>
-            <View style={[styles.innerHeaderContainer, { backgroundColor: getHeaderBackgroundColor(form) }]}>
+            <View style={styles.innerHeaderContainer}>
                 <View style={[styles.headerLeft, isDismissed && { opacity: 0.5 }]}>
                     {serialNumber !== undefined && (
                         <>
@@ -149,12 +149,12 @@ export function MedicationHeader({
                                     </View>
 
                                     {!isDismissed && (
-                                    <TouchableOpacity
-                                        onPress={onAnalysisPress}
-                                        activeOpacity={0.7}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                        style={styles.analysisContainer}
-                                    >
+                                        <TouchableOpacity
+                                            onPress={onAnalysisPress}
+                                            activeOpacity={0.7}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            style={styles.analysisContainer}
+                                        >
                                             <LinearGradient
                                                 colors={['#FFFFFF', '#EFF6FF']}
                                                 start={{ x: 0, y: 0 }}
@@ -192,7 +192,7 @@ export function MedicationHeader({
                                 {isEditing ? (
                                     <>
                                         <TouchableOpacity
-                                            style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
+                                            style={[styles.actionButton, { backgroundColor: Colors.white }]}
                                             onPress={onCancel}
                                             activeOpacity={0.7}
                                         >
@@ -208,7 +208,7 @@ export function MedicationHeader({
                                     </>
                                 ) : (
                                     <TouchableOpacity
-                                        style={[styles.actionButton, { backgroundColor: getHeaderBackgroundColor(form) }]}
+                                        style={[styles.actionButton, { backgroundColor: Colors.white }]}
                                         onPress={() => setShowMenu(!showMenu)}
                                         activeOpacity={0.7}
                                     >
@@ -308,11 +308,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
         paddingTop: 14,
         paddingBottom: 12,
         paddingHorizontal: 12,
+        backgroundColor: Colors.white, // Explicit white background (or transparent if card handles it)
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.gray100,
     },
     headerLeft: {
         flex: 1,

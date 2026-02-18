@@ -763,7 +763,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
@@ -973,50 +973,26 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     {/* Medications Section */}
                     {document?.ai_analysis_status === 'completed' &&
                       innerMedicines.length > 0 && (
-                        <View style={[styles.medicationsCard, (!hasUnverifiedMeds && !isAlreadyAdded) && { paddingTop: 16 }]}>
-                          {/* MEDS DETECTED Header - Show greyed-out when already added, hidden only during session verification */}
+                        <>
+                          {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View
-                              style={[{
-                                flexDirection: 'row',
-                                justifyContent: 'space-between',
-                                alignItems: 'flex-start',
-                                paddingHorizontal: 20,
-                                paddingTop: 20,
-                                paddingBottom: 14,
-                                borderRadius: 0,
-                                marginBottom: 0,
-                                backgroundColor: 'transparent',
-                              }, {}]}
-                            >
-                              <View style={{ flex: 1, gap: 4 }}>
-                                <Text style={{
-                                  fontSize: 16,
-                                  fontWeight: '700',
-                                  color: Colors.gray900,
-                                  letterSpacing: -0.2,
-                                  marginBottom: 2,
-                                }}>Medications Detected</Text>
-                                <Text style={{
-                                  fontSize: 13,
-                                  color: Colors.gray500,
-                                  fontWeight: '400',
-                                  lineHeight: 18,
-                                }}>{innerMedicines.length} {innerMedicines.length === 1 ? 'medication' : 'medications'} identified from your prescription</Text>
-                              </View>
-                              <View style={{
-                                backgroundColor: Colors.primary + '15',
-                                minWidth: 32,
-                                paddingHorizontal: 10,
-                                paddingVertical: 5,
-                                borderRadius: 12,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginTop: 2,
-                              }}>
-                                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.primary }}>
-                                  {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}
-                                </Text>
+                            <View style={styles.medicationsHeaderCard}>
+                              <View style={styles.medicationsHeaderRow}>
+                                <View style={styles.medicationsHeaderLeft}>
+                                  <MaterialCommunityIcons name="pill" size={20} color={Colors.primary} />
+                                  <View style={{ gap: 2 }}>
+                                    <Text style={styles.medicationsHeaderTitle}>Medications Detected</Text>
+                                    <Text style={styles.medicationsHeaderSubtitle}>
+                                      {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}{' '}
+                                      {(innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length) === 1 ? 'medication' : 'medications'} identified from your prescription
+                                    </Text>
+                                  </View>
+                                </View>
+                                <View style={styles.medicationsCountBadge}>
+                                  <Text style={styles.medicationsCountText}>
+                                    {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}
+                                  </Text>
+                                </View>
                               </View>
                             </View>
                           )}
@@ -1037,11 +1013,9 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           })()}
 
                           {/* Divider Line - Only show if we have verified items above in CURRENT session */}
-                          {verifiedMedications.size > 0 && !isAlreadyAdded && (
-                            <View style={{ width: 1, backgroundColor: '#E2E8F0', flex: 1, marginHorizontal: 23 }} />
-                          )}
 
-                          {/* Unverified/All Medications List - Show greyed-out when already added (reopening) */}
+
+                          {/* Unverified/All Medications List - Each card is a standalone main card */}
                           {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                             <View>
                               {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
@@ -1087,7 +1061,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                           {/* Action Button - "Confirm & Add" when not added, "View in Tracker" when already added */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View style={{ padding: 16 }}>
+                            <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 4 }}>
                               <TouchableOpacity
                                 style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                                 onPress={async () => {
@@ -1188,7 +1162,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               </TouchableOpacity>
                             </View>
                           )}
-                        </View>
+                        </>
                       )}
                   </>
                 );
@@ -1570,6 +1544,79 @@ const styles = StyleSheet.create({
   },
 
 
+
+  // Medications Header Card (styled like AI Summary)
+  medicationsHeaderCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  medicationsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+    marginTop: 24,
+    paddingHorizontal: 16, // Add padding inside the container
+    paddingVertical: 12,   // Add vertical padding
+    backgroundColor: Colors.white, // Explicit white background
+    borderRadius: 16,      // Rounded corners
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginHorizontal: 16, // Add margin to float it
+  },
+  medicationsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  medicationsHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.gray900,
+    letterSpacing: -0.2,
+  },
+  medicationsHeaderSubtitle: {
+    fontSize: 13,
+    color: Colors.gray500,
+    fontWeight: '400',
+    lineHeight: 18,
+  },
+  medicationsCountBadge: {
+    backgroundColor: Colors.primary + '15',
+    minWidth: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medicationsCountText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
 
   // Cards
   card: {
