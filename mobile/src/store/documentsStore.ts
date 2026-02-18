@@ -81,9 +81,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       const { data, error } = await supabase
         .from('documents')
-        .select('*')
+        .select('*, lab_reports(report_date)')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('ai_analyzed_at', { ascending: false });
 
       if (error) {
         console.error('[DocumentsStore] Fetch error:', error);
@@ -92,8 +92,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       // Calculate color for each document based on type (not stored in database)
-      const documentsWithColor: Document[] = (data || []).map((doc) => ({
+      const documentsWithColor: Document[] = (data || []).map((doc: any) => ({
         ...doc,
+        report_date: doc.lab_reports?.[0]?.report_date || null, // Flatten joined data
         color: getDocumentColor(doc.type), // Always calculate from type (database optimization)
       }));
 
@@ -157,7 +158,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       console.log('[DocumentsStore] ✅ Document added:', data.id);
 
       // Return the saved document with its UUID and calculated color
-      return documentWithColor;
+      return {
+        ...documentWithColor,
+        ai_analyzed_at: new Date().toISOString(), // Optimistic update for UI
+      };
     } catch (error: any) {
       console.error('[DocumentsStore] ❌ Add document EXCEPTION:', JSON.stringify({
         message: error?.message,
@@ -430,7 +434,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
               if (mappedType) {
                 updateFields.type = mappedType;
               }
+
             }
+
 
             await supabase
               .from('documents')

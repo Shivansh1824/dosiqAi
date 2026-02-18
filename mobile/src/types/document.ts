@@ -144,8 +144,20 @@ export interface Document {
   cloud_file_key?: string; // R2 storage key for cloud sync
   family_member_id?: string; // New: reference to family member
   color: string; // Calculated on-the-fly from type, not stored in database
-  created_at: string;
-  updated_at: string;
+  
+  // New top-level fields extracted from AI analysis (Prescription only)
+  patient_name?: string | null;
+  diagnosis?: string | null;
+  visit_date?: string | null;
+  follow_up_date?: string | null;
+  issued_by?: string | null;
+
+  // Platform specific dates for timeline
+  report_date?: string | null; // Joined from lab_reports table
+
+  // created_at: string; // REMOVED: Use ai_analyzed_at for system date
+  // updated_at: string; // REMOVED
+
 
 
   // AI Analysis fields

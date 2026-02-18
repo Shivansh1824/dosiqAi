@@ -701,7 +701,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                             <View style={styles.typeBadgeNew}>
                               <Text style={styles.typeBadgeTextNew}>{displayType}</Text>
                             </View>
-                            <Text style={styles.documentDateNew}>{formatDate(doc.created_at)}</Text>
+                            <Text style={styles.documentDateNew}>{formatDate(doc.ai_analyzed_at || new Date().toISOString())}</Text>
                           </View>
                         </View>
                         <View

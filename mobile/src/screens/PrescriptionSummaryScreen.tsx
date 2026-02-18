@@ -1050,7 +1050,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           <View>
                             {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
                               const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
-                              const suggestedStartDate = parseDateOnly(document!.created_at);
+                              const suggestedStartDate = parseDateOnly(document!.visit_date || document!.ai_analyzed_at || new Date().toISOString());
                               // Pass full medications list for history check (parser handles filtering)
                               const duplicateOf = duplicateMedicationsMap.get(index);
  
@@ -1106,7 +1106,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   const currentUser = (await supabase.auth.getUser()).data.user;
                                   if (!currentUser || !document) return;
 
-                                  const suggestedStartDate = parseDateOnly(document.created_at);
+                                  const suggestedStartDate = parseDateOnly(document.visit_date || document.ai_analyzed_at || new Date().toISOString());
                                   const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
                                     const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                                     // Merge user edits from live updates

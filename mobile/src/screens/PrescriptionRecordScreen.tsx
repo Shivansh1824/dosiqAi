@@ -418,7 +418,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
                         medication={parsedMed}
                         documentId={document.id}
                         documentTitle={displayTitle}
-                        suggestedStartDate={document.created_at}
+                        suggestedStartDate={document.visit_date || document.ai_analyzed_at || new Date().toISOString()}
                         isVerified={true} // Read-only mode
                         familyMember={familyMember}
                         isFirstItem={index === 0}

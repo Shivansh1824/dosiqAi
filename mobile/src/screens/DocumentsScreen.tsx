@@ -124,7 +124,7 @@ export default function DocumentsScreen() {
                                         <View style={styles.typeBadge}>
                                             <Text style={styles.typeBadgeText}>{displayType}</Text>
                                         </View>
-                                        <Text style={styles.documentDate}>{formatDate(doc.created_at)}</Text>
+                                        <Text style={styles.documentDate}>{formatDate(doc.ai_analyzed_at || new Date().toISOString())}</Text>
                                     </View>
                                 </View>
                                 <Feather name="chevron-right" size={20} color={Colors.gray400} />
