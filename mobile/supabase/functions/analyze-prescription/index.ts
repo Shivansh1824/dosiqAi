@@ -1,3 +1,6 @@
+/// <reference no-default-lib="true" />
+/// <reference lib="esnext" />
+
 /**
  * Supabase Edge Function: analyze-prescription
  *
@@ -25,9 +28,11 @@
  * }
  */
 
-import { serve } from "std/http/server.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+// @ts-ignore: Deno allows .ts extensions in imports
 import { DOCUMENT_ANALYSIS_PROMPT } from "./prompt_prescription_analysis.ts";
+
+declare const Deno: any;
 
 // Environment variables (automatically available in Edge Functions)
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
@@ -264,7 +269,7 @@ const corsHeaders = {
 /**
  * Main handler
  */
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -446,12 +451,42 @@ serve(async (req: Request) => {
     // Parse JSON from response
     const analysisResult = parseAnalysisResult(analysisText);
 
+    // Extract top-level fields from AI analysis result using type assertions
+    const patientInfo = analysisResult.patient_info as Record<string, unknown> | undefined;
+    const prescriptionData = analysisResult.prescription_data as Record<string, unknown> | undefined;
+    const commonData = analysisResult.common_data as Record<string, unknown> | undefined;
+
+    const patientName = patientInfo?.name || null;
+    const diagnosis = prescriptionData?.medical_issue_diagnosis || null;
+    const visitDate = commonData?.visit_date || null;
+    const issuedBy = prescriptionData?.doctor_name || null;
+
+    // Calculate follow_up_date from visit_date + follow_up_days
+    let followUpDate = null;
+    const followUp = prescriptionData?.follow_up as Record<string, unknown> | undefined;
+    const followUpDays = followUp?.follow_up_days || followUp?.follow_up_after_no_days || prescriptionData?.follow_up_after_no_days;
+
+    if (visitDate && followUpDays && !isNaN(parseInt(String(followUpDays)))) {
+      try {
+        const date = new Date(String(visitDate));
+        date.setDate(date.getDate() + parseInt(String(followUpDays)));
+        followUpDate = date.toISOString().split('T')[0];
+      } catch (e) {
+        console.error("[DateCalc] Failed to calculate follow_up_date:", e);
+      }
+    } else {
+      // Fallback: check if there's an explicit follow_up_date
+      followUpDate = followUp?.follow_up_date || null;
+    }
+
+    console.log('[Fields] Extracted:', JSON.stringify({ patientName, diagnosis, visitDate, followUpDate, issuedBy }));
+
     // Calculate duration
     const duration = Date.now() - startTime;
 
     console.log(`[Success] Prescription analysis completed in ${duration}ms, tokens: ${openRouterResponse.usage.total_tokens}`);
 
-    // Update document with analysis result
+    // Update document with analysis result AND extracted fields
     const { error: finalUpdateError } = await supabase
       .from("documents")
       .update({
@@ -460,6 +495,11 @@ serve(async (req: Request) => {
         ai_analyzed_at: new Date().toISOString(),
         ai_analysis_tokens_used: openRouterResponse.usage.total_tokens,
         ai_analysis_error: null,
+        patient_name: patientName,
+        diagnosis: diagnosis,
+        visit_date: visitDate,
+        follow_up_date: followUpDate,
+        issued_by: issuedBy,
       })
       .eq("id", documentId);
 

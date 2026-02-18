@@ -1,13 +1,15 @@
+
 /**
  * Supabase Edge Function: analyze-report
  *
  * Analyzes uploaded lab report documents using OpenRouter API (Google Gemini 2.0 Flash)
- * Analyzes uploaded lab report documents using OpenRouter API (Google Gemini 2.0 Flash)
  */
 
-import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+// @ts-ignore: Deno allows .ts extensions in imports
 import { REPORT_PROMPT } from "./prompt.ts";
+
+declare const Deno: any;
 
 // Environment variables
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
@@ -278,7 +280,7 @@ async function downloadFileAsBase64(fileKey: string): Promise<string> {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startTime = Date.now();
@@ -327,7 +329,19 @@ serve(async (req) => {
 
     const analysisResult = parseJSON(content);
 
-    // 3. Save Analysis Status to Documents Table
+    // 3. Extract top-level fields for the documents table
+    // Uses findField (defined below in step 4) logic inline to keep order clear
+    const patientInfo = analysisResult.patient_info as Record<string, unknown> | undefined;
+    const reportMeta = analysisResult.report_meta as Record<string, unknown> | undefined;
+
+    const docPatientName = patientInfo?.name || null;
+    const docDiagnosis = reportMeta?.test_type || null;
+    const docVisitDate = reportMeta?.report_date || null;
+    const docIssuedBy = reportMeta?.lab_name || null;
+
+    console.log('[Fields] Extracted for documents table:', JSON.stringify({ docPatientName, docDiagnosis, docVisitDate, docIssuedBy }));
+
+    // Save Analysis Status + extracted fields to Documents Table
     const { error: dbErr } = await supabase
       .from("documents")
       .update({
@@ -335,6 +349,10 @@ serve(async (req) => {
         ai_analysis_result: analysisResult,
         ai_analyzed_at: new Date().toISOString(),
         ai_analysis_tokens_used: openRouterResponse.usage.total_tokens,
+        patient_name: docPatientName,
+        diagnosis: docDiagnosis,
+        visit_date: docVisitDate,
+        issued_by: docIssuedBy,
       })
       .eq("id", documentId);
 
@@ -343,22 +361,20 @@ serve(async (req) => {
     // 4. Create Lab Report Record
     console.log(`[Database] 🏥 Creating lab report for document: ${documentId}`);
     console.log('[AI Response] Full analysis result:', JSON.stringify(analysisResult, null, 2));
-
-    // Helper function to find field in nested objects
     const findField = (obj: Record<string, unknown>, ...keys: string[]): unknown => {
       for (const key of keys) {
         if (obj[key] != null) return obj[key];
 
         // Check in common nested objects from AI response
-        const patientInfo = obj.patient_info as Record<string, unknown> | undefined;
-        const reportMeta = obj.report_meta as Record<string, unknown> | undefined;
-        const commonData = obj.common_data as Record<string, unknown> | undefined;
-        const reportInfo = obj.report_info as Record<string, unknown> | undefined;
+        const pInfo = obj.patient_info as Record<string, unknown> | undefined;
+        const rMeta = obj.report_meta as Record<string, unknown> | undefined;
+        const cData = obj.common_data as Record<string, unknown> | undefined;
+        const rInfo = obj.report_info as Record<string, unknown> | undefined;
 
-        if (patientInfo?.[key] != null) return patientInfo[key];
-        if (reportMeta?.[key] != null) return reportMeta[key];
-        if (commonData?.[key] != null) return commonData[key];
-        if (reportInfo?.[key] != null) return reportInfo[key];
+        if (pInfo?.[key] != null) return pInfo[key];
+        if (rMeta?.[key] != null) return rMeta[key];
+        if (cData?.[key] != null) return cData[key];
+        if (rInfo?.[key] != null) return rInfo[key];
       }
       return null;
     };
