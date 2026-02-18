@@ -680,7 +680,7 @@ export default function MedicationVerificationCard({
       styles.card,
       {
         backgroundColor,
-        paddingBottom: isVerified || isDismissed ? 12 : 24,
+        paddingBottom: isVerified || isDismissed ? 10 : 8,
         opacity: isVerified ? 0.95 : 1,
         borderWidth: 1,
         borderColor: Colors.gray200,
@@ -719,7 +719,7 @@ export default function MedicationVerificationCard({
 
           {/* Full Card Content - Show greyed out when verified */}
           {/* Full Card Content - Clean Read-Only Mode when verified */}
-          <View style={{ paddingBottom: 20 }}>
+          <View style={{ paddingBottom: 8 }}>
             {/* AI Summary Static Labels */}
             <View style={styles.summaryContainer}>
               <ScrollView
@@ -1184,7 +1184,8 @@ const styles = StyleSheet.create({
   },
   sosReminderContainer: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   sosHeader: {
     flexDirection: 'row',

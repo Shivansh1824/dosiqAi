@@ -1132,7 +1132,7 @@ const styles = StyleSheet.create({
     reminderBarsContainer: {
         paddingHorizontal: 20, // Increased to avoid corner clipping
         marginTop: 12,
-        marginBottom: 8, // Added bottom margin
+        marginBottom: 8, // Added bottom margin back for better separation
     },
     reminderHeader: {
         flexDirection: 'row',
