@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
-import Pdf from 'react-native-pdf-jsi';
+import Pdf from 'react-native-pdf';
 import { Colors, Sizes, Typography } from '../constants';
 
 interface FilePreviewModalProps {
@@ -97,21 +97,21 @@ export default function FilePreviewModal({
                                 <Pdf
                                     source={{ uri: fileUri, cache: true }}
                                     style={styles.pdfView}
-                                    onLoadComplete={(numberOfPages) => {
+                                    onLoadComplete={(numberOfPages, filePath) => {
                                         setPdfLoading(false);
                                         setPageCount(numberOfPages);
                                         console.log(`[Preview] PDF loaded with ${numberOfPages} pages`);
+                                    }}
+                                    onPageChanged={(page, numberOfPages) => {
+                                        console.log(`[Preview] Current page: ${page}`);
                                     }}
                                     onError={(error) => {
                                         console.error('[Preview] PDF Error:', error);
                                         setPdfLoading(false);
                                     }}
-                                    page={1}
-                                    scale={1.0}
-                                    minScale={1.0}
-                                    maxScale={3.0}
-                                    spacing={0}
-                                    fitPolicy={0}
+                                    onPressLink={(uri) => {
+                                        console.log(`[Preview] Link pressed: ${uri}`);
+                                    }}
                                     enablePaging={true}
                                 />
                             </View>

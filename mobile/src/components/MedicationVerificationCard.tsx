@@ -97,49 +97,70 @@ export default function MedicationVerificationCard({
   // NEW: Inactive custom reminders (toggled off but not deleted)
   const [inactiveReminders, setInactiveReminders] = useState<string[]>([]);
 
-  // Reminder default notes state (for note feature)
-  const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>({});
+  // Helper to compute initial reminder times (moved before state declarations that depend on it)
+  const getInitialTimes = (): string[] => {
+      const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
+      
+      // 1. If prescription has explicit times, use them
+      if (medication.time_of_day?.length > 0) {
+          return medication.time_of_day;
+      }
+      
+      // 2. If it has a frequency (times per day), use user's preferred times
+      if (timesPerDay > 0) {
+          const morning = familyMember?.morning_dose_time || '';
+          const afternoon = familyMember?.afternoon_dose_time || '';
+          const night = familyMember?.night_dose_time || '';
+          
+          if (timesPerDay === 1) return [morning];
+          if (timesPerDay === 2) return [morning, night];
+          if (timesPerDay === 3) return [morning, afternoon, night];
+          
+          const baseTimes = [morning, afternoon, night];
+          const result = [...baseTimes];
+          const extrasNeeded = timesPerDay - 3;
 
-    const getInitialTimes = (): string[] => {
-        const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
-        
-        // 1. If prescription has explicit times, use them
-        if (medication.time_of_day?.length > 0) {
-            return medication.time_of_day;
-        }
-        
-        // 2. If it has a frequency (times per day), use user's preferred times
-        if (timesPerDay > 0) {
-            const morning = familyMember?.morning_dose_time || '';
-            const afternoon = familyMember?.afternoon_dose_time || '';
-            const night = familyMember?.night_dose_time || '';
-            
-            if (timesPerDay === 1) return [morning];
-            if (timesPerDay === 2) return [morning, night];
-            if (timesPerDay === 3) return [morning, afternoon, night];
-            
-            // For > 3, we can still use generateCyclicReminderTimes but maybe it should be updated?
-            // For now, let's just use the cyclic utility as it handles extras
-            // But actually, generateCyclicReminderTimes is hardcoded. 
-            // I'll manually implement a preference-aware version for > 3 here.
-            const baseTimes = [morning, afternoon, night];
-            const result = [...baseTimes];
-            const extrasNeeded = timesPerDay - 3;
+          for (let i = 0; i < extrasNeeded; i++) {
+              const cycleIndex = i % 3;
+              const offsetPass = Math.floor(i / 3) + 1;
+              const baseTime = baseTimes[cycleIndex];
+              const [h, m] = baseTime.split(':').map(Number);
+              let newHour = h + offsetPass;
+              if (newHour >= 24) newHour -= 24;
+              const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+              result.push(newTime);
+          }
+          return result.sort();
+      }
+      return [];
+  };
 
-            for (let i = 0; i < extrasNeeded; i++) {
-                const cycleIndex = i % 3;
-                const offsetPass = Math.floor(i / 3) + 1;
-                const baseTime = baseTimes[cycleIndex];
-                const [h, m] = baseTime.split(':').map(Number);
-                let newHour = h + offsetPass;
-                if (newHour >= 24) newHour -= 24;
-                const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                result.push(newTime);
-            }
-            return result.sort();
-        }
-        return [];
-    };
+  // Reminder default notes state — initialized SYNCHRONOUSLY so notes are available from first paint.
+  // useEffect runs AFTER paint, so lazy useState is the only way to guarantee notes on first frame.
+  const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>(() => {
+    const relation = initialMedication.food_relationship || initialMedication.source_raw?.timing?.relation_to_meal;
+    if (!relation || relation === 'anytime' || relation === 'any') return {};
+
+    const noteText = getMealTimingLabel(relation);
+    const initialTimes = getInitialTimes();
+    
+    // Also pre-compute the "expected" batch times from family preferences,
+    // since the child component will auto-add these anyway.
+    // This ensures notes are ready even for times that getInitialTimes doesn't return
+    // (e.g., getInitialTimes returns [morning] but dosage pattern shows Night only).
+    const allPossibleTimes = new Set<string>(initialTimes.filter(t => t));
+    
+    // Add all family member preferred times — the child's renderGroupedView will show these
+    if (familyMember?.morning_dose_time) allPossibleTimes.add(familyMember.morning_dose_time);
+    if (familyMember?.afternoon_dose_time) allPossibleTimes.add(familyMember.afternoon_dose_time);
+    if (familyMember?.night_dose_time) allPossibleTimes.add(familyMember.night_dose_time);
+
+    const notes: Record<string, string> = {};
+    allPossibleTimes.forEach(time => {
+      notes[time] = noteText;
+    });
+    return notes;
+  });
 
   // Custom reminder times state (for time picker changes)
   // Initialize with defaults immediately so empty array is valid "all off" state
@@ -201,17 +222,24 @@ export default function MedicationVerificationCard({
     return newNotes;
   }, [medication]);
 
-  // Initial Population of Notes
+  // Reactive Population of Notes — fires whenever customReminderTimes changes
+  // (including the child's auto-sync on mount). Fills gaps without overwriting user edits.
   useEffect(() => {
-    // Only populate if empty (initial load)
-    if (Object.keys(reminderDefaultNotes).length === 0) {
-      const times = getReminderTimes();
-      const initialNotes = generateFoodRelationNotes(times);
-      if (Object.keys(initialNotes).length > 0) {
-        setReminderDefaultNotes(initialNotes);
+    if (customReminderTimes.length > 0) {
+      const newNotes = generateFoodRelationNotes(customReminderTimes);
+      if (Object.keys(newNotes).length > 0) {
+        setReminderDefaultNotes(prev => {
+          // Merge: new defaults fill gaps, existing user edits take priority
+          const merged = { ...newNotes, ...prev };
+          // Only update if there are actual changes to avoid unnecessary re-renders
+          if (JSON.stringify(merged) !== JSON.stringify(prev)) {
+            return merged;
+          }
+          return prev;
+        });
       }
     }
-  }, []); // Run once on mount (effectively) - usually we depend on medication but we only want initial population
+  }, [customReminderTimes, generateFoodRelationNotes]);
 
   // Get interval display text
   const getIntervalText = (): string => {
@@ -479,6 +507,12 @@ export default function MedicationVerificationCard({
     // Broadcast live update
     onLiveUpdate?.({ current_reminder_times: updatedTimes });
 
+    // Populate note if adding
+    if (isEnabled) {
+       const defaults = generateFoodRelationNotes([defaultTime]);
+       setReminderDefaultNotes(prev => ({ ...defaults, ...prev }));
+    }
+
     // Sync toggles state (optimistic)
     setReminderToggles(new Array(updatedTimes.length).fill(true));
   };
@@ -515,6 +549,10 @@ export default function MedicationVerificationCard({
   const handleUpdateReminderTimes = (newTimes: string[]) => {
     setCustomReminderTimes(newTimes);
     onLiveUpdate?.({ current_reminder_times: newTimes });
+
+    // Populate notes for these times (filling gaps)
+    const defaults = generateFoodRelationNotes(newTimes);
+    setReminderDefaultNotes(prev => ({ ...defaults, ...prev }));
   };
 
   const handleIntervalChange = (days: number) => {

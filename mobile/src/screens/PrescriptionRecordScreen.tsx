@@ -24,7 +24,7 @@ import MedicationVerificationCard from '../components/MedicationVerificationCard
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf-jsi';
+import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';

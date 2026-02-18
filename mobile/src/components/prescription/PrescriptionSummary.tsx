@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../../constants';
@@ -12,18 +13,26 @@ interface PrescriptionSummaryProps {
     style?: any;
     /** When true, the summary dropdown will be expanded by default (e.g., for invalid documents) */
     defaultExpanded?: boolean;
+    followUp?: {
+        follow_up_date?: string;
+        follow_up_days?: number;
+        follow_up_notes?: string;
+    };
 }
 
 /**
  * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
  * Extracted from PrescriptionSummaryScreen.tsx
  */
-export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false }: PrescriptionSummaryProps) {
+export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false, followUp }: PrescriptionSummaryProps) {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
     // Consolidated display logic: show nothing by default (except header), show all when expanded
     return (
-        <View style={[styles.aiSummaryCard, style]}>
+        <Animated.View 
+            layout={LinearTransition.springify().damping(15)}
+            style={[styles.aiSummaryCard, style]}
+        >
             <TouchableOpacity
                 style={styles.aiSummaryHeader}
                 onPress={() => setIsExpanded(!isExpanded)}
@@ -41,10 +50,27 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
             </TouchableOpacity>
 
             {isExpanded && (
-                <View style={styles.contentContainer}>
+                <Animated.View 
+                    entering={FadeIn.duration(300)}
+                    exiting={FadeOut.duration(200)}
+                    style={styles.contentContainer}
+                >
                     <Text style={styles.aiSummaryText}>
                         {summary}
                     </Text>
+
+                    {/* Follow-up Section - Normal Text Display */}
+                    {followUp && (followUp.follow_up_date || followUp.follow_up_days) && (
+                         <Text style={[styles.aiSummaryText, { marginTop: 12 }]}>
+                            <Text style={styles.boldText}>Follow Up. </Text>
+                            {followUp.follow_up_days && followUp.follow_up_date
+                                ? `Advised to follow up with the doctor after ${followUp.follow_up_days} days, on ${followUp.follow_up_date}.`
+                                : followUp.follow_up_date
+                                    ? `Advised to follow up with the doctor on ${followUp.follow_up_date}.`
+                                    : `Advised to follow up with the doctor in ${followUp.follow_up_days} days.`
+                            }
+                        </Text>
+                    )}
 
 
                     {/* Other Information Section - Simple Text List */}
@@ -58,9 +84,9 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
                             ))}
                         </View>
                     )}
-                </View>
+                </Animated.View>
             )}
-        </View>
+        </Animated.View>
     );
 }
 

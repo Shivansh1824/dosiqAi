@@ -31,7 +31,7 @@ import { AnimatedTooltip } from '../components/AnimatedTooltip';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf-jsi';
+import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
@@ -964,6 +964,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         summary={summary}
                         recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
                         otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
+                        followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
                         style={[{ marginBottom: 0 }]}
                         defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
                       />
