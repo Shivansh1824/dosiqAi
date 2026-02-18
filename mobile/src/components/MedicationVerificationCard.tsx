@@ -36,7 +36,7 @@ interface MedicationVerificationCardProps {
   duplicateOf?: Medication;
   onDismiss?: () => void;
   medicineIndex?: number;
-  onLiveUpdate?: (updates: { 
+  onLiveUpdate?: (updates: {
     current_reminder_times?: string[];
     start_date?: string;
     end_date?: string;
@@ -99,40 +99,40 @@ export default function MedicationVerificationCard({
 
   // Helper to compute initial reminder times (moved before state declarations that depend on it)
   const getInitialTimes = (): string[] => {
-      const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
-      
-      // 1. If prescription has explicit times, use them
-      if (medication.time_of_day?.length > 0) {
-          return medication.time_of_day;
-      }
-      
-      // 2. If it has a frequency (times per day), use user's preferred times
-      if (timesPerDay > 0) {
-          const morning = familyMember?.morning_dose_time || '';
-          const afternoon = familyMember?.afternoon_dose_time || '';
-          const night = familyMember?.night_dose_time || '';
-          
-          if (timesPerDay === 1) return [morning];
-          if (timesPerDay === 2) return [morning, night];
-          if (timesPerDay === 3) return [morning, afternoon, night];
-          
-          const baseTimes = [morning, afternoon, night];
-          const result = [...baseTimes];
-          const extrasNeeded = timesPerDay - 3;
+    const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
 
-          for (let i = 0; i < extrasNeeded; i++) {
-              const cycleIndex = i % 3;
-              const offsetPass = Math.floor(i / 3) + 1;
-              const baseTime = baseTimes[cycleIndex];
-              const [h, m] = baseTime.split(':').map(Number);
-              let newHour = h + offsetPass;
-              if (newHour >= 24) newHour -= 24;
-              const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-              result.push(newTime);
-          }
-          return result.sort();
+    // 1. If prescription has explicit times, use them
+    if (medication.time_of_day?.length > 0) {
+      return medication.time_of_day;
+    }
+
+    // 2. If it has a frequency (times per day), use user's preferred times
+    if (timesPerDay > 0) {
+      const morning = familyMember?.morning_dose_time || '';
+      const afternoon = familyMember?.afternoon_dose_time || '';
+      const night = familyMember?.night_dose_time || '';
+
+      if (timesPerDay === 1) return [morning];
+      if (timesPerDay === 2) return [morning, night];
+      if (timesPerDay === 3) return [morning, afternoon, night];
+
+      const baseTimes = [morning, afternoon, night];
+      const result = [...baseTimes];
+      const extrasNeeded = timesPerDay - 3;
+
+      for (let i = 0; i < extrasNeeded; i++) {
+        const cycleIndex = i % 3;
+        const offsetPass = Math.floor(i / 3) + 1;
+        const baseTime = baseTimes[cycleIndex];
+        const [h, m] = baseTime.split(':').map(Number);
+        let newHour = h + offsetPass;
+        if (newHour >= 24) newHour -= 24;
+        const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        result.push(newTime);
       }
-      return [];
+      return result.sort();
+    }
+    return [];
   };
 
   // Reminder default notes state — initialized SYNCHRONOUSLY so notes are available from first paint.
@@ -143,13 +143,13 @@ export default function MedicationVerificationCard({
 
     const noteText = getMealTimingLabel(relation);
     const initialTimes = getInitialTimes();
-    
+
     // Also pre-compute the "expected" batch times from family preferences,
     // since the child component will auto-add these anyway.
     // This ensures notes are ready even for times that getInitialTimes doesn't return
     // (e.g., getInitialTimes returns [morning] but dosage pattern shows Night only).
     const allPossibleTimes = new Set<string>(initialTimes.filter(t => t));
-    
+
     // Add all family member preferred times — the child's renderGroupedView will show these
     if (familyMember?.morning_dose_time) allPossibleTimes.add(familyMember.morning_dose_time);
     if (familyMember?.afternoon_dose_time) allPossibleTimes.add(familyMember.afternoon_dose_time);
@@ -335,11 +335,11 @@ export default function MedicationVerificationCard({
       // Calculate duration_days based on current state (exact difference)
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       // Ensure we are comparing dates at the same time of day to avoid timezone/DST issues
       const startUTC = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
       const endUTC = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
-      
+
       const diffTime = endUTC - startUTC;
       const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
@@ -422,7 +422,7 @@ export default function MedicationVerificationCard({
   const handleAddReminderObject = (time: string, mealLabel: string | null) => {
     const currentTimes = getReminderTimes();
     const normalizedNewTime = normalizeTime(time);
-    
+
     // Check if time already exists to avoid duplicates
     if (currentTimes.some(t => normalizeTime(t) === normalizedNewTime)) {
       // Just update the label if it exists
@@ -509,8 +509,8 @@ export default function MedicationVerificationCard({
 
     // Populate note if adding
     if (isEnabled) {
-       const defaults = generateFoodRelationNotes([defaultTime]);
-       setReminderDefaultNotes(prev => ({ ...defaults, ...prev }));
+      const defaults = generateFoodRelationNotes([defaultTime]);
+      setReminderDefaultNotes(prev => ({ ...defaults, ...prev }));
     }
 
     // Sync toggles state (optimistic)
@@ -677,7 +677,7 @@ export default function MedicationVerificationCard({
 
   return (
     <View style={[
-      styles.card, 
+      styles.card,
       { backgroundColor, paddingBottom: isVerified || isDismissed ? 12 : 24, opacity: isVerified ? 0.95 : 1 }
     ]}>
       {/* Header */}
@@ -705,10 +705,10 @@ export default function MedicationVerificationCard({
         <>
           {/* Verified Banner - Show at top when verified */}
 
-          
+
           {/* Full Card Content - Show greyed out when verified */}
           {/* Full Card Content - Clean Read-Only Mode when verified */}
-          <View>
+          <View style={{ paddingBottom: 20 }}>
             {/* AI Summary Static Labels */}
             <View style={styles.summaryContainer}>
               <ScrollView
@@ -717,47 +717,47 @@ export default function MedicationVerificationCard({
                 contentContainerStyle={styles.aiButtonsRow}
               >
                 {medication.medicine_type && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  onPress={(e) => handleTooltipPress(e, 'Medication Type')}
-                >
-                  <LinearGradient
-                    colors={['#FFFFFF', '#EFF6FF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.aiButton}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
                   >
-                    <View style={styles.aiButtonIcon}>
-                      <Feather name="layers" size={10} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.aiButtonText}>
-                      {medication.medicine_type}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={['#FFFFFF', '#EFF6FF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={styles.aiButton}
+                    >
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="layers" size={10} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.medicine_type}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 )}
 
                 {medication.medicine_purpose && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
-                >
-                  <LinearGradient
-                    colors={['#FFFFFF', '#EFF6FF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.aiButton}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
                   >
-                    <View style={styles.aiButtonIcon}>
-                      <Feather name="activity" size={10} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.aiButtonText}>
-                      {medication.medicine_purpose}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={['#FFFFFF', '#EFF6FF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={styles.aiButton}
+                    >
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="activity" size={10} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.medicine_purpose}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 )}
               </ScrollView>
             </View>
@@ -784,14 +784,14 @@ export default function MedicationVerificationCard({
               onConfirm={(date) => {
                 setStartDate(date);
                 setShowDatePicker(false);
-                
+
                 // Calculate new duration and broadcast live update
                 const start = new Date(date);
                 const end = new Date(endDate);
                 const diffTime = end.getTime() - start.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                
-                onLiveUpdate?.({ 
+
+                onLiveUpdate?.({
                   start_date: date,
                   end_date: endDate,
                   duration_days: diffDays
@@ -809,14 +809,14 @@ export default function MedicationVerificationCard({
               onConfirm={(date) => {
                 setEndDate(date);
                 setShowEndDatePicker(false);
-                
+
                 // Calculate new duration and broadcast live update
                 const start = new Date(startDate);
                 const end = new Date(date);
                 const diffTime = end.getTime() - start.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                
-                onLiveUpdate?.({ 
+
+                onLiveUpdate?.({
                   start_date: startDate,
                   end_date: date,
                   duration_days: diffDays
@@ -897,35 +897,35 @@ export default function MedicationVerificationCard({
         </>
       )}
 
-            {/* SOS / As Needed Reminder Button */}
-            {isPureAsNeeded && customReminderTimes.length === 0 && !isVerified && (
-              <View style={styles.sosReminderContainer}>
-                <View style={styles.sosHeader}>
-                  <View style={styles.sosHeaderLeft}>
-                    <Feather name="bell" size={16} color={Colors.primary} />
-                    <Text style={styles.sosTitle}>DOSE SCHEDULE</Text>
-                    <Feather name="info" size={14} color={Colors.gray400} />
-                  </View>
-                </View>
-                
-                {/* Indented Container to match ReminderTimesSectionLegacy layout */}
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 32, marginRight: 4 }} />
-                    <View style={{ flex: 1 }}>
-                        <TouchableOpacity 
-                          style={styles.addSOSReminderButton}
-                          onPress={() => setShowAddReminderModal(true)}
-                          activeOpacity={0.7}
-                        >
-                            <Feather name="plus-circle" size={18} color={Colors.primary} />
-                            <Text style={styles.addSOSReminderText}>Add Reminder</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-              </View>
-            )}
+      {/* SOS / As Needed Reminder Button */}
+      {isPureAsNeeded && customReminderTimes.length === 0 && !isVerified && (
+        <View style={styles.sosReminderContainer}>
+          <View style={styles.sosHeader}>
+            <View style={styles.sosHeaderLeft}>
+              <Feather name="bell" size={16} color={Colors.primary} />
+              <Text style={styles.sosTitle}>DOSE SCHEDULE</Text>
+              <Feather name="info" size={14} color={Colors.gray400} />
+            </View>
+          </View>
 
-            {/* Information Modal */}
+          {/* Indented Container to match ReminderTimesSectionLegacy layout */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 32, marginRight: 4 }} />
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                style={styles.addSOSReminderButton}
+                onPress={() => setShowAddReminderModal(true)}
+                activeOpacity={0.7}
+              >
+                <Feather name="plus-circle" size={18} color={Colors.primary} />
+                <Text style={styles.addSOSReminderText}>Add Reminder</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Information Modal */}
       <InfoModal
         visible={infoModalVisible}
         title={infoModalTitle}
@@ -950,12 +950,17 @@ export default function MedicationVerificationCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 30,
+    marginBottom: 12,
     marginHorizontal: 16,
     paddingTop: 0, // Header has its own padding
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+    overflow: 'hidden',
   },
   divider: {
     height: 1,

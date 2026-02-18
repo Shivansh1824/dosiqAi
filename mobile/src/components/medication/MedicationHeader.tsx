@@ -149,12 +149,12 @@ export function MedicationHeader({
                                     </View>
 
                                     {!isDismissed && (
-                                    <TouchableOpacity
-                                        onPress={onAnalysisPress}
-                                        activeOpacity={0.7}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                        style={styles.analysisContainer}
-                                    >
+                                        <TouchableOpacity
+                                            onPress={onAnalysisPress}
+                                            activeOpacity={0.7}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            style={styles.analysisContainer}
+                                        >
                                             <LinearGradient
                                                 colors={['#FFFFFF', '#EFF6FF']}
                                                 start={{ x: 0, y: 0 }}
@@ -308,8 +308,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
         paddingTop: 14,
         paddingBottom: 12,
         paddingHorizontal: 12,
