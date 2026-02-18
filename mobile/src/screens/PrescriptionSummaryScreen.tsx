@@ -1566,6 +1566,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 18,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+    marginTop: 24,
+    paddingHorizontal: 16, // Add padding inside the container
+    paddingVertical: 12,   // Add vertical padding
+    backgroundColor: Colors.white, // Explicit white background
+    borderRadius: 16,      // Rounded corners
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginHorizontal: 16, // Add margin to float it
+  },
   medicationsHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
