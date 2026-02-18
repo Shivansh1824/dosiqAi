@@ -249,9 +249,24 @@ Integer count of total doses per day
 
 ### 9. FOLLOW-UP EXTRACTION
 
-**Look for:** "Review after [X] days/weeks", "Follow up on [date]", "Next visit: [date]", etc
+**Goal:** Identify any follow-up or review instruction written anywhere on the prescription - do NOT limit yourself to specific phrases. Use your own medical and linguistic judgment to detect follow-up intent in ANY form.
 
-**Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_days: Number of days as integer (e.g., "2 weeks" -> 14, "1 month" -> 30, "15 days" -> 15) or null
+**Common patterns (non-exhaustive - use your judgment beyond these):**
+- "Review after X days/weeks/months"
+- "Follow up on [date]"
+- "Next visit: [date]"
+- "Come back after X days"
+- "R/V after X", "F/U after X"
+- "Revisit on [date]"
+- "See me in X weeks"
+- Any handwritten note indicating a future appointment or review
+
+**Calculation:** Convert any follow-up duration into a plain integer number of days (e.g., "after 2 weeks" -> 14, "1 month" -> 30, "15 days" -> 15). Output this as follow_up_after_no_days. Do NOT calculate or output an absolute calendar date.
+
+**CRITICAL - NULL RULE:** If you are NOT confident that a follow-up date or duration is mentioned, set BOTH follow_up_after_no_days and follow_up_days to null. Do NOT guess or infer a follow-up if it is not clearly stated or strongly implied on the prescription.
+
+**Output:**
+- follow_up_after_no_days: Plain integer number of days until follow-up (e.g., "2 weeks" -> 14, "1 month" -> 30, "15 days" -> 15) or null if not found/not confident
 
 ---
 
@@ -269,11 +284,16 @@ Integer count of total doses per day
 
 ### 11. OTHER INFORMATION EXTRACTION
 
-**Rule:** Capture ANY additional information on the prescription that doesn't fit into existing fields.
+**Rule:** Capture additional information ONLY if it is **explicitly and clearly written** on the prescription and does not fit into any existing field.
 
-**Look for:** Diet instructions, Lifestyle advice, General notes, Allergies mentioned, Vitals (BP, Weight, BMI), Blood sugar readings
+**CRITICAL - NO HALLUCINATION RULE:** Do NOT infer, assume, or generate information that is not directly visible on the prescription. An empty array [] is ALWAYS preferred over uncertain or fabricated data.
+
+**Look for (only if explicitly present):** Diet instructions, Lifestyle advice, General notes, Allergies mentioned, Vitals (BP, Weight, BMI), Blood sugar readings
+
+**NULL RULE:** If nothing clearly qualifies, output an empty array []. Do NOT populate this field just to fill it.
 
 **Output Format:** Array of objects: [{"category": "Diet|Lifestyle|Vitals|Allergy|Notes", "value": "String"}]
+- If nothing qualifies: []
 
 ---
 
@@ -368,8 +388,7 @@ Output ONLY a valid JSON object matching this structure:
     "medical_issue_diagnosis": "String or null",
     "diagnosis_source": "explicit | inferred",
     "follow_up": {
-      "follow_up_date": "YYYY-MM-DD or null",
-      "follow_up_days": "Number of days in number format (e.g., for 2 months output: 60) or null"
+      "follow_up_after_no_days": "Plain integer number of days until follow-up (e.g., 14, 30, 60) or null"
     },
     "recommended_tests": [
       {"test_name": "String", "reason": "String or null"},
@@ -422,7 +441,8 @@ Before outputting JSON, verify:
 
 **Dates:**
 - [ ] visit_date in YYYY-MM-DD format or null
-- [ ] follow_up_date calculated correctly if relative
+- [ ] follow_up_after_no_days is a plain integer (number of days) or null
+- [ ] follow_up_after_no_days is null if no clear follow-up instruction is found or confidence is low
 
 **Diagnosis:**
 - [ ] Diagnosis extracted OR inferred with logic explained
@@ -440,7 +460,7 @@ Before outputting JSON, verify:
 
 **Additional Fields:**
 - [ ] drug_interactions checked and flagged if applicable
-- [ ] other_information captures extra data
+- [ ] other_information is [] if nothing is explicitly written on the prescription (do NOT infer or fabricate)
 - [ ] error_response populated if document has issues
 
 **Output:**
