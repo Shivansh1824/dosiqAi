@@ -133,32 +133,10 @@ CRITICAL RULE:
 Keep running tally in your internal process.
 Final tests.length MUST equal sum of page counts (±2 tolerance).
 
-
-SECTION E: FILE NAME GENERATION
-
-Generate a human-readable filename for the lab report:
-
-FORMAT: "Patient Name - Primary Test Category/Lab Name - Date"
-
-RULES:
-- Include patient name if available (remove salutations like Mr., Mrs., Dr.)
-- Include the primary test category OR lab name (e.g., "Lipid Profile", "CBC", "Thyroid Profile", "1mg Labs")
-- Include report date in format "YYYY-MM-DD" (e.g., "2020-02-16")
-- If multiple test categories, list main category or use "&" for 2 categories max
-- If no patient name, use "Lab Name - Test Category - Date"
-
-EXAMPLES:
-- "Nippun Rana - Lipid Profile - 2020-02-16"
-- "Nippun Rana - CBC & Lipid Profile - 2020-02-16"
-- "Rohit Sharma - Thyroid Function Test - 2025-01-05"
-- "1mg Labs - Complete Blood Count - 2024-03-10"
-
-
 SECTION F: OUTPUT SCHEMA
 
 
 {
-  "file_name": "string (Human-readable filename: 'Patient Name - Primary Test Category/Lab Name - Date'. Example: 'Nippun Rana - Lipid Profile - 2020-02-16')",
   "document_type": "LAB REPORT | INVALID",
   "error_response": {
     "is_error": false,
@@ -172,6 +150,7 @@ SECTION F: OUTPUT SCHEMA
   },
   "report_meta": {
     "lab_name": "string | null",
+    "test_type": "string | null (2-3 word text that gives some light on what kind of report it is like Lipid Profile, etc)",
     "collection_date": "YYYY-MM-DD | null",
     "report_date": "YYYY-MM-DD | null"
   },
@@ -410,7 +389,6 @@ tests.length = 12 ✓ (matches page count)
 
 OUTPUT JSON:
 {
-  "file_name": "Lipid Profile & CBC - 2020-02-16",
   "document_type": "LAB REPORT",
   "patient_info": {
     "name": null,
@@ -418,6 +396,7 @@ OUTPUT JSON:
   },
   "report_meta": {
     "lab_name": null,
+    "test_type": "Lipid Profile",
     "collection_date": null,
     "report_date": null
   },

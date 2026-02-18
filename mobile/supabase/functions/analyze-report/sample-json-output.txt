@@ -1,5 +1,4 @@
 {
-  "file_name": "Nippun Rana - CBC & Lipid Profile - 2024-02-16",
   "document_type": "LAB REPORT",
   "error_response": {
     "is_error": false,
@@ -13,6 +12,7 @@
   },
   "report_meta": {
     "lab_name": "Dr. Lal PathLabs",
+    "test_type": "CBC & Lipid Profile",
     "collection_date": "2024-02-15",
     "report_date": "2024-02-16"
   },
