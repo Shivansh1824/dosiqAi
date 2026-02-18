@@ -67,17 +67,7 @@ SECTION B: DATA EXTRACTION RULES
 - "Chief Complaints:", "C/O:"
 - "Provisional Diagnosis:"
 
-**SECONDARY (Inference):** If NO explicit diagnosis, infer from medicines using your medical knowledge.
-
-**Example Medicine-to-Diagnosis Mappings (for reference only):**
-- Metformin, Insulin -> "Diabetes Management"
-- Amlodipine, Telmisartan -> "Hypertension Management"
-- Atorvastatin -> "Cholesterol Management"
-- Omeprazole -> "Acid Reflux/GERD Management"
-- Azithromycin -> "Bacterial Infection Management"
-- Cetirizine -> "Allergy Management"
-
-**Important:** These are examples only. Use your medical expertise to infer appropriate diagnoses from ANY medicine combination on the prescription.
+**SECONDARY (Inference):** If NO explicit diagnosis found, infer from prescribed medicines using your medical knowledge. Format as "[Condition] Management" (e.g., Diabetes Management, Hypertension Management, Bacterial Infection Management). If uncertain -> "General Health Consultation".
 
 **Output:**
 - Explicit: Use exact wording from document
@@ -139,18 +129,7 @@ If uncertain -> is_identified: false
 
 **LAYER 4: medicine_type**
 
-**Rule:** If medicine is identified (is_identified: true), categorize by drug class using your medical knowledge.
-
-**Example Drug Type Classifications (for reference only):**
-- **Antidiabetic:** Metformin, Glimepiride
-- **Antihypertensive:** Amlodipine, Telmisartan
-- **Statin:** Atorvastatin, Rosuvastatin
-- **Antibiotic:** Azithromycin, Amoxicillin
-- **Analgesic:** Paracetamol, Ibuprofen
-- **Vitamin/Supplement:** Multivitamins, Vitamin D
-- **Corticosteroid:** Prednisolone, Dexamethasone
-
-**Important:** These are examples only. Use your full pharmaceutical knowledge to accurately classify ANY medicine. You may use other appropriate drug classes such as: Antiviral, Diuretic, Antifungal, Antipsychotic, Antihistamine, Bronchodilator, Antigout, Antacid/PPI, Anti-inflammatory, Anticoagulant, etc.
+**Rule:** If medicine is identified (is_identified: true), classify using standard drug classes (e.g., Antidiabetic, Antihypertensive, Statin, Antibiotic, Analgesic, Antihistamine, Bronchodilator, Antacid/PPI, Corticosteroid, Vitamin/Supplement). If none fit standard categories, use the most accurate pharmacological category from your medical knowledge.
 
 **Output:**
 - If is_identified: true -> Provide drug type category
@@ -158,12 +137,11 @@ If uncertain -> is_identified: false
 
 ---
 
-**LAYER 5: strength & form (Separate Fields)**
+**LAYER 5: strength**
 
-**Rule:** Extract medicine strength and form separately for programmatic use.
+**Rule:** Extract medicine strength.
 
 **Strength Examples:** "500mg", "10mg", "60000 IU", "5ml", "250mcg"
-**Form Classifications:** Tablet, Capsule, Syrup, Injection, Drops, Cream, Inhaler, Sachet
 - If not specified -> null
 
 ---
@@ -197,24 +175,36 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 - "0-0-1" = Night only
 - "1-0-1" = Morning + Night
 - "1-1-1" = Morning + Afternoon + Night
-- null = Not specified
 
-**How they work together:**
-- \`interval_days: 1\` + \`dosage: "1-0-1"\` = Every day, take in morning and night
-- \`interval_days: 7\` + \`dosage: "0-1-1"\` = Every 7 days, take at afternoon and night
-- \`interval_days: 15\` + \`dosage: "1-0-0"\` = Every 15 days, take in morning
-- \`duration: "30 days"\` = Total treatment period
+**D) total_times_per_day - MANDATORY field:**
+Integer count of total doses per day
 
-**Conversion from prescription:**
-- OD -> interval_days: 1, dosage: "1-0-0"
-- BD -> interval_days: 1, dosage: "1-0-1"
-- TDS -> interval_days: 1, dosage: "1-1-1"
-- QID (4 times a day) -> interval_days: 1, dosage: null, total_times_per_day: 4 (Always set dosage to null if frequency > 3)
-- 5 or 6 times a day -> interval_days: 1, dosage: null, total_times_per_day: 5 or 6
-- HS (bedtime) -> interval_days: 1, dosage: "0-0-1"
-- Weekly -> interval_days: 7
-- Alternate days -> interval_days: 2
-- SOS -> interval_days: 0
+**DECISION TREE FOR TIMING EXTRACTION:**
+
+**IF frequency ≤ 3 times/day:**
+- Use dosage pattern ("1-0-1" format)
+- Set total_times_per_day to the count (1, 2, or 3)
+- Examples:
+  - OD -> interval_days: 1, dosage: "1-0-0", total_times_per_day: 1
+  - BD -> interval_days: 1, dosage: "1-0-1", total_times_per_day: 2
+  - TDS -> interval_days: 1, dosage: "1-1-1", total_times_per_day: 3
+  - HS (bedtime) -> interval_days: 1, dosage: "0-0-1", total_times_per_day: 1
+
+**IF frequency > 3 times/day:**
+- Set dosage to null
+- Set total_times_per_day to the count (4, 5, 6, etc.)
+- Examples:
+  - QID (4 times) -> interval_days: 1, dosage: null, total_times_per_day: 4
+  - 5 times/day -> interval_days: 1, dosage: null, total_times_per_day: 5
+
+**IF SOS/PRN (as needed):**
+- interval_days: 0
+- dosage: null
+- total_times_per_day: 0
+
+**Other patterns:**
+- Weekly -> interval_days: 7, dosage based on frequency
+- Alternate days -> interval_days: 2, dosage based on frequency
 
 
 ### 5. DOSAGE & FREQUENCY EXTRACTION
@@ -259,7 +249,7 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 
 ### 9. FOLLOW-UP EXTRACTION
 
-**Look for:** "Review after [X] days/weeks", "Follow up on [date]", "Next visit: [date]"
+**Look for:** "Review after [X] days/weeks", "Follow up on [date]", "Next visit: [date]", etc
 
 **Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_days: Number of days as integer (e.g., "2 weeks" -> 14, "1 month" -> 30, "15 days" -> 15) or null
 
@@ -396,13 +386,12 @@ Output ONLY a valid JSON object matching this structure:
           "medicine_type": "String or null"
         },
         "strength": "String or null",
-        "form": "Tablet|Capsule|Syrup|Injection|Drops|Cream|Inhaler|Sachet|null",
         "dosage_instruction": "SOS For Pain/When fever/etc instructions, when no instruction then: null",
         "interval_days": "Number (1=daily, 2=alternate, 7=weekly, 0=as_needed) or null",
         "timing": {
           "relation_to_meal": "before_food|after_food|with_food|empty_stomach|any|null",
-          "dosage": "1-1-1 format (morning-afternoon-night). Set to null if total_times_per_day > 3 or if nothing mentioned.",
-          "total_times_per_day": "Integer count of doses per day. If no indication is on the prescription then: null"
+          "dosage": "1-1-1 format (morning-afternoon-night). Set to null if frequency > 3 times/day or if nothing mentioned.",
+          "total_times_per_day": "Integer count of doses per day (MANDATORY). Use 0 for SOS/PRN, or the actual count (1, 2, 3, 4, etc.)"
         },
         "duration_days": "Number (total days of treatment) or null"
       },
@@ -446,7 +435,7 @@ Before outputting JSON, verify:
 - [ ] confidence score assigned per medicine (0.0-1.0)
 - [ ] medicine_purpose/type = null if is_identified: false
 - [ ] medicine_purpose/type populated if is_identified: true
-- [ ] strength and form extracted separately
+- [ ] strength extracted
 - [ ] timing populated from frequency pattern
 
 **Additional Fields:**
