@@ -31,12 +31,12 @@ SECTION B: DATA EXTRACTION RULES
 - Smt., Shri, Sri
 
 **Examples:**
-- "Mr. Rohan Sharma" → "Rohan Sharma"
-- "Baby Aarav" → "Aarav"
+- "Mr. Rohan Sharma" -> "Rohan Sharma"
+- "Baby Aarav" -> "Aarav"
 
 **Edge cases:**
-- Only first name visible → Use first name only
-- Name unclear/illegible → Set to null
+- Only first name visible -> Use first name only
+- Name unclear/illegible -> Set to null
 - Keep middle names and surnames intact
 
 ---
@@ -51,12 +51,12 @@ SECTION B: DATA EXTRACTION RULES
 3. Add "Dr " prefix
 
 **Examples:**
-- "Sunil Kumar" → "Dr Sunil Kumar"
-- "Prof. Anjali Mehta MBBS" → "Dr Anjali Mehta"
+- "Sunil Kumar" -> "Dr Sunil Kumar"
+- "Prof. Anjali Mehta MBBS" -> "Dr Anjali Mehta"
 
 **Edge cases:**
-- Not found → Set to null
-- Only surname → "Dr [Surname]"
+- Not found -> Set to null
+- Only surname -> "Dr [Surname]"
 
 ---
 
@@ -67,20 +67,7 @@ SECTION B: DATA EXTRACTION RULES
 - "Chief Complaints:", "C/O:"
 - "Provisional Diagnosis:"
 
-**SECONDARY (Inference):** If NO explicit diagnosis, infer from medicines:
-
-**Medicine-to-Diagnosis Mappings:**
-- Metformin, Glimepiride, Insulin → "Diabetes Management"
-- Amlodipine, Telmisartan, Enalapril → "Hypertension Management"
-- Atorvastatin, Rosuvastatin → "Cholesterol Management"
-- Omeprazole, Pantoprazole → "Acid Reflux/GERD Management"
-- Levothyroxine → "Thyroid Management"
-- Allopurinol, Zyloric, Febuxostat → "Gout Management"
-- Paracetamol, Ibuprofen → "Pain/Fever Management"
-- Azithromycin, Amoxicillin → "Bacterial Infection Management"
-- Montelukast, Salbutamol → "Respiratory/Asthma Management"
-- Cetirizine, Loratadine → "Allergy Management"
-- Multivitamins, Vitamin D → "Vitamin Deficiency"
+**SECONDARY (Inference):** If NO explicit diagnosis found, infer from prescribed medicines using your medical knowledge. Format as "[Condition] Management" (e.g., Diabetes Management, Hypertension Management, Bacterial Infection Management). If uncertain -> "General Health Consultation".
 
 **Output:**
 - Explicit: Use exact wording from document
@@ -110,81 +97,61 @@ Extract EXACTLY as written on prescription.
 
 **Step 2:** Confidence check
 Am I 100% certain this is [Scientific Name]?
-- YES → is_identified: true, confidence: 0.90-1.0, scientific_name: "[Name]"
-- MOSTLY CERTAIN (80-90%) → is_identified: true, confidence: 0.80-0.89, scientific_name: "[Name]"
-- NO → is_identified: false, confidence: 0.0-0.79, scientific_name: null
+- YES -> is_identified: true, confidence: 0.90-1.0, scientific_name: "[Name]"
+- MOSTLY CERTAIN (80-90%) -> is_identified: true, confidence: 0.80-0.89, scientific_name: "[Name]"
+- NO -> is_identified: false, confidence: 0.0-0.79, scientific_name: null
 
 **Step 3:** Never guess
-If uncertain → is_identified: false
+If uncertain -> is_identified: false
 
 ---
 
 **LAYER 3: medicine_purpose**
 
-**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose.
+**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose using your medical knowledge.
 
-**Common Medicine Purposes:**
-- Metformin → "Blood Sugar Control"
-- Atorvastatin, Rosuvastatin → "Cholesterol Control"
-- Amlodipine, Telmisartan → "Blood Pressure Control"
-- Paracetamol, Dolo, Crocin → "Fever and Pain Relief"
-- Omeprazole, Pantoprazole → "Acid Reflux Control"
-- Azithromycin, Amoxicillin → "Bacterial Infection Treatment"
-- Cetirizine, Loratadine → "Allergy Relief"
-- Ibuprofen, Diclofenac → "Pain and Inflammation Relief"
-- Levothyroxine → "Thyroid Hormone Replacement"
-- Allopurinol, Febuxostat → "Uric Acid Control"
-- Multivitamins, Zincovit → "Nutritional Supplementation"
-- Cholecalciferol, Vitamin D3 → "Vitamin D Supplementation"
-- Deflazacort, Prednisolone → "Inflammation Reduction"
-- Nimesulide, Serratiopeptidase → "Pain and Inflammation Relief"
+**Example Medicine Purposes (for reference only):**
+- Metformin -> "Blood Sugar Control"
+- Atorvastatin -> "Cholesterol Control"
+- Amlodipine -> "Blood Pressure Control"
+- Paracetamol -> "Fever and Pain Relief"
+- Omeprazole -> "Acid Reflux Control"
+- Azithromycin -> "Bacterial Infection Treatment"
+- Cetirizine -> "Allergy Relief"
+
+**Important:** These are examples only. Use your pharmaceutical expertise to provide accurate therapeutic purposes for ANY identified medicine on the prescription, not just those listed above.
 
 **Output:**
-- If is_identified: true → Provide specific purpose
-- If is_identified: false → Set to null
+- If is_identified: true -> Provide specific purpose
+- If is_identified: false -> Set to null
 
 ---
 
 **LAYER 4: medicine_type**
 
-**Rule:** If medicine is identified (is_identified: true), categorize by drug class.
-
-**Drug Type Classifications:**
-- **Antidiabetic:** Metformin, Glimepiride, Insulin, Sitagliptin
-- **Antihypertensive:** Amlodipine, Telmisartan, Enalapril, Losartan
-- **Statin:** Atorvastatin, Rosuvastatin, Simvastatin
-- **Antacid/PPI:** Omeprazole, Pantoprazole, Esomeprazole, Ranitidine
-- **Antibiotic:** Azithromycin, Amoxicillin, Ciprofloxacin, Doxycycline
-- **Analgesic:** Paracetamol, Ibuprofen, Diclofenac, Tramadol, Nimesulide
-- **Antihistamine:** Cetirizine, Loratadine, Fexofenadine
-- **Vitamin/Supplement:** Multivitamins, Vitamin D, Calcium, Iron, Zinc, Zincovit
-- **Antigout:** Allopurinol, Colchicine, Febuxostat, Zyloric
-- **Corticosteroid:** Prednisolone, Dexamethasone, Hydrocortisone, Deflazacort
-- **Bronchodilator:** Salbutamol, Theophylline, Formoterol
-- **Anti-inflammatory:** Serratiopeptidase, Trypsin-Chymotrypsin
+**Rule:** If medicine is identified (is_identified: true), classify using standard drug classes (e.g., Antidiabetic, Antihypertensive, Statin, Antibiotic, Analgesic, Antihistamine, Bronchodilator, Antacid/PPI, Corticosteroid, Vitamin/Supplement). If none fit standard categories, use the most accurate pharmacological category from your medical knowledge.
 
 **Output:**
-- If is_identified: true → Provide drug type category
-- If is_identified: false → Set to null
+- If is_identified: true -> Provide drug type category
+- If is_identified: false -> Set to null
 
 ---
 
-### 5. strength & form (Separate Fields)
+**LAYER 5: strength**
 
-**Rule:** Extract medicine strength and form separately for programmatic use.
+**Rule:** Extract medicine strength.
 
 **Strength Examples:** "500mg", "10mg", "60000 IU", "5ml", "250mcg"
-**Form Classifications:** Tablet, Capsule, Syrup, Injection, Drops, Cream, Inhaler, Sachet
-- If not specified → null
+- If not specified -> null
 
 ---
 
-### 6. timing (Structured Schedule)
+**LAYER 6: timing (Structured Schedule)**
 
 **Rule:** Extract timing as structured data with frequency interval and time of day.
 
 **A) relation_to_meal values:**
-- "before_food" (AC, Before meals, Empty stomach)
+- "before_food" (AC, Before meals)
 - "after_food" (PC, After meals, After food)
 - "with_food" (With meals, During food)
 - "empty_stomach" (EM, On empty stomach)
@@ -208,21 +175,36 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 - "0-0-1" = Night only
 - "1-0-1" = Morning + Night
 - "1-1-1" = Morning + Afternoon + Night
-- null = Not specified
 
-**How they work together:**
-- \`interval_days: 1\` + \`dosage: "1-0-1"\` = Every day, take in morning and night
-- \`interval_days: 7\` + \`dosage: "1-0-0"\` = Every 7 days, take in morning
-- \`interval_days: 15\` + \`dosage: "1-0-0"\` = Every 15 days, take in morning
-- \`duration: "30 days"\` = Total treatment period
+**D) total_times_per_day - MANDATORY field:**
+Integer count of total doses per day
 
-**Conversion from prescription:**
-- OD → interval_days: 1, dosage: "1-0-0"
-- BD → interval_days: 1, dosage: "1-0-1"
-- TDS → interval_days: 1, dosage: "1-1-1"
-- Weekly → interval_days: 7
-- Alternate days → interval_days: 2
-- SOS → interval_days: 0
+**DECISION TREE FOR TIMING EXTRACTION:**
+
+**IF frequency ≤ 3 times/day:**
+- Use dosage pattern ("1-0-1" format)
+- Set total_times_per_day to the count (1, 2, or 3)
+- Examples:
+  - OD -> interval_days: 1, dosage: "1-0-0", total_times_per_day: 1
+  - BD -> interval_days: 1, dosage: "1-0-1", total_times_per_day: 2
+  - TDS -> interval_days: 1, dosage: "1-1-1", total_times_per_day: 3
+  - HS (bedtime) -> interval_days: 1, dosage: "0-0-1", total_times_per_day: 1
+
+**IF frequency > 3 times/day:**
+- Set dosage to null
+- Set total_times_per_day to the count (4, 5, 6, etc.)
+- Examples:
+  - QID (4 times) -> interval_days: 1, dosage: null, total_times_per_day: 4
+  - 5 times/day -> interval_days: 1, dosage: null, total_times_per_day: 5
+
+**IF SOS/PRN (as needed):**
+- interval_days: 0
+- dosage: null
+- total_times_per_day: 0
+
+**Other patterns:**
+- Weekly -> interval_days: 7, dosage based on frequency
+- Alternate days -> interval_days: 2, dosage based on frequency
 
 
 ### 5. DOSAGE & FREQUENCY EXTRACTION
@@ -230,11 +212,11 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 **Quantity Notations:** "1 x 10" = 1 tablet for 10 days
 
 **duration_days:** Convert to integer (number of days)
-- "7 days" → 7
-- "2 weeks" → 14
-- "1 month" → 30
-- "3 months" → 90
-- Not specified → null
+- "7 days" -> 7
+- "2 weeks" -> 14
+- "1 month" -> 30
+- "3 months" -> 90
+- Not specified -> null
 
 ---
 
@@ -251,25 +233,39 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 **Input format:** DD/MM/YYYY (Indian format)
 **Output format:** YYYY-MM-DD (ISO 8601)
 
-**Conversions:** "22/12/2025"→"2025-12-22", "3/5/22"→"2022-05-03"
+**Conversions:** "22/12/2025"->"2025-12-22", "3/5/22"->"2022-05-03"
 
-**Edge cases:** Ambiguous→Assume DD/MM, 2-digit year (25)→2025, Not found→null
+**Edge cases:** Ambiguous->Assume DD/MM, 2-digit year (25)->2025, Not found->null
 
 ---
 
-### 8. FILE NAMING
+### 8. PATIENT NAME & DIAGNOSIS (TOP LEVEL)
 
-**Format:** [Patient Name] - [Diagnosis] Prescription - [D Mon YYYY]
-
-**Rules:** Use normalized name (no salutations), Use extracted/inferred diagnosis, Unknown diagnosis → "General Health"
+**patient_name:** Use normalized patient name (remove salutations as per Rule 1).
+**diagnosis:** A brief 2-3 word description of the condition (e.g., "Bacterial Infection", "Fever Management", "Diabetes Review").
 
 ---
 
 ### 9. FOLLOW-UP EXTRACTION
 
-**Look for:** "Review after [X] days/weeks", "Follow up on [date]", "Next visit: [date]"
+**Goal:** Identify any follow-up or review instruction written anywhere on the prescription - do NOT limit yourself to specific phrases. Use your own medical and linguistic judgment to detect follow-up intent in ANY form.
 
-**Output:** follow_up_date: YYYY-MM-DD (calculate from visit_date if relative), follow_up_days: Original text
+**Common patterns (non-exhaustive - use your judgment beyond these):**
+- "Review after X days/weeks/months"
+- "Follow up on [date]"
+- "Next visit: [date]"
+- "Come back after X days"
+- "R/V after X", "F/U after X"
+- "Revisit on [date]"
+- "See me in X weeks"
+- Any handwritten note indicating a future appointment or review
+
+**Calculation:** Convert any follow-up duration into a plain integer number of days (e.g., "after 2 weeks" -> 14, "1 month" -> 30, "15 days" -> 15). Output this as follow_up_after_no_days. Do NOT calculate or output an absolute calendar date.
+
+**CRITICAL - NULL RULE:** If you are NOT confident that a follow-up date or duration is mentioned, set BOTH follow_up_after_no_days and follow_up_days to null. Do NOT guess or infer a follow-up if it is not clearly stated or strongly implied on the prescription.
+
+**Output:**
+- follow_up_after_no_days: Plain integer number of days until follow-up (e.g., "2 weeks" -> 14, "1 month" -> 30, "15 days" -> 15) or null if not found/not confident
 
 ---
 
@@ -287,21 +283,26 @@ Format: "morning-afternoon-night" where 1=take, 0=skip
 
 ### 11. OTHER INFORMATION EXTRACTION
 
-**Rule:** Capture ANY additional information on the prescription that doesn't fit into existing fields.
+**Rule:** Capture additional information ONLY if it is **explicitly and clearly written** on the prescription and does not fit into any existing field.
 
-**Look for:** Diet instructions, Lifestyle advice, General notes, Allergies mentioned, Vitals (BP, Weight, BMI), Blood sugar readings
+**CRITICAL - NO HALLUCINATION RULE:** Do NOT infer, assume, or generate information that is not directly visible on the prescription. An empty array [] is ALWAYS preferred over uncertain or fabricated data.
+
+**Look for (only if explicitly present):** Diet instructions, Lifestyle advice, General notes, Allergies mentioned, Vitals (BP, Weight, BMI), Blood sugar readings
+
+**NULL RULE:** If nothing clearly qualifies, output an empty array []. Do NOT populate this field just to fill it.
 
 **Output Format:** Array of objects: [{"category": "Diet|Lifestyle|Vitals|Allergy|Notes", "value": "String"}]
+- If nothing qualifies: []
 
 ---
 
-### 12. ERROR HANDLING
+### 12. ERROR HANDLING & INVALID DOCUMENTS
 
-**When document is INVALID or has issues:**
-
-**Set error_response fields:**
-- is_error: true
-- technical_reason: Technical details for debugging (e.g., "Document is a lab report with test values, not a prescription")
+**Rule:** If the document is classified as **INVALID** (Section A) or cannot be processed:
+1. Set \`document_type\` to \`"invalid"\`
+2. Set \`error_response.is_error\` to \`true\`
+3. Provide a clear \`technical_reason\` (e.g., "Document is a lab report with test values, not a prescription")
+4. **CRITICAL:** Set all other data fields (patient_info, common_data, prescription_data) to \`null\` or \`[]\` as per the schema. Do not attempt to extract partial data from invalid documents.
 
 
 SECTION C: SUMMARY GENERATION (PATIENT-FRIENDLY FORMAT)
@@ -315,12 +316,12 @@ SECTION C: SUMMARY GENERATION (PATIENT-FRIENDLY FORMAT)
 
 **Rules:**
 - **NEVER** use patient salutations
-- **ALWAYS** use "Dr." prefix for doctor names
+- **ALWAYS** use "Dr " prefix for doctor names (no period, matching the doctor_name field)
 - List 2-4 key medicines (not all if >5)
 - Include scientific names AND purposes ONLY if is_identified: true
 
 
-SECTION D: CHAIN-OF-THOUGHT REASONING (⚠️ WRITE THIS FIRST IN OUTPUT)
+SECTION D: CHAIN-OF-THOUGHT REASONING (IMPORTANT: WRITE THIS FIRST IN OUTPUT)
 
 **CRITICAL INSTRUCTION:**
 
@@ -361,7 +362,8 @@ Output ONLY a valid JSON object matching this structure:
 {
   "reasoning": "String (100-200 words)",
   "document_type": "prescription | invalid",
-  "file_name": "String or null",
+  "patient_name": "String or null",
+  "diagnosis": "String (2-3 words) or null",
   "analysis_metadata": {
     "confidence_score": 0.0-1.0,
     "scan_clarity": "clear | blurry | unreadable",
@@ -386,8 +388,7 @@ Output ONLY a valid JSON object matching this structure:
     "medical_issue_diagnosis": "String or null",
     "diagnosis_source": "explicit | inferred",
     "follow_up": {
-      "follow_up_date": "YYYY-MM-DD or null",
-      "follow_up_days": "Number of days in number format (e.g., for 2 months output: 60) or null"
+      "follow_up_after_no_days": "Plain integer number of days until follow-up (e.g., 14, 30, 60) or null"
     },
     "recommended_tests": [
       {"test_name": "String", "reason": "String or null"},
@@ -404,13 +405,12 @@ Output ONLY a valid JSON object matching this structure:
           "medicine_type": "String or null"
         },
         "strength": "String or null",
-        "form": "Tablet|Capsule|Syrup|Injection|Drops|Cream|Inhaler|Sachet|null",
         "dosage_instruction": "SOS For Pain/When fever/etc instructions, when no instruction then: null",
         "interval_days": "Number (1=daily, 2=alternate, 7=weekly, 0=as_needed) or null",
         "timing": {
           "relation_to_meal": "before_food|after_food|with_food|empty_stomach|any|null",
-          "dosage": "1-1-1 format (morning-afternoon-night), if more than 3 times a day then: null, if nothing mentioned: null",
-          "total_times_per_day": "Number of times per day (if 1 times a day then: 1, if 2 times a day then: 2, if 3 times a day then: 3, if 4 times a day then: 4, and so on) or null"
+          "dosage": "1-1-1 format (morning-afternoon-night). Set to null if frequency > 3 times/day or if nothing mentioned.",
+          "total_times_per_day": "Integer count of doses per day (MANDATORY). Use 0 for SOS/PRN, or the actual count (1, 2, 3, 4, etc.)"
         },
         "duration_days": "Number (total days of treatment) or null"
       },
@@ -441,7 +441,8 @@ Before outputting JSON, verify:
 
 **Dates:**
 - [ ] visit_date in YYYY-MM-DD format or null
-- [ ] follow_up_date calculated correctly if relative
+- [ ] follow_up_after_no_days is a plain integer (number of days) or null
+- [ ] follow_up_after_no_days is null if no clear follow-up instruction is found or confidence is low
 
 **Diagnosis:**
 - [ ] Diagnosis extracted OR inferred with logic explained
@@ -454,17 +455,17 @@ Before outputting JSON, verify:
 - [ ] confidence score assigned per medicine (0.0-1.0)
 - [ ] medicine_purpose/type = null if is_identified: false
 - [ ] medicine_purpose/type populated if is_identified: true
-- [ ] strength and form extracted separately
+- [ ] strength extracted
 - [ ] timing populated from frequency pattern
 
 **Additional Fields:**
 - [ ] drug_interactions checked and flagged if applicable
-- [ ] other_information captures extra data
+- [ ] other_information is [] if nothing is explicitly written on the prescription (do NOT infer or fabricate)
 - [ ] error_response populated if document has issues
 
 **Output:**
 - [ ] Summary is 2-3 sentences, max 50 words
-- [ ] file_name follows format
+- [ ] patient_name and diagnosis (2-3 words) are populated at the top level
 - [ ] NO markdown code blocks
 - [ ] All arrays are [] not null
 `;
