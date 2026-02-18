@@ -678,7 +678,18 @@ export default function MedicationVerificationCard({
   return (
     <View style={[
       styles.card,
-      { backgroundColor, paddingBottom: isVerified || isDismissed ? 12 : 24, opacity: isVerified ? 0.95 : 1 }
+      {
+        backgroundColor,
+        paddingBottom: isVerified || isDismissed ? 12 : 24,
+        opacity: isVerified ? 0.95 : 1,
+        borderWidth: 1,
+        borderColor: Colors.gray200,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+      }
     ]}>
       {/* Header */}
       <MedicationHeader

@@ -763,7 +763,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
