@@ -1648,7 +1648,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     {/* Unverified Individual Cards */}
                     {unverifiedMedsIdx.map(({ medicine, index }, arrayIndex) => {
                       const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-                      const suggestedStartDate = document.created_at.split('T')[0];
+                      const suggestedStartDate = (document.visit_date || document.ai_analyzed_at || new Date().toISOString()).split('T')[0];
                       const activeMeds = getActiveMedications();
                       const duplicateOf = detectDuplicateMedication(parsedMed.name, parsedMed.dosage, activeMeds);
 
@@ -1698,7 +1698,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                               const medsToVerify = unverifiedMedsIdx.map(({ medicine }) => 
                                 parseAIMedication(medicine, document.id, displayTitle, familyMember)
                               );
-                              const startDate = document.created_at.split('T')[0];
+                              const startDate = (document.visit_date || document.ai_analyzed_at || new Date().toISOString()).split('T')[0];
 
                               await useMedicationsStore.getState().addMedicationsBatchFromAI(
                                 medsToVerify,

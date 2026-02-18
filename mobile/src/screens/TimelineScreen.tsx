@@ -98,10 +98,16 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, showDate }: Time
     return { status: statusText, statusColor: color, statusBg: bg, iconName: icon as any };
   }, [doc, medications]);
 
-  const date = new Date(doc.created_at);
-  const day = date.getDate();
-  const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  // Determine display date
+  const displayDate = useMemo(() => {
+    if (doc.report_date) return new Date(doc.report_date);
+    if (doc.visit_date) return new Date(doc.visit_date);
+    return new Date(doc.ai_analyzed_at || new Date().toISOString());
+  }, [doc]);
+
+  const day = displayDate.getDate();
+  const dayOfWeek = displayDate.toLocaleDateString('en-US', { weekday: 'short' });
+  const time = displayDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   // Animation
   const scale = useSharedValue(1);
@@ -202,12 +208,18 @@ export default function TimelineScreen() {
   // Grouping for SectionList
   const sections = useMemo(() => {
     const groups: { [key: string]: Document[] } = {};
+    const getDocDate = (doc: Document) => {
+      if (doc.report_date) return new Date(doc.report_date).getTime();
+      if (doc.visit_date) return new Date(doc.visit_date).getTime();
+      return new Date(doc.ai_analyzed_at || new Date().toISOString()).getTime();
+    };
+
     const sortedDocs = [...documents].sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      getDocDate(b) - getDocDate(a)
     );
 
     sortedDocs.forEach(doc => {
-      const date = new Date(doc.created_at);
+      const date = new Date(getDocDate(doc));
       const key = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       if (!groups[key]) groups[key] = [];
       groups[key].push(doc);
@@ -240,7 +252,14 @@ export default function TimelineScreen() {
   const renderItem = ({ item, index, section }: any) => {
     // Check if this is the first item of the day in this section
     const prevItem = index > 0 ? section.data[index - 1] : null;
-    const isFirstOfDay = !prevItem || new Date(prevItem.created_at).getDate() !== new Date(item.created_at).getDate();
+    
+    const getItemDate = (d: Document) => {
+        if (d.report_date) return new Date(d.report_date).getDate();
+        if (d.visit_date) return new Date(d.visit_date).getDate();
+        return new Date(d.ai_analyzed_at || new Date().toISOString()).getDate();
+    };
+
+    const isFirstOfDay = !prevItem || getItemDate(prevItem) !== getItemDate(item);
 
     return (
       <TimelineItem 
