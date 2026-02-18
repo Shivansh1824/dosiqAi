@@ -15,6 +15,7 @@ interface CoursePeriodSectionProps {
     isVerified?: boolean;
     hasEndDate?: boolean;
     onToggleEndDate?: (value: boolean) => void;
+    fixedFrequencyText?: string; // NEW: Override for SOS/Fixed display
 }
 
 /**
@@ -40,6 +41,7 @@ export function CoursePeriodSection({
     isVerified = false,
     hasEndDate = true,
     onToggleEndDate,
+    fixedFrequencyText,
 }: CoursePeriodSectionProps) {
     const [showIntervalPicker, setShowIntervalPicker] = useState(false);
 
@@ -55,14 +57,14 @@ export function CoursePeriodSection({
                     <Feather name="calendar" size={16} color={Colors.primary} />
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
                 </View>
-                {onIntervalChange && (
+                {(onIntervalChange || fixedFrequencyText) && (
                     <TouchableOpacity 
-                        onPress={() => setShowIntervalPicker(true)}
-                        disabled={isVerified}
-                        style={styles.frequencyChip} // New Chip Style
+                        onPress={() => !fixedFrequencyText && setShowIntervalPicker(true)}
+                        disabled={isVerified || !!fixedFrequencyText}
+                        style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]} 
                     >
-                        <Text style={styles.frequencyText}>{getIntervalLabel()}</Text>
-                        {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
+                        <Text style={styles.frequencyText}>{fixedFrequencyText || getIntervalLabel()}</Text>
+                        {!isVerified && !fixedFrequencyText && <Feather name="chevron-down" size={14} color={Colors.primary} />}
                     </TouchableOpacity>
                 )}
             </View>

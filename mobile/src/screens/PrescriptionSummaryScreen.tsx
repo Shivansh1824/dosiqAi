@@ -1081,6 +1081,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   cardIndex={arrayIndex + 1}
                                   isVerified={isAlreadyAdded}
                                   familyMember={familyMember}
+                                  followUpDays={document?.ai_analysis_result?.prescription_data?.follow_up?.follow_up_days}
                                 />
                               );
                             })}
