@@ -314,6 +314,8 @@ const styles = StyleSheet.create({
         paddingBottom: 12,
         paddingHorizontal: 12,
         backgroundColor: Colors.white, // Explicit white background (or transparent if card handles it)
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.gray100,
     },
     headerLeft: {
         flex: 1,
