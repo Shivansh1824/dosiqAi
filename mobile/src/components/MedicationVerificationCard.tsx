@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
   aiButtonsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
+    marginTop: 0,
     paddingHorizontal: 16,
   },
   aiButton: {
