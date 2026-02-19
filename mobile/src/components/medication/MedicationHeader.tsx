@@ -39,7 +39,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#1E4620',
                 iconColor: '#137333',
                 icon: 'check-circle' as const,
-                text: 'AI SCORE',
+                text: 'Ai',
             };
         case 'medium':
             return {
@@ -47,7 +47,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#5F370E',
                 iconColor: '#F9AB00',
                 icon: 'alert-circle' as const,
-                text: 'AI SCORE',
+                text: 'Ai',
             };
         case 'low':
             return {
@@ -55,7 +55,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#8C1D18',
                 iconColor: '#C5221F',
                 icon: 'alert-triangle' as const,
-                text: 'AI SCORE',
+                text: 'Ai',
             };
     }
 };
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     // titleRow removed
     nameBadgeContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 8,
         flexWrap: 'wrap',
     },
@@ -369,6 +369,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         gap: 4,
         alignSelf: 'flex-start',
+        marginTop: 0,
     },
     confidenceText: {
         fontSize: 10,

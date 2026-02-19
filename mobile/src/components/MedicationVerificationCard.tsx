@@ -603,7 +603,7 @@ export default function MedicationVerificationCard({
               {/* AI Confidence Row */}
               <View style={styles.tableRow}>
                 <View style={styles.tableHeaderCell}>
-                  <Text style={styles.tableHeaderText}>AI SCORE</Text>
+                  <Text style={styles.tableHeaderText}>Ai</Text>
                 </View>
                 <View style={styles.tableValueCell}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -615,7 +615,7 @@ export default function MedicationVerificationCard({
                     <Text style={[styles.tableValueText, { fontWeight: 'bold' }]}>
                       {confidenceScore !== undefined
                         ? `Ai Confidence: ${Math.round(confidenceScore * 100)}%`
-                        : 'AI SCORE'}
+                        : 'Ai'}
                     </Text>
                   </View>
                 </View>
