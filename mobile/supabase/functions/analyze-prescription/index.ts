@@ -53,7 +53,7 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_BASE64_LENGTH = (MAX_FILE_SIZE_MB * 1024 * 1024 * 4) / 3; // Account for base64 encoding
 
 // Token limits for prescriptions (simpler, shorter documents)
-const MAX_TOKENS_PRESCRIPTION = 5000;
+const MAX_TOKENS_PRESCRIPTION = 15000;
 
 // Allowed file types
 const ALLOWED_MIME_TYPES = [
