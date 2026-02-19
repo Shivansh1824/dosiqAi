@@ -20,7 +20,7 @@ interface MedicationHeaderProps {
     onResetToAI: () => void;
     onSave: () => void;
     onCancel: () => void;
-    onAnalysisPress?: () => void;
+
     onNamePress?: (event: any) => void;
     serialNumber?: number;
     isVerified?: boolean;
@@ -76,7 +76,7 @@ export function MedicationHeader({
     onResetToAI,
     onSave,
     onCancel,
-    onAnalysisPress,
+
     onNamePress,
     serialNumber,
     isVerified = false,
@@ -147,29 +147,6 @@ export function MedicationHeader({
                                             {confidenceStyle.text}
                                         </Text>
                                     </View>
-
-                                    {!isDismissed && (
-                                        <TouchableOpacity
-                                            onPress={onAnalysisPress}
-                                            activeOpacity={0.7}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                            style={styles.analysisContainer}
-                                        >
-                                            <LinearGradient
-                                                colors={['#FFFFFF', '#EFF6FF']}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 0, y: 1 }}
-                                                style={styles.analysisBadge}
-                                            >
-                                                <Text style={styles.analysisText}>
-                                                    dosiq Ai Analysis
-                                                </Text>
-                                            </LinearGradient>
-                                            <View style={styles.pointerWrapper}>
-                                                <MaterialCommunityIcons name="cursor-default-click" size={14} color={Colors.primary} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    )}
                                 </>
                             )}
                         </View>
@@ -419,42 +396,7 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    analysisContainer: {
-        position: 'relative',
-    },
-    analysisBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingLeft: 8,
-        paddingRight: 12, // Increased padding to avoid text overlap with pointer on the right
-        paddingVertical: 2,
-        borderRadius: 20,
-        borderWidth: 0.5,
-        borderColor: 'rgba(59, 130, 246, 0.15)',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 1,
-            },
-        }),
-    },
-    pointerWrapper: {
-        position: 'absolute',
-        bottom: -2,
-        right: -4,
-        zIndex: 10,
-    },
-    analysisText: {
-        fontSize: 9,
-        ...Typography.fontWeights.bold,
-        color: Colors.primary,
-        letterSpacing: 0.3,
-    },
+
     menuContainer: {
         position: 'absolute',
         top: 40,

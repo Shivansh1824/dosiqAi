@@ -706,8 +706,7 @@ export default function MedicationVerificationCard({
         onResetToAI={handleResetToAI}
         onSave={handleSaveEdits}
         onCancel={handleCancelEdits}
-        onAnalysisPress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
-        onNamePress={(e) => handleTooltipPress(e, medication.name)}
+        onNamePress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
         serialNumber={medicineIndex !== undefined ? medicineIndex + 1 : undefined}
         isVerified={isVerified}
       />
