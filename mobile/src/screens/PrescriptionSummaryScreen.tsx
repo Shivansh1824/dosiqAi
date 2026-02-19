@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -1302,9 +1302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray100,
+    backgroundColor: 'transparent',
   },
   backButton: {
     width: 44,
@@ -1355,23 +1353,19 @@ const styles = StyleSheet.create({
 
   // Hero Preview Card (2026 Style)
   previewCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: 'transparent', // Transparent: let gradient show through edges
     borderRadius: 0, // No border radius for edge-to-edge design
-    marginBottom: 0, // Minimal spacing - reduced from 12
-    // Deep Premium Shadow
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 6,
+    marginBottom: 0,
     width: '100%',
+    padding: 0,
     marginHorizontal: 0,
+    alignSelf: 'stretch',
     overflow: 'hidden', // Essential for hero image
   },
   heroImage: {
-    width: '100%',
-    height: 208, // Reduced from 260 (20% reduction for more vertical space)
-    backgroundColor: Colors.gray50,
+    width: Dimensions.get('window').width,
+    height: 208,
+    backgroundColor: 'transparent',
   },
 
   pdfIconWrapper: {
@@ -1393,18 +1387,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray500,
   },
-  // PDF Preview styles for react-native-pdf-jsi
+  // PDF Preview styles
   pdfPreviewWrapper: {
-    width: '100%',
-    height: 208, // Reduced from 260 (20% reduction)
-    backgroundColor: Colors.white,
+    width: Dimensions.get('window').width,
+    height: 208,
+    backgroundColor: 'transparent',
     overflow: 'hidden',
   },
   pdfPreview: {
     flex: 1,
-    width: '100%',
-    height: 208, // Reduced from 260 (20% reduction)
-    backgroundColor: Colors.white,
+    width: Dimensions.get('window').width,
+    height: 208,
+    backgroundColor: 'transparent',
   },
   // New professional PDF preview card styles
   pdfPreviewCard: {
