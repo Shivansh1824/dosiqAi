@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager, Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -103,9 +104,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   };
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+
+  // Initialize summary expansion state based on document type
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(() => {
+    // Check if we have document available initially (optimization)
+    const doc = documentProp || (documents.find(d => d.id === documentId));
+    return doc?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid';
+  });
   const [showShareModal, setShowShareModal] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
 
@@ -123,7 +129,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     resolve: () => void;
     reject: (reason?: any) => void;
   } | null>(null);
-  
+
 
 
   const handleTooltipPress = (event: any, content: string) => {
@@ -632,7 +638,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
     try {
       setDuplicateModalVisible(false);
-      
+
       const addedMed = await addMedicationFromAI(
         newMed,
         user.id,
@@ -647,17 +653,17 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       }
 
       if (action === 'replace') {
-         // Mark old as inactive (set end_date to yesterday)
-         const yesterday = new Date();
-         yesterday.setDate(yesterday.getDate() - 1);
-         await useMedicationsStore.getState().updateMedication(existingMed.id, {
-           end_date: yesterday.toISOString().split('T')[0],
-         });
-         Alert.alert('Success', 'Medication updated in tracker!');
+        // Mark old as inactive (set end_date to yesterday)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        await useMedicationsStore.getState().updateMedication(existingMed.id, {
+          end_date: yesterday.toISOString().split('T')[0],
+        });
+        Alert.alert('Success', 'Medication updated in tracker!');
       } else {
-         Alert.alert('Success', 'Medication added to tracker!');
+        Alert.alert('Success', 'Medication added to tracker!');
       }
-      
+
       // Mark as verified
       setVerifiedMedications(prev => new Set(prev).add(newMed.name));
       resolve();
@@ -766,404 +772,488 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     <View style={styles.container}>
       <StatusBar style="dark" />
       <LinearGradient
-        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
       />
-    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={onBack}
-          activeOpacity={0.6}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* Modern Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={onBack}
+            activeOpacity={0.6}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
 
-        {/* Smart Header Title */}
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-            {titleText}
-          </Text>
-          {subtitleText ? (
-            <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
-              {subtitleText}
+          {/* Smart Header Title */}
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+              {titleText}
             </Text>
-          ) : null}
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity
-            style={styles.headerButtonRight}
-            onPress={handleShare}
-            activeOpacity={0.6}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Feather name="share-2" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.headerButtonRight}
-            onPress={() => setShowOptionsModal(true)}
-            activeOpacity={0.6}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Feather name="more-horizontal" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {!isReady ? (
-          <View style={{ padding: 20, paddingTop: 40, alignItems: 'center', gap: 16 }}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={{ color: Colors.gray500, fontSize: 13, fontFamily: 'PlusJakartaSans-Medium' }}>Loading analysis...</Text>
+            {subtitleText ? (
+              <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
+                {subtitleText}
+              </Text>
+            ) : null}
           </View>
-        ) : (
-          <>
-            {/* Document Preview Card */}
-            <DocumentPreview
-              imageUri={imageUri}
-              isPdf={isPdf || false}
-              fileNotFound={fileNotFound}
-              downloading={downloading}
-              onView={handleViewFullDocument}
-              onDownload={handleDownload}
-            />
 
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={styles.headerButtonRight}
+              onPress={handleShare}
+              activeOpacity={0.6}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name="share-2" size={22} color={Colors.primary} />
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.headerButtonRight}
+              onPress={() => setShowOptionsModal(true)}
+              activeOpacity={0.6}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name="more-horizontal" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-
-
-
-
-
-            {/* Consolidated AI Summary, Medications & Action Bar */}
-            {(() => {
-              const summary = document ? getSummary(document.ai_analysis_result) : undefined;
-
-              return (
-                <>
-                  {/* AI Summary Section - Show greyed-out when already added, hidden only during session verification */}
-                  {document?.ai_analysis_status === 'completed' &&
-                    summary &&
-                    (hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                      <PrescriptionSummary
-                        summary={summary}
-                        recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
-                        otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
-                        followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
-                        defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {!isReady ? (
+            <View style={{ padding: 20, paddingTop: 40, alignItems: 'center', gap: 16 }}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={{ color: Colors.gray500, fontSize: 13, fontFamily: 'PlusJakartaSans-Medium' }}>Loading analysis...</Text>
+            </View>
+          ) : (
+            <>
+              {/* Document Preview Card */}
+              <View style={styles.previewCard}>
+                {fileNotFound ? (
+                  <Fragment>
+                    <View style={styles.previewIconContainer}>
+                      <Feather name="alert-circle" size={64} color={Colors.error} />
+                    </View>
+                    <Text style={styles.previewText}>File Not Found</Text>
+                    <Text style={styles.errorText}>
+                      The document file could not be found on this device.
+                    </Text>
+                  </Fragment>
+                ) : isPdf && imageUri ? (
+                  <Animated.View layout={LinearTransition.duration(300)}>
+                    {/* PDF Preview - First Page using react-native-pdf-jsi */}
+                    <View style={styles.pdfPreviewWrapper}>
+                      <Pdf
+                        source={{ uri: imageUri, cache: true }}
+                        page={1}
+                        scale={1.0}
+                        minScale={1.0}
+                        maxScale={1.0}
+                        spacing={0}
+                        fitPolicy={0}
+                        enablePaging={false}
+                        enableRTL={false}
+                        enableAnnotationRendering={false}
+                        style={styles.pdfPreview}
+                        onLoadComplete={(numberOfPages) => {
+                          console.log(`[PrescriptionSummary] PDF Loaded: ${numberOfPages} pages`);
+                        }}
+                        onError={(error) => {
+                          console.error('[PrescriptionSummary] PDF Error:', error);
+                        }}
                       />
-                    )}
 
-                  {/* Medications Section */}
-                  {document?.ai_analysis_status === 'completed' &&
-                    innerMedicines.length > 0 && (
-                      <View style={[styles.medicationsCard, (!hasUnverifiedMeds && !isAlreadyAdded) && { paddingTop: 16 }]}>
-                        {/* MEDS DETECTED Header - Show greyed-out when already added, hidden only during session verification */}
-                        {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                          <View
-                            style={[{
-                              flexDirection: 'row',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              paddingHorizontal: 16,
-                              paddingVertical: 16,
-                              borderRadius: 0,
-                              marginBottom: 0,
-                              backgroundColor: 'transparent',
-                            }, {}]}
+                      {/* Floating Action Buttons - Modern Compact Pill */}
+                      <View style={styles.floatingButtonContainer}>
+                        <View style={styles.compactActionPill}>
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleViewFullDocument}
+                            activeOpacity={0.7}
                           >
-                            <View style={{ flex: 1, gap: 2 }}>
-                              <Text style={{
-                                fontSize: 18,
-                                fontWeight: '900',
-                                color: Colors.gray900,
-                                letterSpacing: 0.8,
-                                marginBottom: 2,
-                              }}>MEDS DETECTED</Text>
-                              <Text style={{
-                                fontSize: 12,
-                                color: Colors.gray500,
-                                fontWeight: '500',
-                                lineHeight: 16,
-                                opacity: 0.8,
-                              }}>{innerMedicines.length} {innerMedicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription</Text>
+                            <Feather name="eye" size={18} color={Colors.primary} />
+                            <Text style={styles.pillActionText}>View</Text>
+                          </TouchableOpacity>
+
+                          <View style={styles.pillDivider} />
+
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleDownload}
+                            activeOpacity={0.7}
+                            disabled={downloading}
+                          >
+                            {downloading ? (
+                              <ActivityIndicator size="small" color={Colors.primary} />
+                            ) : (
+                              <Feather name="download" size={18} color={Colors.primary} />
+                            )}
+                            <Text style={styles.pillActionText}>
+                              {downloading ? 'Saving' : 'Save'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </Animated.View>
+                ) : imageUri ? (
+                  <Animated.View layout={LinearTransition.duration(300)}>
+                    <View>
+                      <Image
+                        source={{ uri: imageUri || undefined }}
+                        style={styles.heroImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.heroOverlay} />
+
+                      {/* Floating Action Buttons - Modern Compact Pill */}
+                      <View style={styles.floatingButtonContainer}>
+                        <View style={styles.compactActionPill}>
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleViewFullDocument}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="eye" size={18} color={Colors.primary} />
+                            <Text style={styles.pillActionText}>View</Text>
+                          </TouchableOpacity>
+
+                          <View style={styles.pillDivider} />
+
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleDownload}
+                            activeOpacity={0.7}
+                            disabled={downloading}
+                          >
+                            {downloading ? (
+                              <ActivityIndicator size="small" color={Colors.primary} />
+                            ) : (
+                              <Feather name="download" size={18} color={Colors.primary} />
+                            )}
+                            <Text style={styles.pillActionText}>
+                              {downloading ? 'Saving' : 'Save'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </Animated.View>
+                ) : (
+                  <DocumentPreviewLoading />
+                )}
+              </View>
+
+
+
+
+
+
+
+
+              {/* Consolidated AI Summary, Medications & Action Bar */}
+              {(() => {
+                const summary = document ? getSummary(document.ai_analysis_result) : undefined;
+
+                return (
+                  <Animated.View layout={LinearTransition.duration(300)}>
+                    {/* AI Summary Section - Show greyed-out when already added, hidden only during session verification */}
+                    {document?.ai_analysis_status === 'completed' &&
+                      summary &&
+                      (hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
+                        <PrescriptionSummary
+                          summary={summary}
+                          recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
+                          otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
+                          followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
+                          style={[{ marginBottom: 0 }]}
+                          defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
+                          expanded={isSummaryExpanded}
+                          onToggle={setIsSummaryExpanded}
+                        />
+                      )}
+
+                    {/* Medications Section */}
+                    {document?.ai_analysis_status === 'completed' &&
+                      innerMedicines.length > 0 && (
+                        <Animated.View
+                          layout={isSummaryExpanded
+                            ? LinearTransition.duration(300)
+                            : LinearTransition.duration(300).delay(300)
+                          }
+                        >
+                          {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
+                          {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
+                            const count = innerMedicines.length;
+                            return (
+                              <View style={styles.medicationsHeaderCard}>
+                                <View style={styles.medicationsHeaderRow}>
+                                  <View style={styles.medicationsHeaderLeft}>
+                                    <Text style={styles.medicationsCountText}>{count}</Text>
+                                    <View style={{ gap: 2, flex: 1, justifyContent: 'center' }}>
+                                      <Text style={styles.medicationsHeaderTitle}>MEDICATIONS DETECTED</Text>
+                                      <Text style={styles.medicationsHeaderSubtitle}>
+                                        dosiq Ai found {count}{' '}
+                                        {count === 1 ? 'medication' : 'medications'} in your prescription. See details below.
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          })()}
+
+                          {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
+                          {verifiedMedications.size > 0 && (() => {
+                            const verifiedNames = innerMedicines
+                              .map(m => parseAIMedication(m, document!.id, displayTitle, familyMember))
+                              .filter(m => verifiedMedications.has(m.name))
+                              .map(m => m.name);
+
+                            return verifiedNames.length > 0 ? (
+                              <VerifiedMedicationsGroup
+                                medicationNames={verifiedNames}
+                                onViewInTracker={() => navigation.navigate('Medications')}
+                              />
+                            ) : null;
+                          })()}
+
+                          {/* Divider Line - Only show if we have verified items above in CURRENT session */}
+
+
+                          {/* Unverified/All Medications List - Each card is a standalone main card */}
+                          {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
+                            <View>
+                              {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
+                                const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
+                                const suggestedStartDate = parseDateOnly(new Date().toISOString());
+                                // Pass full medications list for history check (parser handles filtering)
+                                const duplicateOf = duplicateMedicationsMap.get(index);
+
+                                return (
+                                  <MedicationVerificationCard
+                                    key={index}
+                                    medication={parsedMed}
+                                    documentId={document!.id}
+                                    documentTitle={displayTitle}
+                                    suggestedStartDate={suggestedStartDate}
+                                    onVerifyAndAdd={handleVerifyAndAddMedication}
+                                    duplicateOf={duplicateOf || undefined}
+                                    medicineIndex={index}
+                                    confidenceScore={document.ai_analysis_result?.analysis_metadata?.confidence_score}
+                                    onLiveUpdate={(updates: {
+                                      current_reminder_times?: string[];
+                                      start_date?: string;
+                                      end_date?: string;
+                                      duration_days?: number;
+                                    }) => {
+                                      setMedicationLiveUpdates(prev => ({
+                                        ...prev,
+                                        [index]: { ...prev[index], ...updates }
+                                      }));
+                                    }}
+                                    onDismiss={() => handleDismissMedication(index)}
+                                    isDismissed={dismissedMedicationIds.has(`${document.id}_${index}`)}
+                                    onRestore={() => handleRestoreMedication(index)}
+                                    isFirstItem={arrayIndex === 0}
+                                    cardIndex={arrayIndex + 1}
+                                    isVerified={isAlreadyAdded}
+                                    familyMember={familyMember}
+                                    followUpDays={document?.ai_analysis_result?.prescription_data?.follow_up?.follow_up_days}
+                                  />
+                                );
+                              })}
                             </View>
-                            <View style={{
-                              backgroundColor: Colors.primary,
-                              minWidth: 34,
-                              paddingHorizontal: 12,
-                              paddingVertical: 5,
-                              borderRadius: 20,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginTop: 2,
-                              ...Platform.select({
-                                ios: { shadowColor: Colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
-                                android: { elevation: 2 },
-                              }),
-                            }}>
-                              <Text style={{ fontSize: 13, fontWeight: '900', color: Colors.white }}>
-                                {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}
-                              </Text>
-                            </View>
-                          </View>
-                        )}
+                          )}
 
-                        {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
-                        {verifiedMedications.size > 0 && (() => {
-                          const verifiedNames = innerMedicines
-                            .map(m => parseAIMedication(m, document!.id, displayTitle, familyMember))
-                            .filter(m => verifiedMedications.has(m.name))
-                            .map(m => m.name);
-
-                          return verifiedNames.length > 0 ? (
-                            <VerifiedMedicationsGroup
-                              medicationNames={verifiedNames}
-                              onViewInTracker={() => navigation.navigate('Medications')}
-                            />
-                          ) : null;
-                        })()}
-
-                        {/* Divider Line - Only show if we have verified items above in CURRENT session */}
-                        {verifiedMedications.size > 0 && !isAlreadyAdded && (
-                          <View style={{ width: 1, backgroundColor: '#E2E8F0', flex: 1, marginHorizontal: 23 }} />
-                        )}
-
-                        {/* Unverified/All Medications List - Show greyed-out when already added (reopening) */}
-                        {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                          <View>
-                            {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
-                              const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
-                              const suggestedStartDate = parseDateOnly(document!.visit_date || document!.ai_analyzed_at || new Date().toISOString());
-                              // Pass full medications list for history check (parser handles filtering)
-                              const duplicateOf = duplicateMedicationsMap.get(index);
- 
-                              return (
-                                <MedicationVerificationCard
-                                  key={index}
-                                  medication={parsedMed}
-                                  documentId={document!.id}
-                                  documentTitle={displayTitle}
-                                  suggestedStartDate={suggestedStartDate}
-                                  onVerifyAndAdd={handleVerifyAndAddMedication}
-                                  duplicateOf={duplicateOf || undefined}
-                                  medicineIndex={index}
-                                  onLiveUpdate={(updates: {
-                                    current_reminder_times?: string[];
-                                    start_date?: string;
-                                    end_date?: string;
-                                    duration_days?: number;
-                                  }) => {
-                                    setMedicationLiveUpdates(prev => ({
-                                      ...prev,
-                                      [index]: { ...prev[index], ...updates }
-                                    }));
-                                  }}
-                                  onDismiss={() => handleDismissMedication(index)}
-                                  isDismissed={dismissedMedicationIds.has(`${document.id}_${index}`)}
-                                  onRestore={() => handleRestoreMedication(index)}
-                                  isFirstItem={arrayIndex === 0}
-                                  cardIndex={arrayIndex + 1}
-                                  isVerified={isAlreadyAdded}
-                                  familyMember={familyMember}
-                                  followUpDays={document?.ai_analysis_result?.prescription_data?.follow_up?.follow_up_days}
-                                />
-                              );
-                            })}
-                          </View>
-                        )}
-
-                        {/* Action Button - "Confirm & Add" when not added, "View in Tracker" when already added */}
-                        {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                          <View style={{ padding: 16 }}>
-                            <TouchableOpacity
-                              style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
-                              onPress={async () => {
-                                // If already added, just navigate to tracker
-                                if (isAlreadyAdded) {
-                                  navigation.navigate('Medications');
-                                  return;
-                                }
-
-                                setIsVerifyingAll(true);
-                                try {
-                                  const currentUser = (await supabase.auth.getUser()).data.user;
-                                  if (!currentUser || !document) return;
-
-                                  const suggestedStartDate = parseDateOnly(document.visit_date || document.ai_analyzed_at || new Date().toISOString());
-                                  const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
-                                    const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-                                    // Merge user edits from live updates
-                                    const liveUpdates = medicationLiveUpdates[index];
-                                    if (liveUpdates) {
-                                      if (liveUpdates.current_reminder_times) {
-                                        parsedMed.time_of_day = liveUpdates.current_reminder_times;
-                                      }
-                                      parsedMed.start_date = liveUpdates.start_date || suggestedStartDate;
-                                      if (liveUpdates.duration_days !== undefined) {
-                                        parsedMed.duration_days = liveUpdates.duration_days;
-                                      }
-                                    } else {
-                                      // No live updates, apply matching defaults from UI card (Simple Sync)
-                                      parsedMed.start_date = suggestedStartDate;
-                                      if (parsedMed.duration_days === null || parsedMed.duration_days === undefined) {
-                                        const isAsNeeded = isAsNeededFrequency(parsedMed.timing_dosage || parsedMed.dosage, parsedMed.total_times_per_day);
-                                        if (!isAsNeeded) {
-                                          parsedMed.duration_days = 5; // Matching UI's 5-day default
-                                        }
-                                      }
-                                    }
-                                    return parsedMed;
-                                  });
-
-                                  await useMedicationsStore.getState().addMedicationsBatchFromAI(
-                                    medsToVerify,
-                                    currentUser.id,
-                                    document?.id,
-                                    displayTitle,
-                                    suggestedStartDate,
-                                    document?.family_member_id!
-                                  );
-
-                                  // Schedule reminders for all batch-added meds
-                                  const updatedMeds = useMedicationsStore.getState().medications;
-                                  const batchMeds = updatedMeds.filter(m => m.source_document_id === document?.id);
-
-                                  for (const med of batchMeds) {
-                                    await scheduleAllForMedication(med);
+                          {/* Action Button - "Confirm & Add" when not added, "View in Tracker" when already added */}
+                          {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
+                            <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 4 }}>
+                              <TouchableOpacity
+                                style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
+                                onPress={async () => {
+                                  // If already added, just navigate to tracker
+                                  if (isAlreadyAdded) {
+                                    navigation.navigate('Medications');
+                                    return;
                                   }
 
-                                  setVerifiedMedications(prev => {
-                                    const next = new Set(prev);
-                                    medsToVerify.forEach(m => next.add(m.name));
-                                    return next;
-                                  });
+                                  setIsVerifyingAll(true);
+                                  try {
+                                    const currentUser = (await supabase.auth.getUser()).data.user;
+                                    if (!currentUser || !document) return;
 
-                                  Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
-                                    { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
-                                    { text: 'OK' },
-                                  ]);
-                                } catch (err) {
-                                  console.error('[PrescriptionSummary] Verify All Error:', err);
-                                  Alert.alert('Error', 'Failed to add all medications.');
-                                } finally {
-                                  setIsVerifyingAll(false);
-                                }
-                              }}
-                              disabled={isVerifyingAll}
-                              activeOpacity={0.8}
-                            >
-                              <LinearGradient
-                                colors={['#3B82F6', '#60A5FA', '#93C5FD']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.verifyAllGradient}
-                              >
-                                {isVerifyingAll ? (
-                                  <ActivityIndicator color={Colors.white} size="small" />
-                                ) : (
-                                  <>
-                                    <Feather name={isAlreadyAdded ? "eye" : "check-circle"} size={18} color={Colors.white} />
-                                    <Text style={styles.verifyAllButtonText}>
-                                      {isAlreadyAdded
-                                        ? "View in Tracker"
-                                        : `Confirm & Add ${activeMedsForBatch.length > 1 ? `All (${activeMedsForBatch.length})` : ''}`
+                                    const suggestedStartDate = parseDateOnly(new Date().toISOString());
+                                    const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
+                                      const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
+                                      // Merge user edits from live updates
+                                      const liveUpdates = medicationLiveUpdates[index];
+                                      if (liveUpdates) {
+                                        if (liveUpdates.current_reminder_times) {
+                                          parsedMed.time_of_day = liveUpdates.current_reminder_times;
+                                        }
+                                        parsedMed.start_date = liveUpdates.start_date || suggestedStartDate;
+                                        if (liveUpdates.duration_days !== undefined) {
+                                          parsedMed.duration_days = liveUpdates.duration_days;
+                                        }
+                                      } else {
+                                        // No live updates, apply matching defaults from UI card (Simple Sync)
+                                        parsedMed.start_date = suggestedStartDate;
+                                        if (parsedMed.duration_days === null || parsedMed.duration_days === undefined) {
+                                          const isAsNeeded = isAsNeededFrequency(parsedMed.timing_dosage || parsedMed.dosage, parsedMed.total_times_per_day);
+                                          if (!isAsNeeded) {
+                                            parsedMed.duration_days = 5; // Matching UI's 5-day default
+                                          }
+                                        }
                                       }
-                                    </Text>
-                                  </>
-                                )}
-                              </LinearGradient>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                </>
-              );
-            })()}
+                                      return parsedMed;
+                                    });
 
-            {/* Advised Tests Section */}
-            {document?.ai_analysis_status === 'completed' &&
-              document?.ai_analysis_result?.prescription_data?.recommended_tests &&
-              document?.ai_analysis_result?.prescription_data?.recommended_tests.length > 0 && (
-                <View style={styles.card}>
-                  <View style={[styles.cardHeader, { marginBottom: 4 }]}>
-                    <Text style={styles.cardTitle}>Advised Tests</Text>
+                                    await useMedicationsStore.getState().addMedicationsBatchFromAI(
+                                      medsToVerify,
+                                      currentUser.id,
+                                      document?.id,
+                                      displayTitle,
+                                      suggestedStartDate,
+                                      document?.family_member_id!
+                                    );
+
+                                    // Schedule reminders for all batch-added meds
+                                    const updatedMeds = useMedicationsStore.getState().medications;
+                                    const batchMeds = updatedMeds.filter(m => m.source_document_id === document?.id);
+
+                                    for (const med of batchMeds) {
+                                      await scheduleAllForMedication(med);
+                                    }
+
+                                    setVerifiedMedications(prev => {
+                                      const next = new Set(prev);
+                                      medsToVerify.forEach(m => next.add(m.name));
+                                      return next;
+                                    });
+
+                                    Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
+                                      { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
+                                      { text: 'OK' },
+                                    ]);
+                                  } catch (err) {
+                                    console.error('[PrescriptionSummary] Verify All Error:', err);
+                                    Alert.alert('Error', 'Failed to add all medications.');
+                                  } finally {
+                                    setIsVerifyingAll(false);
+                                  }
+                                }}
+                                disabled={isVerifyingAll}
+                                activeOpacity={0.8}
+                              >
+                                <LinearGradient
+                                  colors={['#3B82F6', '#60A5FA', '#93C5FD']}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 0 }}
+                                  style={styles.verifyAllGradient}
+                                >
+                                  {isVerifyingAll ? (
+                                    <ActivityIndicator color={Colors.white} size="small" />
+                                  ) : (
+                                    <Fragment>
+                                      <Feather name={isAlreadyAdded ? "eye" : "check-circle"} size={18} color={Colors.white} />
+                                      <Text style={styles.verifyAllButtonText}>
+                                        {isAlreadyAdded
+                                          ? "View in Tracker"
+                                          : `Confirm & Add ${activeMedsForBatch.length > 1 ? `All (${activeMedsForBatch.length})` : ''}`
+                                        }
+                                      </Text>
+                                    </Fragment>
+                                  )}
+                                </LinearGradient>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </Animated.View>
+                      )}
+                  </Animated.View>
+                );
+              })()}
+
+              {/* Advised Tests Section */}
+              {document?.ai_analysis_status === 'completed' &&
+                document?.ai_analysis_result?.prescription_data?.recommended_tests &&
+                document?.ai_analysis_result?.prescription_data?.recommended_tests.length > 0 && (
+                  <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: Colors.primary + '40' }]}>
+                    <View style={[styles.cardHeader, { marginBottom: 4 }]}>
+                      <Text style={styles.cardTitle}>Advised Tests</Text>
+                    </View>
+                    <Text style={[styles.cardSubtitle, { marginBottom: 0 }]}>
+                      Recommended lab tests and investigations
+                    </Text>
+
+                    <View style={{ gap: 12, marginTop: 14 }}>
+
+                      <GroupedTestsCard
+                        tests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
+                      />
+                    </View>
                   </View>
-                  <Text style={styles.cardSubtitle}>
-                    Recommended lab tests and investigations
-                  </Text>
- 
-                  <View style={{ gap: 12, marginTop: 12 }}>
- 
-                    <GroupedTestsCard
-                      tests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
-                    />
-                  </View>
-                </View>
-              )}
-          </>
-        )}
+                )}
+            </>
+          )}
 
 
-      </ScrollView>
+        </ScrollView>
 
-      {/* Share Modal */}
-      <ShareModal
-        visible={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        documentType={documentType}
-        onShareDocument={handleShareDocument}
-        onShareAnalysis={handleShareAnalysis}
-      />
+        {/* Share Modal */}
+        <ShareModal
+          visible={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          documentType={documentType}
+          onShareDocument={handleShareDocument}
+          onShareAnalysis={handleShareAnalysis}
+        />
 
-      <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing your health analysis..." />
+        <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing your health analysis..." />
 
-      {/* Document Options Modal */}
-      <DocumentOptionsModal
-        visible={showOptionsModal}
-        onClose={() => setShowOptionsModal(false)}
-        onDelete={confirmDelete}
-      />
+        {/* Document Options Modal */}
+        <DocumentOptionsModal
+          visible={showOptionsModal}
+          onClose={() => setShowOptionsModal(false)}
+          onDelete={confirmDelete}
+        />
 
-      {/* Full Screen Image Modal */}
-      {
-        imageUri && (
-          <FullScreenImageModal
-            visible={showFullScreenImage}
-            imageUri={imageUri}
-            onClose={() => setShowFullScreenImage(false)}
-          />
-        )
-      }
+        {/* Full Screen Image Modal */}
+        {
+          imageUri && (
+            <FullScreenImageModal
+              visible={showFullScreenImage}
+              imageUri={imageUri}
+              onClose={() => setShowFullScreenImage(false)}
+            />
+          )
+        }
 
-      {/* Floating Tooltip specifically for dismissed medications */}
-      <AnimatedTooltip
-        visible={tooltipVisible}
-        content={tooltipContent}
-        targetPosition={tooltipPosition}
-        onClose={() => setTooltipVisible(false)}
-      />
+        {/* Floating Tooltip specifically for dismissed medications */}
+        <AnimatedTooltip
+          visible={tooltipVisible}
+          content={tooltipContent}
+          targetPosition={tooltipPosition}
+          onClose={() => setTooltipVisible(false)}
+        />
 
-      {/* Duplicate Medication Modal */}
-      <DuplicateMedicationModal
-        visible={duplicateModalVisible}
-        onClose={handleCancelDuplicate}
-        newMedication={pendingDuplicateData?.newMed || null}
-        existingMedication={pendingDuplicateData?.existingMed || null}
-        onReplace={() => handleResolveDuplicate('replace')}
-        onAddBoth={() => handleResolveDuplicate('add')}
-      />
-    </SafeAreaView>
+        {/* Duplicate Medication Modal */}
+        <DuplicateMedicationModal
+          visible={duplicateModalVisible}
+          onClose={handleCancelDuplicate}
+          newMedication={pendingDuplicateData?.newMed || null}
+          existingMedication={pendingDuplicateData?.existingMed || null}
+          onReplace={() => handleResolveDuplicate('replace')}
+          onAddBoth={() => handleResolveDuplicate('add')}
+        />
+      </SafeAreaView>
     </View>
   );
 }
@@ -1194,8 +1284,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    zIndex: 10,
   },
   backButton: {
     width: 44,
@@ -1222,10 +1318,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: Colors.textPrimary,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: 12,
@@ -1239,26 +1336,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 0, // Full width cards - no horizontal padding
-    paddingTop: 0, // No top padding - image starts right after header
+    paddingHorizontal: 0,
+    paddingTop: 8,
     paddingBottom: 40,
   },
 
   // Hero Preview Card (2026 Style)
   previewCard: {
-    backgroundColor: 'transparent', // Transparent: let gradient show through edges
-    borderRadius: 0, // No border radius for edge-to-edge design
-    marginBottom: 0,
-    width: '100%',
-    padding: 0,
-    marginHorizontal: 0,
-    alignSelf: 'stretch',
-    overflow: 'hidden', // Essential for hero image
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    marginBottom: 4,
+    marginHorizontal: 16,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+    overflow: 'hidden',
   },
   heroImage: {
-    width: Dimensions.get('window').width,
-    height: 208,
-    backgroundColor: 'transparent',
+    width: '100%',
+    height: 220,
+    backgroundColor: Colors.gray50,
   },
 
   pdfIconWrapper: {
@@ -1282,16 +1381,16 @@ const styles = StyleSheet.create({
   },
   // PDF Preview styles
   pdfPreviewWrapper: {
-    width: Dimensions.get('window').width,
-    height: 208,
-    backgroundColor: 'transparent',
+    width: '100%',
+    height: 220,
+    backgroundColor: Colors.white,
     overflow: 'hidden',
   },
   pdfPreview: {
     flex: 1,
-    width: Dimensions.get('window').width,
-    height: 208,
-    backgroundColor: 'transparent',
+    width: '100%',
+    height: 220,
+    backgroundColor: Colors.white,
   },
   // New professional PDF preview card styles
   pdfPreviewCard: {
@@ -1332,7 +1431,7 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.02)', // Subtle overlay
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   heroBadgeContainer: {
     position: 'absolute',
@@ -1410,76 +1509,192 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // 2026 Floating Action Buttons - Overlay Design
+  // 2026 Floating Action Buttons - Compact Pill Design
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
-    right: 12,
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  compactActionPill: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 100,
+    padding: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 1)',
+  },
+  pillAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    backgroundColor: 'transparent', // Transparent container - buttons have their own backgrounds
-    borderRadius: 14,
-    padding: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 100,
+  },
+  pillActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  pillDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#94A3B8', // Increased visibility (Slate-400 equivalent)
+    marginHorizontal: 4,
   },
 
+  // Retain actionCard styles for potential reuse or legacy components if any
   actionCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10, // Reduced from 12 for compact look
-    paddingHorizontal: 12, // Reduced from 14 for compact look
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-    gap: 6, // Reduced from 8 for tighter spacing
-    shadowColor: Colors.gray900,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    minHeight: 44, // iOS minimum touch target
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+    minHeight: 44,
   },
   actionIconCircle: {
-    width: 32, // Reduced from 36 for compact look
-    height: 32, // Reduced from 36 for compact look
-    borderRadius: 16,
-    backgroundColor: Colors.primary + '10',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionCardLabel: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    color: Colors.textPrimary,
-    letterSpacing: 0.2,
+    color: Colors.gray800,
+    letterSpacing: 0.1,
   },
 
 
+
+
+  // Medications Header Card (styled like AI Summary)
+  medicationsHeaderCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  medicationsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+    marginTop: 24,
+    paddingHorizontal: 16, // Add padding inside the container
+    paddingVertical: 12,   // Add vertical padding
+    backgroundColor: Colors.white, // Explicit white background
+    borderRadius: 16,      // Rounded corners
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginHorizontal: 16, // Add margin to float it
+  },
+  medicationsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flex: 1,
+  },
+  medicationsCountText: {
+    fontSize: 56,
+    fontWeight: '800',
+    color: '#000000',
+    includeFontPadding: false,
+    lineHeight: 64, // Adjusted for larger font
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    letterSpacing: -2,
+    paddingHorizontal: 8,
+  },
+  medicationsHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: -0.2,
+  },
+  medicationsHeaderSubtitle: {
+    fontSize: 13,
+    color: Colors.gray500,
+    fontWeight: '400',
+    lineHeight: 18,
+  },
 
   // Cards
   card: {
-    backgroundColor: 'transparent',
-    // Removed: borderRadius, shadow*, elevation
-    padding: 16, // MD3: Reduced from 20
-    marginBottom: 0, // Minimal spacing
-    // Flat design - no shadows
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   medicationsCard: {
-    backgroundColor: 'transparent',
-    paddingTop: 0,
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    paddingTop: 4,
     paddingBottom: 0,
     paddingHorizontal: 0,
-    marginBottom: 0,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+    overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 12, // Improved spacing for better hierarchy
-    letterSpacing: -0.5,
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
   summaryCard: {
     backgroundColor: Colors.white,
@@ -2564,18 +2779,15 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   verifyAllButton: {
-    width: 300,
-    alignSelf: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+    alignSelf: 'stretch',
+    marginTop: 8,
+    marginBottom: 8,
     borderRadius: 16,
-    // Shadow for iOS
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    // Elevation for Android
-    elevation: 4,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
     overflow: 'hidden',
   },
   verifyAllGradient: {
@@ -2584,12 +2796,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     gap: 10,
+    borderRadius: 16,
   },
   verifyAllButtonText: {
     color: Colors.white,
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 16,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   verifyAllButtonDisabled: {
     opacity: 0.6,

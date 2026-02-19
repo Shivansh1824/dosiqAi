@@ -382,7 +382,7 @@ export function ReminderTimesSectionLegacy({
         const normalizedInactiveTimes = inactiveReminderTimes.map(normalizeTime);
 
         // Filter out times that are already active OR explicitly inactive
-        const missingTimes = rowTimes.filter(t => 
+        const missingTimes = rowTimes.filter(t =>
             !normalizedReminderTimes.includes(t) && !normalizedInactiveTimes.includes(t)
         );
 
@@ -392,7 +392,7 @@ export function ReminderTimesSectionLegacy({
                 const timesToAdd = rows
                     .map(r => r.defaultTime)
                     .filter(t => !normalizedInactiveTimes.includes(normalizeTime(t)));
-                
+
                 const newTimes = Array.from(new Set([...reminderTimes, ...timesToAdd]));
                 newTimes.sort((a, b) => {
                     const ta = parseInt(normalizeTime(a).replace(':', ''));
@@ -505,7 +505,7 @@ export function ReminderTimesSectionLegacy({
             else if (id === 'night') defaultTime = preferredTimes?.night || '21:00';
             // Note: Extras are harder to map back from ID alone without reconstructing rows, 
             // but for standard morning/afternoon/night causing the issue, this is sufficient.
-            
+
             if (defaultTime && activeNormalizedTimes.includes(normalizeTime(defaultTime))) {
                 return true;
             }
@@ -565,9 +565,9 @@ export function ReminderTimesSectionLegacy({
                 {rowsToRender.map((batch, index) => {
                     const normalizedBatchTime = normalizeTime(batch.defaultTime);
                     const isOn = reminderTimes.some(t => normalizeTime(t) === normalizedBatchTime);
-                    
+
                     if (deletedBatchIds.includes(batch.id)) {
-                         return null;
+                        return null;
                     }
 
                     const isCustomReminder = batch.label === 'Reminder' || batch.id.startsWith('extra-');
@@ -690,7 +690,7 @@ export function ReminderTimesSectionLegacy({
                                 </View>
 
                                 <View style={styles.barWithNoteContainer}>
-                                    <View style={[styles.batchRow, swipedRightRadiusStyle, (batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night') && { overflow: 'hidden', paddingLeft: 0, paddingRight: 0, paddingVertical: 0, height: 54 }]}>
+                                    <View style={[styles.batchRow, swipedRightRadiusStyle, (batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night') && { overflow: 'hidden', paddingLeft: 0, paddingRight: 0, paddingVertical: 0, minHeight: 54 }]}>
                                         {batch.id === 'morning' ? (
                                             <>
                                                 <LinearGradient
@@ -740,15 +740,15 @@ export function ReminderTimesSectionLegacy({
                                                     </View>
 
                                                     <View style={styles.timeBarRightGroup}>
-                                                    {!isVerified && (
-                                                        <Switch
-                                                            value={isOn}
-                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                            trackColor={{ false: Colors.gray200, true: Colors.success }}
-                                                            thumbColor={Colors.white}
-                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                        />
-                                                    )}
+                                                        {!isVerified && (
+                                                            <Switch
+                                                                value={isOn}
+                                                                onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                                trackColor={{ false: Colors.gray200, true: Colors.success }}
+                                                                thumbColor={Colors.white}
+                                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                            />
+                                                        )}
 
                                                         <TouchableOpacity
                                                             style={styles.noteIconButton}
@@ -1130,9 +1130,9 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     reminderBarsContainer: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20, // Increased to avoid corner clipping
         marginTop: 12,
-        marginBottom: 0,
+        marginBottom: 8, // Added bottom margin back for better separation
     },
     reminderHeader: {
         flexDirection: 'row',
