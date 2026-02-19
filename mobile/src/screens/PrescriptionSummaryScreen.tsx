@@ -994,7 +994,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   <View style={styles.medicationsHeaderLeft}>
                                     <Text style={styles.medicationsCountText}>{count}</Text>
                                     <View style={{ gap: 2, flex: 1, justifyContent: 'center' }}>
-                                      <Text style={styles.medicationsHeaderTitle}>Medications Detected</Text>
+                                      <Text style={styles.medicationsHeaderTitle}>MEDICATIONS DETECTED</Text>
                                       <Text style={styles.medicationsHeaderSubtitle}>
                                         dosiq Ai found {count}{' '}
                                         {count === 1 ? 'medication' : 'medications'} in your prescription. See details below.
@@ -1637,7 +1637,7 @@ const styles = StyleSheet.create({
   medicationsCountText: {
     fontSize: 56,
     fontWeight: '800',
-    color: Colors.primary,
+    color: '#000000',
     includeFontPadding: false,
     lineHeight: 64, // Adjusted for larger font
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
@@ -1646,8 +1646,8 @@ const styles = StyleSheet.create({
   },
   medicationsHeaderTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: Colors.gray900,
+    fontWeight: '800',
+    color: '#000000',
     letterSpacing: -0.2,
   },
   medicationsHeaderSubtitle: {

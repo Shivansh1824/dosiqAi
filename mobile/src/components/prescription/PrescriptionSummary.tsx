@@ -59,7 +59,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
                     <View style={styles.iconContainer}>
                         <MaterialCommunityIcons name="creation" size={18} color={Colors.white} />
                     </View>
-                    <Text style={styles.aiSummaryTitle}>AI Summary</Text>
+                    <Text style={styles.aiSummaryTitle}>AI SUMMARY</Text>
                 </View>
                 <MaterialCommunityIcons
                     name={isExpanded ? "chevron-up" : "chevron-down"}
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     },
     aiSummaryTitle: {
         fontSize: 18,
-        ...Typography.fontWeights.bold,
+        ...Typography.fontWeights.extrabold,
         color: Colors.primaryDark,
         letterSpacing: -0.3,
     },
