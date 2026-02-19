@@ -108,23 +108,30 @@ If uncertain -> is_identified: false
 
 **LAYER 3: medicine_purpose**
 
-**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose in **simple, patient-friendly language** describing what the medicine **FIXES** or **SOLVES**. Use action verbs (e.g., "Reduces...", "Relieves...", "Fights..."). Avoid abstract nouns like "Control", "Management", or "Support".
+**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose in **EXTREMELY SIMPLE, PLAIN ENGLISH** describing what the medicine **FIXES** or **SOLVES**.
+- **Target Audience:** Explain it to a 10-year-old or a grandmother.
+- **FORBIDDEN WORDS:** Do NOT use words like "Inflammation", "Hypertension", "Edema", "Prophylaxis", "Suppression", "Management", "Control", "Anti-inflammatory".
+- **REQUIRED STYLE:** Use action verbs + simple body parts/symptoms (e.g., "Lowers BP", "Stops pain", "Clears chest").
 
-**Example Medicine Purposes (for reference language style):**
-- Metformin -> "Lowers blood sugar" (NOT "Blood Sugar Control")
-- Atorvastatin -> "Reduces cholesterol" (NOT "Cholesterol Control")
-- Amlodipine -> "Lowers blood pressure" (NOT "Blood Pressure Control")
-- Paracetamol -> "Relieves pain and fever" (NOT "Fever and Pain Relief")
-- Omeprazole -> "Reduces stomach acid" (NOT "Acid Reflux Control")
-- Azithromycin -> "Fights bacterial infection" (NOT "Bacterial Infection Treatment")
-- Cetirizine -> "Relieves allergy symptoms" (NOT "Allergy Relief")
-- Dolo 650 -> "Relieves pain and fever"
-- Pan D -> "Reduces acidity and nausea"
+**Example Transformations (Strictly follow this style):**
+- "Reduces airway inflammation" -> "Helps you breathe easier" or "Clears lungs"
+- "Antihypertensive" -> "Lowers blood pressure"
+- "Analgesic" -> "Relieves pain"
+- "Anti-inflammatory" -> "Reduces swelling and pain"
+- "Lipid lowering" -> "Reduces bad cholesterol"
+- "Metformin" -> "Lowers blood sugar"
+- "Antibiotic" -> "Fights infection"
+- "Antiemetic" -> "Stops vomiting/nausea"
+- "Ondansetron" -> "Stops nausea"
+- "Shelcal" -> "Strengthens bones"
+- "Pan D" -> "Reduces acidity"
+- "Dolo 650" -> "Relieves fever and pain"
+- "Montelukast" -> "Opened airways/Helps breathing"
 
-**Important:** Focus on the **benefit** to the patient. Use simple language. Use your pharmaceutical expertise to provide accurate therapeutic purposes for ANY identified medicine on the prescription.
+**Important:** Focus on the **benefit** to the patient. NEVER use "Management" or "Control". JUST say what it does in simplest terms.
 
 **Output:**
-- If is_identified: true -> Provide specific purpose
+- If is_identified: true -> Provide specific simplified purpose
 - If is_identified: false -> Set to null
 
 ---
