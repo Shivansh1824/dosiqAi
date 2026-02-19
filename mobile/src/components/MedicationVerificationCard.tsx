@@ -598,6 +598,25 @@ export default function MedicationVerificationCard({
         {hasAttributes && (
           <View style={styles.expandedContentModal}>
             <View style={styles.tableBorderContainer}>
+              {/* AI Confidence Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableHeaderCell}>
+                  <Text style={styles.tableHeaderText}>AI SCORE</Text>
+                </View>
+                <View style={styles.tableValueCell}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Feather
+                      name={medication.confidence === 'high' ? 'check-circle' : medication.confidence === 'medium' ? 'alert-circle' : 'alert-triangle'}
+                      size={12}
+                      color={medication.confidence === 'high' ? '#137333' : medication.confidence === 'medium' ? '#F9AB00' : '#C5221F'}
+                    />
+                    <Text style={[styles.tableValueText, { fontWeight: 'bold' }]}>
+                      AI SCORE
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Note Row */}
               {(medication.source_raw?.dosage_instruction || medication.dosage) && (
                 <View style={styles.tableRow}>

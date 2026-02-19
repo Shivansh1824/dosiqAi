@@ -39,7 +39,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#1E4620',
                 iconColor: '#137333',
                 icon: 'check-circle' as const,
-                text: 'AI Confident',
+                text: 'AI SCORE',
             };
         case 'medium':
             return {
@@ -47,7 +47,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#5F370E',
                 iconColor: '#F9AB00',
                 icon: 'alert-circle' as const,
-                text: 'AI Uncertain',
+                text: 'AI SCORE',
             };
         case 'low':
             return {
@@ -55,7 +55,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#8C1D18',
                 iconColor: '#C5221F',
                 icon: 'alert-triangle' as const,
-                text: 'AI Assumed',
+                text: 'AI SCORE',
             };
     }
 };
@@ -123,33 +123,37 @@ export function MedicationHeader({
                                 multiline
                             />
                         ) : (
-                            <TouchableOpacity
-                                onPress={onNamePress}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                activeOpacity={0.7}
-                            >
-                                <Text
-                                    style={[styles.medicationName, isDismissed && { color: Colors.gray400, textDecorationLine: 'line-through' }]}
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
+                            <View style={styles.nameBadgeContainer}>
+                                <TouchableOpacity
+                                    onPress={onNamePress}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    activeOpacity={0.7}
                                 >
-                                    {name}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
+                                    <Text
+                                        style={[styles.medicationName, isDismissed && { color: Colors.gray400, textDecorationLine: 'line-through' }]}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {name}
+                                    </Text>
+                                </TouchableOpacity>
 
-                        <View style={styles.subtitleRow}>
-                            {!isEditing && (
-                                <>
-                                    <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                                        <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
-                                        <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
-                                            {confidenceStyle.text}
-                                        </Text>
-                                    </View>
-                                </>
-                            )}
-                        </View>
+                                {!isEditing && (
+                                    <TouchableOpacity
+                                        onPress={onNamePress}
+                                        activeOpacity={0.7}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
+                                            <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
+                                            <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
+                                                {confidenceStyle.text}
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
                     </View>
                 </View>
 
@@ -329,6 +333,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     // titleRow removed
+    nameBadgeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+    },
     subtitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
