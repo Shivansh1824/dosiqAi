@@ -157,7 +157,7 @@ async function callOpenRouterAPI(
         response_format: { type: "json_object" }, // Request raw JSON without markdown
         reasoning: {
           enabled: true,
-          effort: "medium",
+          effort: "low",
         },
       }),
     });
