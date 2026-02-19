@@ -987,7 +987,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
-                            const count = innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length;
+                            const count = innerMedicines.length;
                             return (
                               <View style={styles.medicationsHeaderCard}>
                                 <View style={styles.medicationsHeaderRow}>
