@@ -1635,13 +1635,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   medicationsCountText: {
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: '800',
     color: Colors.primary,
     includeFontPadding: false,
-    lineHeight: 54,
+    lineHeight: 64, // Adjusted for larger font
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
     letterSpacing: -2,
+    paddingHorizontal: 8,
   },
   medicationsHeaderTitle: {
     fontSize: 18,
