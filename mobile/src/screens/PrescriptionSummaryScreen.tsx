@@ -986,27 +986,25 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           }
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
-                          {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View style={styles.medicationsHeaderCard}>
-                              <View style={styles.medicationsHeaderRow}>
-                                <View style={styles.medicationsHeaderLeft}>
-                                  <MaterialCommunityIcons name="pill" size={20} color={Colors.primary} />
-                                  <View style={{ gap: 2 }}>
-                                    <Text style={styles.medicationsHeaderTitle}>Medications Detected</Text>
-                                    <Text style={styles.medicationsHeaderSubtitle}>
-                                      {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}{' '}
-                                      {(innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length) === 1 ? 'medication' : 'medications'} identified from your prescription
-                                    </Text>
+                          {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
+                            const count = innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length;
+                            return (
+                              <View style={styles.medicationsHeaderCard}>
+                                <View style={styles.medicationsHeaderRow}>
+                                  <View style={styles.medicationsHeaderLeft}>
+                                    <MaterialCommunityIcons name="pill" size={20} color={Colors.primary} />
+                                    <View style={{ gap: 2 }}>
+                                      <Text style={styles.medicationsHeaderTitle}>{count} Medications Detected</Text>
+                                      <Text style={styles.medicationsHeaderSubtitle}>
+                                        {count}{' '}
+                                        {count === 1 ? 'medication' : 'medications'} identified from your prescription
+                                      </Text>
+                                    </View>
                                   </View>
                                 </View>
-                                <View style={styles.medicationsCountBadge}>
-                                  <Text style={styles.medicationsCountText}>
-                                    {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}
-                                  </Text>
-                                </View>
                               </View>
-                            </View>
-                          )}
+                            );
+                          })()}
 
                           {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                           {verifiedMedications.size > 0 && (() => {
@@ -1613,20 +1611,6 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
     fontWeight: '400',
     lineHeight: 18,
-  },
-  medicationsCountBadge: {
-    backgroundColor: Colors.primary + '15',
-    minWidth: 32,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  medicationsCountText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primary,
   },
 
   // Cards
