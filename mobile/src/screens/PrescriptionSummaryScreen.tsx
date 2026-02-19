@@ -37,6 +37,7 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
+import { StatusBar } from 'expo-status-bar';
 
 type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
@@ -49,6 +50,7 @@ interface PrescriptionSummaryScreenProps {
 
 export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionSummaryScreenProps) {
   const { familyMembers } = useFamilyMembersStore();
+
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
 
   // Resolve document: either passed directly or found in store by ID
@@ -768,6 +770,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" />
       <LinearGradient
         colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
@@ -969,10 +972,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
                           otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
                           followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
-                          style={[{ marginBottom: 0 }]}
                           defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
-                          expanded={isSummaryExpanded}
-                          onToggle={setIsSummaryExpanded}
                         />
                       )}
 
@@ -980,10 +980,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     {document?.ai_analysis_status === 'completed' &&
                       innerMedicines.length > 0 && (
                         <Animated.View
-                          layout={isSummaryExpanded
-                            ? LinearTransition.duration(300)
-                            : LinearTransition.duration(300).delay(300)
-                          }
+                          layout={LinearTransition.duration(250)}
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
@@ -1376,7 +1373,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray500,
   },
-  // PDF Preview styles for react-native-pdf-jsi
+  // PDF Preview styles
   pdfPreviewWrapper: {
     width: '100%',
     height: 220,
