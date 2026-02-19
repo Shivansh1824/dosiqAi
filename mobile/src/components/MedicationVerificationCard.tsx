@@ -49,6 +49,7 @@ interface MedicationVerificationCardProps {
   onRestore?: () => void; // NEW: Callback to restore dismissed medication
   familyMember?: FamilyMember;
   followUpDays?: number; // NEW: Default duration for SOS
+  confidenceScore?: number; // NEW: Document-level confidence score (0.0-1.0)
 }
 
 /**
@@ -72,6 +73,7 @@ export default function MedicationVerificationCard({
   onRestore,
   familyMember,
   followUpDays,
+  confidenceScore,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
   const backgroundColor = isVerified ? Colors.gray50 : '#FFFFFF';
@@ -611,7 +613,9 @@ export default function MedicationVerificationCard({
                       color={medication.confidence === 'high' ? '#137333' : medication.confidence === 'medium' ? '#F9AB00' : '#C5221F'}
                     />
                     <Text style={[styles.tableValueText, { fontWeight: 'bold' }]}>
-                      AI SCORE
+                      {confidenceScore !== undefined
+                        ? `Ai Confidence: ${Math.round(confidenceScore * 100)}%`
+                        : 'AI SCORE'}
                     </Text>
                   </View>
                 </View>

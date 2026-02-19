@@ -1043,6 +1043,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     onVerifyAndAdd={handleVerifyAndAddMedication}
                                     duplicateOf={duplicateOf || undefined}
                                     medicineIndex={index}
+                                    confidenceScore={document.ai_analysis_result?.analysis_metadata?.confidence_score}
                                     onLiveUpdate={(updates: {
                                       current_reminder_times?: string[];
                                       start_date?: string;
