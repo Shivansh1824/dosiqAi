@@ -375,7 +375,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         ...Typography.fontWeights.bold,
         letterSpacing: 0.3,
-        textTransform: 'uppercase',
     },
     nameScrollView: {
         flexGrow: 0,

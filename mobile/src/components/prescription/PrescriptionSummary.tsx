@@ -59,7 +59,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
                     <View style={styles.iconContainer}>
                         <MaterialCommunityIcons name="creation" size={18} color={Colors.white} />
                     </View>
-                    <Text style={styles.aiSummaryTitle}>AI SUMMARY</Text>
+                    <Text style={styles.aiSummaryTitle}>Ai Summary</Text>
                 </View>
                 <MaterialCommunityIcons
                     name={isExpanded ? "chevron-up" : "chevron-down"}
