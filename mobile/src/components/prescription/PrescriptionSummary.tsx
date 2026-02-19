@@ -140,8 +140,7 @@ export function PrescriptionSummary({
     // OPTIMIZED: No layout thrashing (borderWidth is constant)
     const containerStyle = useAnimatedStyle(() => {
         return {
-            borderColor: withTiming(isExpanded ? '#60A5FA' : 'transparent', { duration: 250 }),
-            backgroundColor: withTiming(isExpanded ? '#F8FAFC' : Colors.white, { duration: 250 }),
+            borderColor: withTiming(isExpanded ? '#BFDBFE' : 'transparent', { duration: 250 }), // Lighter blue (Blue-200)
         };
     }, [isExpanded]);
 
@@ -150,8 +149,16 @@ export function PrescriptionSummary({
             // Use standard duration for no-bounce, high-performance transition
             // Tuned to 250ms for snappier feel
             layout={LinearTransition.duration(250)}
-            style={[styles.outerShell, style, containerStyle, { borderWidth: 1.5 }]} // Constant borderWidth
+            style={[styles.outerShell, style, containerStyle, { borderWidth: 1, backgroundColor: 'transparent' }]} // Constant borderWidth 1 and transparent bg
         >
+             {/* Main Card Background Gradient - Matches Screen Background */}
+            <LinearGradient
+                colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+            />
+
             {/* Pulsing blue-violet aura glow just behind/before the icon - Always visible */}
             <IconGlow />
 

@@ -980,10 +980,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     {document?.ai_analysis_status === 'completed' &&
                       innerMedicines.length > 0 && (
                         <Animated.View
-                          layout={isSummaryExpanded
-                            ? LinearTransition.duration(300)
-                            : LinearTransition.duration(300).delay(300)
-                          }
+                          layout={LinearTransition.duration(250)}
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
