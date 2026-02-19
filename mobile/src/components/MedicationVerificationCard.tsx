@@ -49,6 +49,7 @@ interface MedicationVerificationCardProps {
   onRestore?: () => void; // NEW: Callback to restore dismissed medication
   familyMember?: FamilyMember;
   followUpDays?: number; // NEW: Default duration for SOS
+  confidenceScore?: number; // NEW: Document-level confidence score (0.0-1.0)
 }
 
 /**
@@ -72,6 +73,7 @@ export default function MedicationVerificationCard({
   onRestore,
   familyMember,
   followUpDays,
+  confidenceScore,
 }: MedicationVerificationCardProps) {
   // Use white background for all cards
   const backgroundColor = isVerified ? Colors.gray50 : '#FFFFFF';
@@ -598,6 +600,27 @@ export default function MedicationVerificationCard({
         {hasAttributes && (
           <View style={styles.expandedContentModal}>
             <View style={styles.tableBorderContainer}>
+              {/* AI Confidence Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableHeaderCell}>
+                  <Text style={styles.tableHeaderText}>Ai</Text>
+                </View>
+                <View style={styles.tableValueCell}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Feather
+                      name={medication.confidence === 'high' ? 'check-circle' : medication.confidence === 'medium' ? 'alert-circle' : 'alert-triangle'}
+                      size={12}
+                      color={medication.confidence === 'high' ? '#137333' : medication.confidence === 'medium' ? '#F9AB00' : '#C5221F'}
+                    />
+                    <Text style={[styles.tableValueText, { fontWeight: 'bold' }]}>
+                      {confidenceScore !== undefined
+                        ? `Ai Confidence: ${Math.round(confidenceScore * 100)}%`
+                        : 'Ai'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Note Row */}
               {(medication.source_raw?.dosage_instruction || medication.dosage) && (
                 <View style={styles.tableRow}>
@@ -706,8 +729,7 @@ export default function MedicationVerificationCard({
         onResetToAI={handleResetToAI}
         onSave={handleSaveEdits}
         onCancel={handleCancelEdits}
-        onAnalysisPress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
-        onNamePress={(e) => handleTooltipPress(e, medication.name)}
+        onNamePress={() => handleOpenAnalysisDetail('dosiq Ai Analysis')}
         serialNumber={medicineIndex !== undefined ? medicineIndex + 1 : undefined}
         isVerified={isVerified}
       />
@@ -722,55 +744,101 @@ export default function MedicationVerificationCard({
           <View style={{ paddingBottom: 8 }}>
             {/* AI Summary Static Labels */}
             <View style={styles.summaryContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.aiButtonsRow}
-              >
-                {medication.medicine_type && (
+              <View style={styles.aiButtonsRow}>
+                {/* 1. Strength */}
+                {medication.strength && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
+                    onPress={(e) => handleTooltipPress(e, 'Strength')}
                   >
-                    <LinearGradient
-                      colors={['#FFFFFF', '#EFF6FF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
-                      style={styles.aiButton}
-                    >
+                    <View style={styles.aiButton}>
                       <View style={styles.aiButtonIcon}>
-                        <Feather name="layers" size={10} color={Colors.primary} />
+                        <Feather name="zap" size={10} color={Colors.gray600} />
                       </View>
                       <Text style={styles.aiButtonText}>
-                        {medication.medicine_type}
+                        {medication.strength}
                       </Text>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 )}
 
+                {/* 2. Purpose */}
                 {medication.medicine_purpose && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
                   >
-                    <LinearGradient
-                      colors={['#FFFFFF', '#EFF6FF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
+                    <View
                       style={styles.aiButton}
                     >
                       <View style={styles.aiButtonIcon}>
-                        <Feather name="activity" size={10} color={Colors.primary} />
+                        <Feather name="activity" size={10} color={Colors.gray600} />
                       </View>
                       <Text style={styles.aiButtonText}>
                         {medication.medicine_purpose}
                       </Text>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 )}
-              </ScrollView>
+
+                {/* 3. Type */}
+                {medication.medicine_type && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
+                  >
+                    <View
+                      style={styles.aiButton}
+                    >
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="layers" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.medicine_type}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 4. Note */}
+                {(medication.source_raw?.dosage_instruction || medication.dosage) && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Note')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="file-text" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.source_raw?.dosage_instruction || medication.dosage}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 5. Duration */}
+                {medication.duration_days && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Duration')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="clock" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.duration_days} Days
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {(medication.medicine_type || medication.medicine_purpose) && <View style={styles.divider} />}
@@ -1053,6 +1121,7 @@ const styles = StyleSheet.create({
   summaryContainer: {
     marginTop: 0,
     marginBottom: 0,
+    paddingHorizontal: 10,
   },
   summaryText: {
     fontSize: 13,
@@ -1066,42 +1135,29 @@ const styles = StyleSheet.create({
   },
   aiButtonsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 4,
-    paddingHorizontal: 16,
+    marginTop: 0,
+    paddingHorizontal: 8,
   },
   aiButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#93C5FD', // Darker blue border (Blue-300) for visibility
-    backgroundColor: '#F0F9FF', // Slight blue tint (Sky-50) solid background
-    gap: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6', // Colors.gray100
+    gap: 6,
   },
   aiButtonIcon: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   aiButtonText: {
-    fontSize: 10,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.gray800,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#4B5563', // Colors.gray600
+    letterSpacing: 0,
   },
   modalContent: {
     marginBottom: 20,

@@ -58,10 +58,10 @@ export function CoursePeriodSection({
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
                 </View>
                 {(onIntervalChange || fixedFrequencyText) && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={() => !fixedFrequencyText && setShowIntervalPicker(true)}
                         disabled={isVerified || !!fixedFrequencyText}
-                        style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]} 
+                        style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]}
                     >
                         <Text style={styles.frequencyText}>{fixedFrequencyText || getIntervalLabel()}</Text>
                         {!isVerified && !fixedFrequencyText && <Feather name="chevron-down" size={14} color={Colors.primary} />}
@@ -78,7 +78,7 @@ export function CoursePeriodSection({
                 >
                     <BlurView intensity={20} tint="light" style={[styles.bentoCard, styles.startDateBorder]}>
                         <View style={[styles.bentoIconBadge, { backgroundColor: '#ECFDF5' }]}>
-                             <Feather name="calendar" size={14} color={Colors.success} />
+                            <Feather name="calendar" size={14} color={Colors.success} />
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.bentoLabel}>START DATE</Text>
@@ -89,8 +89,8 @@ export function CoursePeriodSection({
 
                 {/* Directional Flow Arrow */}
                 <View style={styles.flowConnector}>
-                   <View style={styles.flowLine} />
-                   <Feather name="arrow-right" size={16} color={Colors.gray400} />
+                    <View style={styles.flowLine} />
+                    <Feather name="arrow-right" size={16} color={Colors.gray400} />
                 </View>
 
                 {/* End Date Card - Red Box */}
@@ -102,7 +102,7 @@ export function CoursePeriodSection({
                 >
                     <BlurView intensity={20} tint="light" style={[styles.bentoCard, styles.endDateBorder]}>
                         <View style={[styles.bentoIconBadge, { backgroundColor: '#FEF2F2' }]}>
-                             <Feather name="flag" size={14} color={Colors.error} />
+                            <Feather name="flag" size={14} color={Colors.error} />
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.bentoLabel}>END DATE</Text>
@@ -140,8 +140,8 @@ export function CoursePeriodSection({
 const styles = StyleSheet.create({
     coursePeriodContainer: {
         paddingHorizontal: 20,
-        marginTop: 4, // Reduced from 8
-        marginBottom: 8, // Reduced from 12
+        marginTop: 16,
+        marginBottom: 22,
     },
     coursePeriodHeader: {
         flexDirection: 'row',

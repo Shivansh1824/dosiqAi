@@ -44,19 +44,27 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
             layout={LinearTransition.duration(300)}
             style={[styles.aiSummaryCard, style]}
         >
+            <LinearGradient
+                colors={['#EFF6FF', '#FFFFFF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+            />
             <TouchableOpacity
                 style={styles.aiSummaryHeader}
                 onPress={handleToggle}
                 activeOpacity={0.7}
             >
                 <View style={styles.headerLeft}>
-                    <MaterialCommunityIcons name="creation" size={22} color={Colors.primary} />
-                    <Text style={styles.aiSummaryTitle}>AI Summary</Text>
+                    <View style={styles.iconContainer}>
+                        <MaterialCommunityIcons name="creation" size={18} color={Colors.white} />
+                    </View>
+                    <Text style={styles.aiSummaryTitle}>Ai Summary</Text>
                 </View>
                 <MaterialCommunityIcons
                     name={isExpanded ? "chevron-up" : "chevron-down"}
                     size={24}
-                    color={Colors.gray500}
+                    color={Colors.primary}
                 />
             </TouchableOpacity>
 
@@ -109,13 +117,13 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         marginTop: 8,
         padding: 0,
-        borderWidth: 1,
-        borderColor: Colors.gray200,
-        shadowColor: '#1a1a2e',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-        elevation: 2,
+        borderWidth: 1.5,
+        borderColor: Colors.primaryLight,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 15,
+        elevation: 4,
         overflow: 'hidden',
     },
     aiSummaryHeader: {
@@ -129,26 +137,39 @@ const styles = StyleSheet.create({
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
+    },
+    iconContainer: {
+        backgroundColor: Colors.primary,
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
     },
     contentContainer: {
         marginTop: 0,
         paddingHorizontal: 18,
         paddingBottom: 18,
-        borderTopWidth: 1,
-        borderTopColor: Colors.gray100,
+        borderTopWidth: 1.25,
+        borderTopColor: 'rgba(59, 130, 246, 0.1)', // Light primary border
         paddingTop: 14,
     },
     aiSummaryTitle: {
-        fontSize: 16,
-        ...Typography.fontWeights.bold,
-        color: Colors.gray900,
-        letterSpacing: -0.2,
+        fontSize: 18,
+        ...Typography.fontWeights.extrabold,
+        color: Colors.primaryDark,
+        letterSpacing: -0.3,
     },
     aiSummaryText: {
         fontSize: 14,
         lineHeight: 21,
-        color: Colors.gray600,
+        color: Colors.gray700,
         ...Typography.fontWeights.regular,
     },
     extraInfoContainer: {
@@ -169,7 +190,7 @@ const styles = StyleSheet.create({
     },
     boldText: {
         ...Typography.fontWeights.bold,
-        color: Colors.gray800,
+        color: Colors.gray900,
     }
 });
 

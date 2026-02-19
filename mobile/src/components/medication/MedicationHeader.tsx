@@ -20,7 +20,7 @@ interface MedicationHeaderProps {
     onResetToAI: () => void;
     onSave: () => void;
     onCancel: () => void;
-    onAnalysisPress?: () => void;
+
     onNamePress?: (event: any) => void;
     serialNumber?: number;
     isVerified?: boolean;
@@ -39,7 +39,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#1E4620',
                 iconColor: '#137333',
                 icon: 'check-circle' as const,
-                text: 'AI Confident',
+                text: 'Ai',
             };
         case 'medium':
             return {
@@ -47,7 +47,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#5F370E',
                 iconColor: '#F9AB00',
                 icon: 'alert-circle' as const,
-                text: 'AI Uncertain',
+                text: 'Ai',
             };
         case 'low':
             return {
@@ -55,7 +55,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#8C1D18',
                 iconColor: '#C5221F',
                 icon: 'alert-triangle' as const,
-                text: 'AI Assumed',
+                text: 'Ai',
             };
     }
 };
@@ -76,7 +76,7 @@ export function MedicationHeader({
     onResetToAI,
     onSave,
     onCancel,
-    onAnalysisPress,
+
     onNamePress,
     serialNumber,
     isVerified = false,
@@ -123,56 +123,37 @@ export function MedicationHeader({
                                 multiline
                             />
                         ) : (
-                            <TouchableOpacity
-                                onPress={onNamePress}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                activeOpacity={0.7}
-                            >
-                                <Text
-                                    style={[styles.medicationName, isDismissed && { color: Colors.gray400, textDecorationLine: 'line-through' }]}
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
+                            <View style={styles.nameBadgeContainer}>
+                                <TouchableOpacity
+                                    onPress={onNamePress}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    activeOpacity={0.7}
                                 >
-                                    {name}
-                                </Text>
-                            </TouchableOpacity>
+                                    <Text
+                                        style={[styles.medicationName, isDismissed && { color: Colors.gray400, textDecorationLine: 'line-through' }]}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {name}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {!isEditing && (
+                                    <TouchableOpacity
+                                        onPress={onNamePress}
+                                        activeOpacity={0.7}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
+                                            <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
+                                            <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
+                                                {confidenceStyle.text}
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                         )}
-
-                        <View style={styles.subtitleRow}>
-                            {!isEditing && (
-                                <>
-                                    <View style={[styles.confidenceBadge, { backgroundColor: confidenceStyle.badgeColor, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                                        <Feather name={confidenceStyle.icon} size={10} color={confidenceStyle.iconColor} />
-                                        <Text style={[styles.confidenceText, { color: confidenceStyle.badgeTextColor, fontSize: 9 }]}>
-                                            {confidenceStyle.text}
-                                        </Text>
-                                    </View>
-
-                                    {!isDismissed && (
-                                        <TouchableOpacity
-                                            onPress={onAnalysisPress}
-                                            activeOpacity={0.7}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                            style={styles.analysisContainer}
-                                        >
-                                            <LinearGradient
-                                                colors={['#FFFFFF', '#EFF6FF']}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 0, y: 1 }}
-                                                style={styles.analysisBadge}
-                                            >
-                                                <Text style={styles.analysisText}>
-                                                    dosiq Ai Analysis
-                                                </Text>
-                                            </LinearGradient>
-                                            <View style={styles.pointerWrapper}>
-                                                <MaterialCommunityIcons name="cursor-default-click" size={14} color={Colors.primary} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    )}
-                                </>
-                            )}
-                        </View>
                     </View>
                 </View>
 
@@ -314,8 +295,8 @@ const styles = StyleSheet.create({
         paddingBottom: 12,
         paddingHorizontal: 12,
         backgroundColor: Colors.white, // Explicit white background (or transparent if card handles it)
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.gray100,
+        borderBottomWidth: 1.25,
+        borderBottomColor: Colors.gray200,
     },
     headerLeft: {
         flex: 1,
@@ -352,6 +333,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     // titleRow removed
+    nameBadgeContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+        flexWrap: 'wrap',
+    },
     subtitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -382,12 +369,12 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         gap: 4,
         alignSelf: 'flex-start',
+        marginTop: 0,
     },
     confidenceText: {
         fontSize: 10,
         ...Typography.fontWeights.bold,
         letterSpacing: 0.3,
-        textTransform: 'uppercase',
     },
     nameScrollView: {
         flexGrow: 0,
@@ -397,14 +384,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     medicationName: {
-        fontSize: 20,
+        fontSize: 24,
         ...Typography.fontWeights.extrabold,
         color: '#000000', // Deep Black Highlight
         letterSpacing: -0.7,
         marginBottom: 0,
     },
     nameInput: {
-        fontSize: 18,
+        fontSize: 22,
         ...Typography.fontWeights.bold,
         color: Colors.gray900,
         borderBottomWidth: 1,
@@ -419,42 +406,7 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    analysisContainer: {
-        position: 'relative',
-    },
-    analysisBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingLeft: 8,
-        paddingRight: 12, // Increased padding to avoid text overlap with pointer on the right
-        paddingVertical: 2,
-        borderRadius: 20,
-        borderWidth: 0.5,
-        borderColor: 'rgba(59, 130, 246, 0.15)',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 1,
-            },
-        }),
-    },
-    pointerWrapper: {
-        position: 'absolute',
-        bottom: -2,
-        right: -4,
-        zIndex: 10,
-    },
-    analysisText: {
-        fontSize: 9,
-        ...Typography.fontWeights.bold,
-        color: Colors.primary,
-        letterSpacing: 0.3,
-    },
+
     menuContainer: {
         position: 'absolute',
         top: 40,

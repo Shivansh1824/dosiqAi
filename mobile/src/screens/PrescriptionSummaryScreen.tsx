@@ -866,36 +866,36 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         }}
                       />
 
-                      {/* Floating Action Buttons - Overlay on PDF */}
+                      {/* Floating Action Buttons - Modern Compact Pill */}
                       <View style={styles.floatingButtonContainer}>
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleViewFullDocument}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.actionIconCircle}>
-                            <Feather name="eye" size={20} color={Colors.primary} />
-                          </View>
-                          <Text style={styles.actionCardLabel}>View</Text>
-                        </TouchableOpacity>
+                        <View style={styles.compactActionPill}>
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleViewFullDocument}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="eye" size={18} color={Colors.primary} />
+                            <Text style={styles.pillActionText}>View</Text>
+                          </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleDownload}
-                          activeOpacity={0.7}
-                          disabled={downloading}
-                        >
-                          <View style={styles.actionIconCircle}>
+                          <View style={styles.pillDivider} />
+
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleDownload}
+                            activeOpacity={0.7}
+                            disabled={downloading}
+                          >
                             {downloading ? (
                               <ActivityIndicator size="small" color={Colors.primary} />
                             ) : (
-                              <Feather name="download" size={20} color={Colors.primary} />
+                              <Feather name="download" size={18} color={Colors.primary} />
                             )}
-                          </View>
-                          <Text style={styles.actionCardLabel}>
-                            {downloading ? 'Saving...' : 'Save'}
-                          </Text>
-                        </TouchableOpacity>
+                            <Text style={styles.pillActionText}>
+                              {downloading ? 'Saving' : 'Save'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   </Animated.View>
@@ -909,36 +909,36 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       />
                       <View style={styles.heroOverlay} />
 
-                      {/* Floating Action Buttons - Overlay on Image */}
+                      {/* Floating Action Buttons - Modern Compact Pill */}
                       <View style={styles.floatingButtonContainer}>
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleViewFullDocument}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.actionIconCircle}>
-                            <Feather name="eye" size={20} color={Colors.primary} />
-                          </View>
-                          <Text style={styles.actionCardLabel}>View</Text>
-                        </TouchableOpacity>
+                        <View style={styles.compactActionPill}>
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleViewFullDocument}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="eye" size={18} color={Colors.primary} />
+                            <Text style={styles.pillActionText}>View</Text>
+                          </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleDownload}
-                          activeOpacity={0.7}
-                          disabled={downloading}
-                        >
-                          <View style={styles.actionIconCircle}>
+                          <View style={styles.pillDivider} />
+
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleDownload}
+                            activeOpacity={0.7}
+                            disabled={downloading}
+                          >
                             {downloading ? (
                               <ActivityIndicator size="small" color={Colors.primary} />
                             ) : (
-                              <Feather name="download" size={20} color={Colors.primary} />
+                              <Feather name="download" size={18} color={Colors.primary} />
                             )}
-                          </View>
-                          <Text style={styles.actionCardLabel}>
-                            {downloading ? 'Saving...' : 'Save'}
-                          </Text>
-                        </TouchableOpacity>
+                            <Text style={styles.pillActionText}>
+                              {downloading ? 'Saving' : 'Save'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   </Animated.View>
@@ -986,27 +986,25 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           }
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
-                          {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View style={styles.medicationsHeaderCard}>
-                              <View style={styles.medicationsHeaderRow}>
-                                <View style={styles.medicationsHeaderLeft}>
-                                  <MaterialCommunityIcons name="pill" size={20} color={Colors.primary} />
-                                  <View style={{ gap: 2 }}>
-                                    <Text style={styles.medicationsHeaderTitle}>Medications Detected</Text>
-                                    <Text style={styles.medicationsHeaderSubtitle}>
-                                      {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}{' '}
-                                      {(innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length) === 1 ? 'medication' : 'medications'} identified from your prescription
-                                    </Text>
+                          {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
+                            const count = innerMedicines.length;
+                            return (
+                              <View style={styles.medicationsHeaderCard}>
+                                <View style={styles.medicationsHeaderRow}>
+                                  <View style={styles.medicationsHeaderLeft}>
+                                    <Text style={styles.medicationsCountText}>{count}</Text>
+                                    <View style={{ gap: 2, flex: 1, justifyContent: 'center' }}>
+                                      <Text style={styles.medicationsHeaderTitle}>MEDICATIONS DETECTED</Text>
+                                      <Text style={styles.medicationsHeaderSubtitle}>
+                                        dosiq Ai found {count}{' '}
+                                        {count === 1 ? 'medication' : 'medications'} in your prescription. See details below.
+                                      </Text>
+                                    </View>
                                   </View>
                                 </View>
-                                <View style={styles.medicationsCountBadge}>
-                                  <Text style={styles.medicationsCountText}>
-                                    {innerMedicines.length - Array.from(dismissedMedicationIds).filter(id => id.startsWith(`${document.id}_`)).length}
-                                  </Text>
-                                </View>
                               </View>
-                            </View>
-                          )}
+                            );
+                          })()}
 
                           {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                           {verifiedMedications.size > 0 && (() => {
@@ -1031,7 +1029,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             <View>
                               {(isAlreadyAdded ? innerMedicines.map((medicine, index) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }, arrayIndex) => {
                                 const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
-                                const suggestedStartDate = parseDateOnly(document!.visit_date || document!.ai_analyzed_at || new Date().toISOString());
+                                const suggestedStartDate = parseDateOnly(new Date().toISOString());
                                 // Pass full medications list for history check (parser handles filtering)
                                 const duplicateOf = duplicateMedicationsMap.get(index);
 
@@ -1045,6 +1043,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     onVerifyAndAdd={handleVerifyAndAddMedication}
                                     duplicateOf={duplicateOf || undefined}
                                     medicineIndex={index}
+                                    confidenceScore={document.ai_analysis_result?.analysis_metadata?.confidence_score}
                                     onLiveUpdate={(updates: {
                                       current_reminder_times?: string[];
                                       start_date?: string;
@@ -1087,7 +1086,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     const currentUser = (await supabase.auth.getUser()).data.user;
                                     if (!currentUser || !document) return;
 
-                                    const suggestedStartDate = parseDateOnly(document.visit_date || document.ai_analyzed_at || new Date().toISOString());
+                                    const suggestedStartDate = parseDateOnly(new Date().toISOString());
                                     const medsToVerify = activeMedsForBatch.map(({ medicine, index }) => {
                                       const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                                       // Merge user edits from live updates
@@ -1507,19 +1506,51 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // 2026 Floating Action Buttons - Overlay Design
+  // 2026 Floating Action Buttons - Compact Pill Design
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: 14,
-    left: 14,
-    right: 14,
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  compactActionPill: {
     flexDirection: 'row',
-    gap: 10,
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    padding: 0,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 100,
+    padding: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 1)',
+  },
+  pillAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 100,
+  },
+  pillActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  pillDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#94A3B8', // Increased visibility (Slate-400 equivalent)
+    marginHorizontal: 4,
   },
 
+  // Retain actionCard styles for potential reuse or legacy components if any
   actionCard: {
     flex: 1,
     flexDirection: 'row',
@@ -1553,6 +1584,7 @@ const styles = StyleSheet.create({
     color: Colors.gray800,
     letterSpacing: 0.1,
   },
+
 
 
 
@@ -1599,13 +1631,23 @@ const styles = StyleSheet.create({
   medicationsHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 16,
     flex: 1,
   },
+  medicationsCountText: {
+    fontSize: 56,
+    fontWeight: '800',
+    color: '#000000',
+    includeFontPadding: false,
+    lineHeight: 64, // Adjusted for larger font
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    letterSpacing: -2,
+    paddingHorizontal: 8,
+  },
   medicationsHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.gray900,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#000000',
     letterSpacing: -0.2,
   },
   medicationsHeaderSubtitle: {
@@ -1613,20 +1655,6 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
     fontWeight: '400',
     lineHeight: 18,
-  },
-  medicationsCountBadge: {
-    backgroundColor: Colors.primary + '15',
-    minWidth: 32,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  medicationsCountText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primary,
   },
 
   // Cards
