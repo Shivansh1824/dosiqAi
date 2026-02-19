@@ -108,21 +108,30 @@ If uncertain -> is_identified: false
 
 **LAYER 3: medicine_purpose**
 
-**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose using your medical knowledge.
+**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose in **EXTREMELY SIMPLE, PLAIN ENGLISH** describing what the medicine **FIXES** or **SOLVES**.
+- **Target Audience:** Explain it to a 10-year-old or a grandmother.
+- **FORBIDDEN WORDS:** Do NOT use words like "Inflammation", "Hypertension", "Edema", "Prophylaxis", "Suppression", "Management", "Control", "Anti-inflammatory".
+- **REQUIRED STYLE:** Use action verbs + simple body parts/symptoms (e.g., "Lowers BP", "Stops pain", "Clears chest").
 
-**Example Medicine Purposes (for reference only):**
-- Metformin -> "Blood Sugar Control"
-- Atorvastatin -> "Cholesterol Control"
-- Amlodipine -> "Blood Pressure Control"
-- Paracetamol -> "Fever and Pain Relief"
-- Omeprazole -> "Acid Reflux Control"
-- Azithromycin -> "Bacterial Infection Treatment"
-- Cetirizine -> "Allergy Relief"
+**Example Transformations (Strictly follow this style):**
+- "Reduces airway inflammation" -> "Helps you breathe easier" or "Clears lungs"
+- "Antihypertensive" -> "Lowers blood pressure"
+- "Analgesic" -> "Relieves pain"
+- "Anti-inflammatory" -> "Reduces swelling and pain"
+- "Lipid lowering" -> "Reduces bad cholesterol"
+- "Metformin" -> "Lowers blood sugar"
+- "Antibiotic" -> "Fights infection"
+- "Antiemetic" -> "Stops vomiting/nausea"
+- "Ondansetron" -> "Stops nausea"
+- "Shelcal" -> "Strengthens bones"
+- "Pan D" -> "Reduces acidity"
+- "Dolo 650" -> "Relieves fever and pain"
+- "Montelukast" -> "Opened airways/Helps breathing"
 
-**Important:** These are examples only. Use your pharmaceutical expertise to provide accurate therapeutic purposes for ANY identified medicine on the prescription, not just those listed above.
+**Important:** Focus on the **benefit** to the patient. NEVER use "Management" or "Control". JUST say what it does in simplest terms.
 
 **Output:**
-- If is_identified: true -> Provide specific purpose
+- If is_identified: true -> Provide specific simplified purpose
 - If is_identified: false -> Set to null
 
 ---
