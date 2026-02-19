@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
         paddingTop: 14,
     },
     aiSummaryTitle: {
-        fontSize: 16,
+        fontSize: 18,
         ...Typography.fontWeights.bold,
         color: Colors.gray900,
         letterSpacing: -0.2,
