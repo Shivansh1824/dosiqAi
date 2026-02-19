@@ -866,36 +866,36 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         }}
                       />
 
-                      {/* Floating Action Buttons - Overlay on PDF */}
+                      {/* Floating Action Buttons - Modern Compact Pill */}
                       <View style={styles.floatingButtonContainer}>
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleViewFullDocument}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.actionIconCircle}>
-                            <Feather name="eye" size={20} color={Colors.primary} />
-                          </View>
-                          <Text style={styles.actionCardLabel}>View</Text>
-                        </TouchableOpacity>
+                        <View style={styles.compactActionPill}>
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleViewFullDocument}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="eye" size={18} color={Colors.primary} />
+                            <Text style={styles.pillActionText}>View</Text>
+                          </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleDownload}
-                          activeOpacity={0.7}
-                          disabled={downloading}
-                        >
-                          <View style={styles.actionIconCircle}>
+                          <View style={styles.pillDivider} />
+
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleDownload}
+                            activeOpacity={0.7}
+                            disabled={downloading}
+                          >
                             {downloading ? (
                               <ActivityIndicator size="small" color={Colors.primary} />
                             ) : (
-                              <Feather name="download" size={20} color={Colors.primary} />
+                              <Feather name="download" size={18} color={Colors.primary} />
                             )}
-                          </View>
-                          <Text style={styles.actionCardLabel}>
-                            {downloading ? 'Saving...' : 'Save'}
-                          </Text>
-                        </TouchableOpacity>
+                            <Text style={styles.pillActionText}>
+                              {downloading ? 'Saving' : 'Save'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   </Animated.View>
@@ -909,36 +909,36 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       />
                       <View style={styles.heroOverlay} />
 
-                      {/* Floating Action Buttons - Overlay on Image */}
+                      {/* Floating Action Buttons - Modern Compact Pill */}
                       <View style={styles.floatingButtonContainer}>
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleViewFullDocument}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.actionIconCircle}>
-                            <Feather name="eye" size={20} color={Colors.primary} />
-                          </View>
-                          <Text style={styles.actionCardLabel}>View</Text>
-                        </TouchableOpacity>
+                        <View style={styles.compactActionPill}>
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleViewFullDocument}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="eye" size={18} color={Colors.primary} />
+                            <Text style={styles.pillActionText}>View</Text>
+                          </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={styles.actionCard}
-                          onPress={handleDownload}
-                          activeOpacity={0.7}
-                          disabled={downloading}
-                        >
-                          <View style={styles.actionIconCircle}>
+                          <View style={styles.pillDivider} />
+
+                          <TouchableOpacity
+                            style={styles.pillAction}
+                            onPress={handleDownload}
+                            activeOpacity={0.7}
+                            disabled={downloading}
+                          >
                             {downloading ? (
                               <ActivityIndicator size="small" color={Colors.primary} />
                             ) : (
-                              <Feather name="download" size={20} color={Colors.primary} />
+                              <Feather name="download" size={18} color={Colors.primary} />
                             )}
-                          </View>
-                          <Text style={styles.actionCardLabel}>
-                            {downloading ? 'Saving...' : 'Save'}
-                          </Text>
-                        </TouchableOpacity>
+                            <Text style={styles.pillActionText}>
+                              {downloading ? 'Saving' : 'Save'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   </Animated.View>
@@ -1506,19 +1506,51 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // 2026 Floating Action Buttons - Overlay Design
+  // 2026 Floating Action Buttons - Compact Pill Design
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: 14,
-    left: 14,
-    right: 14,
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  compactActionPill: {
     flexDirection: 'row',
-    gap: 10,
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    padding: 0,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 100,
+    padding: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 1)',
+  },
+  pillAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 100,
+  },
+  pillActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  pillDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#94A3B8', // Increased visibility (Slate-400 equivalent)
+    marginHorizontal: 4,
   },
 
+  // Retain actionCard styles for potential reuse or legacy components if any
   actionCard: {
     flex: 1,
     flexDirection: 'row',
@@ -1552,6 +1584,7 @@ const styles = StyleSheet.create({
     color: Colors.gray800,
     letterSpacing: 0.1,
   },
+
 
 
 
