@@ -744,11 +744,7 @@ export default function MedicationVerificationCard({
           <View style={{ paddingBottom: 8 }}>
             {/* AI Summary Static Labels */}
             <View style={styles.summaryContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.aiButtonsRow}
-              >
+              <View style={styles.aiButtonsRow}>
                 {/* 1. Strength */}
                 {medication.strength && (
                   <TouchableOpacity
@@ -842,7 +838,7 @@ export default function MedicationVerificationCard({
                     </View>
                   </TouchableOpacity>
                 )}
-              </ScrollView>
+              </View>
             </View>
 
             {(medication.medicine_type || medication.medicine_purpose) && <View style={styles.divider} />}
@@ -1139,9 +1135,10 @@ const styles = StyleSheet.create({
   },
   aiButtonsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
   },
   aiButton: {
     flexDirection: 'row',
