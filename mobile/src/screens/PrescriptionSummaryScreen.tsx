@@ -992,7 +992,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               <View style={styles.medicationsHeaderCard}>
                                 <View style={styles.medicationsHeaderRow}>
                                   <View style={styles.medicationsHeaderLeft}>
-                                    <MaterialCommunityIcons name="pill" size={20} color={Colors.primary} />
+
                                     <View style={{ gap: 2, flex: 1 }}>
                                       <Text style={styles.medicationsHeaderTitle}>{count} Medications Detected</Text>
                                       <Text style={styles.medicationsHeaderSubtitle}>
@@ -1597,7 +1597,7 @@ const styles = StyleSheet.create({
   },
   medicationsHeaderLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
     flex: 1,
   },
