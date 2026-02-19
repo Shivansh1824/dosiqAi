@@ -384,14 +384,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     medicationName: {
-        fontSize: 20,
+        fontSize: 24,
         ...Typography.fontWeights.extrabold,
         color: '#000000', // Deep Black Highlight
         letterSpacing: -0.7,
         marginBottom: 0,
     },
     nameInput: {
-        fontSize: 18,
+        fontSize: 22,
         ...Typography.fontWeights.bold,
         color: Colors.gray900,
         borderBottomWidth: 1,
