@@ -108,18 +108,20 @@ If uncertain -> is_identified: false
 
 **LAYER 3: medicine_purpose**
 
-**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose using your medical knowledge.
+**Rule:** If medicine is identified (is_identified: true), provide the therapeutic purpose in **simple, patient-friendly language** describing what the medicine **FIXES** or **SOLVES**. Use action verbs (e.g., "Reduces...", "Relieves...", "Fights..."). Avoid abstract nouns like "Control", "Management", or "Support".
 
-**Example Medicine Purposes (for reference only):**
-- Metformin -> "Blood Sugar Control"
-- Atorvastatin -> "Cholesterol Control"
-- Amlodipine -> "Blood Pressure Control"
-- Paracetamol -> "Fever and Pain Relief"
-- Omeprazole -> "Acid Reflux Control"
-- Azithromycin -> "Bacterial Infection Treatment"
-- Cetirizine -> "Allergy Relief"
+**Example Medicine Purposes (for reference language style):**
+- Metformin -> "Lowers blood sugar" (NOT "Blood Sugar Control")
+- Atorvastatin -> "Reduces cholesterol" (NOT "Cholesterol Control")
+- Amlodipine -> "Lowers blood pressure" (NOT "Blood Pressure Control")
+- Paracetamol -> "Relieves pain and fever" (NOT "Fever and Pain Relief")
+- Omeprazole -> "Reduces stomach acid" (NOT "Acid Reflux Control")
+- Azithromycin -> "Fights bacterial infection" (NOT "Bacterial Infection Treatment")
+- Cetirizine -> "Relieves allergy symptoms" (NOT "Allergy Relief")
+- Dolo 650 -> "Relieves pain and fever"
+- Pan D -> "Reduces acidity and nausea"
 
-**Important:** These are examples only. Use your pharmaceutical expertise to provide accurate therapeutic purposes for ANY identified medicine on the prescription, not just those listed above.
+**Important:** Focus on the **benefit** to the patient. Use simple language. Use your pharmaceutical expertise to provide accurate therapeutic purposes for ANY identified medicine on the prescription.
 
 **Output:**
 - If is_identified: true -> Provide specific purpose
