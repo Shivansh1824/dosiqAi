@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -101,9 +102,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   };
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+
+  // Initialize summary expansion state based on document type
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(() => {
+    // Check if we have document available initially (optimization)
+    const doc = documentProp || (documents.find(d => d.id === documentId));
+    return doc?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid';
+  });
   const [showShareModal, setShowShareModal] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
 
@@ -827,7 +833,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
               {/* Document Preview Card */}
               <View style={styles.previewCard}>
                 {fileNotFound ? (
-                  <>
+                  <Fragment>
                     <View style={styles.previewIconContainer}>
                       <Feather name="alert-circle" size={64} color={Colors.error} />
                     </View>
@@ -835,9 +841,9 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     <Text style={styles.errorText}>
                       The document file could not be found on this device.
                     </Text>
-                  </>
+                  </Fragment>
                 ) : isPdf && imageUri ? (
-                  <>
+                  <Animated.View layout={LinearTransition.duration(300)}>
                     {/* PDF Preview - First Page using react-native-pdf-jsi */}
                     <View style={styles.pdfPreviewWrapper}>
                       <Pdf
@@ -892,12 +898,12 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         </TouchableOpacity>
                       </View>
                     </View>
-                  </>
+                  </Animated.View>
                 ) : imageUri ? (
-                  <>
+                  <Animated.View layout={LinearTransition.duration(300)}>
                     <View>
                       <Image
-                        source={{ uri: imageUri }}
+                        source={{ uri: imageUri || undefined }}
                         style={styles.heroImage}
                         resizeMode="cover"
                       />
@@ -935,9 +941,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         </TouchableOpacity>
                       </View>
                     </View>
-
-
-                  </>
+                  </Animated.View>
                 ) : (
                   <DocumentPreviewLoading />
                 )}
@@ -955,7 +959,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 const summary = document ? getSummary(document.ai_analysis_result) : undefined;
 
                 return (
-                  <>
+                  <Animated.View layout={LinearTransition.duration(300)}>
                     {/* AI Summary Section - Show greyed-out when already added, hidden only during session verification */}
                     {document?.ai_analysis_status === 'completed' &&
                       summary &&
@@ -967,13 +971,20 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
                           style={[{ marginBottom: 0 }]}
                           defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
+                          expanded={isSummaryExpanded}
+                          onToggle={setIsSummaryExpanded}
                         />
                       )}
 
                     {/* Medications Section */}
                     {document?.ai_analysis_status === 'completed' &&
                       innerMedicines.length > 0 && (
-                        <>
+                        <Animated.View
+                          layout={isSummaryExpanded
+                            ? LinearTransition.duration(300)
+                            : LinearTransition.duration(300).delay(300)
+                          }
+                        >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                             <View style={styles.medicationsHeaderCard}>
@@ -1148,7 +1159,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   {isVerifyingAll ? (
                                     <ActivityIndicator color={Colors.white} size="small" />
                                   ) : (
-                                    <>
+                                    <Fragment>
                                       <Feather name={isAlreadyAdded ? "eye" : "check-circle"} size={18} color={Colors.white} />
                                       <Text style={styles.verifyAllButtonText}>
                                         {isAlreadyAdded
@@ -1156,15 +1167,15 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                           : `Confirm & Add ${activeMedsForBatch.length > 1 ? `All (${activeMedsForBatch.length})` : ''}`
                                         }
                                       </Text>
-                                    </>
+                                    </Fragment>
                                   )}
                                 </LinearGradient>
                               </TouchableOpacity>
                             </View>
                           )}
-                        </>
+                        </Animated.View>
                       )}
-                  </>
+                  </Animated.View>
                 );
               })()}
 

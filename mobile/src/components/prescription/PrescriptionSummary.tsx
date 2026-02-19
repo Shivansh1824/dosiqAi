@@ -18,24 +18,35 @@ interface PrescriptionSummaryProps {
         follow_up_days?: number;
         follow_up_notes?: string;
     };
+    expanded?: boolean;
+    onToggle?: (expanded: boolean) => void;
 }
 
 /**
  * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
  * Extracted from PrescriptionSummaryScreen.tsx
  */
-export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false, followUp }: PrescriptionSummaryProps) {
-    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false, followUp, expanded, onToggle }: PrescriptionSummaryProps) {
+    const [localExpanded, setLocalExpanded] = useState(defaultExpanded);
+    const isExpanded = expanded !== undefined ? expanded : localExpanded;
+
+    const handleToggle = () => {
+        if (onToggle) {
+            onToggle(!isExpanded);
+        } else {
+            setLocalExpanded(!isExpanded);
+        }
+    };
 
     // Consolidated display logic: show nothing by default (except header), show all when expanded
     return (
         <Animated.View
-            layout={LinearTransition.springify().damping(15)}
+            layout={LinearTransition.duration(300)}
             style={[styles.aiSummaryCard, style]}
         >
             <TouchableOpacity
                 style={styles.aiSummaryHeader}
-                onPress={() => setIsExpanded(!isExpanded)}
+                onPress={handleToggle}
                 activeOpacity={0.7}
             >
                 <View style={styles.headerLeft}>
@@ -52,7 +63,7 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
             {isExpanded && (
                 <Animated.View
                     entering={FadeIn.duration(300)}
-                    exiting={FadeOut.duration(200)}
+                    exiting={FadeOut.duration(300)}
                     style={styles.contentContainer}
                 >
                     <Text style={styles.aiSummaryText}>
