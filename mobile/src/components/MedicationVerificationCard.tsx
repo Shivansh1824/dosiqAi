@@ -749,6 +749,25 @@ export default function MedicationVerificationCard({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.aiButtonsRow}
               >
+                {/* 1. Strength */}
+                {medication.strength && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Strength')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="zap" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.strength}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 2. Purpose */}
                 {medication.medicine_purpose && (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -768,6 +787,7 @@ export default function MedicationVerificationCard({
                   </TouchableOpacity>
                 )}
 
+                {/* 3. Type */}
                 {medication.medicine_type && (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -782,6 +802,42 @@ export default function MedicationVerificationCard({
                       </View>
                       <Text style={styles.aiButtonText}>
                         {medication.medicine_type}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 4. Note */}
+                {(medication.source_raw?.dosage_instruction || medication.dosage) && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Note')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="file-text" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.source_raw?.dosage_instruction || medication.dosage}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 5. Duration */}
+                {medication.duration_days && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Duration')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="clock" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.duration_days} Days
                       </Text>
                     </View>
                   </TouchableOpacity>
