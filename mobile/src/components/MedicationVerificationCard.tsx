@@ -749,28 +749,6 @@ export default function MedicationVerificationCard({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.aiButtonsRow}
               >
-                {medication.medicine_type && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
-                  >
-                    <LinearGradient
-                      colors={['#FFFFFF', '#EFF6FF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
-                      style={styles.aiButton}
-                    >
-                      <View style={styles.aiButtonIcon}>
-                        <Feather name="layers" size={10} color={Colors.primary} />
-                      </View>
-                      <Text style={styles.aiButtonText}>
-                        {medication.medicine_type}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
-
                 {medication.medicine_purpose && (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -788,6 +766,28 @@ export default function MedicationVerificationCard({
                       </View>
                       <Text style={styles.aiButtonText}>
                         {medication.medicine_purpose}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {medication.medicine_type && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
+                  >
+                    <LinearGradient
+                      colors={['#FFFFFF', '#EFF6FF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={styles.aiButton}
+                    >
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="layers" size={10} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.medicine_type}
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
