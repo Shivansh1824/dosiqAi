@@ -135,8 +135,8 @@ const styles = StyleSheet.create({
         marginTop: 0,
         paddingHorizontal: 18,
         paddingBottom: 18,
-        borderTopWidth: 1,
-        borderTopColor: Colors.gray100,
+        borderTopWidth: 1.25,
+        borderTopColor: Colors.gray200,
         paddingTop: 14,
     },
     aiSummaryTitle: {
