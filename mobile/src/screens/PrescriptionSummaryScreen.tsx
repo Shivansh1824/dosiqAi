@@ -36,6 +36,7 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
+import { StatusBar } from 'expo-status-bar';
 
 type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
@@ -48,6 +49,7 @@ interface PrescriptionSummaryScreenProps {
 
 export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionSummaryScreenProps) {
   const { familyMembers } = useFamilyMembersStore();
+
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
 
   // Resolve document: either passed directly or found in store by ID
@@ -762,6 +764,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" />
       <LinearGradient
         colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
         style={StyleSheet.absoluteFill}
@@ -825,123 +828,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         ) : (
           <>
             {/* Document Preview Card */}
-            <View style={styles.previewCard}>
-              {fileNotFound ? (
-                <>
-                  <View style={styles.previewIconContainer}>
-                    <Feather name="alert-circle" size={64} color={Colors.error} />
-                  </View>
-                  <Text style={styles.previewText}>File Not Found</Text>
-                  <Text style={styles.errorText}>
-                    The document file could not be found on this device.
-                  </Text>
-                </>
-              ) : isPdf && imageUri ? (
-                <>
-                  {/* PDF Preview - First Page using react-native-pdf-jsi */}
-                  <View style={styles.pdfPreviewWrapper}>
-                    <Pdf
-                      source={{ uri: imageUri, cache: true }}
-                      page={1}
-                      scale={1.0}
-                      minScale={1.0}
-                      maxScale={1.0}
-                      spacing={0}
-                      fitPolicy={0}
-                      enablePaging={false}
-                      enableRTL={false}
-                      enableAnnotationRendering={false}
-                      style={styles.pdfPreview}
-                      onLoadComplete={(numberOfPages) => {
-                        console.log(`[PrescriptionSummary] PDF Loaded: ${numberOfPages} pages`);
-                      }}
-                      onError={(error) => {
-                        console.error('[PrescriptionSummary] PDF Error:', error);
-                      }}
-                    />
-
-                    {/* Floating Action Buttons - Overlay on PDF */}
-                    <View style={styles.floatingButtonContainer}>
-                      <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={handleViewFullDocument}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.actionIconCircle}>
-                          <Feather name="eye" size={20} color={Colors.primary} />
-                        </View>
-                        <Text style={styles.actionCardLabel}>View</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={handleDownload}
-                        activeOpacity={0.7}
-                        disabled={downloading}
-                      >
-                        <View style={styles.actionIconCircle}>
-                          {downloading ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
-                          ) : (
-                            <Feather name="download" size={20} color={Colors.primary} />
-                          )}
-                        </View>
-                        <Text style={styles.actionCardLabel}>
-                          {downloading ? 'Saving...' : 'Save'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </>
-              ) : imageUri ? (
-                <>
-                  <View>
-                    <Image
-                      source={{ uri: imageUri }}
-                      style={styles.heroImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.heroOverlay} />
-
-                    {/* Floating Action Buttons - Overlay on Image */}
-                    <View style={styles.floatingButtonContainer}>
-                      <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={handleViewFullDocument}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.actionIconCircle}>
-                          <Feather name="eye" size={20} color={Colors.primary} />
-                        </View>
-                        <Text style={styles.actionCardLabel}>View</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={handleDownload}
-                        activeOpacity={0.7}
-                        disabled={downloading}
-                      >
-                        <View style={styles.actionIconCircle}>
-                          {downloading ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
-                          ) : (
-                            <Feather name="download" size={20} color={Colors.primary} />
-                          )}
-                        </View>
-                        <Text style={styles.actionCardLabel}>
-                          {downloading ? 'Saving...' : 'Save'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-
-                </>
-              ) : (
-                <DocumentPreviewLoading />
-              )}
-            </View>
+            <DocumentPreview
+              imageUri={imageUri}
+              isPdf={isPdf || false}
+              fileNotFound={fileNotFound}
+              downloading={downloading}
+              onView={handleViewFullDocument}
+              onDownload={handleDownload}
+            />
 
 
 
@@ -965,7 +859,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
                         otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
                         followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
-                        style={[{ marginBottom: 0 }]}
                         defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
                       />
                     )}

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Pdf from 'react-native-pdf';
+import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants';
 import { DocumentPreviewLoading } from './DocumentPreviewLoading';
 
@@ -15,8 +16,7 @@ interface DocumentPreviewProps {
 }
 
 /**
- * DocumentPreview - Document preview card with image/PDF display and action buttons
- * Extracted from PrescriptionSummaryScreen.tsx
+ * DocumentPreview - Document preview card with image/PDF display and floating action buttons
  */
 export function DocumentPreview({
     imageUri,
@@ -28,232 +28,202 @@ export function DocumentPreview({
 }: DocumentPreviewProps) {
     if (fileNotFound) {
         return (
-            <View style={styles.previewCard}>
-                <View style={styles.previewIconContainer}>
-                    <Feather name="alert-circle" size={64} color={Colors.error} />
+            <View style={styles.errorContainer}>
+                <View style={styles.errorIconCircle}>
+                    <Feather name="alert-circle" size={32} color={Colors.error} />
                 </View>
-                <Text style={styles.previewText}>File Not Found</Text>
+                <Text style={styles.errorTitle}>File Not Found</Text>
                 <Text style={styles.errorText}>
-                    The document file could not be found on this device.
+                    The document could not be loaded.
                 </Text>
-            </View>
-        );
-    }
-
-    if (isPdf && imageUri) {
-        return (
-            <View style={styles.previewCard}>
-                <View style={styles.pdfPreviewWrapper}>
-                    <Pdf
-                        source={{ uri: imageUri, cache: true }}
-                        page={1}
-                        scale={1.0}
-                        minScale={1.0}
-                        maxScale={1.0}
-                        spacing={0}
-                        fitPolicy={0}
-                        enablePaging={false}
-                        enableRTL={false}
-                        enableAnnotationRendering={false}
-                        style={styles.pdfPreview}
-                        onLoadComplete={(numberOfPages) => {
-                            console.log(`[DocumentPreview] PDF Loaded: ${numberOfPages} pages`);
-                        }}
-                        onError={(error) => {
-                            console.error('[DocumentPreview] PDF Error:', error);
-                        }}
-                    />
-                    <ActionButtons
-                        downloading={downloading}
-                        onView={onView}
-                        onDownload={onDownload}
-                    />
-                </View>
             </View>
         );
     }
 
     if (imageUri) {
         return (
-            <View style={styles.previewCard}>
-                <View>
-                    <Image
-                        source={{ uri: imageUri }}
-                        style={styles.heroImage}
-                        resizeMode="cover"
-                    />
-                    <View style={styles.heroOverlay} />
-                    <ActionButtons
-                        downloading={downloading}
-                        onView={onView}
-                        onDownload={onDownload}
-                    />
+            <View style={styles.container}>
+                <View style={styles.previewWrapper}>
+                    {isPdf ? (
+                        <Pdf
+                            source={{ uri: imageUri, cache: true }}
+                            page={1}
+                            scale={1.0}
+                            minScale={1.0}
+                            maxScale={1.0}
+                            spacing={0}
+                            fitPolicy={0}
+                            enablePaging={false}
+                            enableRTL={false}
+                            enableAnnotationRendering={false}
+                            style={styles.previewContent}
+                            onError={(error) => console.error('[DocumentPreview] PDF Error:', error)}
+                        />
+                    ) : (
+                        <Image
+                            source={{ uri: imageUri }}
+                            style={styles.previewContent}
+                            resizeMode="cover"
+                        />
+                    )}
+                    
+                    {/* PDF Overlay to prevent interaction stealing if needed, or just visual polish */}
+                    <View style={styles.overlay} pointerEvents="none" />
+
+                    <View style={styles.floatingBarContainer} pointerEvents="box-none">
+                        <View style={styles.glassBarShadow}>
+                            {/* Use systemChromeMaterialLight for that specific macOS/iOS popover look if available, else light */}
+                            <BlurView intensity={80} tint="systemChromeMaterialLight" style={styles.glassBar}>
+                                <TouchableOpacity 
+                                    style={styles.actionButton} 
+                                    onPress={onView}
+                                    activeOpacity={0.6}
+                                >
+                                    <Feather name="eye" size={20} color={Colors.primary} style={styles.actionIcon} />
+                                    <Text style={styles.actionText}>View</Text>
+                                </TouchableOpacity>
+                                
+                                <View style={styles.divider} />
+                                
+                                <TouchableOpacity 
+                                    style={styles.actionButton} 
+                                    onPress={onDownload}
+                                    activeOpacity={0.6}
+                                    disabled={downloading}
+                                >
+                                    {downloading ? (
+                                        <ActivityIndicator size="small" color={Colors.primary} />
+                                    ) : (
+                                        <Feather name="download" size={20} color={Colors.primary} style={styles.actionIcon} />
+                                    )}
+                                    <Text style={styles.actionText}>
+                                        {downloading ? 'Saving...' : 'Save'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </BlurView>
+                        </View>
+                    </View>
                 </View>
             </View>
         );
     }
 
     return (
-        <View style={styles.previewCard}>
+        <View style={styles.container}>
             <DocumentPreviewLoading />
         </View>
     );
 }
 
-/**
- * ActionButtons - Floating action buttons overlay
- */
-function ActionButtons({
-    downloading,
-    onView,
-    onDownload,
-}: {
-    downloading: boolean;
-    onView: () => void;
-    onDownload: () => void;
-}) {
-    return (
-        <View style={styles.floatingButtonContainer}>
-            <TouchableOpacity
-                style={styles.actionCard}
-                onPress={onView}
-                activeOpacity={0.7}
-            >
-                <View style={styles.actionIconCircle}>
-                    <Feather name="eye" size={20} color={Colors.primary} />
-                </View>
-                <Text style={styles.actionCardLabel}>View</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-                style={styles.actionCard}
-                onPress={onDownload}
-                activeOpacity={0.7}
-                disabled={downloading}
-            >
-                <View style={styles.actionIconCircle}>
-                    {downloading ? (
-                        <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                        <Feather name="download" size={20} color={Colors.primary} />
-                    )}
-                </View>
-                <Text style={styles.actionCardLabel}>
-                    {downloading ? 'Saving...' : 'Save'}
-                </Text>
-            </TouchableOpacity>
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
-    previewCard: {
+    container: {
+        marginBottom: 0,
         backgroundColor: Colors.white,
-        borderRadius: 0,
-        marginBottom: 8,
-        shadowColor: Colors.primaryDark,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.1,
-        shadowRadius: 24,
-        elevation: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(59, 130, 246, 0.08)',
-        overflow: 'hidden',
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.gray200,
+        // Edge-to-edge: No border radius, no horizontal margin
     },
-    previewIconContainer: {
-        width: 120,
-        height: 120,
-        borderRadius: 40,
-        backgroundColor: '#F0F9FF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#DBEAFE',
-        alignSelf: 'center',
-        marginTop: 40,
-    },
-    previewText: {
-        fontSize: 16,
-        color: Colors.gray500,
-        marginBottom: 24,
-        fontWeight: '500',
-        textAlign: 'center',
-    },
-    errorText: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        marginBottom: 24,
-        paddingHorizontal: 20,
-    },
-    pdfPreviewWrapper: {
+    previewWrapper: {
         width: '100%',
-        height: 208,
+        height: 220, // Adjusted height to 220 as per user request
         backgroundColor: Colors.white,
-        overflow: 'hidden',
+        position: 'relative',
     },
-    pdfPreview: {
+    previewContent: {
         flex: 1,
         width: '100%',
-        height: 208,
+        height: '100%',
         backgroundColor: Colors.white,
     },
-    heroImage: {
-        width: '100%',
-        height: 208,
-        backgroundColor: Colors.gray50,
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.02)', // Very subtle overlay
     },
-    heroOverlay: {
+    
+    // Floating Bar Styles
+    floatingBarContainer: {
         position: 'absolute',
-        top: 0,
+        bottom: 20, // Lifted up slightly
         left: 0,
         right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.02)',
-    },
-    floatingButtonContainer: {
-        position: 'absolute',
-        bottom: 12,
-        left: 12,
-        right: 12,
-        flexDirection: 'row',
-        gap: 8,
-        backgroundColor: 'transparent',
-        borderRadius: 14,
-        padding: 10,
-    },
-    actionCard: {
-        flex: 1,
-        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        backgroundColor: Colors.white,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Colors.gray200,
-        gap: 6,
-        shadowColor: Colors.gray900,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
-        minHeight: 44,
+        zIndex: 10,
     },
-    actionIconCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.primary + '10',
+    glassBarShadow: {
+        borderRadius: 100,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.1, // Softer shadow for cleaner look
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    glassBar: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderRadius: 100,
+        overflow: 'hidden',
+        // Make background transparent on iOS to let blur handle it fully
+        // Use slight white tint on Android where BlurView might be limited
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(255,255,255,0.9)', 
     },
-    actionCardLabel: {
-        fontSize: 15,
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 28, // Increased from 20 for more width
+        paddingVertical: 12,   // Increased from 10
+        gap: 10,               // Increased gap
+    },
+    actionIcon: {
+        opacity: 0.9,
+    },
+    actionText: {
+        fontSize: 16,          // Increased from 15
+        fontWeight: '600',
+        color: Colors.gray900,
+        letterSpacing: -0.2,
+    },
+    divider: {
+        width: 1,
+        height: 24,            // Increased from 20 to match larger buttons
+        backgroundColor: '#475569',
+        opacity: 1,
+    },
+
+    // Error State
+    errorContainer: {
+        height: 200,
+        backgroundColor: Colors.gray50,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 0,
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.gray200,
+    },
+    errorIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: Colors.errorLight,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    errorTitle: {
+        fontSize: 16,
         fontWeight: '600',
         color: Colors.textPrimary,
-        letterSpacing: 0.2,
+        marginBottom: 4,
+    },
+    errorText: {
+        fontSize: 13,
+        color: Colors.textSecondary,
+        textAlign: 'center',
     },
 });
