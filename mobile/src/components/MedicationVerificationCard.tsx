@@ -1125,6 +1125,7 @@ const styles = StyleSheet.create({
   summaryContainer: {
     marginTop: 0,
     marginBottom: 0,
+    paddingHorizontal: 10,
   },
   summaryText: {
     fontSize: 13,
