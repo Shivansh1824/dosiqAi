@@ -755,19 +755,16 @@ export default function MedicationVerificationCard({
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
                   >
-                    <LinearGradient
-                      colors={['#FFFFFF', '#EFF6FF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
+                    <View
                       style={styles.aiButton}
                     >
                       <View style={styles.aiButtonIcon}>
-                        <Feather name="activity" size={10} color={Colors.primary} />
+                        <Feather name="activity" size={10} color={Colors.gray600} />
                       </View>
                       <Text style={styles.aiButtonText}>
                         {medication.medicine_purpose}
                       </Text>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 )}
 
@@ -777,19 +774,16 @@ export default function MedicationVerificationCard({
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     onPress={(e) => handleTooltipPress(e, 'Medication Type')}
                   >
-                    <LinearGradient
-                      colors={['#FFFFFF', '#EFF6FF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
+                    <View
                       style={styles.aiButton}
                     >
                       <View style={styles.aiButtonIcon}>
-                        <Feather name="layers" size={10} color={Colors.primary} />
+                        <Feather name="layers" size={10} color={Colors.gray600} />
                       </View>
                       <Text style={styles.aiButtonText}>
                         {medication.medicine_type}
                       </Text>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 )}
               </ScrollView>
@@ -1095,35 +1089,21 @@ const styles = StyleSheet.create({
   aiButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#93C5FD', // Darker blue border (Blue-300) for visibility
-    backgroundColor: '#F0F9FF', // Slight blue tint (Sky-50) solid background
-    gap: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6', // Colors.gray100
+    gap: 6,
   },
   aiButtonIcon: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   aiButtonText: {
-    fontSize: 10,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.gray800,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#4B5563', // Colors.gray600
+    letterSpacing: 0,
   },
   modalContent: {
     marginBottom: 20,
