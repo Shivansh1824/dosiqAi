@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import Animated2, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated2, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming, withRepeat } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Typography } from '../../constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,31 +26,25 @@ const GradientSparklesIcon = ({ size = 24 }: { size?: number }) => (
 // ─── Breathing Diagonal Gradient Background ──────────────────────────────────
 // Continuous, clean animation: fades from a slightly darker shade at top-left
 // to a very light shade at bottom-right, pulsing gently and repeatedly.
+// OPTIMIZED: Uses Reanimated for UI thread performance
 const BreathingGradientBG = () => {
-    const opacity = useRef(new Animated.Value(0.3)).current;
+    const opacity = useSharedValue(0.3);
 
     useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                // Breathe in: gradient becomes more visible
-                Animated.timing(opacity, {
-                    toValue: 1,
-                    duration: 2500,
-                    useNativeDriver: true,
-                }),
-                // Breathe out: gradient fades back
-                Animated.timing(opacity, {
-                    toValue: 0.3,
-                    duration: 2500,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
+        opacity.value = withRepeat(
+            withTiming(1, { duration: 2500 }),
+            -1,
+            true
+        );
     }, []);
 
+    const style = useAnimatedStyle(() => ({
+        opacity: opacity.value
+    }));
+
     return (
-        <Animated.View
-            style={[StyleSheet.absoluteFill, { opacity }]}
+        <Animated2.View
+            style={[StyleSheet.absoluteFill, style]}
             pointerEvents="none"
         >
             {/* Diagonal gradient: top-left slightly darker → bottom-right very light */}
@@ -64,36 +58,41 @@ const BreathingGradientBG = () => {
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
             />
-        </Animated.View>
+        </Animated2.View>
     );
 };
 
 // ─── Icon Glow — diagonal cut gradient before the logo ────────────────────────
-// A rotated gradient block that sits behind/before the sparkles icon, creating
-// the "diagonal cut" effect seen in the screenshot.
+// A rotated gradient block that sits behind/before the sparkles icon.
+// OPTIMIZED: Uses Reanimated to prevent JS thread blocking
 const IconGlow = () => {
-    const opacity = useRef(new Animated.Value(0.6)).current;
+    const opacity = useSharedValue(0.6);
 
     useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(opacity, { toValue: 1.0, duration: 2500, useNativeDriver: true }),
-                Animated.timing(opacity, { toValue: 0.5, duration: 2500, useNativeDriver: true }),
-            ])
-        ).start();
+        opacity.value = withRepeat(
+            withTiming(1.0, { duration: 2500 }),
+            -1,
+            true
+        );
     }, []);
 
+    const style = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [{ rotate: '25deg' }]
+    }));
+
     return (
-        <Animated.View
-            style={{
-                position: 'absolute',
-                left: -20,
-                top: -40,
-                width: 140,
-                height: 180,
-                transform: [{ rotate: '25deg' }], // Diagonal tilt
-                opacity,
-            }}
+        <Animated2.View
+            style={[
+                {
+                    position: 'absolute',
+                    left: -20,
+                    top: -40,
+                    width: 140,
+                    height: 180,
+                },
+                style
+            ]}
             pointerEvents="none"
         >
             <LinearGradient
@@ -107,7 +106,7 @@ const IconGlow = () => {
                 end={{ x: 1, y: 0 }} // Horizontal gradient (relative to rotation)
                 style={{ flex: 1 }}
             />
-        </Animated.View>
+        </Animated2.View>
     );
 };
 
@@ -124,76 +123,93 @@ interface PrescriptionSummaryProps {
         follow_up_days?: number;
         follow_up_notes?: string;
     };
-    expanded?: boolean;
-    onToggle?: (expanded: boolean) => void;
 }
 
-/**
- * PrescriptionSummary - AI Summary card for prescriptions with read more functionality
- * Extracted from PrescriptionSummaryScreen.tsx
- */
-export function PrescriptionSummary({ summary, otherInformation, recommendedTests, style, defaultExpanded = false, followUp, expanded, onToggle }: PrescriptionSummaryProps) {
-    const [localExpanded, setLocalExpanded] = useState(defaultExpanded);
-    const isExpanded = expanded !== undefined ? expanded : localExpanded;
+// ─── Main Component ───────────────────────────────────────────────────────────
+export function PrescriptionSummary({
+    summary,
+    otherInformation,
+    recommendedTests,
+    style,
+    defaultExpanded = false,
+    followUp,
+}: PrescriptionSummaryProps) {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-    const handleToggle = () => {
-        if (onToggle) {
-            onToggle(!isExpanded);
-        } else {
-            setLocalExpanded(!isExpanded);
-        }
-    };
+    // Dynamic style based on expansion
+    // OPTIMIZED: No layout thrashing (borderWidth is constant)
+    const containerStyle = useAnimatedStyle(() => {
+        return {
+            borderColor: withTiming(isExpanded ? '#60A5FA' : 'transparent', { duration: 250 }),
+            backgroundColor: withTiming(isExpanded ? '#F8FAFC' : Colors.white, { duration: 250 }),
+        };
+    }, [isExpanded]);
 
     return (
-        <Animated.View
-            layout={LinearTransition.duration(300)}
-            style={[styles.aiSummaryCard, style]}
+        <Animated2.View
+            // Use standard duration for no-bounce, high-performance transition
+            // Tuned to 250ms for snappier feel
+            layout={LinearTransition.duration(250)}
+            style={[styles.outerShell, style, containerStyle, { borderWidth: 1.5 }]} // Constant borderWidth
         >
-            <LinearGradient
-                colors={['#EFF6FF', '#FFFFFF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+            {/* Pulsing blue-violet aura glow just behind/before the icon - Always visible */}
+            <IconGlow />
+
+            {/* ── Header Row (always visible, tappable dropdown) ── */}
             <TouchableOpacity
                 style={styles.aiSummaryHeader}
-                onPress={handleToggle}
+                onPress={() => setIsExpanded(prev => !prev)}
                 activeOpacity={0.7}
             >
                 <View style={styles.headerLeft}>
                     <View style={styles.iconContainer}>
-                        <MaterialCommunityIcons name="creation" size={18} color={Colors.white} />
+                        <GradientSparklesIcon size={28} />
                     </View>
-                    <Text style={styles.aiSummaryTitle}>Ai Summary</Text>
+                    <View style={styles.titleStack}>
+                        <Text style={styles.aiSummaryTitle}>AI ANALYSIS</Text>
+                        <Text style={styles.aiSummarySubtitle}>
+                            Generated by dosiq A<Text style={{ fontSize: 10 }}>I</Text>
+                        </Text>
+                    </View>
                 </View>
-                <MaterialCommunityIcons
-                    name={isExpanded ? "chevron-up" : "chevron-down"}
-                    size={24}
-                    color={Colors.primary}
-                />
+
+                <View style={styles.chevronContainer}>
+                    <MaterialCommunityIcons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={24}
+                        color="#60A5FA"
+                    />
+                </View>
             </TouchableOpacity>
 
             {/* ── Expanded Content (dropdown) ── */}
             {isExpanded && (
-                <Animated.View
-                    entering={FadeIn.duration(300)}
-                    exiting={FadeOut.duration(300)}
+                <Animated2.View
+                    entering={FadeIn.duration(400)}
+                    exiting={FadeOut.duration(200)}
                     style={styles.contentContainer}
                 >
                     <Text style={styles.infoLabel}>SUMMARY</Text>
                     <Text style={styles.aiSummaryText}>{summary}</Text>
 
+
                     {/* Follow-up */}
                     {followUp && (followUp.follow_up_date || followUp.follow_up_days) && (
-                        <Text style={[styles.aiSummaryText, { marginTop: 12 }]}>
-                            <Text style={styles.boldText}>Follow Up. </Text>
-                            {followUp.follow_up_days && followUp.follow_up_date
-                                ? `Advised to follow up with the doctor after ${followUp.follow_up_days} days, on ${followUp.follow_up_date}.`
-                                : followUp.follow_up_date
-                                    ? `Advised to follow up with the doctor on ${followUp.follow_up_date}.`
-                                    : `Advised to follow up with the doctor in ${followUp.follow_up_days} days.`
-                            }
-                        </Text>
+                        <View style={styles.infoBlock}>
+                            <View style={styles.infoIcon}>
+                                <MaterialCommunityIcons name="calendar-clock" size={18} color="#60A5FA" />
+                            </View>
+                            <View style={styles.infoContent}>
+                                <Text style={styles.infoLabel}>Follow Up</Text>
+                                <Text style={styles.infoValue}>
+                                    {followUp.follow_up_days && followUp.follow_up_date
+                                        ? `After ${followUp.follow_up_days} days, on ${followUp.follow_up_date}`
+                                        : followUp.follow_up_date
+                                            ? `On ${followUp.follow_up_date}`
+                                            : `In ${followUp.follow_up_days} days`}
+                                </Text>
+                            </View>
+                        </View>
                     )}
 
                     {/* Other Information */}
@@ -212,36 +228,32 @@ export function PrescriptionSummary({ summary, otherInformation, recommendedTest
                 </Animated2.View>
             )}
 
-            {/* Bottom divider */}
-            <View style={styles.bottomDivider} />
+
         </Animated2.View>
     );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    aiSummaryCard: {
+    outerShell: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
-        marginBottom: 0,
+        borderRadius: 24, // More rounded for modern feel
         marginHorizontal: 16,
-        marginTop: 8,
-        padding: 0,
-        borderWidth: 1.5,
-        borderColor: Colors.primaryLight,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 15,
-        elevation: 4,
+        marginTop: 10,
+        marginBottom: 10,
+        paddingHorizontal: 20, // Increased padding
+        paddingTop: 18,        // Increased top padding
+        paddingBottom: 20,     // Increased bottom padding
+        position: 'relative', 
         overflow: 'hidden',
+        // Card Shadows
+        shadowColor: '#1a1a2e',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08, // Slightly stronger shadow
+        shadowRadius: 16,
+        elevation: 6,
     },
-    bottomDivider: {
-        height: 1,
-        backgroundColor: '#E5E7EB',
-        marginTop: 16,
-        marginHorizontal: -16,
-    },
+    // bottomDivider removed (no longer needed for card design)
 
     // Shimmer
     shimmerWrapper: {
@@ -260,55 +272,63 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 0,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
     },
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 12, // Increased gap
         flex: 1,
     },
     iconContainer: {
-        backgroundColor: Colors.primary,
-        width: 30,
-        height: 30,
-        borderRadius: 8,
+        width: 40, // Increased icon container size
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 2,
+        backgroundColor: 'rgba(59, 130, 246, 0.08)', // subtle background for icon
+        borderRadius: 12,
     },
-    contentContainer: {
-        marginTop: 0,
-        paddingHorizontal: 18,
-        paddingBottom: 18,
-        borderTopWidth: 1.25,
-        borderTopColor: 'rgba(59, 130, 246, 0.1)', // Light primary border
-        paddingTop: 14,
+    titleStack: {
+        gap: 2,
     },
     aiSummaryTitle: {
-        fontSize: 18,
+        fontSize: 20, // Increased title size
+        fontWeight: '800',
+        color: Colors.gray900,
+        letterSpacing: 0.5,
+    },
+    aiSummarySubtitle: {
+        fontSize: 12, // Increased subtitle size
+        color: '#2563EB',
         ...Typography.fontWeights.extrabold,
-        color: Colors.primaryDark,
-        letterSpacing: -0.3,
+        letterSpacing: 0.2,
+        opacity: 1,
+    },
+
+    // Chevron
+    chevronContainer: {
+        width: 36, // Increased hit area
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+        borderRadius: 12,
+    },
+
+    // Content
+    contentContainer: {
+        marginTop: 20, // Increased spacing
+        gap: 6,
     },
     aiSummaryText: {
-        fontSize: 14,
-        lineHeight: 21,
+        fontSize: 16, // Increased body text size
+        lineHeight: 26, // Increased line height for readability
         color: Colors.gray700,
         ...Typography.fontWeights.regular,
-    },
-    extraInfoContainer: {
-        marginTop: 12,
-        gap: 8,
+        marginTop: 4,
+        marginBottom: 10,
     },
     sectionContainer: {
-        marginTop: 8,
+        gap: 12,
     },
     infoBlock: {
         flexDirection: 'row',

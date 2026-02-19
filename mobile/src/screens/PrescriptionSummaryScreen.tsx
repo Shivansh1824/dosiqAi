@@ -972,10 +972,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
                           otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
                           followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
-                          style={[{ marginBottom: 0 }]}
                           defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
-                          expanded={isSummaryExpanded}
-                          onToggle={setIsSummaryExpanded}
                         />
                       )}
 
