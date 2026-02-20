@@ -766,20 +766,18 @@ export default function MedicationVerificationCard({
                   </TouchableOpacity>
                 )}
 
-                {/* 2. Purpose */}
+                {/* 2. Purpose — highlighted */}
                 {medication.medicine_purpose && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
                   >
-                    <View
-                      style={styles.aiButton}
-                    >
+                    <View style={styles.aiButtonPurpose}>
                       <View style={styles.aiButtonIcon}>
-                        <Feather name="activity" size={10} color={Colors.gray600} />
+                        <Feather name="activity" size={10} color="#6D28D9" />
                       </View>
-                      <Text style={styles.aiButtonText}>
+                      <Text style={styles.aiButtonTextPurpose}>
                         {medication.medicine_purpose}
                       </Text>
                     </View>
@@ -842,18 +840,18 @@ export default function MedicationVerificationCard({
                   </TouchableOpacity>
                 )}
 
-                {/* 6. Meal Relation */}
+                {/* 6. Meal Relation — highlighted */}
                 {(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal) && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     onPress={(e) => handleTooltipPress(e, 'Meal Relation')}
                   >
-                    <View style={styles.aiButton}>
+                    <View style={styles.aiButtonMeal}>
                       <View style={styles.aiButtonIcon}>
-                        <Feather name="coffee" size={10} color={Colors.gray600} />
+                        <Feather name="coffee" size={10} color="#B45309" />
                       </View>
-                      <Text style={styles.aiButtonText}>
+                      <Text style={styles.aiButtonTextMeal}>
                         {getMealTimingLabel(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal!)}
                       </Text>
                     </View>
@@ -1178,6 +1176,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Typography.fontFamily.medium,
     color: '#4B5563', // Colors.gray600
+    letterSpacing: 0,
+  },
+  // ── Highlighted chip: Medication Purpose (indigo/purple) ──
+  aiButtonPurpose: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#EDE9FE', // violet-100
+    borderWidth: 1,
+    borderColor: '#C4B5FD', // violet-300
+    gap: 6,
+  },
+  aiButtonTextPurpose: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#5B21B6', // violet-800
+    letterSpacing: 0,
+  },
+  // ── Highlighted chip: Meal Relation (amber/warm) ──
+  aiButtonMeal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#FEF3C7', // amber-100
+    borderWidth: 1,
+    borderColor: '#FCD34D', // amber-300
+    gap: 6,
+  },
+  aiButtonTextMeal: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#92400E', // amber-800
     letterSpacing: 0,
   },
   modalContent: {
