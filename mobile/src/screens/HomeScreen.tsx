@@ -340,8 +340,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
 
       await fetchDocuments(user.id);
 
-
-
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -358,8 +356,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
         console.error('[HomeScreen] Background analysis failed:', error);
       });
-
-      Alert.alert('Success', 'Document uploaded successfully!');
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');
@@ -419,7 +415,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const showSourceOptions = (type?: 'prescription' | 'report') => {
     const currentType = type || uploadType;
     const title = currentType === 'prescription' ? 'Upload Prescription' : 'Upload Medical Report';
-    
+
     // Universal Custom Action Sheet (iOS & Android)
     setActionSheetConfig({
       title: title,

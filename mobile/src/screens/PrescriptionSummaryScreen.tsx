@@ -659,9 +659,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         await useMedicationsStore.getState().updateMedication(existingMed.id, {
           end_date: yesterday.toISOString().split('T')[0],
         });
-        Alert.alert('Success', 'Medication updated in tracker!');
-      } else {
-        Alert.alert('Success', 'Medication added to tracker!');
       }
 
       // Mark as verified
@@ -730,14 +727,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
       // Mark as verified
       setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
-
-      Alert.alert('Success', 'Medication added to tracker!', [
-        {
-          text: 'View in Tracker',
-          onPress: () => navigation.navigate('Medications'),
-        },
-        { text: 'OK' },
-      ]);
     } catch (error) {
       console.error('[PrescriptionSummary] Error adding medication:', error);
       throw error; // Let the card component handle the error
@@ -1131,11 +1120,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                       medsToVerify.forEach(m => next.add(m.name));
                                       return next;
                                     });
-
-                                    Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
-                                      { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
-                                      { text: 'OK' },
-                                    ]);
                                   } catch (err) {
                                     console.error('[PrescriptionSummary] Verify All Error:', err);
                                     Alert.alert('Error', 'Failed to add all medications.');

@@ -582,7 +582,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     // Mark as verified
                     setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
 
-                    Alert.alert('Success', 'Medication updated in tracker!');
                     resolve();
                   } catch (error) {
                     reject(error);
@@ -605,7 +604,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     // Mark as verified
                     setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
 
-                    Alert.alert('Success', 'Medication added to tracker!');
                     resolve();
                   } catch (error) {
                     reject(error);
@@ -630,14 +628,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
       // Mark as verified
       setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
-
-      Alert.alert('Success', 'Medication added to tracker!', [
-        {
-          text: 'View in Tracker',
-          onPress: () => navigation.navigate('Medications'),
-        },
-        { text: 'OK' },
-      ]);
     } catch (error) {
       console.error('[DocumentDetail] Error adding medication:', error);
       throw error; // Let the card component handle the error
@@ -1714,11 +1704,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                                 medsToVerify.forEach(m => next.add(m.name));
                                 return next;
                               });
-
-                              Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
-                                { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
-                                { text: 'OK' },
-                              ]);
                             } catch (err) {
                               console.error('[DocumentDetail] Verify All Error:', err);
                               Alert.alert('Error', 'Failed to add all medications.');
