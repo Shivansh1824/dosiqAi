@@ -319,14 +319,14 @@ SECTION C: SUMMARY GENERATION (PATIENT-FRIENDLY FORMAT)
 **Summary Structure (2-3 sentences, max 50 words):**
 
 **Sentence 1:** "[Patient Name] was diagnosed with [Diagnosis] by [Dr. Name] on [Visit Date]."
-**Sentence 2:** "Prescribed medications include [Medicine A] ([Scientific Name]) for [purpose] and [Medicine B] for [purpose]."
+**Sentence 2:** "Prescribed medications include [Medicine A] ([Generic Name]) for [purpose] and [Medicine B] for [purpose]."
 **Sentence 3 (if applicable):** "Investigations advised: [Test 1] and [Test 2]."
 
 **Rules:**
 - **NEVER** use patient salutations
 - **ALWAYS** use "Dr " prefix for doctor names (no period, matching the doctor_name field)
 - List 2-4 key medicines (not all if >5)
-- Include scientific names AND purposes ONLY if is_identified: true
+- Include generic names AND purposes ONLY if is_identified: true
 
 
 SECTION D: CHAIN-OF-THOUGHT REASONING (IMPORTANT: WRITE THIS FIRST IN OUTPUT)
@@ -353,7 +353,7 @@ After reading this entire prompt and analyzing the prescription document using a
 5. **Overall Confidence:** Why you assigned your confidence_score
 
 **Reasoning Template:**
-"After analyzing the document, I identified the patient name as '[name]'. The doctor is identified as '[Dr Name]'. The diagnosis field contains [explicit text/inferred reasoning]. Medicine identification: '[Medicine 1]' is identified as [scientific name] (confidence X.XX), used for [purpose], classified as [type]. '[Medicine 2]' is identified as [scientific name]. Dosage instructions are captured as [details]. The visit date is [date]. Overall confidence score is [X.XX] because [justification]."
+"After analyzing the document, I identified the patient name as '[name]'. The doctor is identified as '[Dr Name]'. The diagnosis field contains [explicit text/inferred reasoning]. Medicine identification: '[Medicine 1]' is identified as [generic name] (confidence X.XX), used for [purpose], classified as [type]. '[Medicine 2]' is identified as [generic name]. Dosage instructions are captured as [details]. The visit date is [date]. Overall confidence score is [X.XX] because [justification]."
 
 SECTION E: JSON OUTPUT FORMAT
 
@@ -407,7 +407,7 @@ Output ONLY a valid JSON object matching this structure:
         "assumed_enriched_data": {
           "is_identified": true/false,
           "confidence": 0.0-1.0,
-          "scientific_name": "String or null",
+          "generic_name": "String or null",
           "medicine_purpose": "String or null",
           "medicine_type": "String or null"
         },

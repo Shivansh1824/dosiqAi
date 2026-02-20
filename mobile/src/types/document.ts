@@ -24,7 +24,7 @@ export interface MedicineInfo {
   assumed_enriched_data?: {
     is_identified: boolean;
     confidence?: number;           // NEW: 0.0-1.0 per medicine
-    scientific_name?: string;
+    generic_name?: string;
     medicine_purpose?: string;     // NEW: "Bacterial Infection Treatment"
     medicine_type?: string;        // NEW: "Antibiotic", "Analgesic", etc.
   };
@@ -144,7 +144,7 @@ export interface Document {
   cloud_file_key?: string; // R2 storage key for cloud sync
   family_member_id?: string; // New: reference to family member
   color: string; // Calculated on-the-fly from type, not stored in database
-  
+
   // New top-level fields extracted from AI analysis (Prescription only)
   patient_name?: string | null;
   diagnosis?: string | null;

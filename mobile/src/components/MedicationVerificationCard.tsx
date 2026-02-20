@@ -587,7 +587,7 @@ export default function MedicationVerificationCard({
       medication.duration_days ||
       medication.strength ||
       medication.form ||
-      medication.scientific_name ||
+      medication.generic_name ||
       medication.food_relationship
     );
 
@@ -669,13 +669,13 @@ export default function MedicationVerificationCard({
                 </View>
               )}
 
-              {medication.scientific_name && (
+              {medication.generic_name && (
                 <View style={styles.tableRow}>
                   <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Sci Name</Text>
+                    <Text style={styles.tableHeaderText}>Generic Name</Text>
                   </View>
                   <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{medication.scientific_name}</Text>
+                    <Text style={styles.tableValueText}>{medication.generic_name}</Text>
                   </View>
                 </View>
               )}

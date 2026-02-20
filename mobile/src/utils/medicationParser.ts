@@ -568,8 +568,8 @@ export function detectDuplicateMedication(
     // Logic is now strict: remove spaces/special chars -> check if same.
 
     // 3. Check scientific name match
-    if (med.scientific_name) {
-      const cleanScientific = stripSpecialChars(med.scientific_name);
+    if (med.generic_name) {
+      const cleanScientific = stripSpecialChars(med.generic_name);
       if (cleanScientific === cleanTargetName || cleanTargetName.includes(cleanScientific)) {
         return med;
       }
@@ -741,7 +741,7 @@ export function cleanMedicationName(exactWrittenName: string): string {
  *   dosage_instruction: "4ML",
  *   frequency: "Q6H",
  *   duration: "3 days",
- *   assumed_enriched_data: { is_identified: true, scientific_name: "Paracetamol" }
+ *   assumed_enriched_data: { is_identified: true, generic_name: "Paracetamol" }
  * };
  * const parsed = parseAIMedication(medicine, "doc123", "Prescription");
  * // Returns ParsedMedication with frequency: 'four_times_daily', duration_days: 3, etc.
@@ -806,7 +806,7 @@ export function parseAIMedication(
     name: cleanMedicationName(medicine.exact_written_name),
     strength: medicine.strength,
     form: medicine.form ?? undefined,
-    scientific_name: medicine.assumed_enriched_data?.scientific_name,
+    generic_name: medicine.assumed_enriched_data?.generic_name,
     medicine_type: medicine.assumed_enriched_data?.medicine_type,
     medicine_purpose: medicine.assumed_enriched_data?.medicine_purpose,
     dosage: medicine.dosage_instruction || '',

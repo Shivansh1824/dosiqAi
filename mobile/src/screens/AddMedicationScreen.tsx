@@ -11,7 +11,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNavigation } from '@react-navigation/native';
 import { useNotifications } from '../hooks/useNotifications';
 import * as Haptics from 'expo-haptics';
-import { Modal } from 'react-native';
+import { Modal, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
@@ -31,7 +31,7 @@ export default function AddMedicationScreen() {
     const { addMedication } = useMedicationsStore();
     const { familyMembers, ensurePrimaryMemberExists } = useFamilyMembersStore();
     const { scheduleAllForMedication } = useNotifications();
-    
+
     // Core Details
     const [name, setName] = useState('');
     const [strengthValue, setStrengthValue] = useState('');
@@ -42,7 +42,7 @@ export default function AddMedicationScreen() {
     const [showUnitPicker, setShowUnitPicker] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showErrors, setShowErrors] = useState(false);
-    
+
     // Focus States
     const [isNameFocused, setIsNameFocused] = useState(false);
     const [isStrengthFocused, setIsStrengthFocused] = useState(false);
@@ -53,7 +53,7 @@ export default function AddMedicationScreen() {
     const [endDate, setEndDate] = useState(calculateEndDate(new Date().toISOString().split('T')[0], 3));
     const [hasEndDate, setHasEndDate] = useState(true);
     const [interval, setInterval] = useState(1); // 1 = Daily
-    
+
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
@@ -96,7 +96,7 @@ export default function AddMedicationScreen() {
     const handleBatchToggle = (batchId: string, isEnabled: boolean, defaultTime: string) => {
         const currentTimes = [...customReminderTimes];
         const normalizedDefault = normalizeTime(defaultTime);
-        
+
         let updatedTimes = currentTimes;
 
         if (isEnabled) {
@@ -104,12 +104,12 @@ export default function AddMedicationScreen() {
                 updatedTimes.push(defaultTime);
                 updatedTimes.sort();
             }
-             if (inactiveReminders.some(t => normalizeTime(t) === normalizedDefault)) {
+            if (inactiveReminders.some(t => normalizeTime(t) === normalizedDefault)) {
                 setInactiveReminders(prev => prev.filter(t => normalizeTime(t) !== normalizedDefault));
             }
         } else {
-             updatedTimes = updatedTimes.filter(t => normalizeTime(t) !== normalizedDefault);
-             if (!inactiveReminders.some(t => normalizeTime(t) !== normalizedDefault)) {
+            updatedTimes = updatedTimes.filter(t => normalizeTime(t) !== normalizedDefault);
+            if (!inactiveReminders.some(t => normalizeTime(t) !== normalizedDefault)) {
                 setInactiveReminders(prev => [...prev, defaultTime]);
             }
         }
@@ -135,14 +135,14 @@ export default function AddMedicationScreen() {
         if (errors.reminderTimes) setErrors(prev => ({ ...prev, reminderTimes: '' }));
 
         if (inactiveReminders.some(t => normalizeTime(t) === normalizedNewTime)) {
-             setInactiveReminders(prev => prev.filter(t => normalizeTime(t) !== normalizedNewTime));
+            setInactiveReminders(prev => prev.filter(t => normalizeTime(t) !== normalizedNewTime));
         }
 
         setReminderToggles(prev => [...prev, true]);
 
         if (mealLabel !== null) {
-             setCustomMealLabels(prev => ({ ...prev, [time]: mealLabel }));
-             setReminderDefaultNotes(prev => ({ ...prev, [time]: mealLabel }));
+            setCustomMealLabels(prev => ({ ...prev, [time]: mealLabel }));
+            setReminderDefaultNotes(prev => ({ ...prev, [time]: mealLabel }));
         }
     };
 
@@ -158,11 +158,11 @@ export default function AddMedicationScreen() {
     useEffect(() => {
         const initMember = async () => {
             if (familyMembers.length === 0 && user?.id) {
-                 const primary = await ensurePrimaryMemberExists(user.id, user.name || 'Me');
-                 if (primary) setSelectedMemberId(primary.id);
+                const primary = await ensurePrimaryMemberExists(user.id, user.name || 'Me');
+                if (primary) setSelectedMemberId(primary.id);
             } else if (!selectedMemberId && familyMembers.length > 0) {
-                 const self = familyMembers.find(m => m.relationship === 'Self');
-                 setSelectedMemberId(self ? self.id : familyMembers[0].id);
+                const self = familyMembers.find(m => m.relationship === 'Self');
+                setSelectedMemberId(self ? self.id : familyMembers[0].id);
             }
         };
         initMember();
@@ -186,7 +186,7 @@ export default function AddMedicationScreen() {
 
     const handleSave = async () => {
         if (!user?.id) {
-            alert('User not authenticated');
+            Alert.alert('Error', 'User not authenticated');
             return;
         }
 
@@ -198,8 +198,8 @@ export default function AddMedicationScreen() {
         }
 
         if (!selectedMemberId) {
-             alert('Please select a family member');
-             return;
+            Alert.alert('Error', 'Please select a family member');
+            return;
         }
 
         // Calculate duration and prepare formatted notes
@@ -207,7 +207,7 @@ export default function AddMedicationScreen() {
         const end = new Date(endDate);
         const diffTime = Math.abs(end.getTime() - start.getTime());
         const calculatedDuration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        
+
         // Format per-time notes
         const formattedNotes = Object.entries(reminderDefaultNotes)
             .filter(([_, note]) => note && note.trim().length > 0)
@@ -218,13 +218,13 @@ export default function AddMedicationScreen() {
             user_id: user.id,
             family_member_id: selectedMemberId,
             name,
-            scientific_name: '',
+            generic_name: '',
             medicine_type: null,
             medicine_purpose: '',
             form: null,
             strength: strengthValue ? `${strengthValue} ${strengthUnit}` : '',
             dosage: '',
-            frequency: interval === 1 ? 'daily' : 'interval', 
+            frequency: interval === 1 ? 'daily' : 'interval',
             time_of_day: customReminderTimes,
             interval_days: interval,
             times_per_day: customReminderTimes.length,
@@ -234,40 +234,40 @@ export default function AddMedicationScreen() {
             food_relationship: null,
             notes: formattedNotes || '',
             reminder_enabled: customReminderTimes.length > 0,
-            instructions: '', 
-            color: medicationColors[0], 
+            instructions: '',
+            color: medicationColors[0],
         };
 
         try {
             // Optimistic Update: Show Success Immediately
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setShowSuccess(true); 
+            setShowSuccess(true);
 
             // Perform Async Operations in Background
             // We don't await here to keep the UI unblocked. 
             // The SuccessAnimation duration (~2s) covers this time.
             addMedication(medication as any).then(async (newMed) => {
-                 if (newMed) {
+                if (newMed) {
                     await scheduleAllForMedication(newMed);
-                 }
+                }
             }).catch(error => {
-                 console.error('Failed to add medication in background:', error);
-                 // Optional: Revert success state or show alert if critical
-                 // alert('Failed to save. Please try again.');
+                console.error('Failed to add medication in background:', error);
+                // Optional: Revert success state or show alert if critical
+                // alert('Failed to save. Please try again.');
             });
 
         } catch (error) {
             console.error('Failed to initiate add medication:', error);
-            alert('Failed to add medication. Please try again.');
+            Alert.alert('Error', 'Failed to add medication. Please try again.');
         }
     };
 
-    
 
 
 
 
-// ... (existing imports)
+
+    // ... (existing imports)
 
     return (
         <View style={styles.container}>
@@ -282,14 +282,14 @@ export default function AddMedicationScreen() {
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Elite H-Level Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity 
-                        onPress={() => navigation.goBack()} 
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
                         style={styles.backButton}
                         activeOpacity={0.7}
                     >
                         <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
                     </TouchableOpacity>
-                    
+
                     <View style={styles.headerContent}>
                         <Text style={styles.headerTitle}>Add Medicine</Text>
                         <Text style={styles.headerSubtitle}>
@@ -301,7 +301,7 @@ export default function AddMedicationScreen() {
                         </Text>
                     </View>
 
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.doneButton}
                         onPress={handleSave}
                         activeOpacity={0.7}
@@ -311,235 +311,235 @@ export default function AddMedicationScreen() {
                 </View>
                 <View style={{ height: 1.5, backgroundColor: Colors.gray200, width: '100%' }} />
 
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: Sizes.xl }}
-            >
+                <ScrollView
+                    style={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{ paddingBottom: Sizes.xl }}
+                >
 
-                {/* Medication Details */}
-                <Animated.View style={[styles.section, { marginTop: 24 }]}>
-                    <View style={[styles.sectionHeader, { gap: 6, marginBottom: 0 }]}>
-                        <MaterialCommunityIcons name="pill" size={14} color={Colors.primary} />
-                        <Text style={styles.sectionTitle}>MED DETAILS</Text>
-                        <TouchableOpacity 
-                            onPress={() => setActiveInfo('medDetails')} 
-                            hitSlop={10}
-                            style={{ marginLeft: 4, padding: 2 }}
-                        >
-                            <Feather name="info" size={16} color={Colors.gray400} />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.premiumInputCard}>
-                        <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
-                        <View style={styles.inputLabelRow}>
-                            <Text style={styles.premiumLabel}>Medicine Name *</Text>
-                            {name ? <Feather name="check" size={14} color={Colors.success} /> : null}
-                        </View>
-                        <View style={[
-                            styles.inputContainer, 
-                            isNameFocused && styles.auraFocus,
-                            showErrors && errors.name && styles.inputError
-                        ]}>
-                            <TextInput
-                                style={styles.premiumTextInput}
-                                placeholder="e.g., Amoxicillin"
-                                placeholderTextColor={Colors.textTertiary}
-                                value={name}
-                                onChangeText={(text) => {
-                                    setName(text);
-                                    if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
-                                }}
-                                onFocus={() => setIsNameFocused(true)}
-                                onBlur={() => setIsNameFocused(false)}
-                                // autoFocus={true} // Removed to prevent "multi-cursor" rendering glitch on entry
-                            />
-                        </View>
-                        {showErrors && errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-
-                        <View style={styles.inputLabelRow}>
-                            <Text style={[styles.premiumLabel, { marginTop: Sizes.md }]}>Strength (Optional)</Text>
-                        </View>
-                        <View style={[styles.combinedInputContainer, isStrengthFocused && styles.auraFocus]}>
-                            <TextInput
-                                style={styles.inputUnstyled}
-                                placeholder="e.g., 500"
-                                placeholderTextColor={Colors.textTertiary}
-                                keyboardType="numeric"
-                                value={strengthValue}
-                                onChangeText={setStrengthValue}
-                                onFocus={() => setIsStrengthFocused(true)}
-                                onBlur={() => setIsStrengthFocused(false)}
-                            />
-                            <View style={styles.verticalDivider} />
-                            <TouchableOpacity 
-                                style={styles.unitSelector}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setShowUnitPicker(true);
-                                }}
+                    {/* Medication Details */}
+                    <Animated.View style={[styles.section, { marginTop: 24 }]}>
+                        <View style={[styles.sectionHeader, { gap: 6, marginBottom: 0 }]}>
+                            <MaterialCommunityIcons name="pill" size={14} color={Colors.primary} />
+                            <Text style={styles.sectionTitle}>MED DETAILS</Text>
+                            <TouchableOpacity
+                                onPress={() => setActiveInfo('medDetails')}
+                                hitSlop={10}
+                                style={{ marginLeft: 4, padding: 2 }}
                             >
-                                <Text style={styles.unitSelectorText}>{strengthUnit}</Text>
-                                <Feather name="chevron-down" size={16} color={Colors.primary} />
+                                <Feather name="info" size={16} color={Colors.gray400} />
                             </TouchableOpacity>
                         </View>
-                    </View>
+                        <View style={styles.premiumInputCard}>
+                            <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+                            <View style={styles.inputLabelRow}>
+                                <Text style={styles.premiumLabel}>Medicine Name *</Text>
+                                {name ? <Feather name="check" size={14} color={Colors.success} /> : null}
+                            </View>
+                            <View style={[
+                                styles.inputContainer,
+                                isNameFocused && styles.auraFocus,
+                                showErrors && errors.name && styles.inputError
+                            ]}>
+                                <TextInput
+                                    style={styles.premiumTextInput}
+                                    placeholder="e.g., Amoxicillin"
+                                    placeholderTextColor={Colors.textTertiary}
+                                    value={name}
+                                    onChangeText={(text) => {
+                                        setName(text);
+                                        if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+                                    }}
+                                    onFocus={() => setIsNameFocused(true)}
+                                    onBlur={() => setIsNameFocused(false)}
+                                // autoFocus={true} // Removed to prevent "multi-cursor" rendering glitch on entry
+                                />
+                            </View>
+                            {showErrors && errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+
+                            <View style={styles.inputLabelRow}>
+                                <Text style={[styles.premiumLabel, { marginTop: Sizes.md }]}>Strength (Optional)</Text>
+                            </View>
+                            <View style={[styles.combinedInputContainer, isStrengthFocused && styles.auraFocus]}>
+                                <TextInput
+                                    style={styles.inputUnstyled}
+                                    placeholder="e.g., 500"
+                                    placeholderTextColor={Colors.textTertiary}
+                                    keyboardType="numeric"
+                                    value={strengthValue}
+                                    onChangeText={setStrengthValue}
+                                    onFocus={() => setIsStrengthFocused(true)}
+                                    onBlur={() => setIsStrengthFocused(false)}
+                                />
+                                <View style={styles.verticalDivider} />
+                                <TouchableOpacity
+                                    style={styles.unitSelector}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setShowUnitPicker(true);
+                                    }}
+                                >
+                                    <Text style={styles.unitSelectorText}>{strengthUnit}</Text>
+                                    <Feather name="chevron-down" size={16} color={Colors.primary} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
 
-                </Animated.View>
+                    </Animated.View>
 
-                {/* Course Period & Schedule */}
-                <Animated.View entering={FadeInDown.delay(300)}>
-                     <CoursePeriodSection
-                        startDate={startDate}
-                        endDate={endDate}
-                        interval={interval}
-                        onStartDatePress={() => setShowDatePicker(true)}
-                        onEndDatePress={() => setShowEndDatePicker(true)}
-                        onIntervalChange={handleIntervalChange}
-                        hasEndDate={hasEndDate}
-                        onToggleEndDate={setHasEndDate}
-                        onInfoPress={() => setActiveInfo('coursePeriod')}
+                    {/* Course Period & Schedule */}
+                    <Animated.View entering={FadeInDown.delay(300)}>
+                        <CoursePeriodSection
+                            startDate={startDate}
+                            endDate={endDate}
+                            interval={interval}
+                            onStartDatePress={() => setShowDatePicker(true)}
+                            onEndDatePress={() => setShowEndDatePicker(true)}
+                            onIntervalChange={handleIntervalChange}
+                            hasEndDate={hasEndDate}
+                            onToggleEndDate={setHasEndDate}
+                            onInfoPress={() => setActiveInfo('coursePeriod')}
+                        />
+
+                        <ReminderTimesSection
+                            reminderTimes={getReminderTimes()}
+                            intervalText={interval === 1 ? 'Daily' : `Every ${interval} Days`}
+                            medicineName={name || 'Medicine'}
+                            reminderToggles={reminderToggles}
+                            onToggleChange={handleReminderToggleChange}
+                            onTimeChange={handleTimeChange}
+                            defaultNotes={reminderDefaultNotes}
+                            onDefaultNoteChange={handleDefaultNoteChange}
+                            onAddPress={() => setShowAddReminderModal(true)}
+                            customMealLabels={customMealLabels}
+                            onBatchToggle={handleBatchToggle}
+                            onUpdateReminderTimes={(newTimes) => {
+                                setCustomReminderTimes(newTimes);
+                                if (newTimes.length > 0 && errors.reminderTimes) setErrors(prev => ({ ...prev, reminderTimes: '' }));
+                                setReminderToggles(new Array(newTimes.length).fill(true));
+                            }}
+                            inactiveReminderTimes={inactiveReminders}
+                            onDeleteCustomReminder={(time) => {
+                                const currentTimes = [...customReminderTimes];
+                                if (currentTimes.includes(time)) {
+                                    const updatedTimes = currentTimes.filter(t => t !== time);
+                                    setCustomReminderTimes(updatedTimes);
+                                }
+                                if (inactiveReminders.includes(time)) {
+                                    setInactiveReminders(prev => prev.filter(t => t !== time));
+                                }
+                            }}
+                            preferredTimes={{
+                                morning: familyMembers.find(m => m.id === selectedMemberId)?.morning_dose_time || '08:00',
+                                afternoon: familyMembers.find(m => m.id === selectedMemberId)?.afternoon_dose_time || '14:00',
+                                night: familyMembers.find(m => m.id === selectedMemberId)?.night_dose_time || '21:00',
+                            }}
+                            suppressDefaultBatches={true}
+                            error={showErrors ? errors.reminderTimes : undefined}
+                            onInfoPress={() => setActiveInfo('doseSchedule')}
+                        />
+                    </Animated.View>
+
+                    {/* Modals */}
+                    <DatePickerModal
+                        visible={showDatePicker}
+                        date={startDate}
+                        onConfirm={(date) => {
+                            setStartDate(date);
+                            setShowDatePicker(false);
+                        }}
+                        onCancel={() => setShowDatePicker(false)}
+                        minimumDate={new Date().toISOString().split('T')[0]}
                     />
 
-                    <ReminderTimesSection
-                        reminderTimes={getReminderTimes()}
-                        intervalText={interval === 1 ? 'Daily' : `Every ${interval} Days`}
-                        medicineName={name || 'Medicine'}
-                        reminderToggles={reminderToggles}
-                        onToggleChange={handleReminderToggleChange}
-                        onTimeChange={handleTimeChange}
-                        defaultNotes={reminderDefaultNotes}
-                        onDefaultNoteChange={handleDefaultNoteChange}
-                        onAddPress={() => setShowAddReminderModal(true)}
-                        customMealLabels={customMealLabels}
-                        onBatchToggle={handleBatchToggle}
-                        onUpdateReminderTimes={(newTimes) => {
-                            setCustomReminderTimes(newTimes);
-                            if (newTimes.length > 0 && errors.reminderTimes) setErrors(prev => ({ ...prev, reminderTimes: '' }));
-                            setReminderToggles(new Array(newTimes.length).fill(true));
+                    <DatePickerModal
+                        visible={showEndDatePicker}
+                        date={endDate}
+                        onConfirm={(date) => {
+                            setEndDate(date);
+                            setHasEndDate(true);
+                            setShowEndDatePicker(false);
                         }}
-                        inactiveReminderTimes={inactiveReminders}
-                        onDeleteCustomReminder={(time) => {
-                            const currentTimes = [...customReminderTimes];
-                            if (currentTimes.includes(time)) {
-                                const updatedTimes = currentTimes.filter(t => t !== time);
-                                setCustomReminderTimes(updatedTimes);
-                            }
-                            if (inactiveReminders.includes(time)) {
-                                setInactiveReminders(prev => prev.filter(t => t !== time));
-                            }
-                        }}
-                        preferredTimes={{
-                            morning: familyMembers.find(m => m.id === selectedMemberId)?.morning_dose_time || '08:00',
-                            afternoon: familyMembers.find(m => m.id === selectedMemberId)?.afternoon_dose_time || '14:00',
-                            night: familyMembers.find(m => m.id === selectedMemberId)?.night_dose_time || '21:00',
-                        }}
-                        suppressDefaultBatches={true}
-                        error={showErrors ? errors.reminderTimes : undefined}
-                        onInfoPress={() => setActiveInfo('doseSchedule')}
+                        onCancel={() => setShowEndDatePicker(false)}
+                        minimumDate={startDate}
                     />
-                </Animated.View>
 
-                {/* Modals */}
-                 <DatePickerModal
-                    visible={showDatePicker}
-                    date={startDate}
-                    onConfirm={(date) => {
-                        setStartDate(date);
-                        setShowDatePicker(false);
-                    }}
-                    onCancel={() => setShowDatePicker(false)}
-                    minimumDate={new Date().toISOString().split('T')[0]}
+                    {/* Info Modals */}
+                    <InfoModal
+                        visible={activeInfo === 'medDetails'}
+                        onClose={() => setActiveInfo(null)}
+                        title="Medicine Details"
+                        hideIcon={true}
+                        content={[
+                            {
+                                label: 'What is this?',
+                                text: 'Basic information about the medication such as name, strength, and type.'
+                            },
+                            {
+                                label: 'Behavior',
+                                text: 'This information helps identify the medication and ensure correct dosage tracking.'
+                            }
+                        ]}
+                    />
+                    <InfoModal
+                        visible={activeInfo === 'coursePeriod'}
+                        onClose={() => setActiveInfo(null)}
+                        title="Course Period"
+                        hideIcon={true}
+                        content={[
+                            {
+                                label: 'What is this?',
+                                text: 'The start and end dates for your medication regimen.'
+                            },
+                            {
+                                label: 'Behavior',
+                                text: 'Reminders will be scheduled within this date range. If no end date is set, it will continue indefinitely.'
+                            }
+                        ]}
+                    />
+                    <InfoModal
+                        visible={activeInfo === 'doseSchedule'}
+                        onClose={() => setActiveInfo(null)}
+                        title="Dose Schedule"
+                        hideIcon={true}
+                        content={[
+                            {
+                                label: 'What is this?',
+                                text: 'The specific times of day you need to take your medication.'
+                            },
+                            {
+                                label: 'Behavior',
+                                text: 'Notifications will be sent at these exact times locally on your device.'
+                            }
+                        ]}
+                    />
+
+
+                    <AddReminderModal
+                        visible={showAddReminderModal}
+                        onClose={() => setShowAddReminderModal(false)}
+                        onAdd={handleAddReminderObject}
+                        existingTimes={customReminderTimes}
+                    />
+
+                    <UnitPickerModal
+                        visible={showUnitPicker}
+                        onClose={() => setShowUnitPicker(false)}
+                        onSelect={(unit) => {
+                            setStrengthUnit(unit);
+                            setShowUnitPicker(false);
+                        }}
+                        selectedUnit={strengthUnit}
+                    />
+
+                </ScrollView>
+
+                <SuccessAnimation
+                    visible={showSuccess}
+                    onAnimationFinish={() => navigation.goBack()}
                 />
-
-                <DatePickerModal
-                    visible={showEndDatePicker}
-                    date={endDate}
-                    onConfirm={(date) => {
-                        setEndDate(date);
-                        setHasEndDate(true);
-                        setShowEndDatePicker(false); 
-                    }}
-                    onCancel={() => setShowEndDatePicker(false)}
-                    minimumDate={startDate}
-                />
-
-                {/* Info Modals */}
-                <InfoModal
-                    visible={activeInfo === 'medDetails'}
-                    onClose={() => setActiveInfo(null)}
-                    title="Medicine Details"
-                    hideIcon={true}
-                    content={[
-                        {
-                            label: 'What is this?',
-                            text: 'Basic information about the medication such as name, strength, and type.'
-                        },
-                        {
-                            label: 'Behavior',
-                            text: 'This information helps identify the medication and ensure correct dosage tracking.'
-                        }
-                    ]}
-                />
-                <InfoModal
-                    visible={activeInfo === 'coursePeriod'}
-                    onClose={() => setActiveInfo(null)}
-                    title="Course Period"
-                    hideIcon={true}
-                    content={[
-                        {
-                            label: 'What is this?',
-                            text: 'The start and end dates for your medication regimen.'
-                        },
-                        {
-                            label: 'Behavior',
-                            text: 'Reminders will be scheduled within this date range. If no end date is set, it will continue indefinitely.'
-                        }
-                    ]}
-                />
-                <InfoModal
-                    visible={activeInfo === 'doseSchedule'}
-                    onClose={() => setActiveInfo(null)}
-                    title="Dose Schedule"
-                    hideIcon={true}
-                    content={[
-                        {
-                            label: 'What is this?',
-                            text: 'The specific times of day you need to take your medication.'
-                        },
-                        {
-                            label: 'Behavior',
-                            text: 'Notifications will be sent at these exact times locally on your device.'
-                        }
-                    ]}
-                />
-
-
-                <AddReminderModal
-                    visible={showAddReminderModal}
-                    onClose={() => setShowAddReminderModal(false)}
-                    onAdd={handleAddReminderObject}
-                    existingTimes={customReminderTimes}
-                />
-
-                <UnitPickerModal
-                    visible={showUnitPicker}
-                    onClose={() => setShowUnitPicker(false)}
-                    onSelect={(unit) => {
-                        setStrengthUnit(unit);
-                        setShowUnitPicker(false);
-                    }}
-                    selectedUnit={strengthUnit}
-                />
-
-            </ScrollView>
-
-            <SuccessAnimation 
-                visible={showSuccess} 
-                onAnimationFinish={() => navigation.goBack()} 
-            />
 
 
             </SafeAreaView>
@@ -557,25 +557,25 @@ const styles = StyleSheet.create({
         height: 400,
         opacity: 0.6,
     },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: Sizes.lg,
         paddingVertical: Sizes.md,
         backgroundColor: 'transparent',
     },
-    backButton: { 
-        width: 44, 
-        height: 44, 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+    backButton: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
         marginLeft: -10,
     },
-    headerContent: { 
+    headerContent: {
         flex: 1,
         marginLeft: Sizes.xs,
     },
-    headerTitle: { 
+    headerTitle: {
         ...Typography.styles.h2,
         color: Colors.textPrimary,
         marginBottom: 2,
@@ -594,21 +594,21 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerStatusContainer: { width: 80, height: 32, justifyContent: 'center', alignItems: 'flex-end' },
-    statusIndicator: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: Colors.gray50, 
-        paddingHorizontal: 8, 
-        paddingVertical: 4, 
-        borderRadius: 10, 
-        gap: 4 
+    statusIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.gray50,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        gap: 4
     },
     statusText: { fontSize: 10, fontWeight: '700', color: Colors.textSecondary },
-    
+
     content: { flex: 1, paddingHorizontal: 0, backgroundColor: 'rgba(255,255,255,0.6)' },
     section: { marginTop: 15, width: '100%' },
 
-    
+
     label: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary, marginBottom: 8 },
     premiumLabel: {
         fontSize: 12,
@@ -697,11 +697,11 @@ const styles = StyleSheet.create({
     },
     errorText: { color: Colors.error, fontSize: 12, marginTop: 4, fontWeight: '500' },
 
-    combinedInputContainer: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
+    combinedInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Colors.white, // Solid White
-        borderRadius: 16, 
+        borderRadius: 16,
         overflow: 'hidden',
         height: 56, // Fixed height
         borderWidth: 1,
@@ -715,12 +715,12 @@ const styles = StyleSheet.create({
     },
     inputUnstyled: { flex: 1, height: '100%', paddingHorizontal: 16, fontSize: 16, color: Colors.textPrimary },
     verticalDivider: { width: 1, height: '60%', backgroundColor: Colors.gray100 },
-    unitSelector: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        paddingHorizontal: 16, 
+    unitSelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
         gap: 6,
-        height: '100%', 
+        height: '100%',
         justifyContent: 'center',
         backgroundColor: 'transparent', // Integrated look
     },

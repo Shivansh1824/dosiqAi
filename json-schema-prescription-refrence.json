@@ -42,7 +42,7 @@
                     "confidence": 1,
                     "is_identified": true,
                     "medicine_type": "Antigout",
-                    "scientific_name": "Allopurinol",
+                    "generic_name": "Allopurinol",
                     "medicine_purpose": "Uric Acid Control"
                 }
             },
@@ -62,7 +62,7 @@
                     "confidence": 1,
                     "is_identified": true,
                     "medicine_type": "Statin",
-                    "scientific_name": "Rosuvastatin",
+                    "generic_name": "Rosuvastatin",
                     "medicine_purpose": "Cholesterol Control"
                 }
             },
@@ -82,7 +82,7 @@
                     "confidence": 0.95,
                     "is_identified": true,
                     "medicine_type": "Vitamin/Supplement",
-                    "scientific_name": "Cholecalciferol",
+                    "generic_name": "Cholecalciferol",
                     "medicine_purpose": "Vitamin D Supplementation"
                 }
             },
@@ -102,7 +102,7 @@
                     "confidence": 0.95,
                     "is_identified": true,
                     "medicine_type": "Analgesic",
-                    "scientific_name": "Etoricoxib",
+                    "generic_name": "Etoricoxib",
                     "medicine_purpose": "Pain and Inflammation Relief"
                 }
             }
