@@ -143,23 +143,23 @@ async function callOpenRouterAPI(
             content: systemPrompt,
           },
           {
-            // User prompt: the actual task instruction + prescription image
+            // User prompt: image FIRST (Gemini 3 anchors reasoning better with data before instructions)
             role: "user",
             content: [
-              {
-                type: "text",
-                text: userPrompt,
-              },
               {
                 type: "image_url",
                 image_url: {
                   url: `data:${fileType};base64,${base64Image}`,
                 },
               },
+              {
+                type: "text",
+                text: userPrompt,
+              },
             ],
           },
         ],
-        temperature: 0.1, // Low temperature for consistent extraction
+        temperature: 1.0, // Gemini 3 Flash: Google recommends default 1.0 — reasoning degrades at lower values
         max_tokens: maxTokens,
         response_format: { type: "json_object" }, // Request raw JSON without markdown
         reasoning: {
