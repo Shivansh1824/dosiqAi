@@ -992,6 +992,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             );
                           })()}
 
+                          {/* Verification Prompt — encourage user to cross-check */}
+                          {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
+                            <View style={styles.verificationPrompt}>
+                              <Feather name="alert-circle" size={16} color="#3B82F6" style={{ marginTop: 1 }} />
+                              <Text style={styles.verificationPromptText}>
+                                dosiq Ai may not detect all medications from handwritten prescriptions. Please verify the list below and add any missing ones.
+                              </Text>
+                            </View>
+                          )}
+
                           {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                           {verifiedMedications.size > 0 && (() => {
                             const verifiedNames = innerMedicines
@@ -1052,6 +1062,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   />
                                 );
                               })}
+
+                              {/* Add Medication Manually Button - Always Visible */}
+                              <TouchableOpacity
+                                style={styles.addManuallyButton}
+                                onPress={() => navigation.navigate('AddMedication')}
+                                activeOpacity={0.7}
+                              >
+                                <Feather name="plus" size={20} color={Colors.primary} />
+                                <Text style={styles.addManuallyButtonText}>Add Medication Manually</Text>
+                              </TouchableOpacity>
                             </View>
                           )}
 
@@ -2801,6 +2821,51 @@ const styles = StyleSheet.create({
     // Elevation for Android
     elevation: 4,
     backgroundColor: 'transparent',
+  },
+
+  // Verification Prompt
+  verificationPrompt: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  verificationPromptText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 19,
+    fontWeight: '400',
+  },
+
+  // Add Manually Button
+  addManuallyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.primary + '40',
+    borderStyle: 'dashed',
+    backgroundColor: Colors.primary + '05',
+  },
+  addManuallyButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+    letterSpacing: -0.2,
   },
 });
 
