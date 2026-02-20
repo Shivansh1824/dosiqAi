@@ -279,8 +279,8 @@ export function ReminderTimesSectionLegacy({
 
         let rows: any[] = [];
 
-        // 1. Generate standard batches based on dosage (3 batches: Morning, Afternoon, Night)
-        if (totalTimesPerDay && totalTimesPerDay <= 3 && timingDosage) {
+        // 1. Generate standard batches based on dosage or frequency
+        if (timingDosage) {
             const parts = timingDosage.split('-').map(Number);
             if (parts.length === 3) {
                 // Standard 3-batch pattern: Morning-Afternoon-Night
@@ -290,33 +290,67 @@ export function ReminderTimesSectionLegacy({
                 // Map: [0]=morning, [1]=afternoon, [3]=night (evening at [2] is ignored)
                 const mappedParts = [parts[0], parts[1], parts[3]];
                 rows = batches.filter((_, index) => mappedParts[index] > 0);
+            } else if (totalTimesPerDay && totalTimesPerDay > 3) {
+                rows = [...batches];
+                const extrasNeeded = totalTimesPerDay - 3;
+                for (let i = 0; i < extrasNeeded; i++) {
+                    const cycleIndex = i % 3; // 0, 1, 2 (Morning, Afternoon, Night)
+                    const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
+                    const baseBatch = batches[cycleIndex];
+                    if (!baseBatch.defaultTime) continue; // Skip if base time is not defined
+
+                    const [h, m] = baseBatch.defaultTime.split(':').map(Number);
+                    let newHour = h + offsetPass;
+                    if (newHour >= 24) newHour -= 24; // Simple wrap-around, though unlikely for usual doses
+
+                    const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    rows.push({
+                        id: `extra-${i}`,
+                        label: 'Reminder', // Label is always Reminder for extras
+                        icon: 'clock',
+                        defaultTime: newTime
+                    });
+                }
+            } else if (totalTimesPerDay && totalTimesPerDay > 0) {
+                if (totalTimesPerDay === 1) rows = [batches[0]];
+                else if (totalTimesPerDay === 2) rows = [batches[0], batches[2]];
+                else if (totalTimesPerDay === 3) rows = batches;
+                else rows = batches;
             } else {
                 rows = batches; // Fallback
             }
-        } else if (totalTimesPerDay && totalTimesPerDay > 3) {
-            rows = [...batches];
-            const extrasNeeded = totalTimesPerDay - 3;
-            for (let i = 0; i < extrasNeeded; i++) {
-                const cycleIndex = i % 3; // 0, 1, 2 (Morning, Afternoon, Night)
-                const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
-                const baseBatch = batches[cycleIndex];
-                if (!baseBatch.defaultTime) continue; // Skip if base time is not defined
+        } else if (totalTimesPerDay && totalTimesPerDay > 0) {
+            if (totalTimesPerDay === 1) {
+                rows = [batches[0]]; // Morning
+            } else if (totalTimesPerDay === 2) {
+                rows = [batches[0], batches[2]]; // Morning, Night
+            } else if (totalTimesPerDay === 3) {
+                rows = batches; // Morning, Afternoon, Night
+            } else {
+                rows = [...batches];
+                const extrasNeeded = totalTimesPerDay - 3;
+                for (let i = 0; i < extrasNeeded; i++) {
+                    const cycleIndex = i % 3; // 0, 1, 2 (Morning, Afternoon, Night)
+                    const offsetPass = Math.floor(i / 3) + 1; // 1, 1, 1, 2, 2, 2...
+                    const baseBatch = batches[cycleIndex];
+                    if (!baseBatch.defaultTime) continue; // Skip if base time is not defined
 
-                const [h, m] = baseBatch.defaultTime.split(':').map(Number);
-                let newHour = h + offsetPass;
-                if (newHour >= 24) newHour -= 24; // Simple wrap-around, though unlikely for usual doses
+                    const [h, m] = baseBatch.defaultTime.split(':').map(Number);
+                    let newHour = h + offsetPass;
+                    if (newHour >= 24) newHour -= 24; // Simple wrap-around, though unlikely for usual doses
 
-                const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                rows.push({
-                    id: `extra-${i}`,
-                    label: 'Reminder', // Label is always Reminder for extras
-                    icon: 'clock',
-                    defaultTime: newTime
-                });
+                    const newTime = `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    rows.push({
+                        id: `extra-${i}`,
+                        label: 'Reminder', // Label is always Reminder for extras
+                        icon: 'clock',
+                        defaultTime: newTime
+                    });
+                }
             }
         } else {
             // Default logic if no meta info
-            rows = batches;
+            rows = [];
         }
 
         // Filter out rows that don't have a valid time (from family settings)
