@@ -841,6 +841,24 @@ export default function MedicationVerificationCard({
                     </View>
                   </TouchableOpacity>
                 )}
+
+                {/* 6. Meal Relation */}
+                {(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal) && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Meal Relation')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="coffee" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {getMealTimingLabel(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal!)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
