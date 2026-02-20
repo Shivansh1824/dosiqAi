@@ -591,10 +591,13 @@ export default function MedicationVerificationCard({
       medication.food_relationship
     );
 
+    const itemConfidence = medication.source_raw?.assumed_enriched_data?.confidence;
+    const displayConfidence = itemConfidence !== undefined ? itemConfidence : confidenceScore;
+
     return (
       <View style={styles.modalContent}>
         <Text style={styles.summaryTextModal}>
-          dosiq Ai Analysis: This {medication.medicine_type || 'Medicine'} medicine helps with {medication.medicine_purpose || 'Treatment'}.
+          "{medication.name}" helps with {medication.medicine_purpose || 'Treatment'}.
         </Text>
 
         {hasAttributes && (
@@ -613,8 +616,8 @@ export default function MedicationVerificationCard({
                       color={medication.confidence === 'high' ? '#137333' : medication.confidence === 'medium' ? '#F9AB00' : '#C5221F'}
                     />
                     <Text style={[styles.tableValueText, { fontWeight: 'bold' }]}>
-                      {confidenceScore !== undefined
-                        ? `Ai Confidence: ${Math.round(confidenceScore * 100)}%`
+                      {displayConfidence !== undefined
+                        ? `Ai Confidence: ${Math.round(displayConfidence * 100)}%`
                         : 'Ai'}
                     </Text>
                   </View>
