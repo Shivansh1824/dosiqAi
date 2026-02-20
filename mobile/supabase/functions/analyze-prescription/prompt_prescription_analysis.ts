@@ -329,46 +329,18 @@ SECTION C: SUMMARY GENERATION (PATIENT-FRIENDLY FORMAT)
 - Include generic names AND purposes ONLY if is_identified: true
 
 
-SECTION D: CHAIN-OF-THOUGHT REASONING (IMPORTANT: WRITE THIS FIRST IN OUTPUT)
-
-**CRITICAL INSTRUCTION:**
-
-After reading this entire prompt and analyzing the prescription document using all the rules above, you MUST write your JSON output with a "reasoning" field as the VERY FIRST field.
-
-**Workflow:**
-1. Read this entire prompt (Sections A-F)
-2. Analyze the prescription document thoroughly
-3. Apply all extraction rules mentally
-4. Identify medicines, diagnoses, patient info
-5. Make confidence assessments
-6. **BEGIN your JSON output with "reasoning" field (100-200 words)**
-7. Then write all other structured fields
-
-**What to include in the reasoning field:**
-
-1. **Key Identifications:** What patient name, doctor name, diagnosis you found
-2. **Medicine Confidence:** Explain how you identified each medicine and your certainty level
-3. **Purpose & Type Assignment:** Explain the purpose and type for each identified medicine
-4. **Inference Explanations:** If diagnosis was inferred, explain your logic
-5. **Overall Confidence:** Why you assigned your confidence_score
-
-**Reasoning Template:**
-"After analyzing the document, I identified the patient name as '[name]'. The doctor is identified as '[Dr Name]'. The diagnosis field contains [explicit text/inferred reasoning]. Medicine identification: '[Medicine 1]' is identified as [generic name] (confidence X.XX), used for [purpose], classified as [type]. '[Medicine 2]' is identified as [generic name]. Dosage instructions are captured as [details]. The visit date is [date]. Overall confidence score is [X.XX] because [justification]."
-
-SECTION E: JSON OUTPUT FORMAT
+SECTION D: JSON OUTPUT FORMAT
 
 Output ONLY a valid JSON object matching this structure:
 
 **CRITICAL CONSTRAINTS:**
 - Do NOT wrap output in markdown code blocks
 - Return raw JSON ONLY
-- **"reasoning" field MUST be the FIRST field**
 - Empty arrays [] if no data, NEVER null for arrays
 - Boolean fields must never be null
 - All date fields in YYYY-MM-DD format or null
 
 {
-  "reasoning": "String (100-200 words)",
   "document_type": "prescription | invalid",
   "diagnosis": "String (2-3 words) or null",
   "analysis_metadata": {
@@ -434,13 +406,9 @@ Output ONLY a valid JSON object matching this structure:
   }
 }
 
-SECTION F: VALIDATION CHECKLIST (Before Output)
+SECTION E: VALIDATION CHECKLIST (Before Output)
 
 Before outputting JSON, verify:
-
-**Reasoning & Structure:**
-- [ ] "reasoning" field is the VERY FIRST field in JSON (100-200 words)
-- [ ] Reasoning documents actual findings with confidence levels
 
 **Patient & Doctor:**
 - [ ] Patient name has NO salutations
