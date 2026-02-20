@@ -53,7 +53,7 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_BASE64_LENGTH = (MAX_FILE_SIZE_MB * 1024 * 1024 * 4) / 3; // Account for base64 encoding
 
 // Token limits for prescriptions (concise extraction logic)
-const MAX_TOKENS_PRESCRIPTION = 2500;
+const MAX_TOKENS_PRESCRIPTION = 15000;
 
 // Allowed file types
 const ALLOWED_MIME_TYPES = [
@@ -158,7 +158,6 @@ async function callOpenRouterAPI(
                 ],
                 temperature: 0.1, // Low temperature for consistent extraction
                 max_tokens: maxTokens,
-                response_format: { type: "json_object" }, // Request raw JSON without markdown
                 reasoning: {
                     enabled: true,
                     effort: "medium",
@@ -461,7 +460,7 @@ Deno.serve(async (req: Request) => {
         const commonData = analysisResult.common_data as Record<string, unknown> | undefined;
 
         const patientName = patientInfo?.name || null;
-        const diagnosis = prescriptionData?.medical_issue_diagnosis || null;
+        const diagnosis = analysisResult.diagnosis as string | null || null;
         const visitDate = commonData?.visit_date || null;
         const issuedBy = prescriptionData?.doctor_name || null;
 

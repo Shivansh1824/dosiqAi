@@ -89,17 +89,17 @@ Extract EXACTLY as written on prescription.
 
 ---
 
-**LAYER 2: assumed_enriched_data - is_identified, confidence & scientific_name**
+**LAYER 2: assumed_enriched_data - is_identified, confidence & generic_name**
 
 **Step 1:** Attempt identification
 - Compare with known medicines
 - Check abbreviations (Atorva = Atorvastatin, Paracet = Paracetamol)
 
 **Step 2:** Confidence check
-Am I 100% certain this is [Scientific Name]?
-- YES -> is_identified: true, confidence: 0.90-1.0, scientific_name: "[Name]"
-- MOSTLY CERTAIN (80-90%) -> is_identified: true, confidence: 0.80-0.89, scientific_name: "[Name]"
-- NO -> is_identified: false, confidence: 0.0-0.79, scientific_name: null
+Am I 100% certain this is [Generic Name]?
+- YES -> is_identified: true, confidence: 0.90-1.0, generic_name: "[Name]"
+- MOSTLY CERTAIN (80-90%) -> is_identified: true, confidence: 0.80-0.89, generic_name: "[Name]"
+- NO -> is_identified: false, confidence: 0.0-0.79, generic_name: null
 
 **Step 3:** Never guess
 If uncertain -> is_identified: false

@@ -165,7 +165,7 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
 
     try {
       // Determine which edge function to call based on document type
-      const edgeFunctionName = isReport ? 'analyze-report' : 'analyze-prescription-concise';
+      const edgeFunctionName = isReport ? 'analyze-report' : 'analyze-prescription';
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[DocumentAnalysis] 🎯 EDGE FUNCTION INVOCATION');
