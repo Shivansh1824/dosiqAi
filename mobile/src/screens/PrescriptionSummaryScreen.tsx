@@ -995,7 +995,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           {/* Verification Prompt — encourage user to cross-check */}
                           {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
                             <View style={styles.verificationPrompt}>
-                              <Feather name="alert-circle" size={16} color="#3B82F6" style={{ marginTop: 1 }} />
+                              <Text style={styles.verificationPromptExclamation}>!</Text>
                               <Text style={styles.verificationPromptText}>
                                 dosiq Ai may not detect all medications from handwritten prescriptions. Please verify the list below and add any missing ones.
                               </Text>
@@ -2826,8 +2826,8 @@ const styles = StyleSheet.create({
   // Verification Prompt
   verificationPrompt: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
     marginHorizontal: 16,
     marginBottom: 4,
     paddingVertical: 12,
@@ -2836,6 +2836,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#DBEAFE',
+  },
+  verificationPromptExclamation: {
+    fontSize: 56,
+    fontWeight: '800',
+    color: '#000000',
+    includeFontPadding: false,
+    lineHeight: 64,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    letterSpacing: -2,
+    paddingHorizontal: 8,
   },
   verificationPromptText: {
     flex: 1,
