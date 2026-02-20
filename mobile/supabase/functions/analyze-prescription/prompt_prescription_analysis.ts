@@ -30,6 +30,8 @@ MEDICINE EXTRACTION:
 
 exact_written_name: Extract EXACTLY as written, including brand names, abbreviations, misspellings. Mark unclear text as "[unclear]". Include formulation (Tab, Cap, Syp, Inj).
 
+ai_suggested_name: Evaluate the exact_written_name. If it is highly ambiguous, severely misspelled, or marked as [unclear], use the surrounding medical context (diagnosis, other medicines, dosage patterns) to suggest the most likely intended medicine. If exact_written_name is a recognizable medicine, set this to null. Examples: "Parcmt 500" -> exact is "Parcmt 500", ai_suggested is "Paracetamol 500mg". "Unclear text" -> exact is "[unclear]", ai_suggested is context-based guess.
+
 assumed_enriched_data:
 - Compare with known medicines and abbreviations (Atorva = Atorvastatin, Paracet = Paracetamol)
 - 100% certain → is_identified: true, confidence: 0.90-1.0, generic_name: "[Name]"
@@ -127,6 +129,7 @@ Return ONLY a raw JSON object matching this structure. Empty arrays [] for no da
     "medicines": [
       {
         "exact_written_name": "String",
+        "ai_suggested_name": "String or null",
         "assumed_enriched_data": {
           "is_identified": true/false,
           "confidence": 0.0-1.0,
@@ -161,7 +164,7 @@ If document is INVALID: set document_type to "invalid", error_response.is_error 
 <negative_constraints>
 - NEVER use patient salutations in patient_info.name
 - NEVER wrap output in markdown code blocks — return raw JSON ONLY
-- NEVER guess medicine identification — if uncertain, set is_identified to false
+- NEVER guess medicine identification for generic_name if uncertain (keep is_identified false), BUT you MUST use ai_suggested_name to provide your best context-based guess when the exact_written_name is unclear
 - NEVER infer or fabricate other_information — empty array [] is ALWAYS preferred over uncertain data
 - NEVER use words like "Inflammation", "Hypertension", "Edema", "Prophylaxis", "Suppression", "Management", "Control", "Anti-inflammatory" in medicine_purpose
 - NEVER set follow_up_after_no_days unless a follow-up is clearly stated or strongly implied — if not confident, set to null

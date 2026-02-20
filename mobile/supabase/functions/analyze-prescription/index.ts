@@ -159,7 +159,7 @@ async function callOpenRouterAPI(
             ],
           },
         ],
-        temperature: 1.0, // Gemini 3 Flash: Google recommends default 1.0 — reasoning degrades at lower values
+        temperature: 0.7, // Gemini 3 Flash: Google recommends default 1.0 — reasoning degrades at lower values
         max_tokens: maxTokens,
         response_format: { type: "json_object" }, // Request raw JSON without markdown
         reasoning: {
