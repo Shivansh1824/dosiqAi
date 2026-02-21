@@ -294,9 +294,9 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
 
                 {/* Scientific Name + Type */}
                 <View style={styles.medicationSubtitleRow}>
-                  {med.assumed_enriched_data?.scientific_name && (
+                  {med.assumed_enriched_data?.generic_name && (
                     <Text style={styles.medicationScientific}>
-                      {med.assumed_enriched_data.scientific_name}
+                      {med.assumed_enriched_data.generic_name}
                     </Text>
                   )}
                   {med.assumed_enriched_data?.medicine_type && (

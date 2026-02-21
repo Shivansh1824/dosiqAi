@@ -23,14 +23,14 @@ export interface Medication {
   user_id: string;
   family_member_id: string; // Linked to family_members table
   name: string;
-  
+
   // Detailed medicine info
-  scientific_name?: string;
+  generic_name?: string;
   medicine_type?: string;
   medicine_purpose?: string;
   form?: string;
   strength?: string;
-  
+
   // Dosing & Schedule
   dosage: string; // Mapped from dosage_instruction in DB
   frequency: MedicationFrequency; // Derived from interval_days/times_per_day
@@ -38,15 +38,15 @@ export interface Medication {
   interval_days?: number;
   timing_dosage?: string;
   times_per_day?: number;
-  
+
   start_date: string;
   end_date?: string;
   duration_days?: number;
-  
+
   notes?: string;
   color: string; // Calculated on-the-fly
 
-  
+
   created_at: string;
   updated_at: string;
 

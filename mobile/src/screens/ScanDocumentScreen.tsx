@@ -310,19 +310,8 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         console.error('[ScanDocument] Background analysis failed:', error);
       });
 
-      // Show success alert and navigate back
-      Alert.alert(
-        'Success',
-        'Document uploaded successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              onBack();
-            },
-          },
-        ]
-      );
+      // Navigate back
+      onBack();
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');

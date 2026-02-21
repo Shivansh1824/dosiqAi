@@ -582,7 +582,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     // Mark as verified
                     setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
 
-                    Alert.alert('Success', 'Medication updated in tracker!');
                     resolve();
                   } catch (error) {
                     reject(error);
@@ -605,7 +604,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                     // Mark as verified
                     setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
 
-                    Alert.alert('Success', 'Medication added to tracker!');
                     resolve();
                   } catch (error) {
                     reject(error);
@@ -630,14 +628,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
       // Mark as verified
       setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
-
-      Alert.alert('Success', 'Medication added to tracker!', [
-        {
-          text: 'View in Tracker',
-          onPress: () => navigation.navigate('Medications'),
-        },
-        { text: 'OK' },
-      ]);
     } catch (error) {
       console.error('[DocumentDetail] Error adding medication:', error);
       throw error; // Let the card component handle the error
@@ -645,9 +635,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   };
 
   // Helper to get summary from new or legacy structure
-   const getSummary = (result?: DocumentAnalysisResult): string | undefined => {
-     return result?.common_data?.summary || result?.summary;
-   };
+  const getSummary = (result?: DocumentAnalysisResult): string | undefined => {
+    return result?.common_data?.summary || result?.summary;
+  };
 
   // Helper to format document type
   const formatDocumentType = (type: string): string => {
@@ -913,9 +903,9 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
                   {/* Scientific Name + Type */}
                   <View style={styles.medicationSubtitleRow}>
-                    {med.assumed_enriched_data?.scientific_name && (
+                    {med.assumed_enriched_data?.generic_name && (
                       <Text style={styles.medicationScientific}>
-                        {med.assumed_enriched_data.scientific_name}
+                        {med.assumed_enriched_data.generic_name}
                       </Text>
                     )}
                     {med.assumed_enriched_data?.medicine_type && (
@@ -1558,7 +1548,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
               return !verifiedMedications.has(parsedMed.name);
             });
-          
+
           const hasUnverifiedMeds = unverifiedMedsIdx.length > 0;
           const summary = getSummary(document.ai_analysis_result);
 
@@ -1567,7 +1557,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
               {/* AI Summary Section - Hidden if all verified */}
               {document.ai_analysis_status === 'completed' &&
                 document.ai_analysis_result?.document_type !== 'medical_report' &&
-                summary && 
+                summary &&
                 hasUnverifiedMeds && (
                   <PrescriptionSummary
                     summary={summary}
@@ -1636,10 +1626,10 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                         .map(m => parseAIMedication(m, document.id, displayTitle, familyMember))
                         .filter(m => verifiedMedications.has(m.name))
                         .map(m => m.name);
-                      
+
                       return verifiedNames.length > 0 ? (
-                        <VerifiedMedicationsGroup 
-                          medicationNames={verifiedNames} 
+                        <VerifiedMedicationsGroup
+                          medicationNames={verifiedNames}
                           onViewInTracker={() => navigation.navigate('Medications')}
                         />
                       ) : null;
@@ -1695,7 +1685,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
                             setIsVerifyingAll(true);
                             try {
-                              const medsToVerify = unverifiedMedsIdx.map(({ medicine }) => 
+                              const medsToVerify = unverifiedMedsIdx.map(({ medicine }) =>
                                 parseAIMedication(medicine, document.id, displayTitle, familyMember)
                               );
                               const startDate = (document.visit_date || document.ai_analyzed_at || new Date().toISOString()).split('T')[0];
@@ -1714,11 +1704,6 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                                 medsToVerify.forEach(m => next.add(m.name));
                                 return next;
                               });
-
-                              Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
-                                { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
-                                { text: 'OK' },
-                              ]);
                             } catch (err) {
                               console.error('[DocumentDetail] Verify All Error:', err);
                               Alert.alert('Error', 'Failed to add all medications.');

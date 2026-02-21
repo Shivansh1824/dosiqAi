@@ -659,9 +659,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         await useMedicationsStore.getState().updateMedication(existingMed.id, {
           end_date: yesterday.toISOString().split('T')[0],
         });
-        Alert.alert('Success', 'Medication updated in tracker!');
-      } else {
-        Alert.alert('Success', 'Medication added to tracker!');
       }
 
       // Mark as verified
@@ -730,14 +727,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
       // Mark as verified
       setVerifiedMedications(prev => new Set(prev).add(parsedMed.name));
-
-      Alert.alert('Success', 'Medication added to tracker!', [
-        {
-          text: 'View in Tracker',
-          onPress: () => navigation.navigate('Medications'),
-        },
-        { text: 'OK' },
-      ]);
     } catch (error) {
       console.error('[PrescriptionSummary] Error adding medication:', error);
       throw error; // Let the card component handle the error
@@ -1003,6 +992,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             );
                           })()}
 
+                          {/* Verification Prompt — encourage user to cross-check */}
+                          {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
+                            <View style={styles.verificationPrompt}>
+                              <Text style={styles.verificationPromptExclamation}>!</Text>
+                              <Text style={styles.verificationPromptText}>
+                                dosiq Ai may not detect all medications from handwritten prescriptions. Please verify the list below and add any missing ones.
+                              </Text>
+                            </View>
+                          )}
+
                           {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                           {verifiedMedications.size > 0 && (() => {
                             const verifiedNames = innerMedicines
@@ -1063,6 +1062,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   />
                                 );
                               })}
+
+                              {/* Add Medication Manually Button - Always Visible */}
+                              <TouchableOpacity
+                                style={styles.addManuallyButton}
+                                onPress={() => navigation.navigate('AddMedication')}
+                                activeOpacity={0.7}
+                              >
+                                <Feather name="plus" size={20} color={Colors.primary} />
+                                <Text style={styles.addManuallyButtonText}>Add Medication Manually</Text>
+                              </TouchableOpacity>
                             </View>
                           )}
 
@@ -1131,11 +1140,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                       medsToVerify.forEach(m => next.add(m.name));
                                       return next;
                                     });
-
-                                    Alert.alert('Success', `${medsToVerify.length} medications added to tracker!`, [
-                                      { text: 'View in Tracker', onPress: () => navigation.navigate('Medications') },
-                                      { text: 'OK' },
-                                    ]);
                                   } catch (err) {
                                     console.error('[PrescriptionSummary] Verify All Error:', err);
                                     Alert.alert('Error', 'Failed to add all medications.');
@@ -2817,6 +2821,61 @@ const styles = StyleSheet.create({
     // Elevation for Android
     elevation: 4,
     backgroundColor: 'transparent',
+  },
+
+  // Verification Prompt
+  verificationPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  verificationPromptExclamation: {
+    fontSize: 56,
+    fontWeight: '800',
+    color: '#000000',
+    includeFontPadding: false,
+    lineHeight: 64,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    letterSpacing: -2,
+    paddingHorizontal: 8,
+  },
+  verificationPromptText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 19,
+    fontWeight: '400',
+  },
+
+  // Add Manually Button
+  addManuallyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.primary + '40',
+    borderStyle: 'dashed',
+    backgroundColor: Colors.primary + '05',
+  },
+  addManuallyButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+    letterSpacing: -0.2,
   },
 });
 

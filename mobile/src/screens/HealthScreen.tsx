@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
@@ -215,7 +215,7 @@ export default function HealthScreen() {
             console.log('✅ BMI saved successfully');
         } catch (error) {
             console.error('Error saving BMI:', error);
-            alert('Failed to save BMI. Please try again.');
+            Alert.alert('Error', 'Failed to save BMI. Please try again.');
         }
     };
 
