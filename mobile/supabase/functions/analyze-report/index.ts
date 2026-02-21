@@ -30,7 +30,7 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
 
 // Token limit
-const MAX_TOKENS_REPORT = 20000;
+const MAX_TOKENS_REPORT = 25000;
 
 // CORS Headers - Extended for better client compatibility
 const corsHeaders = {
