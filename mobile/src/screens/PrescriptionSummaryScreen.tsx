@@ -992,12 +992,12 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             );
                           })()}
 
-                          {/* Verification Prompt — encourage user to cross-check */}
+                          {/* Verification Prompt — compact inline note for handwritten prescriptions */}
                           {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
                             <View style={styles.verificationPrompt}>
-                              <Text style={styles.verificationPromptExclamation}>!</Text>
+                              <Feather name="alert-circle" size={14} color="#B45309" style={{ marginTop: 1 }} />
                               <Text style={styles.verificationPromptText}>
-                                dosiq Ai may not detect all medications from handwritten prescriptions. Please verify the list below and add any missing ones.
+                                Handwritten prescription — please verify the detected medications and add any missing ones.
                               </Text>
                             </View>
                           )}
@@ -2826,32 +2826,22 @@ const styles = StyleSheet.create({
   // Verification Prompt
   verificationPrompt: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'flex-start',
+    gap: 7,
     marginHorizontal: 16,
-    marginBottom: 4,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  verificationPromptExclamation: {
-    fontSize: 56,
-    fontWeight: '800',
-    color: '#000000',
-    includeFontPadding: false,
-    lineHeight: 64,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
-    letterSpacing: -2,
-    paddingHorizontal: 8,
+    marginBottom: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
   },
   verificationPromptText: {
     flex: 1,
-    fontSize: 13,
-    color: '#374151',
-    lineHeight: 19,
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 17,
     fontWeight: '400',
   },
 
