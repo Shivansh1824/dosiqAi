@@ -92,32 +92,8 @@ const getMealLabel = (
 
     if (!prefix) return null;
 
-    // If total_times_per_day > 3, show generic meal label
-    if (totalTimesPerDay && totalTimesPerDay > 3) {
-        return `${prefix} Meal`;
-    }
-
-    // If total_times_per_day <= 3, show specific meal based on time of day
-    if (totalTimesPerDay && totalTimesPerDay <= 3) {
-        const timeCategory = getTimeOfDayCategory(time);
-
-        const mealMap: Record<string, string> = {
-            'morning': 'Breakfast',
-            'afternoon': 'Lunch',
-            'night': 'Dinner'
-        };
-
-        const mealName = timeCategory ? mealMap[timeCategory] : undefined;
-
-        if (mealName) {
-            return `${prefix} ${mealName}`;
-        }
-    }
-
-    // Fallback: show generic meal label if we have data but couldn't determine specific meal
-    if (totalTimesPerDay || timingDosage) {
-        return `${prefix} Meal`;
-    }
+    // Always show generic meal label
+    return `${prefix} Meal`;
 
     return null;
 };
