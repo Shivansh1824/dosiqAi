@@ -64,9 +64,10 @@ interface ActionSheetProps {
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isReport: boolean;
 }
 
-const ActionSheet = ({ visible, onClose, onEdit, onDelete }: ActionSheetProps) => (
+const ActionSheet = ({ visible, onClose, onEdit, onDelete, isReport }: ActionSheetProps) => (
   <Modal
     visible={visible}
     transparent
@@ -87,7 +88,7 @@ const ActionSheet = ({ visible, onClose, onEdit, onDelete }: ActionSheetProps) =
           </View>
           <View style={styles.actionSheetTextGroup}>
             <Text style={styles.actionSheetTitle}>Edit Document</Text>
-            <Text style={styles.actionSheetSub}>Update details or re-analyse</Text>
+            <Text style={styles.actionSheetSub}>{isReport ? 'Review and modify report details' : 'Review and modify prescription details'}</Text>
           </View>
           <Feather name="chevron-right" size={14} color="#CBD5E1" />
         </TouchableOpacity>
@@ -104,7 +105,7 @@ const ActionSheet = ({ visible, onClose, onEdit, onDelete }: ActionSheetProps) =
           </View>
           <View style={styles.actionSheetTextGroup}>
             <Text style={[styles.actionSheetTitle, { color: '#EF4444' }]}>Delete Document</Text>
-            <Text style={styles.actionSheetSub}>This action cannot be undone</Text>
+            <Text style={styles.actionSheetSub}>Permanently remove this record and its data</Text>
           </View>
           <Feather name="chevron-right" size={14} color="#CBD5E1" />
         </TouchableOpacity>
@@ -127,9 +128,10 @@ interface TimelineItemProps {
   onEdit: (doc: Document) => void;
   onDelete: (doc: Document) => void;
   showDate: boolean;
+  isInitial?: boolean;
 }
 
-const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete, showDate }: TimelineItemProps) => {
+const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete, showDate, isInitial = false }: TimelineItemProps) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const { medications } = useMedicationsStore();
 
@@ -170,36 +172,20 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
     };
   }, [doc, medications]);
 
-  // Determine display date and time logic
-  const { day, dayOfWeek, time, hasRealTime } = useMemo(() => {
+  // Determine display date logic
+  const { day, dayOfWeek } = useMemo(() => {
     const rawDateStr = doc.report_date || doc.visit_date;
     const fallbackDateStr = doc.ai_analyzed_at;
-    
-    // A "real" time exists only if the source date string itself carries time info
-    const rawHasTime = !!rawDateStr && (rawDateStr.includes(':') || rawDateStr.includes('T'));
-    const analyzedHasTime = !!fallbackDateStr && (fallbackDateStr.includes(':') || fallbackDateStr.includes('T'));
-    const hasRealTime = rawHasTime || analyzedHasTime;
 
-    // Build the display date from the most reliable source
     const displayDate = rawDateStr
       ? new Date(rawDateStr)
       : fallbackDateStr
         ? new Date(fallbackDateStr)
         : new Date();
 
-    // If rawDateStr is date-only, borrow the time component from ai_analyzed_at (if available)
-    if (rawDateStr && !rawHasTime && fallbackDateStr) {
-      const timeRef = new Date(fallbackDateStr);
-      displayDate.setHours(timeRef.getHours(), timeRef.getMinutes(), timeRef.getSeconds());
-    }
-
     return {
       day: displayDate.getDate(),
       dayOfWeek: displayDate.toLocaleDateString('en-US', { weekday: 'short' }),
-      time: hasRealTime
-        ? displayDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-        : null,
-      hasRealTime,
     };
   }, [doc]);
 
@@ -214,7 +200,11 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(Math.min(index * 40, 320)).duration(450).springify()}
+      entering={
+        isInitial 
+          ? FadeInUp.delay(Math.min(index * 50, 400)).springify().damping(14).mass(0.8)
+          : FadeInUp.springify().damping(14).mass(0.8)
+      }
       style={styles.itemRow}
     >
       {/* Date column — Gestalt Proximity: groups day stamp with its cards */}
@@ -254,28 +244,35 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.cardInner}>
-            {/* Header row: type badge + inline time + 3-dot menu — Miller's Law: chunked header zone */}
-            <View style={styles.cardTopRow}>
-              <View style={styles.cardTopRowLeft}>
-                <View style={[styles.typeBadge, { backgroundColor: statusBg }]}>
-                  <Feather name={iconName} size={11} color={statusColor} />
-                  <Text style={styles.typeBadgeText}>{status}</Text>
-                </View>
-                {/* Inline time — only rendered when a real time exists in source data */}
-                {hasRealTime && time && (
-                  <View style={[styles.timeInline, { backgroundColor: statusBg }]}>
-                    <Feather name="clock" size={10} color={statusColor} />
-                    <Text style={styles.timeInlineText}>{time}</Text>
-                  </View>
-                )}
+            {/* Row 1: Type badge only — always full width, no competition */}
+            <View style={styles.typeBadgeRow}>
+              <View style={[styles.typeBadge, { backgroundColor: statusBg }]}>
+                <Feather name={iconName} size={11} color={statusColor} />
+                <Text style={styles.typeBadgeText}>{status}</Text>
+              </View>
+            </View>
+
+            {/* Row 2: People badges — patient + doctor, strict single line */}
+            {(doc.patient_name || doc.issued_by) && (
+              <View style={styles.peopleBadgesRow}>
                 {doc.patient_name && (
                   <View style={styles.patientBadge}>
                     <Feather name="user" size={10} color="#64748B" />
                     <Text style={styles.patientBadgeText} numberOfLines={1}>{doc.patient_name.toUpperCase()}</Text>
                   </View>
                 )}
+                {doc.issued_by && (
+                  <View style={styles.issuedByBadge}>
+                    <Feather
+                      name={status === 'Lab Report' ? 'briefcase' : 'user-check'}
+                      size={11}
+                      color={status === 'Lab Report' ? '#F97316' : '#3B82F6'}
+                    />
+                    <Text style={styles.issuedByText} numberOfLines={1}>{doc.issued_by}</Text>
+                  </View>
+                )}
               </View>
-            </View>
+            )}
 
             {/* 3-dot kebab menu — Absolute positioned for a subtle, secondary feel */}
             <TouchableOpacity
@@ -297,6 +294,7 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
               onClose={() => setMenuVisible(false)}
               onEdit={() => onEdit(doc)}
               onDelete={() => onDelete(doc)}
+              isReport={status === 'Lab Report'}
             />
 
             {/* Diagnosis Label — Only for Prescriptions (User preference) */}
@@ -362,6 +360,14 @@ export default function TimelineScreen() {
   const deleteDocument = useDocumentsStore((state: any) => state.deleteDocument);
   const { medications } = useMedicationsStore();
   const scrollY = useSharedValue(0);
+
+  const [isInitial, setIsInitial] = useState(true);
+
+  useEffect(() => {
+    // Keep staggered animation for initial load, then remove delay for smooth scroll unmounting/remounting
+    const timer = setTimeout(() => setIsInitial(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -462,6 +468,7 @@ export default function TimelineScreen() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         showDate={isFirstOfDay}
+        isInitial={isInitial}
       />
     );
   };
@@ -585,7 +592,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 0,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   headerSpacer: {
     height: 10,
@@ -623,14 +630,14 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   dateDay: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#334155',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   dateWeek: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#94A3B8',
     textTransform: 'uppercase',
     marginTop: -2,
@@ -690,34 +697,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  cardTopRow: {
+  // Row 1: type badge always alone
+  typeBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 6,
-    gap: 6,
   },
-  cardTopRowLeft: {
+  // Row 2: patient + doctor side by side, strict single line
+  peopleBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flex: 1,
-    flexWrap: 'wrap',
+    marginBottom: 6,
+    overflow: 'hidden',
   },
-  // Inline time — replaces floating tab (Jakob's Law)
-  timeInline: {
+  issuedByBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    backgroundColor: '#F1F5F9',
     borderRadius: 6,
+    maxWidth: 160,
   },
-  timeInlineText: {
-    fontSize: 10,
-    fontWeight: '700',
+  issuedByText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#334155',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   patientBadge: {
     flexDirection: 'row',
@@ -727,10 +735,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     backgroundColor: '#F1F5F9',
     borderRadius: 6,
-    maxWidth: 120,
+    maxWidth: 140,
   },
   patientBadgeText: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: '600',
     color: '#334155',
     letterSpacing: 0.1,
@@ -831,26 +839,26 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   typeBadgeText: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#334155',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   diagnosisLabel: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '800',
     color: '#94A3B8',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
-  // Card title — Von Restorff Effect: dominant element (13.5px Semibold)
+  // Card title — Von Restorff Effect: dominant element (13px Semibold)
   cardTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#0F172A',
-    lineHeight: 18,
+    lineHeight: 21,
     letterSpacing: -0.1,
     marginTop: 2,
     marginBottom: 6,
@@ -878,7 +886,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dateMetaLabel: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '800',
     color: '#94A3B8',
     letterSpacing: 0.8,
@@ -886,7 +894,7 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   dateMetaValue: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: '#334155',
     letterSpacing: 0,
@@ -900,8 +908,8 @@ const styles = StyleSheet.create({
   // Footer — Peak-End Rule: styled component instead of inline
   footerContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingBottom: 100,
+    paddingTop: 30,
+    paddingBottom: 5,
   },
   footerIcon: {
     width: 36,
