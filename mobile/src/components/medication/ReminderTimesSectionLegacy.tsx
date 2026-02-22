@@ -613,6 +613,15 @@ export function ReminderTimesSectionLegacy({
                         numberToShow = activeCounter;
                     }
 
+                    const mealLabel = getMealLabel(
+                        batch.defaultTime,
+                        index,
+                        foodRelationship,
+                        totalTimesPerDay,
+                        timingDosage,
+                        customMealLabels?.[batch.defaultTime]
+                    );
+
                     // Onboarding animation ref for the first item
                     const swipeableRef = index === 0 ? firstSwipeableRef : null;
 
@@ -652,8 +661,12 @@ export function ReminderTimesSectionLegacy({
                                                 onPress={() => handleTimeClick(batch.defaultTime)}
                                                 style={styles.timeButton}
                                             >
-                                                <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
-
+                                                <View>
+                                                    <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                    {mealLabel && (
+                                                        <Text style={[styles.timeBarFoodRelation, { marginTop: 2 }]}>{mealLabel}</Text>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
 
                                             {/* Right Group */}
@@ -769,7 +782,10 @@ export function ReminderTimesSectionLegacy({
                                                                     <Feather name="info" size={14} color="#F97316" style={styles.infoIcon} />
                                                                 </TouchableOpacity>
                                                             </View>
-                                                            <Text style={[styles.batchTimeHint, { color: '#9A3412' }]}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                            <Text style={[styles.batchTimeHint, { color: '#9A3412' }]}>
+                                                                {formatTimeDisplay(batch.defaultTime)}
+                                                                {mealLabel ? ` • ${mealLabel}` : ''}
+                                                            </Text>
                                                         </View>
                                                     </View>
 
@@ -836,7 +852,10 @@ export function ReminderTimesSectionLegacy({
                                                                     <Feather name="info" size={14} color="#D97706" style={styles.infoIcon} />
                                                                 </TouchableOpacity>
                                                             </View>
-                                                            <Text style={[styles.batchTimeHint, { color: '#92400E' }]}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                            <Text style={[styles.batchTimeHint, { color: '#92400E' }]}>
+                                                                {formatTimeDisplay(batch.defaultTime)}
+                                                                {mealLabel ? ` • ${mealLabel}` : ''}
+                                                            </Text>
                                                         </View>
                                                     </View>
 
@@ -898,7 +917,10 @@ export function ReminderTimesSectionLegacy({
                                                                     <Feather name="info" size={14} color="#94A3B8" style={styles.infoIcon} />
                                                                 </TouchableOpacity>
                                                             </View>
-                                                            <Text style={[styles.batchTimeHint, { color: '#CBD5E1' }]}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                            <Text style={[styles.batchTimeHint, { color: '#CBD5E1' }]}>
+                                                                {formatTimeDisplay(batch.defaultTime)}
+                                                                {mealLabel ? ` • ${mealLabel}` : ''}
+                                                            </Text>
                                                         </View>
                                                     </View>
 
@@ -943,7 +965,10 @@ export function ReminderTimesSectionLegacy({
                                                                 <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
                                                             </TouchableOpacity>
                                                         </View>
-                                                        <Text style={styles.batchTimeHint}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                        <Text style={styles.batchTimeHint}>
+                                                            {formatTimeDisplay(batch.defaultTime)}
+                                                            {mealLabel ? ` • ${mealLabel}` : ''}
+                                                        </Text>
                                                     </View>
                                                 </View>
 
