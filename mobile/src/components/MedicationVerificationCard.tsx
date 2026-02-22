@@ -975,6 +975,11 @@ export default function MedicationVerificationCard({
                 night: familyMember?.night_dose_time || undefined,
               }}
               timingDosage={medication.timing_dosage}
+              initialMealLabel={
+                (medication.food_relationship === 'before_food' || medication.source_raw?.timing?.relation_to_meal === 'before_food') ? 'Before Meal' :
+                  (medication.food_relationship === 'after_food' || medication.source_raw?.timing?.relation_to_meal === 'after_food') ? 'After Meal' :
+                    (medication.food_relationship === 'empty_stomach' || medication.source_raw?.timing?.relation_to_meal === 'empty_stomach') ? 'Empty Stomach' : null
+              }
             />
 
 
