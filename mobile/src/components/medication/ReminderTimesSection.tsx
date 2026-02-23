@@ -589,28 +589,26 @@ export function ReminderTimesSection({
                                                     height: '100%',
                                                     marginLeft: 8
                                                 }}>
-                                                    {batch.id === 'morning' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FED7AA' }]} />}
-                                                    {batch.id === 'afternoon' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FEF3C7' }]} />}
-                                                    {batch.id === 'night' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0F172A' }]} />}
+
 
                                                     <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 4 }}>
                                                         <Svg height="100%" width="100%" viewBox="0 0 40 40">
                                                             {batch.id === 'morning' && (
                                                                 <>
-                                                                    <G opacity="0.8" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
+                                                                    <G opacity="0.8" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round">
                                                                         <Line x1="20" y1="8" x2="20" y2="14" />
                                                                         <Line x1="7" y1="15" x2="11" y2="19" />
                                                                         <Line x1="33" y1="15" x2="29" y2="19" />
                                                                         <Line x1="2" y1="26" x2="8" y2="26" />
                                                                         <Line x1="38" y1="26" x2="32" y2="26" />
                                                                     </G>
-                                                                    <Path d="M 6 30 A 14 14 0 0 1 34 30 Z" fill="#F97316" />
-                                                                    <Line x1="4" y1="32" x2="36" y2="32" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
+                                                                    <Path d="M 6 30 A 14 14 0 0 1 34 30 Z" fill="#3B82F6" />
+                                                                    <Line x1="4" y1="32" x2="36" y2="32" stroke="#3B82F6" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
                                                                 </>
                                                             )}
                                                             {batch.id === 'afternoon' && (
                                                                 <>
-                                                                    <G opacity="0.8" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round">
+                                                                    <G opacity="0.8" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round">
                                                                         <Line x1="20" y1="2" x2="20" y2="6" />
                                                                         <Line x1="20" y1="38" x2="20" y2="34" />
                                                                         <Line x1="2" y1="20" x2="6" y2="20" />
@@ -620,15 +618,15 @@ export function ReminderTimesSection({
                                                                         <Line x1="7.3" y1="32.7" x2="10" y2="30" />
                                                                         <Line x1="32.7" y1="32.7" x2="30" y2="30" />
                                                                     </G>
-                                                                    <Circle cx="20" cy="20" r="9" fill="#D97706" />
+                                                                    <Circle cx="20" cy="20" r="9" fill="#2563EB" />
                                                                 </>
                                                             )}
                                                             {batch.id === 'night' && (
                                                                 <>
-                                                                    <Path d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z" fill="#FCD34D" />
-                                                                    <Circle cx="8" cy="12" r="1.5" fill="#FEF08A" opacity="0.8" />
-                                                                    <Circle cx="32" cy="8" r="1" fill="#FEF08A" opacity="0.6" />
-                                                                    <Circle cx="35" cy="25" r="1.5" fill="#FEF08A" opacity="0.7" />
+                                                                    <Path d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z" fill="#1E3A8A" />
+                                                                    <Circle cx="8" cy="12" r="1.5" fill="#3B82F6" opacity="0.5" />
+                                                                    <Circle cx="32" cy="8" r="1" fill="#3B82F6" opacity="0.4" />
+                                                                    <Circle cx="35" cy="25" r="1.5" fill="#3B82F6" opacity="0.5" />
                                                                 </>
                                                             )}
                                                         </Svg>
@@ -637,7 +635,7 @@ export function ReminderTimesSection({
                                                         <Text style={{
                                                             fontSize: 12,
                                                             fontWeight: '400',
-                                                            color: batch.id === 'night' ? '#F8FAFC' : (batch.id === 'morning' ? '#C2410C' : '#92400E'),
+                                                            color: '#4B5563',
                                                             marginRight: 4,
                                                             marginLeft: 6
                                                         }}>{batch.label}</Text>
