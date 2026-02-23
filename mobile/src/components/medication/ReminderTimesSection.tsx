@@ -579,14 +579,14 @@ export function ReminderTimesSection({
                                         </TouchableOpacity>
 
                                         {batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night' ? (
-                                            <View style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'center' }}>
+                                            <View style={{ flex: 1, alignItems: 'flex-start', alignSelf: 'stretch', justifyContent: 'center' }}>
                                                 <View style={{
                                                     flexDirection: 'row',
                                                     alignItems: 'center',
-                                                    borderRadius: 10,
+                                                    borderRadius: 0,
                                                     overflow: 'hidden',
-                                                    paddingRight: 4,
-                                                    paddingVertical: 2,
+                                                    width: 125,
+                                                    height: '100%',
                                                     marginLeft: 8
                                                 }}>
                                                     {batch.id === 'morning' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FED7AA' }]} />}
