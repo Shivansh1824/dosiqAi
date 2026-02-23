@@ -858,7 +858,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         {/* Scrollable Content */}
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 70 }]}
           showsVerticalScrollIndicator={false}
         >
           {!isReady ? (
@@ -1697,12 +1697,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   medicationsHeaderSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
-    ...Typography.fontWeights.extrabold,
+    ...Typography.fontWeights.medium,
     marginTop: 2,
-    lineHeight: 16,
-    letterSpacing: 0.2,
+    lineHeight: 18,
+    letterSpacing: 0.1,
   },
 
   // Cards
@@ -2881,8 +2881,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: '#FFFBEB',
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
   },
   verificationPromptText: {
     flex: 1,
