@@ -1584,10 +1584,10 @@ export const styles = StyleSheet.create({
   },
   verificationPromptText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     color: '#92400E',
-    lineHeight: 19,
-    fontWeight: '500',
+    lineHeight: 18,
+    fontWeight: '400',
     letterSpacing: 0.1,
   },
 
