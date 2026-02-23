@@ -149,16 +149,8 @@ export function PrescriptionSummary({
             // Use standard duration for no-bounce, high-performance transition
             // Tuned to 250ms for snappier feel
             layout={LinearTransition.duration(250)}
-            style={[styles.outerShell, style, containerStyle, { borderWidth: 1, backgroundColor: 'transparent' }]} // Constant borderWidth 1 and transparent bg
+            style={[styles.outerShell, style, containerStyle, { borderWidth: 0 }]}
         >
-             {/* Main Card Background Gradient - Matches Screen Background */}
-            <LinearGradient
-                colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
-
             {/* Pulsing blue-violet aura glow just behind/before the icon - Always visible */}
             <IconGlow />
 
@@ -255,10 +247,10 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         // Card Shadows
         shadowColor: '#1a1a2e',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08, // Slightly stronger shadow
-        shadowRadius: 16,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 2,
     },
     // bottomDivider removed (no longer needed for card design)
 

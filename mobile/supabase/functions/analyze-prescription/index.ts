@@ -118,7 +118,8 @@ async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise
 async function callOpenRouterAPI(
   base64Image: string,
   fileType: string,
-  prompt: string,
+  systemPrompt: string,
+  userPrompt: string,
   maxTokens: number,
   retryCount: number = 0
 ): Promise<OpenRouterResponse> {
@@ -137,27 +138,33 @@ async function callOpenRouterAPI(
         model: MODEL,
         messages: [
           {
+            // System prompt: static rules, schema, and persona — eligible for prompt caching
+            role: "system",
+            content: systemPrompt,
+          },
+          {
+            // User prompt: image FIRST (Gemini 3 anchors reasoning better with data before instructions)
             role: "user",
             content: [
-              {
-                type: "text",
-                text: prompt,
-              },
               {
                 type: "image_url",
                 image_url: {
                   url: `data:${fileType};base64,${base64Image}`,
                 },
               },
+              {
+                type: "text",
+                text: userPrompt,
+              },
             ],
           },
         ],
-        temperature: 0.1, // Low temperature for consistent extraction
+        temperature: 0.82, // Gemini 3 Flash: Google recommends default 1.0 — reasoning degrades at lower values
         max_tokens: maxTokens,
         response_format: { type: "json_object" }, // Request raw JSON without markdown
         reasoning: {
           enabled: true,
-          effort: "low",
+          effort: "medium",
         },
       }),
     });
@@ -171,7 +178,7 @@ async function callOpenRouterAPI(
         const delay = RETRY_DELAY_MS * (retryCount + 1);
         console.log(`[OpenRouter] Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
-        return callOpenRouterAPI(base64Image, fileType, prompt, maxTokens, retryCount + 1);
+        return callOpenRouterAPI(base64Image, fileType, systemPrompt, userPrompt, maxTokens, retryCount + 1);
       }
 
       throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
@@ -186,7 +193,7 @@ async function callOpenRouterAPI(
       const delay = RETRY_DELAY_MS * (retryCount + 1);
       console.log(`[OpenRouter] Network error, retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return callOpenRouterAPI(base64Image, fileType, prompt, maxTokens, retryCount + 1);
+      return callOpenRouterAPI(base64Image, fileType, systemPrompt, userPrompt, maxTokens, retryCount + 1);
     }
     throw error;
   }
@@ -426,21 +433,24 @@ Deno.serve(async (req: Request) => {
       console.log("[Status] Document marked as processing");
     }
 
-    // Use prescription prompt
-    const analysisPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
+    // System prompt: static rules/schema (cacheable)
+    // User prompt: short task instruction sent alongside the image
+    const systemPrompt = prompt || DOCUMENT_ANALYSIS_PROMPT;
+    const userPrompt = "Analyze the attached prescription image and extract all information strictly following the rules. Return only valid JSON with no markdown wrapping.";
 
-    // Safety check - ensure we have a prompt
-    if (!analysisPrompt || analysisPrompt.trim().length === 0) {
-      console.error('[Config] ❌ No valid prompt available!');
+    // Safety check - ensure we have a system prompt
+    if (!systemPrompt || systemPrompt.trim().length === 0) {
+      console.error('[Config] ❌ No valid system prompt available!');
       throw new Error('Analysis prompt not configured properly');
     }
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[DEBUG] 🎯 PRESCRIPTION TOKEN LIMIT CONFIGURATION');
     console.log(`[DEBUG] Max Tokens: ${MAX_TOKENS_PRESCRIPTION}`);
+    console.log('[DEBUG] Prompt architecture: system + user (split for caching)');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, analysisPrompt, MAX_TOKENS_PRESCRIPTION);
+    const openRouterResponse = await callOpenRouterAPI(base64Image, fileType, systemPrompt, userPrompt, MAX_TOKENS_PRESCRIPTION);
 
     // Extract analysis result
     const analysisText = openRouterResponse.choices[0]?.message?.content;

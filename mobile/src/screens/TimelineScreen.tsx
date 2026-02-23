@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SectionList, SafeAreaView, Dimensions, Platform, StatusBar } from 'react-native';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SectionList, SafeAreaView, Dimensions, StatusBar, Modal, Pressable, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { 
@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
-import { Document } from '../types/document';
+import { Document, getDocumentTitle } from '../types/document';
 import * as Haptics from 'expo-haptics';
 import { Colors, Sizes, Typography } from '../constants';
 
@@ -47,8 +47,8 @@ const Header = () => {
       </TouchableOpacity>
 
       <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>Your Journey</Text>
-        <Text style={styles.headerSubtitle}>Track your medical history</Text>
+        <Text style={styles.headerTitle}>Medical Timeline</Text>
+        <Text style={styles.headerSubtitle}>Track Your Medical Journey</Text>
       </View>
       
       {/* Spacer to balance the back button if no action button exists */}
@@ -57,6 +57,67 @@ const Header = () => {
   );
 };
 
+// --- Action Sheet Modal ---
+
+interface ActionSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  isReport: boolean;
+}
+
+const ActionSheet = ({ visible, onClose, onEdit, onDelete, isReport }: ActionSheetProps) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="fade"
+    onRequestClose={onClose}
+    statusBarTranslucent
+  >
+    <Pressable style={styles.actionSheetOverlay} onPress={onClose}>
+      <Pressable style={styles.actionSheetContainer} onPress={() => {}}>
+        <View style={styles.actionSheetHandle} />
+        <TouchableOpacity
+          style={styles.actionSheetItem}
+          onPress={() => { onClose(); onEdit(); }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionSheetIconWrap, { backgroundColor: '#EFF6FF' }]}>
+            <Feather name="edit-2" size={15} color="#3B82F6" />
+          </View>
+          <View style={styles.actionSheetTextGroup}>
+            <Text style={styles.actionSheetTitle}>Edit Document</Text>
+            <Text style={styles.actionSheetSub}>{isReport ? 'Review and modify report details' : 'Review and modify prescription details'}</Text>
+          </View>
+          <Feather name="chevron-right" size={14} color="#CBD5E1" />
+        </TouchableOpacity>
+
+        <View style={styles.actionSheetDivider} />
+
+        <TouchableOpacity
+          style={styles.actionSheetItem}
+          onPress={() => { onClose(); onDelete(); }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionSheetIconWrap, { backgroundColor: '#FEF2F2' }]}>
+            <Feather name="trash-2" size={15} color="#EF4444" />
+          </View>
+          <View style={styles.actionSheetTextGroup}>
+            <Text style={[styles.actionSheetTitle, { color: '#EF4444' }]}>Delete Document</Text>
+            <Text style={styles.actionSheetSub}>Permanently remove this record and its data</Text>
+          </View>
+          <Feather name="chevron-right" size={14} color="#CBD5E1" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionSheetCancel} onPress={onClose} activeOpacity={0.7}>
+          <Text style={styles.actionSheetCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
+
 // --- Timeline Item Component ---
 
 interface TimelineItemProps {
@@ -64,121 +125,218 @@ interface TimelineItemProps {
   index: number;
   isLast: boolean;
   onPress: (doc: Document) => void;
+  onEdit: (doc: Document) => void;
+  onDelete: (doc: Document) => void;
   showDate: boolean;
+  isInitial?: boolean;
 }
 
-const TimelineItem = React.memo(({ doc, index, isLast, onPress, showDate }: TimelineItemProps) => {
+const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete, showDate, isInitial = false }: TimelineItemProps) => {
+  const [menuVisible, setMenuVisible] = useState(false);
   const { medications } = useMedicationsStore();
+
   
   // Memoized derived state
-  const { status, statusColor, statusBg, iconName } = useMemo(() => {
+  const { status, statusColor, statusBg, statusGradient, iconName } = useMemo(() => {
     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
     
-    // Status Logic
     let statusText = 'Prescription';
-    let color = '#6366F1'; // Indigo
-    let bg = '#EEF2FF';
+    let color = '#8B5CF6'; // Violet
+    let bg = '#F5F3FF';
+    let gradient = ['#F5F3FF', '#EDE9FE'];
     let icon = 'file-text';
 
     if (docType.includes('report') || docType.includes('lab')) {
-      statusText = 'Report';
-      color = '#0EA5E9'; // Sky
-      bg = '#F0F9FF';
+      statusText = 'Lab Report';
+      color = '#F97316'; // Orange
+      bg = '#FFF7ED';
+      gradient = ['#FFF7ED', '#FFEDD5'];
       icon = 'activity';
     } else {
       const isVerified = medications.some((med: any) => med.source_document_id === doc.id);
       if (isVerified) {
-        statusText = 'Verified';
+        statusText = 'Verified Rx';
         color = '#10B981'; // Emerald
-        bg = '#ECFDF5';
+        bg = '#F0FDF4';
+        gradient = ['#F0FDF4', '#DCFCE7'];
         icon = 'check-circle';
       }
     }
 
-    return { status: statusText, statusColor: color, statusBg: bg, iconName: icon as any };
+    return { 
+      status: statusText, 
+      statusColor: color, 
+      statusBg: bg, 
+      statusGradient: gradient,
+      iconName: icon as any 
+    };
   }, [doc, medications]);
 
-  // Determine display date
-  const displayDate = useMemo(() => {
-    if (doc.report_date) return new Date(doc.report_date);
-    if (doc.visit_date) return new Date(doc.visit_date);
-    return new Date(doc.ai_analyzed_at || new Date().toISOString());
+  // Determine display date logic
+  const { day, dayOfWeek } = useMemo(() => {
+    const rawDateStr = doc.report_date || doc.visit_date;
+    const fallbackDateStr = doc.ai_analyzed_at;
+
+    const displayDate = rawDateStr
+      ? new Date(rawDateStr)
+      : fallbackDateStr
+        ? new Date(fallbackDateStr)
+        : new Date();
+
+    return {
+      day: displayDate.getDate(),
+      dayOfWeek: displayDate.toLocaleDateString('en-US', { weekday: 'short' }),
+    };
   }, [doc]);
 
-  const day = displayDate.getDate();
-  const dayOfWeek = displayDate.toLocaleDateString('en-US', { weekday: 'short' });
-  const time = displayDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const formatDate = (ds: string) =>
+    new Date(ds).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  // Animation
   const scale = useSharedValue(1);
-  
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97);
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1);
-  };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const handlePressIn = () => { scale.value = withSpring(0.985, { damping: 18 }); };
+  const handlePressOut = () => { scale.value = withSpring(1, { damping: 18 }); };
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const hasDateMeta = !!(doc.visit_date || doc.follow_up_date);
 
   return (
-    <Animated.View 
-      // Doherty Threshold: Cap delay to ensure perceived speed (<400ms)
-      entering={FadeInUp.delay(Math.min(index * 30, 300)).duration(400).springify()}
+    <Animated.View
+      entering={
+        isInitial 
+          ? FadeInUp.delay(Math.min(index * 50, 400)).springify().damping(14).mass(0.8)
+          : FadeInUp.springify().damping(14).mass(0.8)
+      }
       style={styles.itemRow}
     >
-      {/* Left: Date */}
+      {/* Date column — Gestalt Proximity: groups day stamp with its cards */}
       <View style={styles.dateColumn}>
         {showDate && (
-           <Animated.View entering={FadeInUp.duration(400)}>
-             <Text style={styles.dateDay}>{day}</Text>
-             <Text style={styles.dateWeek}>{dayOfWeek}</Text>
-           </Animated.View>
+          <Animated.View entering={FadeInUp.duration(400)}>
+            <Text style={styles.dateDay}>{day}</Text>
+            <Text style={styles.dateWeek}>{dayOfWeek}</Text>
+          </Animated.View>
         )}
       </View>
 
-      {/* Middle: Spine & Dot */}
+      {/* Spine — Gestalt Continuity: guides eye through timeline */}
       <View style={styles.spineColumn}>
-        <View style={[styles.spineLine, { bottom: isLast ? 0 : -24 }]} />
-        <View style={[styles.spineDot, { borderColor: statusColor, backgroundColor: '#fff' }]}>
-            <View style={[styles.spineDotInner, { backgroundColor: statusColor }]} />
+        <View style={[styles.spineLine, { bottom: isLast ? 0 : -24, backgroundColor: '#E2E8F0', opacity: 0.7 }]} />
+        <View style={[styles.spineDot, { borderColor: statusColor }]}>
+          <View style={[styles.spineDotInner, { backgroundColor: statusColor, width: 4.5, height: 4.5, borderRadius: 2.25 }]} />
         </View>
       </View>
 
-      {/* Right: Card */}
+      {/* Card — Fitts's Law: full-width large touch target */}
       <TouchableOpacity
         activeOpacity={1}
-        onPress={() => {
-          Haptics.selectionAsync();
-          onPress(doc);
-        }}
+        onPress={() => { Haptics.selectionAsync(); onPress(doc); }}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={styles.cardContainer}
-        // Accessibility: Essential for universal access
-        accessibilityLabel={`View details for ${status} document from ${dayOfWeek}, ${day}`}
+        accessibilityLabel={`${status}: ${getDocumentTitle(doc)}`}
         accessibilityRole="button"
         accessibilityHint="Double tap to open document details"
       >
-        <Animated.View style={[styles.card, animatedStyle, { shadowColor: statusColor, shadowOpacity: 0.06 }]}>
-
-           
-           <View style={styles.cardContent}>
-              <View style={styles.cardHeader}>
-                <View style={[styles.iconBadge, { backgroundColor: statusBg }]}>
-                  <Feather name={iconName} size={14} color={statusColor} />
-                </View>
-                <Text style={[styles.statusText, { color: statusColor }]}>{status}</Text>
-                <Text style={styles.timeText}>{time}</Text>
+        <Animated.View style={[styles.card, animatedStyle]}>
+          <LinearGradient
+            colors={statusGradient as any}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.cardInner}>
+            {/* Row 1: Type badge only — always full width, no competition */}
+            <View style={styles.typeBadgeRow}>
+              <View style={[styles.typeBadge, { backgroundColor: statusBg }]}>
+                <Feather name={iconName} size={11} color={statusColor} />
+                <Text style={styles.typeBadgeText}>{status}</Text>
               </View>
+            </View>
 
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {doc.ai_analysis_result?.file_name || doc.local_file_path?.split('/').pop() || 'Untitled Document'}
-              </Text>
-           </View>
+            {/* Row 2: People badges — patient + doctor, strict single line */}
+            {(doc.patient_name || doc.issued_by) && (
+              <View style={styles.peopleBadgesRow}>
+                {doc.patient_name && (
+                  <View style={styles.patientBadge}>
+                    <Feather name="user" size={10} color="#64748B" />
+                    <Text style={styles.patientBadgeText} numberOfLines={1}>{doc.patient_name.toUpperCase()}</Text>
+                  </View>
+                )}
+                {doc.issued_by && (
+                  <View style={styles.issuedByBadge}>
+                    <Feather
+                      name={status === 'Lab Report' ? 'briefcase' : 'user-check'}
+                      size={11}
+                      color={status === 'Lab Report' ? '#F97316' : '#3B82F6'}
+                    />
+                    <Text style={styles.issuedByText} numberOfLines={1}>{doc.issued_by}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* 3-dot kebab menu — Absolute positioned for a subtle, secondary feel */}
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setMenuVisible(true);
+              }}
+              style={styles.menuButton}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              accessibilityLabel="Document options"
+              accessibilityRole="button"
+            >
+              <Feather name="more-vertical" size={15} color="#94A3B8" />
+            </TouchableOpacity>
+
+            <ActionSheet
+              visible={menuVisible}
+              onClose={() => setMenuVisible(false)}
+              onEdit={() => onEdit(doc)}
+              onDelete={() => onDelete(doc)}
+              isReport={status === 'Lab Report'}
+            />
+
+            {/* Diagnosis Label — Only for Prescriptions (User preference) */}
+            {status.includes('Prescription') && (
+              <Text style={styles.diagnosisLabel}>Diagnosis</Text>
+            )}
+            {/* Title — dominant element that stands out */}
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {doc.diagnosis || doc.ai_analysis_result?.file_name || doc.type}
+            </Text>
+
+            {/* Date metadata — Gestalt Common Region: tinted background groups related info */}
+            {hasDateMeta && (
+              <View style={[styles.dateMeta, { backgroundColor: statusBg + '66' }]}>
+                {doc.visit_date && (
+                  <View style={styles.dateMetaItem}>
+                    <View style={[styles.dateMetaIcon, { backgroundColor: statusColor + '18' }]}>
+                      <Feather name="check-circle" size={9} color={statusColor} />
+                    </View>
+                    <View>
+                      <Text style={styles.dateMetaLabel}>VISITED</Text>
+                      <Text style={styles.dateMetaValue}>{formatDate(doc.visit_date)}</Text>
+                    </View>
+                  </View>
+                )}
+                {doc.visit_date && doc.follow_up_date && (
+                  <View style={styles.dateMetaDivider} />
+                )}
+                {doc.follow_up_date && (
+                  <View style={styles.dateMetaItem}>
+                    <View style={[styles.dateMetaIcon, { backgroundColor: '#F97316' + '18' }]}>
+                      <Feather name="bell" size={9} color="#F97316" />
+                    </View>
+                    <View>
+                      <Text style={styles.dateMetaLabel}>NEXT VISIT</Text>
+                      <Text style={styles.dateMetaValue}>{formatDate(doc.follow_up_date)}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
         </Animated.View>
       </TouchableOpacity>
     </Animated.View>
@@ -186,10 +344,11 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, showDate }: Time
 });
 
 const SectionHeader = ({ title }: { title: string }) => (
-  <View style={styles.sectionHeaderContainer}>
-     <BlurView intensity={Platform.OS === 'ios' ? 80 : 0} tint="light" style={StyleSheet.absoluteFill} />
-     <Text style={styles.sectionHeaderTitle}>{title}</Text>
-  </View>
+  <BlurView intensity={60} tint="light" style={styles.sectionHeaderContainer}>
+    <View style={styles.sectionHeaderInner}>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+    </View>
+  </BlurView>
 );
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
@@ -198,8 +357,17 @@ const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 export default function TimelineScreen() {
   const navigation = useNavigation();
   const { documents } = useDocumentsStore();
+  const deleteDocument = useDocumentsStore((state: any) => state.deleteDocument);
   const { medications } = useMedicationsStore();
   const scrollY = useSharedValue(0);
+
+  const [isInitial, setIsInitial] = useState(true);
+
+  useEffect(() => {
+    // Keep staggered animation for initial load, then remove delay for smooth scroll unmounting/remounting
+    const timer = setTimeout(() => setIsInitial(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -245,9 +413,39 @@ export default function TimelineScreen() {
     }
   };
 
+  const handleEdit = (doc: Document) => {
+    const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
+    if (docType.includes('report') || docType.includes('lab')) {
+      (navigation as any).navigate('ReportSummary', { document: doc, documentId: doc.id });
+    } else {
+      (navigation as any).navigate('PrescriptionSummary', { document: doc, documentId: doc.id });
+    }
+  };
+
   const renderSectionHeader = ({ section: { title } }: any) => (
     <SectionHeader title={title} />
   );
+
+  const handleDelete = useCallback((doc: Document) => {
+    Alert.alert(
+      'Delete Document',
+      `Are you sure you want to delete "${doc.diagnosis || doc.type}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDocument(doc.id);
+            } catch (e) {
+              Alert.alert('Error', 'Failed to delete document. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [deleteDocument]);
 
   const renderItem = ({ item, index, section }: any) => {
     // Check if this is the first item of the day in this section
@@ -267,7 +465,10 @@ export default function TimelineScreen() {
         index={index} 
         isLast={index === section.data.length - 1}
         onPress={handleDocumentPress}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
         showDate={isFirstOfDay}
+        isInitial={isInitial}
       />
     );
   };
@@ -319,10 +520,13 @@ export default function TimelineScreen() {
            </View>
         )}
         ListFooterComponent={
-            <View style={{ alignItems: 'center', paddingVertical: 40, paddingBottom: 100 }}>
+            <View style={styles.footerContainer}>
                 {/* Peak-End Rule: End with a positive affirmation */}
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 12 }} />
-                <Text style={{ color: '#94A3B8', fontSize: 13, fontWeight: '500' }}>You're all caught up</Text>
+                <View style={styles.footerIcon}>
+                  <Feather name="check-circle" size={18} color={Colors.success} />
+                </View>
+                <View style={styles.footerDivider} />
+                <Text style={styles.footerText}>You're all caught up</Text>
             </View>
         }
       />
@@ -350,13 +554,13 @@ const styles = StyleSheet.create({
     paddingVertical: Sizes.md,
     backgroundColor: 'transparent',
     zIndex: 100,
-    borderBottomWidth: 1, // The requested "line"
-    borderBottomColor: '#E2E8F0', // Mild separation
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   headerContent: {
     flex: 1,
     paddingHorizontal: 12,
-    alignItems: 'flex-start', // Left align
+    alignItems: 'flex-start',
   },
   backButton: {
     width: 44,
@@ -364,7 +568,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 22,
-    // Removed background color (was rgba(255,255,255,0.5)) to match MedicationsScreen clean look
   },
   addButton: {
     width: 44,
@@ -376,147 +579,359 @@ const styles = StyleSheet.create({
     marginLeft: Sizes.sm,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...Typography.styles.h2,
     color: Colors.textPrimary,
-    marginBottom: 2,
-    letterSpacing: -0.5,
     textAlign: 'left',
   },
   headerSubtitle: {
-    fontSize: 13,
+    ...Typography.styles.bodySmall,
     color: Colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
     textAlign: 'left',
+    marginTop: 2,
   },
   scrollContent: {
-    paddingTop: 0, // Remove space
-    paddingBottom: 40,
+    paddingTop: 0,
+    paddingBottom: 20,
   },
   headerSpacer: {
     height: 10,
   },
+  // Section header — BlurView with accent for aesthetic depth
   sectionHeaderContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: 'rgba(248, 250, 252, 0.85)', // Semi-transparent for blur effect
+    overflow: 'hidden',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(226, 232, 240, 0.6)',
-    marginBottom: 16,
+    borderBottomColor: 'rgba(226, 232, 240, 0.5)',
+    marginBottom: 8,
+  },
+  sectionHeaderInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 20,
   },
   sectionHeaderTitle: {
-    fontSize: 13,
+    ...Typography.styles.small,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   itemRow: {
     flexDirection: 'row',
-    marginBottom: 0, // Handled by padding in container/list
-    paddingHorizontal: 20, // Reduced from 24
-    minHeight: 100,
+    marginBottom: 0,
+    paddingHorizontal: 20,
+    minHeight: 80,
   },
+  // Date column — widened for readability (36→42px)
   dateColumn: {
-    width: 36, // Reduced from 40
+    width: 42,
     alignItems: 'center',
     paddingTop: 0,
   },
   dateDay: {
-    fontSize: 18,
-    fontWeight: '800', // Extra bold
+    fontSize: 20,
+    fontWeight: '800',
     color: '#334155',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   dateWeek: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#94A3B8',
     textTransform: 'uppercase',
     marginTop: -2,
   },
   spineColumn: {
-    width: 24, // Reduced from 30
+    width: 24,
     alignItems: 'center',
     position: 'relative',
   },
   spineLine: {
     position: 'absolute',
     top: 0,
-    width: 2,
+    width: 1.5,
     backgroundColor: '#E2E8F0',
+    opacity: 0.7,
     zIndex: 0,
-    left: 11, // Center of 24 is 12, minus 1 = 11
+    left: 11.25,
   },
+  // Spine dot — enlarged for visibility (12→14px)
   spineDot: {
-    width: 12, // Slightly smaller dot
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
-    marginTop: 6, 
+    marginTop: 6,
     backgroundColor: '#fff',
   },
   spineDotInner: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   cardContainer: {
     flex: 1,
-    paddingLeft: 10, // Reduced from 12
-    paddingBottom: 24, 
+    paddingLeft: 10,
+    paddingBottom: 12,
   },
+  // Card — uniform 14px radius (Jakob's Law: standard card shape)
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: Colors.textPrimary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(241, 245, 249, 1)', // Very subtle border
+    flexDirection: 'row',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 0.8,
+    borderColor: 'rgba(226, 232, 240, 0.8)',
   },
-
-  cardContent: {
-    padding: 16,
-    paddingVertical: 14,
+  // Left accent bar — Gestalt Similarity: instant type scanning via color
+  cardInner: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  cardHeader: {
+  // Row 1: type badge always alone
+  typeBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
   },
-  iconBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 8, // Soft square
+  // Row 2: patient + doctor side by side, strict single line
+  peopleBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  issuedByBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    maxWidth: 160,
+  },
+  issuedByText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+    letterSpacing: 0.1,
+  },
+  patientBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    maxWidth: 140,
+  },
+  patientBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+    letterSpacing: 0.1,
+  },
+  // 3-dot kebab menu button — subtle & integrated
+  menuButton: {
+    position: 'absolute',
+    top: 8,
+    right: 4,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    zIndex: 10,
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginRight: 'auto',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  // --- Action Sheet Styles ---
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
   },
-  timeText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
+  actionSheetContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 20,
   },
-  cardTitle: {
+  actionSheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+  actionSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  actionSheetIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionSheetTextGroup: {
+    flex: 1,
+  },
+  actionSheetTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1E293B',
-    lineHeight: 20,
-    letterSpacing: -0.2,
+    color: '#0F172A',
+    letterSpacing: -0.1,
+  },
+  actionSheetSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  actionSheetDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 2,
+    marginHorizontal: 4,
+  },
+  actionSheetCancel: {
+    marginTop: 10,
+    paddingVertical: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  actionSheetCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  diagnosisLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  // Card title — Von Restorff Effect: dominant element (13px Semibold)
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    lineHeight: 21,
+    letterSpacing: -0.1,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  // Date meta — Gestalt Common Region: tinted background groups related info
+  dateMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    padding: 6,
+    borderRadius: 8,
+    gap: 0,
+  },
+  dateMetaItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  dateMetaIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateMetaLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 1,
+  },
+  dateMetaValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    letterSpacing: 0,
+  },
+  dateMetaDivider: {
+    width: 1,
+    height: 24, // Slightly shorter for a cleaner look
+    backgroundColor: 'rgba(148, 163, 184, 0.3)', // Darker, more refined separator
+    marginHorizontal: 10,
+  },
+  // Footer — Peak-End Rule: styled component instead of inline
+  footerContainer: {
+    alignItems: 'center',
+    paddingTop: 30,
+    paddingBottom: 5,
+  },
+  footerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.success + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  footerDivider: {
+    width: 40,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  footerText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   emptyState: {
     alignItems: 'center',

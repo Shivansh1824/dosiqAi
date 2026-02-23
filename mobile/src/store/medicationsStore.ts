@@ -93,9 +93,9 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         else if (row.interval_days === 7) frequency = 'weekly';
         else if (row.interval_days === 30) frequency = 'monthly';
         else if (row.interval_days === 1) {
-           if (row.times_per_day === 2) frequency = 'twice_daily';
-           else if (row.times_per_day === 3) frequency = 'three_times_daily';
-           else if (row.times_per_day === 4) frequency = 'four_times_daily';
+          if (row.times_per_day === 2) frequency = 'twice_daily';
+          else if (row.times_per_day === 3) frequency = 'three_times_daily';
+          else if (row.times_per_day === 4) frequency = 'four_times_daily';
         }
 
         return {
@@ -103,31 +103,31 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           user_id: row.user_id,
           family_member_id: row.family_member_id,
           name: row.name,
-          scientific_name: row.scientific_name,
+          generic_name: row.generic_name,
           medicine_type: row.medicine_type,
           medicine_purpose: row.medicine_purpose,
           form: row.form,
           strength: row.strength,
-          
+
           dosage: row.dosage_instruction || '',
           global_frequency: frequency, // Avoid naming collision if needed, but 'frequency' is in interface
           frequency: frequency,
-          
+
           time_of_day: row.reminder_times || [],
           interval_days: row.interval_days,
           timing_dosage: row.timing_dosage,
           times_per_day: row.times_per_day,
-          
+
           start_date: row.start_date,
           end_date: row.end_date,
           duration_days: row.duration_days,
-          
+
           notes: row.notes,
           color: medicationColors[index % medicationColors.length],
-          
+
           created_at: row.created_at,
           updated_at: row.updated_at,
-          
+
           source_document_id: row.source_document_id,
 
           // source_document_title not joined, can be fetched if really needed
@@ -175,7 +175,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
         food_relationship: med.food_relationship,
         // Optional fields
-        scientific_name: med.scientific_name,
+        generic_name: med.generic_name,
         medicine_type: med.medicine_type,
         medicine_purpose: med.medicine_purpose,
         form: med.form,
@@ -193,7 +193,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       // Optimistic update - actually we should probably refetch or reconstruct the full object
       // For now, let's trigger a silent refetch to be safe and accurate
       await get().fetchMedications(med.user_id, true);
-      
+
       set({ isLoading: false });
       console.log('[MedicationsStore] Schedule added:', data.id);
       return data as Medication;
@@ -215,19 +215,19 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       // Map updates to DB columns
       const dbUpdates: any = { ...updates, updated_at: new Date().toISOString() };
-      
+
       // Remap specific fields if present
       if (updates.dosage !== undefined) {
-         dbUpdates.dosage_instruction = updates.dosage;
-         delete dbUpdates.dosage;
+        dbUpdates.dosage_instruction = updates.dosage;
+        delete dbUpdates.dosage;
       }
       if (updates.time_of_day !== undefined) {
-         dbUpdates.reminder_times = updates.time_of_day;
-         delete dbUpdates.time_of_day;
+        dbUpdates.reminder_times = updates.time_of_day;
+        delete dbUpdates.time_of_day;
       }
       // Note: mapping frequency back to interval_days is tricky here without more logic.
       // Ideally we update interval_days directly if changed.
-      
+
       const { data, error } = await supabase
         .from('medication_schedules')
         .update(dbUpdates)
@@ -239,8 +239,8 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       // Refetch to sync state perfectly
       await get().fetchMedications(data.user_id, true);
-      
-      
+
+
       console.log('[MedicationsStore] Updated:', id);
       return data as Medication;
     } catch (error) {
@@ -263,19 +263,19 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         .eq('id', id);
 
       if (error) throw error;
-      
+
       // Update local state
       const medications = get().medications.filter((med) => med.id !== id);
       set({ medications, isLoading: false });
-      
+
       // Update cache to prevent zombie items on reload
       const userId = medications.length > 0 ? medications[0].user_id : null;
       if (userId) {
-          saveToCache(CacheKeys.medications(userId), medications);
+        saveToCache(CacheKeys.medications(userId), medications);
       }
     } catch (error) {
-       set({ error: 'Failed to delete', isLoading: false });
-       throw error;
+      set({ error: 'Failed to delete', isLoading: false });
+      throw error;
     }
   },
 
@@ -308,9 +308,9 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         user_id: userId,
         family_member_id: familyMemberId,
         name: parsedMed.name,
-        
+
         // Detailed info
-        scientific_name: parsedMed.scientific_name,
+        generic_name: parsedMed.generic_name,
         medicine_type: parsedMed.medicine_type,
         medicine_purpose: parsedMed.medicine_purpose,
         form: parsedMed.form,
@@ -329,7 +329,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         end_date: endDate,
 
         notes: parsedMed.notes,
-        
+
         // Metadata
         source_document_id: documentId,
         ai_confidence: 0.95, // Default high confidence for confirmed items
@@ -344,10 +344,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (error) throw error;
 
       console.log('[MedicationsStore] AI Schedule added:', data.id);
-      
+
       // Refresh to get the full list with correct colors
       await get().fetchMedications(userId, true);
-      
+
       // Return a dummy object or the last added one from state. 
       // Since we just refetched, we can find it in the new state.
       const freshMeds = get().medications;
@@ -360,7 +360,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       throw error;
     }
   },
-  
+
   /**
    * Add multiple medications from AI extraction in one batch
    */
@@ -389,14 +389,14 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           user_id: userId,
           family_member_id: familyMemberId,
           name: parsedMed.name,
-          
+
           // Detailed info
-          scientific_name: parsedMed.scientific_name,
+          generic_name: parsedMed.generic_name,
           medicine_type: parsedMed.medicine_type,
           medicine_purpose: parsedMed.medicine_purpose,
           form: parsedMed.form,
           strength: parsedMed.strength,
- 
+
           // Scheduling
           dosage_instruction: parsedMed.dosage,
           timing_dosage: parsedMed.timing_dosage,
@@ -404,13 +404,13 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           reminder_times: parsedMed.time_of_day,
           food_relationship: parsedMed.food_relationship,
           interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
- 
+
           start_date: medStartDate,
           duration_days: parsedMed.duration_days,
           end_date: endDate,
 
           notes: parsedMed.notes,
-          
+
           // Metadata
           source_document_id: documentId,
           ai_confidence: 0.95,
@@ -424,10 +424,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       if (error) throw error;
 
       console.log('[MedicationsStore] Batch AI schedules added:', newSchedules.length);
-      
+
       // Refresh to get the full list with correct colors
       await get().fetchMedications(userId, true);
-      
+
       set({ isLoading: false });
     } catch (error) {
       console.error('[MedicationsStore] Batch Add AI error:', error);
@@ -479,7 +479,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       // Mark old medication as inactive (soft delete by setting end date to yesterday)
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      
+
       await get().updateMedication(oldMedicationId, {
         end_date: yesterday.toISOString(),
         updated_at: new Date().toISOString(),

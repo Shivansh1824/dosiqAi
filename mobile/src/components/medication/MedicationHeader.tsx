@@ -55,7 +55,7 @@ const getConfidenceStyles = (confidence: VerificationConfidence) => {
                 badgeTextColor: '#8C1D18',
                 iconColor: '#C5221F',
                 icon: 'alert-triangle' as const,
-                text: 'Ai',
+                text: 'Ai Assumed',
             };
     }
 };
@@ -131,14 +131,12 @@ export function MedicationHeader({
                                 >
                                     <Text
                                         style={[styles.medicationName, isDismissed && { color: Colors.gray400, textDecorationLine: 'line-through' }]}
-                                        numberOfLines={1}
-                                        ellipsizeMode="tail"
                                     >
                                         {name}
                                     </Text>
                                 </TouchableOpacity>
 
-                                {!isEditing && (
+                                {!isEditing && confidence === 'low' && (
                                     <TouchableOpacity
                                         onPress={onNamePress}
                                         activeOpacity={0.7}

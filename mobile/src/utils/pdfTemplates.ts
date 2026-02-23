@@ -497,8 +497,8 @@ export function generatePrescriptionHTML(
           <tr>
             <td>
               <div class="medicine-name">${med.exact_written_name}</div>
-              ${med.assumed_enriched_data?.scientific_name
-              ? `<span class="medicine-scientific">${med.assumed_enriched_data.scientific_name}</span>`
+              ${med.assumed_enriched_data?.generic_name
+              ? `<span class="medicine-scientific">${med.assumed_enriched_data.generic_name}</span>`
               : ''
             }
             </td>

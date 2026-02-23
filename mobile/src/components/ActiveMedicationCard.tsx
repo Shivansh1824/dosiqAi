@@ -149,13 +149,13 @@ export default function ActiveMedicationCard({ medication }: ActiveMedicationCar
             </View>
           )}
 
-          {/* Scientific Name */}
-          {medication.scientific_name && (
+          {/* Generic Name */}
+          {medication.generic_name && (
             <View style={styles.detailRow}>
               <View style={styles.readOnlyField}>
-                <Text style={styles.readOnlyLabel}>Scientific Name</Text>
+                <Text style={styles.readOnlyLabel}>Generic Name</Text>
                 <Text style={styles.readOnlyValue}>
-                  {medication.scientific_name}
+                  {medication.generic_name}
                 </Text>
               </View>
             </View>
