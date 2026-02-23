@@ -193,8 +193,8 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
     new Date(ds).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const scale = useSharedValue(1);
-  const handlePressIn = () => { scale.value = withSpring(0.985, { damping: 18 }); };
-  const handlePressOut = () => { scale.value = withSpring(1, { damping: 18 }); };
+  const handlePressIn = () => { scale.value = withSpring(0.985, { damping: 25, stiffness: 300 }); };
+  const handlePressOut = () => { scale.value = withSpring(1, { damping: 25, stiffness: 300 }); };
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const hasDateMeta = !!(doc.visit_date || doc.follow_up_date);
 
@@ -202,8 +202,8 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
     <Animated.View
       entering={
         isInitial 
-          ? FadeInUp.delay(Math.min(index * 50, 400)).springify().damping(14).mass(0.8)
-          : FadeInUp.springify().damping(14).mass(0.8)
+          ? FadeInUp.delay(Math.min(index * 40, 300)).duration(500)
+          : FadeInUp.duration(400)
       }
       style={styles.itemRow}
     >
