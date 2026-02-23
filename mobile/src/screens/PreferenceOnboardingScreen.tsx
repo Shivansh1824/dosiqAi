@@ -122,8 +122,8 @@ export default function PreferenceOnboardingScreen() {
                 }
                 // Load tune preference (Platform Specific)
                 // iOS reads ios_notification_tune, Android reads android_notification_tune
-                const tuneToLoad = Platform.OS === 'ios' 
-                    ? data.ios_notification_tune 
+                const tuneToLoad = Platform.OS === 'ios'
+                    ? data.ios_notification_tune
                     : data.android_notification_tune;
 
                 if (tuneToLoad) {
@@ -170,15 +170,15 @@ export default function PreferenceOnboardingScreen() {
             const formatTimeToDB = (date: Date) => {
                 const hours = date.getHours().toString().padStart(2, '0');
                 const minutes = date.getMinutes().toString().padStart(2, '0');
-                return `${hours}:${minutes}:00`;
+                return `${hours}:${minutes}`;
             };
 
             // Determine Tune Value
             let finalTuneValue = 'default';
-            if(selectedTune.filename && selectedTune.filename !== 'none') {
-                 finalTuneValue = selectedTune.filename;
+            if (selectedTune.filename && selectedTune.filename !== 'none') {
+                finalTuneValue = selectedTune.filename;
             }
-             // Helper to handle "System Default" selection explicitly
+            // Helper to handle "System Default" selection explicitly
             if (selectedTune.id === 'default' || selectedTune.filename === 'default') {
                 finalTuneValue = 'default';
             }
@@ -192,8 +192,8 @@ export default function PreferenceOnboardingScreen() {
                 reminder_style: (isAggressive ? 'assurance' : 'standard') as 'assurance' | 'standard',
                 // PLATFORM SPECIFIC SAVE:
                 // Only update the field for the current device.
-                ...(Platform.OS === 'ios' 
-                    ? { ios_notification_tune: finalTuneValue } 
+                ...(Platform.OS === 'ios'
+                    ? { ios_notification_tune: finalTuneValue }
                     : { android_notification_tune: finalTuneValue }
                 ),
                 ios_followup_count: iosFollowUpCount,
@@ -220,7 +220,7 @@ export default function PreferenceOnboardingScreen() {
             try {
                 await useFamilyMembersStore.getState().updateFamilyMember(memberData.id, preferences);
                 console.log('Local store updated with new preferences');
-                
+
                 // Reschedule all notifications for this member with new settings
                 await rescheduleAllNotificationsForMember(memberData.id);
             } catch (localError) {
@@ -366,7 +366,7 @@ export default function PreferenceOnboardingScreen() {
                 />
             </View>
 
-            <InfoModal 
+            <InfoModal
                 visible={infoModalVisible}
                 onClose={() => setInfoModalVisible(false)}
                 title={infoModalConfig.title}
