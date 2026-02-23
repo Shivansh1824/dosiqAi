@@ -635,7 +635,7 @@ export function ReminderTimesSection({
                                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                         <Text style={{
                                                             fontSize: 13,
-                                                            fontWeight: '600',
+                                                            fontWeight: '400',
                                                             color: batch.id === 'night' ? '#F8FAFC' : (batch.id === 'morning' ? '#C2410C' : '#B45309'),
                                                             marginRight: 4,
                                                             marginLeft: 6

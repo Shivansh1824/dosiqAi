@@ -478,11 +478,11 @@ const styles = StyleSheet.create({
     optionText: {
         fontSize: 13,
         color: Colors.gray600,
-        ...Typography.fontWeights.medium,
+        ...Typography.fontWeights.regular,
     },
     optionTextSelected: {
         color: Colors.primary,
-        ...Typography.fontWeights.semibold,
+        ...Typography.fontWeights.regular,
     },
     footer: {
         flexDirection: 'row',
