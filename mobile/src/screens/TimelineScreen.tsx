@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SectionList, SafeAreaView, Dimensions, StatusBar, Modal, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SectionList, SafeAreaView, Dimensions, StatusBar, Modal, Pressable, Alert, RefreshControl } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { 
@@ -7,9 +7,6 @@ import Animated, {
   useSharedValue, 
   useAnimatedStyle, 
   withSpring,
-  interpolate,
-  Extrapolation,
-  SharedValue,
   useAnimatedScrollHandler
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +16,7 @@ import { useMedicationsStore } from '../store/medicationsStore';
 import { Document, getDocumentTitle } from '../types/document';
 import * as Haptics from 'expo-haptics';
 import { Colors, Sizes, Typography } from '../constants';
+import { useAuthStore } from '../store/authStore';
 
 const { width } = Dimensions.get('window');
 
@@ -192,11 +190,20 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
   const formatDate = (ds: string) =>
     new Date(ds).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
+  // Truncates at the last complete word boundary within charLimit
+  // e.g. "Shivam Kumar Singh" with limit 15 → "Shivam Kumar"
+  const truncateAtWord = (text: string, charLimit: number) => {
+    if (text.length <= charLimit) return text;
+    const trimmed = text.slice(0, charLimit);
+    const lastSpace = trimmed.lastIndexOf(' ');
+    return lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed;
+  };
+
   const scale = useSharedValue(1);
   const handlePressIn = () => { scale.value = withSpring(0.985, { damping: 25, stiffness: 300 }); };
   const handlePressOut = () => { scale.value = withSpring(1, { damping: 25, stiffness: 300 }); };
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const hasDateMeta = !!(doc.visit_date || doc.follow_up_date);
+  const hasFollowUp = !!doc.follow_up_date;
 
   return (
     <Animated.View
@@ -243,36 +250,17 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
+
           <View style={styles.cardInner}>
-            {/* Row 1: Type badge only — always full width, no competition */}
+            {/* Row 1: Type badge with icon — color-coded for instant scanning */}
             <View style={styles.typeBadgeRow}>
               <View style={[styles.typeBadge, { backgroundColor: statusBg }]}>
-                <Feather name={iconName} size={11} color={statusColor} />
-                <Text style={styles.typeBadgeText}>{status}</Text>
+                <Feather name={iconName} size={11} color={statusColor} style={{ marginRight: 4 }} />
+                <Text style={[styles.typeBadgeText, { color: statusColor }]}>{status}</Text>
               </View>
             </View>
 
-            {/* Row 2: People badges — patient + doctor, strict single line */}
-            {(doc.patient_name || doc.issued_by) && (
-              <View style={styles.peopleBadgesRow}>
-                {doc.patient_name && (
-                  <View style={styles.patientBadge}>
-                    <Feather name="user" size={10} color="#64748B" />
-                    <Text style={styles.patientBadgeText} numberOfLines={1}>{doc.patient_name.toUpperCase()}</Text>
-                  </View>
-                )}
-                {doc.issued_by && (
-                  <View style={styles.issuedByBadge}>
-                    <Feather
-                      name={status === 'Lab Report' ? 'briefcase' : 'user-check'}
-                      size={11}
-                      color={status === 'Lab Report' ? '#F97316' : '#3B82F6'}
-                    />
-                    <Text style={styles.issuedByText} numberOfLines={1}>{doc.issued_by}</Text>
-                  </View>
-                )}
-              </View>
-            )}
+            {/* Row 2 removed: Patient name has been moved to the footer */}
 
             {/* 3-dot kebab menu — Absolute positioned for a subtle, secondary feel */}
             <TouchableOpacity
@@ -297,43 +285,93 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
               isReport={status === 'Lab Report'}
             />
 
+            {/* Conditional Rendering based on Document Type for People/Lab Section */}
+            {status === 'Lab Report' ? (
+              <View style={{ marginBottom: 9 }}>
+                {!!doc.patient_name ? (
+                  <View>
+                    <View style={styles.metaLabelRow}>
+                      <Feather name="user" size={9} color="#94A3B8" style={{ marginRight: 3 }} />
+                      <Text style={styles.followUpMetaLabel}>PATIENT</Text>
+                    </View>
+                    <Text style={styles.followUpMetaValue} numberOfLines={1}>
+                      {truncateAtWord(
+                        doc.patient_name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
+                        15
+                      )}
+                    </Text>
+                  </View>
+                ) : null}
+                
+                {!!(doc.ai_analysis_result as any)?.report_meta?.lab_name ? (
+                  <View style={{ marginTop: doc.patient_name ? 9 : 0 }}>
+                    <View style={styles.metaLabelRow}>
+                      <Text style={styles.followUpMetaLabel}>LABORATORY</Text>
+                    </View>
+                    <Text style={styles.followUpMetaValue} numberOfLines={2}>
+                      {(doc.ai_analysis_result as any).report_meta.lab_name}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              !!(doc.patient_name || doc.issued_by) ? (
+                <View style={styles.peopleMetaContainer}>
+                  {!!doc.patient_name ? (
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={styles.metaLabelRow}>
+                        <Feather name="user" size={9} color="#94A3B8" style={{ marginRight: 3 }} />
+                        <Text style={styles.followUpMetaLabel}>PATIENT</Text>
+                      </View>
+                      <Text style={styles.followUpMetaValue} numberOfLines={1}>
+                        {truncateAtWord(
+                          doc.patient_name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
+                          15
+                        )}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {!!doc.issued_by ? (
+                    <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                      <View style={styles.metaLabelRow}>
+                        <Feather name="briefcase" size={9} color="#94A3B8" style={{ marginRight: 3 }} />
+                        <Text style={styles.followUpMetaLabel}>DOCTOR</Text>
+                      </View>
+                      <Text style={styles.followUpMetaValue} numberOfLines={1}>
+                        {truncateAtWord(doc.issued_by, 17)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null
+            )}
+
             {/* Diagnosis Label — Only for Prescriptions (User preference) */}
             {status.includes('Prescription') && (
-              <Text style={styles.diagnosisLabel}>Diagnosis</Text>
+              <Text style={styles.diagnosisLabel}>DIAGNOSIS</Text>
             )}
+            
+            {/* Test Type Label — For Lab Reports */}
+            {status === 'Lab Report' && (
+              <Text style={styles.diagnosisLabel}>TEST TYPE</Text>
+            )}
+            
             {/* Title — dominant element that stands out */}
             <Text style={styles.cardTitle} numberOfLines={2}>
-              {doc.diagnosis || doc.ai_analysis_result?.file_name || doc.type}
+              {status === 'Lab Report' && (doc.ai_analysis_result as any)?.report_meta?.test_type
+                ? (doc.ai_analysis_result as any).report_meta.test_type
+                : (doc.diagnosis || doc.ai_analysis_result?.file_name || doc.type)}
             </Text>
 
-            {/* Date metadata — Gestalt Common Region: tinted background groups related info */}
-            {hasDateMeta && (
-              <View style={[styles.dateMeta, { backgroundColor: statusBg + '66' }]}>
-                {doc.visit_date && (
-                  <View style={styles.dateMetaItem}>
-                    <View style={[styles.dateMetaIcon, { backgroundColor: statusColor + '18' }]}>
-                      <Feather name="check-circle" size={9} color={statusColor} />
-                    </View>
-                    <View>
-                      <Text style={styles.dateMetaLabel}>VISITED</Text>
-                      <Text style={styles.dateMetaValue}>{formatDate(doc.visit_date)}</Text>
-                    </View>
+            {/* Footer section: Next Visit */}
+            {hasFollowUp && (
+              <View style={styles.followUpMetaContainer}>
+                <View style={styles.followUpMetaRow}>
+                  <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                    <Text style={styles.followUpMetaLabel}>NEXT VISIT</Text>
+                    <Text style={styles.followUpMetaValue}>{formatDate(doc.follow_up_date!)}</Text>
                   </View>
-                )}
-                {doc.visit_date && doc.follow_up_date && (
-                  <View style={styles.dateMetaDivider} />
-                )}
-                {doc.follow_up_date && (
-                  <View style={styles.dateMetaItem}>
-                    <View style={[styles.dateMetaIcon, { backgroundColor: '#F97316' + '18' }]}>
-                      <Feather name="bell" size={9} color="#F97316" />
-                    </View>
-                    <View>
-                      <Text style={styles.dateMetaLabel}>NEXT VISIT</Text>
-                      <Text style={styles.dateMetaValue}>{formatDate(doc.follow_up_date)}</Text>
-                    </View>
-                  </View>
-                )}
+                </View>
               </View>
             )}
           </View>
@@ -346,6 +384,7 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
 const SectionHeader = ({ title }: { title: string }) => (
   <BlurView intensity={60} tint="light" style={styles.sectionHeaderContainer}>
     <View style={styles.sectionHeaderInner}>
+      <Feather name="calendar" size={12} color="#64748B" style={{ marginRight: 6 }} />
       <Text style={styles.sectionHeaderTitle}>{title}</Text>
     </View>
   </BlurView>
@@ -353,15 +392,70 @@ const SectionHeader = ({ title }: { title: string }) => (
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
+// --- Skeleton Loader Component ---
+const SkeletonCard = ({ index }: { index: number }) => (
+  <Animated.View
+    entering={FadeInUp.delay(index * 80).duration(500)}
+    style={styles.itemRow}
+  >
+    <View style={styles.dateColumn}>
+      <View style={styles.skeletonDateDay} />
+      <View style={styles.skeletonDateWeek} />
+    </View>
+    <View style={styles.spineColumn}>
+      <View style={[styles.spineLine, { bottom: -24, backgroundColor: '#E2E8F0', opacity: 0.7 }]} />
+      <View style={[styles.spineDot, { borderColor: '#E2E8F0' }]}>
+        <View style={[styles.spineDotInner, { backgroundColor: '#E2E8F0' }]} />
+      </View>
+    </View>
+    <View style={styles.cardContainer}>
+      <View style={[styles.card, { backgroundColor: '#F8FAFC' }]}>
+        <View style={styles.cardInner}>
+          <View style={styles.skeletonBadge} />
+          <View style={styles.skeletonPeopleRow}>
+            <View style={styles.skeletonPeopleBlock} />
+            <View style={styles.skeletonPeopleBlock} />
+          </View>
+          <View style={styles.skeletonTitle} />
+          <View style={styles.skeletonTitleShort} />
+        </View>
+      </View>
+    </View>
+  </Animated.View>
+);
+
+const SkeletonLoader = () => (
+  <View>
+    {[0, 1, 2, 3].map(i => (
+      <SkeletonCard key={i} index={i} />
+    ))}
+  </View>
+);
+
 
 export default function TimelineScreen() {
   const navigation = useNavigation();
-  const { documents } = useDocumentsStore();
+  const { documents, isLoading } = useDocumentsStore();
+  const fetchDocuments = useDocumentsStore((state: any) => state.fetchDocuments);
   const deleteDocument = useDocumentsStore((state: any) => state.deleteDocument);
   const { medications } = useMedicationsStore();
+  const { user } = useAuthStore();
   const scrollY = useSharedValue(0);
 
   const [isInitial, setIsInitial] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    if (!user?.id) return;
+    setRefreshing(true);
+    try {
+      await fetchDocuments(user.id);
+    } catch (e) {
+      console.error('[Timeline] Refresh failed:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.id, fetchDocuments]);
 
   useEffect(() => {
     // Keep staggered animation for initial load, then remove delay for smooth scroll unmounting/remounting
@@ -373,7 +467,7 @@ export default function TimelineScreen() {
     scrollY.value = event.contentOffset.y;
   });
 
-  // Grouping for SectionList
+  // Grouping for SectionList — filter out non-medical documents (invalid, unrecognized)
   const sections = useMemo(() => {
     const groups: { [key: string]: Document[] } = {};
     const getDocDate = (doc: Document) => {
@@ -382,7 +476,15 @@ export default function TimelineScreen() {
       return new Date(doc.ai_analyzed_at || new Date().toISOString()).getTime();
     };
 
-    const sortedDocs = [...documents].sort((a, b) => 
+    // Only include prescriptions and reports — exclude invalid/unrecognized docs
+    const validDocs = documents.filter(doc => {
+      const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type?.toLowerCase() || '';
+      if (docType === 'invalid' || docType === 'unrecognized') return false;
+      // Must be a prescription or report/lab
+      return docType.includes('prescription') || docType.includes('report') || docType.includes('lab');
+    });
+
+    const sortedDocs = [...validDocs].sort((a, b) => 
       getDocDate(b) - getDocDate(a)
     );
 
@@ -510,16 +612,29 @@ export default function TimelineScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={null}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
         ListEmptyComponent={() => (
-           <View style={styles.emptyState}>
+          isLoading && !refreshing ? (
+            <SkeletonLoader />
+          ) : (
+            <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                 <Feather name="clock" size={32} color="#94A3B8" />
+                <Feather name="clock" size={32} color="#94A3B8" />
               </View>
               <Text style={styles.emptyText}>No records yet</Text>
               <Text style={styles.emptySub}>Your medical timeline will appear here.</Text>
-           </View>
+            </View>
+          )
         )}
         ListFooterComponent={
+          sections.length > 0 ? (
             <View style={styles.footerContainer}>
                 {/* Peak-End Rule: End with a positive affirmation */}
                 <View style={styles.footerIcon}>
@@ -528,6 +643,7 @@ export default function TimelineScreen() {
                 <View style={styles.footerDivider} />
                 <Text style={styles.footerText}>You're all caught up</Text>
             </View>
+          ) : null
         }
       />
       </SafeAreaView>
@@ -642,6 +758,48 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: -2,
   },
+  peopleMetaContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 9,
+  },
+  metaLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  followUpMetaContainer: {
+    marginTop: 2,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(226, 232, 240, 0.4)', // Subtle divider
+  },
+  followUpMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 7,
+  },
+  followUpMetaIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  followUpMetaLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  followUpMetaValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
   spineColumn: {
     width: 24,
     alignItems: 'center',
@@ -656,7 +814,7 @@ const styles = StyleSheet.create({
     zIndex: 0,
     left: 11.25,
   },
-  // Spine dot — enlarged for visibility (12→14px)
+  // Spine dot — aligned with first badge row for visual coherence
   spineDot: {
     width: 14,
     height: 14,
@@ -665,7 +823,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
-    marginTop: 6,
+    marginTop: 8,
     backgroundColor: '#fff',
   },
   spineDotInner: {
@@ -678,19 +836,20 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
     paddingBottom: 12,
   },
-  // Card — uniform 14px radius (Jakob's Law: standard card shape)
+  // Card — premium diffused shadow for modern depth
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
     flexDirection: 'row',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
+    shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 4,
+    elevation: 3,
     borderWidth: 0.8,
-    borderColor: 'rgba(226, 232, 240, 0.8)',
+    borderColor: 'rgba(226, 232, 240, 0.6)',
   },
+
   // Left accent bar — Gestalt Similarity: instant type scanning via color
   cardInner: {
     flex: 1,
@@ -703,46 +862,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  // Row 2: patient + doctor side by side, strict single line
-  peopleBadgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-    overflow: 'hidden',
-  },
-  issuedByBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 6,
-    maxWidth: 160,
-  },
-  issuedByText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-    letterSpacing: 0.1,
-  },
-  patientBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 6,
-    maxWidth: 140,
-  },
-  patientBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-    letterSpacing: 0.1,
-  },
+
   // 3-dot kebab menu button — subtle & integrated
   menuButton: {
     position: 'absolute',
@@ -833,10 +953,9 @@ const styles = StyleSheet.create({
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   typeBadgeText: {
     fontSize: 11,
@@ -851,60 +970,19 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  // Card title — Von Restorff Effect: dominant element (13px Semibold)
+  // Card title — Von Restorff Effect: dominant focal point (15px Bold)
   cardTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
-    lineHeight: 21,
-    letterSpacing: -0.1,
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  // Date meta — Gestalt Common Region: tinted background groups related info
-  dateMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    padding: 6,
-    borderRadius: 8,
-    gap: 0,
-  },
-  dateMetaItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  dateMetaIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateMetaLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 1,
-  },
-  dateMetaValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
-    letterSpacing: 0,
+    color: '#0F172A',
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    marginTop: 0,
+    marginBottom: 2,
   },
-  dateMetaDivider: {
-    width: 1,
-    height: 24, // Slightly shorter for a cleaner look
-    backgroundColor: 'rgba(148, 163, 184, 0.3)', // Darker, more refined separator
-    marginHorizontal: 10,
-  },
+
   // Footer — Peak-End Rule: styled component instead of inline
   footerContainer: {
     alignItems: 'center',
@@ -956,5 +1034,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     marginTop: 4,
+  },
+  // --- Skeleton Loader Styles ---
+  skeletonDateDay: {
+    width: 22,
+    height: 18,
+    borderRadius: 4,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 3,
+  },
+  skeletonDateWeek: {
+    width: 28,
+    height: 10,
+    borderRadius: 3,
+    backgroundColor: '#E2E8F0',
+  },
+  skeletonBadge: {
+    width: 72,
+    height: 18,
+    borderRadius: 6,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  skeletonPeopleRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 10,
+  },
+  skeletonPeopleBlock: {
+    flex: 1,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#E2E8F0',
+  },
+  skeletonTitle: {
+    width: '85%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 6,
+  },
+  skeletonTitleShort: {
+    width: '55%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: '#E2E8F0',
   },
 });
