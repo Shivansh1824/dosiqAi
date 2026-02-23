@@ -460,6 +460,20 @@ export function ReminderTimesSectionLegacy({
     };
 
     /**
+     * Helper to gracefully delete the old visual row if a user changes the time of a standard default row.
+     */
+    const hideBatchIfStandard = (oldTime: string) => {
+        const rows = renderGroupedView();
+        const row = rows.find(r => normalizeTime(r.defaultTime || "") === normalizeTime(oldTime));
+        if (row && (row.id === 'morning' || row.id === 'afternoon' || row.id === 'night' || row.id.startsWith('extra-'))) {
+            setDeletedBatchIds(prev => {
+                if (!prev.includes(row.id)) return [...prev, row.id];
+                return prev;
+            });
+        }
+    };
+
+    /**
      * Handle time picker change
      */
     const handleTimePickerChange = (event: any, selectedDate?: Date) => {
@@ -468,6 +482,7 @@ export function ReminderTimesSectionLegacy({
             setEditingTime(null); // Dismiss immediately
             if (event.type === 'set' && selectedDate && timeToUpdate) {
                 const newTimeString = dateToTimeString(selectedDate);
+                hideBatchIfStandard(timeToUpdate);
                 onTimeChange?.(timeToUpdate, newTimeString);
             }
         } else {
@@ -482,6 +497,7 @@ export function ReminderTimesSectionLegacy({
     const handleIOSConfirm = () => {
         if (editingTime) {
             const newTimeString = dateToTimeString(tempTime);
+            hideBatchIfStandard(editingTime);
             onTimeChange?.(editingTime, newTimeString);
         }
         setEditingTime(null);
