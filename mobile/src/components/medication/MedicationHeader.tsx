@@ -289,12 +289,12 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        paddingTop: 14,
-        paddingBottom: 12,
-        paddingHorizontal: 12,
-        backgroundColor: Colors.white, // Explicit white background (or transparent if card handles it)
-        borderBottomWidth: 1.25,
-        borderBottomColor: Colors.gray200,
+        paddingTop: 16,
+        paddingBottom: 14,
+        paddingHorizontal: 16,
+        backgroundColor: 'transparent', // Transparent to let IconGlow through
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0, 0, 0, 0.1)',
     },
     headerLeft: {
         flex: 1,
@@ -314,16 +314,8 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch',
         backgroundColor: 'rgba(0, 0, 0, 0.1)',
         marginRight: 8,
-        marginTop: -14, // Offset parent paddingTop
-        marginBottom: -12, // Offset parent paddingBottom
-    },
-    iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: '#EFF6FF',
-        justifyContent: 'center',
-        alignItems: 'center',
+        marginTop: -16, // Offset parent paddingTop
+        marginBottom: -14, // Offset parent paddingBottom
     },
     headerTitleContainer: {
         flex: 1,

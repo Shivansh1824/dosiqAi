@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import Animated, { LinearTransition, useSharedValue, withTiming, withRepeat, useAnimatedStyle } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -40,6 +40,52 @@ import { DuplicateMedicationModal } from '../components/medication/DuplicateMedi
 import { StatusBar } from 'expo-status-bar';
 
 type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
+
+// ─── Icon Glow — diagonal cut gradient for Medications Card ──────────────
+const IconGlow = () => {
+  const opacity = useSharedValue(0.6);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(1.0, { duration: 2500 }),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ rotate: '25deg' }]
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: -20,
+          top: -40,
+          width: 140,
+          height: 180,
+        },
+        style
+      ]}
+      pointerEvents="none"
+    >
+      <LinearGradient
+        colors={[
+          'rgba(59, 130, 246, 0.25)',  // Blue core
+          'rgba(124, 58, 237, 0.15)', // Violet mid
+          'rgba(96, 165, 250, 0.05)', // Sky-blue edge
+          'transparent',
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{ flex: 1 }}
+      />
+    </Animated.View>
+  );
+};
 
 interface PrescriptionSummaryScreenProps {
   onBack: () => void;
@@ -812,7 +858,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         {/* Scrollable Content */}
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 70 }]}
           showsVerticalScrollIndicator={false}
         >
           {!isReady ? (
@@ -952,6 +998,15 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                 return (
                   <Animated.View layout={LinearTransition.duration(300)}>
+                    {/* Verification Prompt — subtle inline note for handwritten prescriptions */}
+                     {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
+                      <View style={[styles.verificationPrompt, { marginTop: 16, marginBottom: 8 }]}>
+                        <Text style={styles.verificationPromptText}>
+                          Handwritten prescription — AI accuracy may vary. Please review the details below.
+                        </Text>
+                      </View>
+                    )}
+
                     {/* AI Summary Section - Show greyed-out when already added, hidden only during session verification */}
                     {document?.ai_analysis_status === 'completed' &&
                       summary &&
@@ -976,6 +1031,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             const count = innerMedicines.length;
                             return (
                               <View style={styles.medicationsHeaderCard}>
+                                <IconGlow />
                                 <View style={styles.medicationsHeaderRow}>
                                   <View style={styles.medicationsHeaderLeft}>
                                     <Text style={styles.medicationsCountText}>{count}</Text>
@@ -991,17 +1047,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               </View>
                             );
                           })()}
-
-                          {/* Verification Prompt — compact inline note for handwritten prescriptions */}
-                          {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
-                            <View style={styles.verificationPrompt}>
-                              <Feather name="alert-circle" size={14} color="#B45309" style={{ marginTop: 1 }} />
-                              <Text style={styles.verificationPromptText}>
-                                Handwritten prescription — please verify the detected medications and add any missing ones.
-                              </Text>
-                            </View>
-                          )}
-
                           {/* Verified Group - ONLY show when meds were verified in current session (not when just reopening) */}
                           {verifiedMedications.size > 0 && (() => {
                             const verifiedNames = innerMedicines
@@ -1653,9 +1698,11 @@ const styles = StyleSheet.create({
   },
   medicationsHeaderSubtitle: {
     fontSize: 13,
-    color: Colors.gray500,
-    fontWeight: '400',
+    color: '#64748B',
+    ...Typography.fontWeights.medium,
+    marginTop: 2,
     lineHeight: 18,
+    letterSpacing: 0.1,
   },
 
   // Cards
@@ -2826,23 +2873,22 @@ const styles = StyleSheet.create({
   // Verification Prompt
   verificationPrompt: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 7,
+    alignItems: 'center',
+    gap: 8,
     marginHorizontal: 16,
     marginBottom: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     backgroundColor: '#FFFBEB',
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#F59E0B',
+    borderRadius: 10,
   },
   verificationPromptText: {
     flex: 1,
-    fontSize: 12,
-    color: '#78350F',
-    lineHeight: 17,
-    fontWeight: '400',
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 19,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
 
   // Add Manually Button
