@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
   },
   followUpMetaValue: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '400',
     color: '#334155',
   },
   spineColumn: {
@@ -975,7 +975,7 @@ const styles = StyleSheet.create({
   // Card title — Von Restorff Effect: dominant focal point (15px Bold)
   cardTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '400',
     color: '#0F172A',
     lineHeight: 18,
     letterSpacing: -0.1,
