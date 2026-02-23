@@ -579,32 +579,33 @@ export function ReminderTimesSection({
                                         </TouchableOpacity>
 
                                         {batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night' ? (
-                                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                            <View style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'center' }}>
                                                 <View style={{
                                                     flexDirection: 'row',
                                                     alignItems: 'center',
-                                                    borderRadius: 16,
+                                                    borderRadius: 10,
                                                     overflow: 'hidden',
-                                                    paddingRight: 10,
-                                                    paddingVertical: 2
+                                                    paddingRight: 4,
+                                                    paddingVertical: 2,
+                                                    marginLeft: 8
                                                 }}>
-                                                    {batch.id === 'morning' && <LinearGradient colors={['#FED7AA', '#FFF7ED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />}
-                                                    {batch.id === 'afternoon' && <LinearGradient colors={['#FEF9C3', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />}
-                                                    {batch.id === 'night' && <LinearGradient colors={['#0F172A', '#F1F5F9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />}
+                                                    {batch.id === 'morning' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FED7AA' }]} />}
+                                                    {batch.id === 'afternoon' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FEF9C3' }]} />}
+                                                    {batch.id === 'night' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0F172A' }]} />}
 
                                                     <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 4 }}>
                                                         <Svg height="100%" width="100%" viewBox="0 0 40 40">
                                                             {batch.id === 'morning' && (
                                                                 <>
                                                                     <G opacity="0.8" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
-                                                                        <Line x1="20" y1="2" x2="20" y2="8" />
-                                                                        <Line x1="7" y1="9" x2="11" y2="13" />
-                                                                        <Line x1="33" y1="9" x2="29" y2="13" />
-                                                                        <Line x1="2" y1="20" x2="8" y2="20" />
-                                                                        <Line x1="38" y1="20" x2="32" y2="20" />
+                                                                        <Line x1="20" y1="8" x2="20" y2="14" />
+                                                                        <Line x1="7" y1="15" x2="11" y2="19" />
+                                                                        <Line x1="33" y1="15" x2="29" y2="19" />
+                                                                        <Line x1="2" y1="26" x2="8" y2="26" />
+                                                                        <Line x1="38" y1="26" x2="32" y2="26" />
                                                                     </G>
-                                                                    <Path d="M 6 24 A 14 14 0 0 1 34 24 Z" fill="#F97316" />
-                                                                    <Line x1="4" y1="26" x2="36" y2="26" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
+                                                                    <Path d="M 6 30 A 14 14 0 0 1 34 30 Z" fill="#F97316" />
+                                                                    <Line x1="4" y1="32" x2="36" y2="32" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
                                                                 </>
                                                             )}
                                                             {batch.id === 'afternoon' && (
@@ -634,7 +635,7 @@ export function ReminderTimesSection({
                                                     </View>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                         <Text style={{
-                                                            fontSize: 13,
+                                                            fontSize: 12,
                                                             fontWeight: '400',
                                                             color: batch.id === 'night' ? '#F8FAFC' : (batch.id === 'morning' ? '#C2410C' : '#B45309'),
                                                             marginRight: 4,
