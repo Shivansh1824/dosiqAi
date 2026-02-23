@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Colors, Typography } from '../../constants';
 import { AndroidTimePicker } from './AndroidTimePicker';
-import { getTimeOfDayCategory } from '../../types/medicationSchedule';
+import { getTimeOfDayCategory, normalizeTime } from '../../types/medicationSchedule';
 import { useMedicationsStore } from '../../store/medicationsStore';
 
 interface AddReminderModalProps {
@@ -189,15 +189,17 @@ export default function AddReminderModal({
 
     const availableGroups = DOSE_GROUPS.filter(group => {
         if (!group.defaultTime) return false;
-        const groupCategory = getTimeOfDayCategory(group.defaultTime);
-        if (!groupCategory) return false;
 
-        const hasExistingInCategory = existingTimes.some(time => {
-            const cat = getTimeOfDayCategory(time);
-            return cat === groupCategory;
+        // Simplify filtering to only check if the EXACT default time is already added.
+        // This solves the bug where changing "Afternoon Dose" to a different afternoon time
+        // hides the Afternoon Dose button entirely.
+        const normalizedDefaultTime = normalizeTime(group.defaultTime);
+
+        const hasExactTime = existingTimes.some(time => {
+            return normalizeTime(time) === normalizedDefaultTime;
         });
 
-        return !hasExistingInCategory;
+        return !hasExactTime;
     });
 
     const handleGroupSelect = (timeStr: string) => {

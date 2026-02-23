@@ -182,9 +182,9 @@ export function ReminderTimesSection({
     // Helper to render Grouped Batches
     const renderGroupedView = () => {
         const batches = [
-            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning },
-            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon },
-            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night },
+            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning ? normalizeTime(preferredTimes.morning) : undefined },
+            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon ? normalizeTime(preferredTimes.afternoon) : undefined },
+            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night ? normalizeTime(preferredTimes.night) : undefined },
         ];
 
         let rows: any[] = [];

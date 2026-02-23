@@ -447,18 +447,42 @@ export default function MedicationVerificationCard({
 
   // Handle time change from time picker
   const handleTimeChange = (oldTime: string, newTime: string) => {
+    // DEBUG: Time formatting matching trace
+    console.log(`[handleTimeChange] Old Time: ${oldTime} (Normalized: ${normalizeTime(oldTime)}), New Time: ${newTime}`);
+
     const currentTimes = getReminderTimes();
     const updatedTimes = [...currentTimes];
 
-    // Find the time to replace
-    const index = updatedTimes.indexOf(oldTime);
+    // Find the time to replace by comparing normalized times
+    const index = updatedTimes.findIndex(t => normalizeTime(t) === normalizeTime(oldTime));
 
     if (index !== -1) {
+      console.log(`[handleTimeChange] Found match at index ${index} - replacing with ${newTime}`);
       updatedTimes[index] = newTime;
     } else {
+      console.log(`[handleTimeChange] Match not found for ${oldTime}! Appending ${newTime} instead.`);
       // If not found (edge case: maybe it was an implied time?), we add it?
       // For now, let's append it to be safe, ensuring it gets saved.
       updatedTimes.push(newTime);
+    }
+
+    // Flag oldTime as inactive so ReminderTimesSectionLegacy doesn't automatically re-add it
+    // ONLY if it was a required standard/default time.
+    const morning = familyMember?.morning_dose_time ? normalizeTime(familyMember.morning_dose_time) : '08:00';
+    const afternoon = familyMember?.afternoon_dose_time ? normalizeTime(familyMember.afternoon_dose_time) : '14:00';
+    const night = familyMember?.night_dose_time ? normalizeTime(familyMember.night_dose_time) : '21:00';
+    const initials = getInitialTimes().map(normalizeTime);
+    const normalizedOld = normalizeTime(oldTime);
+
+    const isStandardTime = normalizedOld === morning || normalizedOld === afternoon || normalizedOld === night || initials.includes(normalizedOld);
+
+    if (isStandardTime) {
+      setInactiveReminders(prev => {
+        if (prev.some(t => normalizeTime(t) === normalizedOld)) {
+          return prev;
+        }
+        return [...prev, oldTime];
+      });
     }
 
     updatedTimes.sort(); // Keep sorted

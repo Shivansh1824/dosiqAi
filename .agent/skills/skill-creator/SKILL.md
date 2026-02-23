@@ -53,7 +53,8 @@ skill-name/
 ├── SKILL.md (required)
 │   ├── YAML frontmatter metadata (required)
 │   │   ├── name: (required)
-│   │   └── description: (required)
+│   │   ├── description: (required)
+│   │   └── compatibility: (optional, rarely needed)
 │   └── Markdown instructions (required)
 └── Bundled Resources (optional)
     ├── scripts/          - Executable code (Python/Bash/etc.)
@@ -65,7 +66,7 @@ skill-name/
 
 Every SKILL.md consists of:
 
-- **Frontmatter** (YAML): Contains `name` and `description` fields. These are the only fields that Claude reads to determine when the skill gets used, thus it is very important to be clear and comprehensive in describing what the skill is, and when it should be used.
+- **Frontmatter** (YAML): Contains `name` and `description` fields (required), plus optional fields like `license`, `metadata`, and `compatibility`. Only `name` and `description` are read by Claude to determine when the skill triggers, so be clear and comprehensive about what the skill is and when it should be used. The `compatibility` field is for noting environment requirements (target product, system packages, etc.) but most skills don't need it.
 - **Body** (Markdown): Instructions and guidance for using the skill. Only loaded AFTER the skill triggers (if at all).
 
 #### Bundled Resources (optional)
@@ -207,7 +208,7 @@ Skill creation involves these steps:
 2. Plan reusable skill contents (scripts, references, assets)
 3. Initialize the skill (run init_skill.py)
 4. Edit the skill (implement resources and write SKILL.md)
-5. Package the skill (run package_skill.py)
+5. Install the skill (copy the folder to .agent/skills/)
 6. Iterate based on real usage
 
 Follow these steps in order, skipping only if there is a clear reason why they are not applicable.
@@ -257,7 +258,7 @@ To establish the skill's contents, analyze each concrete example to create a lis
 
 At this point, it is time to actually create the skill.
 
-Skip this step only if the skill being developed already exists, and iteration or packaging is needed. In this case, continue to the next step.
+Skip this step only if the skill being developed already exists, and iteration or installation is needed. In this case, continue to the next step.
 
 When creating a new skill from scratch, always run the `init_skill.py` script. The script conveniently generates a new template skill directory that automatically includes everything a skill requires, making the skill creation process much more efficient and reliable.
 
@@ -317,32 +318,17 @@ Do not include any other fields in YAML frontmatter.
 
 Write instructions for using the skill and its bundled resources.
 
-### Step 5: Packaging a Skill
+### Step 5: Installing a Skill
 
-Once development of the skill is complete, it must be packaged into a distributable .skill file that gets shared with the user. The packaging process automatically validates the skill first to ensure it meets all requirements:
+Once development of the skill is complete in Antigravity, it simply needs to be placed in the appropriate directory. 
 
-```bash
-scripts/package_skill.py <path/to/skill-folder>
-```
-
-Optional output directory specification:
+Make sure the skill folder (the folder containing `SKILL.md`) is located within the `.agent/skills/` directory of your project.
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder> ./dist
+mv <path/to/skill-folder> .agent/skills/
 ```
 
-The packaging script will:
-
-1. **Validate** the skill automatically, checking:
-
-   - YAML frontmatter format and required fields
-   - Skill naming conventions and directory structure
-   - Description completeness and quality
-   - File organization and resource references
-
-2. **Package** the skill if validation passes, creating a .skill file named after the skill (e.g., `my-skill.skill`) that includes all files and maintains the proper directory structure for distribution. The .skill file is a zip file with a .skill extension.
-
-If validation fails, the script will report the errors and exit without creating a package. Fix any validation errors and run the packaging command again.
+The skill is then immediately ready to be used by Antigravity.
 
 ### Step 6: Iterate
 

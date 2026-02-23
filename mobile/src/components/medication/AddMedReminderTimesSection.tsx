@@ -66,8 +66,8 @@ const formatTimeDisplay = (time: string) => {
 const AnimatedNumber = ({ number, style }: { number: number | null, style?: any }) => {
     if (number === null) return null;
     return (
-        <Animated.View 
-            entering={FadeIn.duration(300)} 
+        <Animated.View
+            entering={FadeIn.duration(300)}
             exiting={FadeOut.duration(300)}
         >
             <Text style={style}>{number}</Text>
@@ -179,16 +179,16 @@ export function AddMedReminderTimesSection({
     // Helper to render Grouped Batches
     const renderGroupedView = () => {
         const batches = [
-            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning },
-            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon },
-            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night },
+            { id: 'morning', label: 'Morning Dose', icon: 'sunrise', defaultTime: preferredTimes?.morning ? normalizeTime(preferredTimes.morning) : undefined },
+            { id: 'afternoon', label: 'Afternoon Dose', icon: 'sun', defaultTime: preferredTimes?.afternoon ? normalizeTime(preferredTimes.afternoon) : undefined },
+            { id: 'night', label: 'Night Dose', icon: 'moon', defaultTime: preferredTimes?.night ? normalizeTime(preferredTimes.night) : undefined },
         ];
 
         let rows: any[] = [];
 
         if (suppressDefaultBatches) {
-             // Manual Mode: Start empty, only render what is in reminderTimes (via Step 2)
-             rows = [];
+            // Manual Mode: Start empty, only render what is in reminderTimes (via Step 2)
+            rows = [];
         } else if (totalTimesPerDay && totalTimesPerDay <= 3 && timingDosage) {
             const parts = timingDosage.split('-').map(Number);
             if (parts.length === 3) {
@@ -291,7 +291,7 @@ export function AddMedReminderTimesSection({
         const normalizedInactiveTimes = inactiveReminderTimes.map(normalizeTime);
 
         // Filter out times that are already active OR explicitly inactive
-        const missingTimes = rowTimes.filter(t => 
+        const missingTimes = rowTimes.filter(t =>
             !normalizedReminderTimes.includes(t) && !normalizedInactiveTimes.includes(t)
         );
 
@@ -301,7 +301,7 @@ export function AddMedReminderTimesSection({
                 const timesToAdd = rows
                     .map(r => r.defaultTime)
                     .filter(t => !normalizedInactiveTimes.includes(normalizeTime(t)));
-                
+
                 const newTimes = Array.from(new Set([...reminderTimes, ...timesToAdd]));
                 newTimes.sort((a, b) => {
                     const ta = parseInt(normalizeTime(a).replace(':', ''));
@@ -406,7 +406,7 @@ export function AddMedReminderTimesSection({
             else if (id === 'night') defaultTime = preferredTimes?.night || '21:00';
             // Note: Extras are harder to map back from ID alone without reconstructing rows, 
             // but for standard morning/afternoon/night causing the issue, this is sufficient.
-            
+
             if (defaultTime && activeNormalizedTimes.includes(normalizeTime(defaultTime))) {
                 return true;
             }
@@ -439,9 +439,9 @@ export function AddMedReminderTimesSection({
 
             {error && (
                 <View style={{ marginBottom: 12, marginTop: -8 }}>
-                   <Text style={{ color: Colors.error, fontSize: 12, ...Typography.fontWeights.medium }}>
+                    <Text style={{ color: Colors.error, fontSize: 12, ...Typography.fontWeights.medium }}>
                         {error}
-                   </Text>
+                    </Text>
                 </View>
             )}
 
@@ -452,9 +452,9 @@ export function AddMedReminderTimesSection({
                 {rowsToRender.map((batch, index) => {
                     const normalizedBatchTime = normalizeTime(batch.defaultTime);
                     const isOn = reminderTimes.some(t => normalizeTime(t) === normalizedBatchTime);
-                    
+
                     if (deletedBatchIds.includes(batch.id)) {
-                         return null;
+                        return null;
                     }
 
                     const isCustomReminder = batch.label === 'Reminder' || batch.id.startsWith('extra-');
@@ -900,8 +900,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: '#EFF6FF', // Solid Light Blue
-        borderRadius: 16, 
-        height: 52, 
+        borderRadius: 16,
+        height: 52,
         paddingLeft: 16,
         paddingRight: 8,
         overflow: 'hidden',
