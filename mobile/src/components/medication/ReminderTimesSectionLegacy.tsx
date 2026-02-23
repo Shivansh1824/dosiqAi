@@ -645,10 +645,11 @@ export function ReminderTimesSectionLegacy({
                                                 </View>
                                             </TouchableOpacity>
 
+                                            {/* Middle Empty Space */}
+                                            <View style={{ flex: 1 }} />
+
                                             {/* Right Group */}
                                             <View style={styles.timeBarRightGroup}>
-                                                <Text style={styles.timeBarDoseLabel} numberOfLines={1}>{cleanName}</Text>
-
                                                 {!isVerified && (
                                                     <Switch
                                                         value={isOn}
@@ -659,46 +660,8 @@ export function ReminderTimesSectionLegacy({
                                                     />
                                                 )}
 
-                                                <TouchableOpacity
-                                                    style={styles.noteIconButton}
-                                                    onPress={() => toggleNoteExpansion(batch.id)}
-                                                >
-                                                    <MaterialCommunityIcons
-                                                        name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                                        size={20}
-                                                        color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : Colors.gray400}
-                                                    />
-                                                </TouchableOpacity>
                                             </View>
                                         </View>
-
-                                        {/* Creating Note Input */}
-                                        {expandedNotes[batch.id] && (
-                                            <View style={styles.noteSection}>
-                                                <View style={styles.noteInputContainer}>
-                                                    <TouchableOpacity style={styles.noteInputIcon} disabled={isVerified}>
-                                                        {!isVerified && <Feather name="edit-3" size={14} color={Colors.gray400} />}
-                                                    </TouchableOpacity>
-                                                    <TextInput
-                                                        style={styles.noteInput}
-                                                        value={defaultNotes[batch.defaultTime] || ''}
-                                                        editable={!isVerified}
-                                                        onChangeText={(text) => {
-                                                            if (text.length <= 150) {
-                                                                onDefaultNoteChange?.(batch.defaultTime, text);
-                                                            }
-                                                        }}
-                                                        placeholder="Add instructions (e.g. Take with warm water)"
-                                                        placeholderTextColor={Colors.gray400}
-                                                        multiline
-                                                        maxLength={150}
-                                                    />
-                                                </View>
-                                                <Text style={styles.noteCharCount}>
-                                                    {(defaultNotes[batch.defaultTime] || '').length}/150
-                                                </Text>
-                                            </View>
-                                        )}
                                     </View>
                                 </View>
                             );
@@ -713,293 +676,102 @@ export function ReminderTimesSectionLegacy({
                                 </View>
 
                                 <View style={styles.barWithNoteContainer}>
-                                    <View style={[styles.batchRow, swipedRightRadiusStyle, (batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night') && { overflow: 'hidden', paddingLeft: 0, paddingRight: 0, paddingVertical: 0, minHeight: 54 }]}>
-                                        {batch.id === 'morning' ? (
-                                            <>
-                                                <LinearGradient
-                                                    colors={['#FED7AA', '#FFF7ED']} // Orange 200 to Orange 50 (Rich Dawn)
-                                                    start={{ x: 0, y: 0 }}
-                                                    end={{ x: 1, y: 0 }}
-                                                    style={StyleSheet.absoluteFill}
-                                                />
-
-                                                {/* Premium Rising Sun Graphic - Centered & Standardized */}
-                                                <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
-                                                    <Svg height="100%" width="100%" viewBox="0 0 40 40">
-                                                        <G opacity="0.6" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
-                                                            <Line x1="20" y1="2" x2="20" y2="8" />
-                                                            <Line x1="7" y1="9" x2="11" y2="13" />
-                                                            <Line x1="33" y1="9" x2="29" y2="13" />
-                                                            <Line x1="2" y1="20" x2="8" y2="20" />
-                                                            <Line x1="38" y1="20" x2="32" y2="20" />
-                                                        </G>
-                                                        <Path
-                                                            d="M 6 24 A 14 14 0 0 1 34 24 Z"
-                                                            fill="#F97316"
-                                                        />
-                                                        <Line x1="4" y1="26" x2="36" y2="26" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
-                                                    </Svg>
-                                                </View>
-
-
-                                                {/* Content Container with EXACT original padding */}
-                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
-                                                    <View style={styles.batchInfo}>
-                                                        {/* Spacer matches original icon width (32px) - ensure text doesn't overlap sun */}
-                                                        <View style={{ width: 36, height: 36 }} />
-
-                                                        <View>
-                                                            <View style={styles.batchLabelContainer}>
-                                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive, { color: '#C2410C' }]}>{batch.label}</Text>
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
-                                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                                >
-                                                                    <Feather name="info" size={14} color="#F97316" style={styles.infoIcon} />
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                            <Text style={[styles.batchTimeHint, { color: '#9A3412' }]}>
-                                                                {formatTimeDisplay(batch.defaultTime)}
-                                                                {mealLabel ? ` • ${mealLabel}` : ''}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-
-                                                    <View style={styles.timeBarRightGroup}>
-                                                        {!isVerified && (
-                                                            <Switch
-                                                                value={isOn}
-                                                                onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                                trackColor={{ false: Colors.gray200, true: Colors.success }}
-                                                                thumbColor={Colors.white}
-                                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                            />
-                                                        )}
-
-                                                        <TouchableOpacity
-                                                            style={styles.noteIconButton}
-                                                            onPress={() => toggleNoteExpansion(batch.id)}
-                                                        >
-                                                            <MaterialCommunityIcons
-                                                                name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                                                size={20}
-                                                                color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#C2410C" : "#FB923C"}
-                                                            />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            </>
-                                        ) : batch.id === 'afternoon' ? (
-                                            <>
-                                                <LinearGradient
-                                                    colors={['#FEF9C3', '#FFFFFF']}
-                                                    start={{ x: 0, y: 0 }}
-                                                    end={{ x: 1, y: 0 }}
-                                                    style={StyleSheet.absoluteFill}
-                                                />
-
-                                                <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
-                                                    <Svg height="100%" width="100%" viewBox="0 0 40 40">
-                                                        <G opacity="0.6" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round">
-                                                            <Line x1="20" y1="2" x2="20" y2="6" />
-                                                            <Line x1="20" y1="38" x2="20" y2="34" />
-                                                            <Line x1="2" y1="20" x2="6" y2="20" />
-                                                            <Line x1="38" y1="20" x2="34" y2="20" />
-                                                            <Line x1="7.3" y1="7.3" x2="10" y2="10" />
-                                                            <Line x1="32.7" y1="7.3" x2="30" y2="10" />
-                                                            <Line x1="7.3" y1="32.7" x2="10" y2="30" />
-                                                            <Line x1="32.7" y1="32.7" x2="30" y2="30" />
-                                                        </G>
-                                                        <Circle cx="20" cy="20" r="9" fill="#D97706" />
-                                                    </Svg>
-                                                </View>
-
-                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
-                                                    <View style={styles.batchInfo}>
-                                                        <View style={{ width: 36, height: 36 }} />
-
-                                                        <View>
-                                                            <View style={styles.batchLabelContainer}>
-                                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive, { color: '#B45309' }]}>{batch.label}</Text>
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
-                                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                                >
-                                                                    <Feather name="info" size={14} color="#D97706" style={styles.infoIcon} />
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                            <Text style={[styles.batchTimeHint, { color: '#92400E' }]}>
-                                                                {formatTimeDisplay(batch.defaultTime)}
-                                                                {mealLabel ? ` • ${mealLabel}` : ''}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-
-                                                    <View style={styles.timeBarRightGroup}>
-                                                        <Switch
-                                                            value={isOn}
-                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                            trackColor={{ false: Colors.gray200, true: Colors.success }}
-                                                            thumbColor={Colors.white}
-                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                            disabled={isVerified}
-                                                        />
-
-                                                        <TouchableOpacity
-                                                            style={styles.noteIconButton}
-                                                            onPress={() => toggleNoteExpansion(batch.id)}
-                                                        >
-                                                            <MaterialCommunityIcons
-                                                                name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                                                size={20}
-                                                                color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#B45309" : "#F59E0B"}
-                                                            />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            </>
-                                        ) : batch.id === 'night' ? (
-                                            <>
-                                                <LinearGradient
-                                                    colors={['#0F172A', '#F1F5F9']}
-                                                    start={{ x: 0, y: 0 }}
-                                                    end={{ x: 1, y: 0 }}
-                                                    style={StyleSheet.absoluteFill}
-                                                />
-
-                                                <View style={{ position: 'absolute', top: 10, left: 10, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}>
-                                                    <Svg height="100%" width="100%" viewBox="0 0 40 40">
-                                                        <Path
-                                                            d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z"
-                                                            fill="#FCD34D"
-                                                        />
-                                                        <Circle cx="8" cy="12" r="1.5" fill="#FEF08A" opacity="0.8" />
-                                                        <Circle cx="32" cy="8" r="1" fill="#FEF08A" opacity="0.6" />
-                                                        <Circle cx="35" cy="25" r="1.5" fill="#FEF08A" opacity="0.7" />
-                                                    </Svg>
-                                                </View>
-
-                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 8, paddingVertical: 10 }}>
-                                                    <View style={styles.batchInfo}>
-                                                        <View style={{ width: 36, height: 36 }} />
-
-                                                        <View>
-                                                            <View style={styles.batchLabelContainer}>
-                                                                <Text style={[styles.batchLabel, isOn && styles.batchLabelActive, { color: '#F8FAFC' }]}>{batch.label}</Text>
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
-                                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                                >
-                                                                    <Feather name="info" size={14} color="#94A3B8" style={styles.infoIcon} />
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                            <Text style={[styles.batchTimeHint, { color: '#CBD5E1' }]}>
-                                                                {formatTimeDisplay(batch.defaultTime)}
-                                                                {mealLabel ? ` • ${mealLabel}` : ''}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-
-                                                    <View style={styles.timeBarRightGroup}>
-                                                        {!isVerified && (
-                                                            <Switch
-                                                                value={isOn}
-                                                                onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                                trackColor={{ false: '#334155', true: Colors.success }}
-                                                                thumbColor={Colors.white}
-                                                                style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                            />
-                                                        )}
-
-                                                        <TouchableOpacity
-                                                            style={styles.noteIconButton}
-                                                            onPress={() => toggleNoteExpansion(batch.id)}
-                                                        >
-                                                            <MaterialCommunityIcons
-                                                                name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                                                size={20}
-                                                                color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : "#64748B"}
-                                                            />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            </>
-                                        ) : (
-                                            /* STANDARD ROW (Afternoon, Night) */
-                                            <>
-                                                <View style={styles.batchInfo}>
-                                                    <View style={[styles.batchIcon, { backgroundColor: isOn ? Colors.primary + '15' : Colors.gray50 }]}>
-                                                        <Feather name={batch.icon as any} size={18} color={isOn ? Colors.primary : Colors.gray400} />
-                                                    </View>
-                                                    <View>
-                                                        <View style={styles.batchLabelContainer}>
-                                                            <Text style={[styles.batchLabel, isOn && styles.batchLabelActive]}>{batch.label}</Text>
-                                                            <TouchableOpacity
-                                                                onPress={() => handleInfoPress(batch.label, batch.defaultTime)}
-                                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                            >
-                                                                <Feather name="info" size={14} color={Colors.gray400} style={styles.infoIcon} />
-                                                            </TouchableOpacity>
-                                                        </View>
-                                                        <Text style={styles.batchTimeHint}>
-                                                            {formatTimeDisplay(batch.defaultTime)}
-                                                            {mealLabel ? ` • ${mealLabel}` : ''}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-
-                                                <View style={styles.timeBarRightGroup}>
-                                                    {!isVerified && (
-                                                        <Switch
-                                                            value={isOn}
-                                                            onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
-                                                            trackColor={{ false: Colors.gray200, true: Colors.success }}
-                                                            thumbColor={Colors.white}
-                                                            style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
-                                                        />
-                                                    )}
-
-                                                    <TouchableOpacity
-                                                        style={styles.noteIconButton}
-                                                        onPress={() => toggleNoteExpansion(batch.id)}
-                                                    >
-                                                        <MaterialCommunityIcons
-                                                            name={(defaultNotes[batch.defaultTime] || '').length > 0 ? "note-text" : "note-text-outline"}
-                                                            size={20}
-                                                            color={(defaultNotes[batch.defaultTime] || '').length > 0 ? "#D97706" : Colors.gray400}
-                                                        />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </>
-                                        )}
-                                    </View>
-
-                                    {/* Creating Note Input */}
-                                    {expandedNotes[batch.id] && (
-                                        <View style={styles.noteSection}>
-                                            <View style={styles.noteInputContainer}>
-                                                <TouchableOpacity style={styles.noteInputIcon}>
-                                                    <Feather name="edit-3" size={14} color={Colors.gray400} />
-                                                </TouchableOpacity>
-                                                <TextInput
-                                                    style={styles.noteInput}
-                                                    value={defaultNotes[batch.defaultTime] || ''}
-                                                    onChangeText={(text) => {
-                                                        if (text.length <= 150) {
-                                                            onDefaultNoteChange?.(batch.defaultTime, text);
-                                                        }
-                                                    }}
-                                                    placeholder="Add instructions (e.g. Take with warm water)"
-                                                    placeholderTextColor={Colors.gray400}
-                                                    multiline
-                                                    maxLength={150}
-                                                />
+                                    <View style={[styles.timeBarModern, swipedRightRadiusStyle]}>
+                                        <TouchableOpacity
+                                            onPress={() => handleTimeClick(batch.defaultTime)}
+                                            style={styles.timeButton}
+                                        >
+                                            <View>
+                                                <Text style={styles.timeBarTimeLeft}>{formatTimeDisplay(batch.defaultTime)}</Text>
+                                                {mealLabel && (
+                                                    <Text style={[styles.timeBarFoodRelation, { marginTop: 2 }]}>{mealLabel}</Text>
+                                                )}
                                             </View>
-                                            <Text style={styles.noteCharCount}>
-                                                {(defaultNotes[batch.defaultTime] || '').length}/150
-                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {batch.id === 'morning' || batch.id === 'afternoon' || batch.id === 'night' ? (
+                                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    borderRadius: 16,
+                                                    overflow: 'hidden',
+                                                    paddingRight: 10,
+                                                    paddingVertical: 2
+                                                }}>
+                                                    {batch.id === 'morning' && <LinearGradient colors={['#FED7AA', '#FFF7ED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />}
+                                                    {batch.id === 'afternoon' && <LinearGradient colors={['#FEF9C3', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />}
+                                                    {batch.id === 'night' && <LinearGradient colors={['#0F172A', '#F1F5F9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />}
+
+                                                    <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 4 }}>
+                                                        <Svg height="100%" width="100%" viewBox="0 0 40 40">
+                                                            {batch.id === 'morning' && (
+                                                                <>
+                                                                    <G opacity="0.8" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round">
+                                                                        <Line x1="20" y1="2" x2="20" y2="8" />
+                                                                        <Line x1="7" y1="9" x2="11" y2="13" />
+                                                                        <Line x1="33" y1="9" x2="29" y2="13" />
+                                                                        <Line x1="2" y1="20" x2="8" y2="20" />
+                                                                        <Line x1="38" y1="20" x2="32" y2="20" />
+                                                                    </G>
+                                                                    <Path d="M 6 24 A 14 14 0 0 1 34 24 Z" fill="#F97316" />
+                                                                    <Line x1="4" y1="26" x2="36" y2="26" stroke="#F97316" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
+                                                                </>
+                                                            )}
+                                                            {batch.id === 'afternoon' && (
+                                                                <>
+                                                                    <G opacity="0.8" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round">
+                                                                        <Line x1="20" y1="2" x2="20" y2="6" />
+                                                                        <Line x1="20" y1="38" x2="20" y2="34" />
+                                                                        <Line x1="2" y1="20" x2="6" y2="20" />
+                                                                        <Line x1="38" y1="20" x2="34" y2="20" />
+                                                                        <Line x1="7.3" y1="7.3" x2="10" y2="10" />
+                                                                        <Line x1="32.7" y1="7.3" x2="30" y2="10" />
+                                                                        <Line x1="7.3" y1="32.7" x2="10" y2="30" />
+                                                                        <Line x1="32.7" y1="32.7" x2="30" y2="30" />
+                                                                    </G>
+                                                                    <Circle cx="20" cy="20" r="9" fill="#D97706" />
+                                                                </>
+                                                            )}
+                                                            {batch.id === 'night' && (
+                                                                <>
+                                                                    <Path d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z" fill="#FCD34D" />
+                                                                    <Circle cx="8" cy="12" r="1.5" fill="#FEF08A" opacity="0.8" />
+                                                                    <Circle cx="32" cy="8" r="1" fill="#FEF08A" opacity="0.6" />
+                                                                    <Circle cx="35" cy="25" r="1.5" fill="#FEF08A" opacity="0.7" />
+                                                                </>
+                                                            )}
+                                                        </Svg>
+                                                    </View>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                        <Text style={{
+                                                            fontSize: 13,
+                                                            fontWeight: '600',
+                                                            color: batch.id === 'night' ? '#F8FAFC' : (batch.id === 'morning' ? '#C2410C' : '#B45309'),
+                                                            marginRight: 4,
+                                                            marginLeft: 6
+                                                        }}>{batch.label}</Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            /* Middle Empty Space for Extraneous Standard Reminders */
+                                            <View style={{ flex: 1 }} />
+                                        )}
+
+                                        <View style={styles.timeBarRightGroup}>
+                                            {!isVerified && (
+                                                <Switch
+                                                    value={isOn}
+                                                    onValueChange={(val) => onBatchToggle?.(batch.id, val, batch.defaultTime)}
+                                                    trackColor={{ false: Colors.gray200, true: Colors.success }}
+                                                    thumbColor={Colors.white}
+                                                    style={{ transform: [{ scaleX: 0.88 }, { scaleY: 0.85 }] }}
+                                                />
+                                            )}
+
                                         </View>
-                                    )}
+                                    </View>
                                 </View>
                             </View>
                         );
@@ -1029,20 +801,22 @@ export function ReminderTimesSectionLegacy({
                 })}
 
                 {/* Always show Add Custom Time Button in Grouped View */}
-                {onAddPress && !isVerified && (
-                    <View style={styles.numberedRowContainer}>
-                        {/* Empty Number Column for alignment */}
-                        <View style={styles.numberColumn} />
+                {
+                    onAddPress && !isVerified && (
+                        <View style={styles.numberedRowContainer}>
+                            {/* Empty Number Column for alignment */}
+                            <View style={styles.numberColumn} />
 
-                        <View style={styles.barWithNoteContainer}>
-                            <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
-                                <Feather name="plus-circle" size={18} color={Colors.primary} />
-                                <Text style={styles.addTimeCleanText}>Add Reminder</Text>
-                            </TouchableOpacity>
+                            <View style={styles.barWithNoteContainer}>
+                                <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
+                                    <Feather name="plus-circle" size={18} color={Colors.primary} />
+                                    <Text style={styles.addTimeCleanText}>Add Reminder</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
-                )}
-            </View>
+                    )
+                }
+            </View >
 
             {/* Time Picker Modal for iOS and Android... (Existing) */}
             {/* Time Picker Modal for iOS */}
@@ -1101,7 +875,7 @@ export function ReminderTimesSectionLegacy({
                 body={infoModalBody}
                 onClose={() => setInfoModalVisible(false)}
             />
-        </View>
+        </View >
     );
 }
 
