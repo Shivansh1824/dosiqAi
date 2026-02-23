@@ -706,20 +706,20 @@ export function ReminderTimesSectionLegacy({
                                                         <Svg height="100%" width="100%" viewBox="0 0 40 40">
                                                             {batch.id === 'morning' && (
                                                                 <>
-                                                                    <G opacity="0.8" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round">
+                                                                    <G opacity="1" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round">
                                                                         <Line x1="20" y1="8" x2="20" y2="14" />
                                                                         <Line x1="7" y1="15" x2="11" y2="19" />
                                                                         <Line x1="33" y1="15" x2="29" y2="19" />
                                                                         <Line x1="2" y1="26" x2="8" y2="26" />
                                                                         <Line x1="38" y1="26" x2="32" y2="26" />
                                                                     </G>
-                                                                    <Path d="M 6 30 A 14 14 0 0 1 34 30 Z" fill="#3B82F6" />
-                                                                    <Line x1="4" y1="32" x2="36" y2="32" stroke="#3B82F6" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" />
+                                                                    <Path d="M 6 30 A 14 14 0 0 1 34 30 Z" fill="#FBBF24" />
+                                                                    <Line x1="4" y1="32" x2="36" y2="32" stroke="#F59E0B" strokeWidth="2" strokeOpacity="0.4" strokeLinecap="round" />
                                                                 </>
                                                             )}
                                                             {batch.id === 'afternoon' && (
                                                                 <>
-                                                                    <G opacity="0.8" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round">
+                                                                    <G opacity="1" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round">
                                                                         <Line x1="20" y1="2" x2="20" y2="6" />
                                                                         <Line x1="20" y1="38" x2="20" y2="34" />
                                                                         <Line x1="2" y1="20" x2="6" y2="20" />
@@ -729,15 +729,15 @@ export function ReminderTimesSectionLegacy({
                                                                         <Line x1="7.3" y1="32.7" x2="10" y2="30" />
                                                                         <Line x1="32.7" y1="32.7" x2="30" y2="30" />
                                                                     </G>
-                                                                    <Circle cx="20" cy="20" r="9" fill="#2563EB" />
+                                                                    <Circle cx="20" cy="20" r="9" fill="#FBBF24" />
                                                                 </>
                                                             )}
                                                             {batch.id === 'night' && (
                                                                 <>
-                                                                    <Path d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z" fill="#1E3A8A" />
-                                                                    <Circle cx="8" cy="12" r="1.5" fill="#3B82F6" opacity="0.5" />
-                                                                    <Circle cx="32" cy="8" r="1" fill="#3B82F6" opacity="0.4" />
-                                                                    <Circle cx="35" cy="25" r="1.5" fill="#3B82F6" opacity="0.5" />
+                                                                    <Path d="M 28 20 A 10 10 0 1 1 15 7.5 A 8 8 0 0 0 28 20 Z" fill="#6366F1" />
+                                                                    <Circle cx="8" cy="12" r="1.5" fill="#22D3EE" opacity="0.9" />
+                                                                    <Circle cx="32" cy="8" r="1" fill="#22D3EE" opacity="0.8" />
+                                                                    <Circle cx="35" cy="25" r="1.5" fill="#22D3EE" opacity="0.9" />
                                                                 </>
                                                             )}
                                                         </Svg>
