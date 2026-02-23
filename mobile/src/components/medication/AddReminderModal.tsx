@@ -19,6 +19,7 @@ interface AddReminderModalProps {
         night?: string;
     };
     timingDosage?: string;
+    initialMealLabel?: string | null;
 }
 
 /**
@@ -31,15 +32,16 @@ export default function AddReminderModal({
     onAdd,
     existingTimes = [],
     preferredTimes,
-    timingDosage
+    timingDosage,
+    initialMealLabel
 }: AddReminderModalProps) {
     const [selectedTime, setSelectedTime] = useState(new Date());
-    const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+    const [selectedLabel, setSelectedLabel] = useState<string | null>(initialMealLabel || null);
     const [suggestion, setSuggestion] = useState<{ time: string, matchingMedName: string } | null>(null);
 
     const medications = useMedicationsStore(state => state.medications);
     const getActiveMedications = useMedicationsStore(state => state.getActiveMedications);
-    
+
     // Animation for suggestion entrance
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(10)).current;
@@ -74,11 +76,11 @@ export default function AddReminderModal({
             now.setMinutes(0);
             now.setSeconds(0);
             now.setMilliseconds(0);
-            
+
             setSelectedTime(now);
-            setSelectedLabel(null);
+            setSelectedLabel(initialMealLabel || null);
         }
-    }, [visible]);
+    }, [visible, initialMealLabel]);
 
     const handleTimeChange = (event: DateTimePickerEvent, date?: Date) => {
         // Defensive: Ignore 1970 dates (iOS bug/glitch)
@@ -173,7 +175,7 @@ export default function AddReminderModal({
 
     // Static options moved out or memoized
     const MEAL_OPTIONS = [
-        { label: 'Not Specified', value: null, icon: 'slash' },
+        { label: 'Meal Independent', value: null, icon: 'slash' },
         { label: 'Before Meal', value: 'Before Meal', icon: 'chevron-left' },
         { label: 'After Meal', value: 'After Meal', icon: 'chevron-right' },
         { label: 'Empty Stomach', value: 'Empty Stomach', icon: 'circle' },
@@ -231,143 +233,143 @@ export default function AddReminderModal({
 
                     <ScrollView style={styles.scrollArea} bounces={false}>
                         <View style={styles.content}>
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>TIME</Text>
-                            <View style={styles.timePickerContainer}>
-                                {Platform.OS === 'ios' ? (
-                                    <DateTimePicker
-                                        value={selectedTime}
-                                        mode="time"
-                                        display="spinner"
-                                        onChange={handleTimeChange}
-                                        style={{ height: 120, width: '100%' }}
-                                        textColor={Colors.gray900}
-                                        minimumDate={new Date(2000, 0, 1)}
-                                    />
-                                ) : (
-                                    <View style={{ paddingVertical: 10 }}>
-                                        <AndroidTimePicker
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>TIME</Text>
+                                <View style={styles.timePickerContainer}>
+                                    {Platform.OS === 'ios' ? (
+                                        <DateTimePicker
                                             value={selectedTime}
-                                            onChange={(date) => setSelectedTime(date)}
+                                            mode="time"
+                                            display="spinner"
+                                            onChange={handleTimeChange}
+                                            style={{ height: 120, width: '100%' }}
+                                            textColor={Colors.gray900}
+                                            minimumDate={new Date(2000, 0, 1)}
                                         />
+                                    ) : (
+                                        <View style={{ paddingVertical: 10 }}>
+                                            <AndroidTimePicker
+                                                value={selectedTime}
+                                                onChange={(date) => setSelectedTime(date)}
+                                            />
+                                        </View>
+                                    )}
+                                </View>
+                                {isDuplicate && (
+                                    <View style={styles.errorContainer}>
+                                        <Feather name="alert-circle" size={14} color={Colors.error} />
+                                        <Text style={styles.errorText}>This time is already set for this medicine</Text>
                                     </View>
                                 )}
-                            </View>
-                            {isDuplicate && (
-                                <View style={styles.errorContainer}>
-                                    <Feather name="alert-circle" size={14} color={Colors.error} />
-                                    <Text style={styles.errorText}>This time is already set for this medicine</Text>
-                                </View>
-                            )}
 
-                            {suggestion && !isDuplicate && (
-                                <Animated.View style={{ 
-                                    opacity: fadeAnim, 
-                                    transform: [{ translateY: slideAnim }] 
-                                }}>
-                                    <TouchableOpacity
-                                        activeOpacity={0.9}
-                                        onPress={handleApplySuggestion}
-                                    >
-                                        <LinearGradient
-                                            colors={['#F0F7FF', '#FFFFFF']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={styles.suggestionContainer}
-                                        >
-                                            <View style={styles.aiIconWrapper}>
-                                                <Image 
-                                                    source={require('../../../assets/ai-icon.png')}
-                                                    style={styles.aiIcon}
-                                                    resizeMode="contain"
-                                                />
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <View style={styles.suggestionHeader}>
-                                                    <Text style={styles.aiBadgeText}>DOSIQ AI SUGGESTION</Text>
-                                                </View>
-                                                <Text style={styles.suggestionTitle}>
-                                                    Suggested: {suggestion.time}
-                                                </Text>
-                                                <Text style={styles.suggestionSubtitle}>
-                                                    Matches {suggestion.matchingMedName} schedule
-                                                </Text>
-                                            </View>
-                                            <View style={styles.applyButton}>
-                                                <Feather name="check" size={14} color={Colors.white} />
-                                            </View>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
-                        </View>
-
-                        {/* Meal Relation Section */}
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>WHEN TO TAKE</Text>
-                            <View style={styles.optionsGrid}>
-                                {MEAL_OPTIONS.map((option) => (
-                                    <TouchableOpacity
-                                        key={option.label}
-                                        style={[
-                                            styles.optionChip,
-                                            selectedLabel === option.value && styles.optionChipSelected
-                                        ]}
-                                        onPress={() => setSelectedLabel(option.value)}
-                                    >
-                                        <Text style={[
-                                            styles.optionText,
-                                            selectedLabel === option.value && styles.optionTextSelected
-                                        ]}>
-                                            {option.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-
-                        </View>
-
-                        {/* Dose Group Section */}
-                        {availableGroups.length > 0 && (
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>DOSE GROUP</Text>
-                                <View style={styles.optionsGrid}>
-                                    {availableGroups.map((group) => (
+                                {suggestion && !isDuplicate && (
+                                    <Animated.View style={{
+                                        opacity: fadeAnim,
+                                        transform: [{ translateY: slideAnim }]
+                                    }}>
                                         <TouchableOpacity
-                                            key={group.id}
+                                            activeOpacity={0.9}
+                                            onPress={handleApplySuggestion}
+                                        >
+                                            <LinearGradient
+                                                colors={['#F0F7FF', '#FFFFFF']}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                                style={styles.suggestionContainer}
+                                            >
+                                                <View style={styles.aiIconWrapper}>
+                                                    <Image
+                                                        source={require('../../../assets/ai-icon.png')}
+                                                        style={styles.aiIcon}
+                                                        resizeMode="contain"
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <View style={styles.suggestionHeader}>
+                                                        <Text style={styles.aiBadgeText}>DOSIQ AI SUGGESTION</Text>
+                                                    </View>
+                                                    <Text style={styles.suggestionTitle}>
+                                                        Suggested: {suggestion.time}
+                                                    </Text>
+                                                    <Text style={styles.suggestionSubtitle}>
+                                                        Matches {suggestion.matchingMedName} schedule
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.applyButton}>
+                                                    <Feather name="check" size={14} color={Colors.white} />
+                                                </View>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                )}
+                            </View>
+
+                            {/* Meal Relation Section */}
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>RELATION TO MEAL</Text>
+                                <View style={styles.optionsGrid}>
+                                    {MEAL_OPTIONS.map((option) => (
+                                        <TouchableOpacity
+                                            key={option.label}
                                             style={[
                                                 styles.optionChip,
-                                                selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
-                                                selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1]) &&
-                                                styles.optionChipSelected
+                                                selectedLabel === option.value && styles.optionChipSelected
                                             ]}
-                                            onPress={() => handleGroupSelect(group.defaultTime!)}
+                                            onPress={() => setSelectedLabel(option.value)}
                                         >
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                <Feather
-                                                    name={group.icon as any}
-                                                    size={14}
-                                                    color={
-                                                        selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
-                                                            selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1])
-                                                            ? Colors.primary
-                                                            : Colors.gray500
-                                                    }
-                                                />
-                                                <Text style={[
-                                                    styles.optionText,
-                                                    selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
-                                                    selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1]) &&
-                                                    styles.optionTextSelected
-                                                ]}>
-                                                    {group.label}
-                                                </Text>
-                                            </View>
+                                            <Text style={[
+                                                styles.optionText,
+                                                selectedLabel === option.value && styles.optionTextSelected
+                                            ]}>
+                                                {option.label}
+                                            </Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
+
                             </View>
-                        )}
+
+                            {/* Dose Group Section */}
+                            {availableGroups.length > 0 && (
+                                <View style={styles.section}>
+                                    <Text style={styles.sectionTitle}>DOSE GROUP</Text>
+                                    <View style={styles.optionsGrid}>
+                                        {availableGroups.map((group) => (
+                                            <TouchableOpacity
+                                                key={group.id}
+                                                style={[
+                                                    styles.optionChip,
+                                                    selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
+                                                    selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1]) &&
+                                                    styles.optionChipSelected
+                                                ]}
+                                                onPress={() => handleGroupSelect(group.defaultTime!)}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                    <Feather
+                                                        name={group.icon as any}
+                                                        size={14}
+                                                        color={
+                                                            selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
+                                                                selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1])
+                                                                ? Colors.primary
+                                                                : Colors.gray500
+                                                        }
+                                                    />
+                                                    <Text style={[
+                                                        styles.optionText,
+                                                        selectedTime.getHours() === parseInt(group.defaultTime!.split(':')[0]) &&
+                                                        selectedTime.getMinutes() === parseInt(group.defaultTime!.split(':')[1]) &&
+                                                        styles.optionTextSelected
+                                                    ]}>
+                                                        {group.label}
+                                                    </Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     </ScrollView>
 
@@ -476,11 +478,11 @@ const styles = StyleSheet.create({
     optionText: {
         fontSize: 13,
         color: Colors.gray600,
-        ...Typography.fontWeights.medium,
+        ...Typography.fontWeights.regular,
     },
     optionTextSelected: {
         color: Colors.primary,
-        ...Typography.fontWeights.semibold,
+        ...Typography.fontWeights.regular,
     },
     footer: {
         flexDirection: 'row',
