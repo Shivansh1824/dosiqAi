@@ -590,7 +590,7 @@ export function ReminderTimesSection({
                                                     marginLeft: 8
                                                 }}>
                                                     {batch.id === 'morning' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FED7AA' }]} />}
-                                                    {batch.id === 'afternoon' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FEF9C3' }]} />}
+                                                    {batch.id === 'afternoon' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FEF3C7' }]} />}
                                                     {batch.id === 'night' && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0F172A' }]} />}
 
                                                     <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 4 }}>
@@ -637,7 +637,7 @@ export function ReminderTimesSection({
                                                         <Text style={{
                                                             fontSize: 12,
                                                             fontWeight: '400',
-                                                            color: batch.id === 'night' ? '#F8FAFC' : (batch.id === 'morning' ? '#C2410C' : '#B45309'),
+                                                            color: batch.id === 'night' ? '#F8FAFC' : (batch.id === 'morning' ? '#C2410C' : '#92400E'),
                                                             marginRight: 4,
                                                             marginLeft: 6
                                                         }}>{batch.label}</Text>
