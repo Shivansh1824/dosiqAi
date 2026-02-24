@@ -59,7 +59,7 @@ pattern (quantity of tablets/units and timing pattern - morning-afternoon-night)
 - For quantities like "2-0-2", pattern is "2-0-2", BUT times_per_day is 2 (taken morning and night, which is 2 times).
 - "1/2-0-0" → pattern: "1/2-0-0", times_per_day: 1.
 - If frequency > 3/day (QID, etc.) → pattern: actual pattern (if it fits X-X-X format) or null, times_per_day: actual count of times taken per day (not tablet count).
-- SOS/PRN → gap_between_days: 0, pattern: null, times_per_day: 0
+- CRITICAL RULE FOR SOS/PRN: If a medicine is "SOS", "PRN", or "As needed", you MUST set 'times_per_day' EXACTLY to 0 and 'gap_between_days' EXACTLY to 0. There are no exceptions. Set 'pattern' to null, and put the usage text (e.g., "SOS for pain") in 'instructions'.
 
 duration_days: Convert handwritten duration to integer ("7 days"→7, "2 weeks"→14). If not specified → null.
 
