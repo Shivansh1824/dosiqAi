@@ -9,8 +9,8 @@ Your job is to look at the ORIGINAL image and the EXTRACTED JSON data provided b
 1. CAREFULLY cross-reference the provided JSON data with the uploaded prescription image.
 2. MISSING MEDICATIONS: Often, one or two medications at the bottom of a list are missed in the first pass. Count the number of distinct medicines in the image and ensure they exist in the JSON. If any are missing, Add them.
 3. DOSAGE & DURATION CORRECTIONS: Check if the timing (e.g., OD, BD) or duration (e.g., 5 days, 1 month) was transcribed incorrectly. Often a scribbled "5 days" is missed. Correct any mistakes in the JSON.
-CRITICAL RULE FOR \`total_times_per_day\`: This must be the number of TIMES PER DAY the medicine is taken, NOT the total number of tablets. For example, if dosage is "2-0-2", the patient takes it in the morning and night, which is 2 times a day. Therefore, \`total_times_per_day\` MUST be 2, not 4. Correct this if the previous step summed the tablets instead of counting the dose occurrences.
-4. INCORRECT MEDICINE NAMES & STRENGTH/DOSAGE MIXUPS: Ensure the \`exact_written_name\` and \`generic_name\` DO NOT contain the drug strength (e.g., "20mg") or dosage (e.g., "1-0-1", "2-2-2"). Remove any strength or dosage from the name and ensure they are properly placed in the \`strength\` and \`timing.dosage\` fields.
+CRITICAL RULE FOR 'times_per_day': This must be the number of TIMES PER DAY the medicine is taken, NOT the total number of tablets. For example, if dosage is "2-0-2", the patient takes it in the morning and night, which is 2 times a day. Therefore, 'times_per_day' MUST be 2, not 4. Correct this if the previous step summed the tablets instead of counting the dose occurrences.
+4. INCORRECT MEDICINE NAMES & STRENGTH/DOSAGE MIXUPS: Ensure the 'name_as_written' and 'generic_name' DO NOT contain the drug strength (e.g., "20mg") or dosage (e.g., "1-0-1", "2-2-2"). Remove any strength or dosage from the name and ensure they are properly placed in the 'strength' and 'timing.pattern' fields.
 5. PATIENT & DOCTOR INFO: Ensure names and dates are correctly transcribed. Provide corrections if needed.
 6. NO CHANGES NEEDED: If the provided JSON is absolutely perfect, just output the identical JSON. 
 </instructions>
@@ -19,66 +19,65 @@ CRITICAL RULE FOR \`total_times_per_day\`: This must be the number of TIMES PER 
 Return the updated, final JSON structure based EXACTLY on the schema provided below. Return ONLY a raw JSON object with no markdown code blocks or extra text. Empty arrays [] for no data, NEVER null for arrays. All dates YYYY-MM-DD or null. Boolean fields must never be null.
 
 {
-  "document_type": "prescription | invalid",
-  "diagnosis": "String (2-3 words) or null",
-  "analysis_metadata": {
-    "confidence_score": 0.0-1.0,
-    "scan_clarity": "clear | blurry | unreadable",
-    "handwriting_detected": true
+  "is_prescription": "boolean",
+  "is_invalid_or_unreadable": "boolean",
+  "error_reason": "string | null", /* provide technical reason if invalid */
+  "metadata": {
+    "confidence_score": "number", /* 0.0 to 1.0 */
+    "scan_clarity": "clear" | "blurry" | "unreadable",
+    "handwriting_detected": "boolean"
   },
-  "error_response": {
-    "is_error": false,
-    "technical_reason": "String or null"
+  "patient": {
+    "name": "string | null",
+    "age": "string | null",
+    "gender": "string | null"
   },
-  "patient_info": {
-    "name": "String or null",
-    "age": "String or null",
-    "gender": "String or null"
+  "doctor": {
+    "name": "string | null",
+    "hospital_name": "string | null"
   },
-  "common_data": {
-    "visit_date": "YYYY-MM-DD or null",
-    "summary": "String (max 50 words)"
+  "visit_date": "string | null", /* YYYY-MM-DD */
+  "diagnosis": {
+    "condition": "string | null", /* 2-3 words */
+    "is_inferred": "boolean"
   },
-  "prescription_data": {
-    "doctor_name": "String or null",
-    "hospital_name": "String or null",
-    "medical_issue_diagnosis": "String or null",
-    "diagnosis_source": "explicit | inferred",
-    "follow_up": {
-      "follow_up_after_no_days": "Integer or null"
-    },
-    "recommended_tests": [
-      {"test_name": "String", "reason": "String or null"}
-    ],
-    "medicines": [
-      {
-        "exact_written_name": "String",
-        "assumed_enriched_data": {
-          "is_identified": true/false,
-          "confidence": 0.0-1.0,
-          "generic_name": "String or null",
-          "medicine_purpose": "String or null",
-          "medicine_type": "String or null"
-        },
-        "strength": "String or null",
-        "dosage_instruction": "SOS instructions, take with lukewarm water, etc or null",
-        "interval_days": "Number or null",
-        "timing": {
-          "relation_to_meal": "before_food|after_food|with_food|empty_stomach|any|null",
-          "dosage": "1-0-1 or 2-2-2 format representing quantity and timing, or null",
-          "total_times_per_day": "Integer (MANDATORY)"
-        },
-        "duration_days": "Number or null"
+  "summary": "string | null", /* max 50 words */
+  "follow_up_days": "number | null",
+  "advised_tests": [
+    {
+      "test_name": "string",
+      "reason": "string | null"
+    }
+  ],
+  "medicines": [
+    {
+      "name_as_written": "string", /* excluding strength and dosage */
+      "is_identified": "boolean",
+      "confidence": "number", /* 0.0 to 1.0 */
+      "generic_name": "string | null",
+      "purpose": "string | null",
+      "category": "string | null",
+      "strength": "string | null",
+      "instructions": "string | null", /* e.g., SOS instructions, take with lukewarm water */
+      "gap_between_days": "number | null",
+      "duration_days": "number | null",
+      "timing": {
+        "meal_relation": "before_food" | "after_food" | "with_food" | "empty_stomach" | "any" | null,
+        "pattern": "string | null", /* e.g., "1-0-1" */
+        "times_per_day": "number" /* MANDATORY */
       }
-    ],
-    "drug_interactions": {
-      "potential_interactions_flag": false,
-      "interaction_note": "String (max 15 words) or null"
-    },
-    "other_information": [
-      {"category": "Diet|Lifestyle|Vitals|Allergy|Notes", "value": "String"}
-    ]
-  }
+    }
+  ],
+  "drug_interactions": {
+    "has_interactions": "boolean",
+    "note": "string | null" /* max 15 words */
+  },
+  "additional_notes": [
+    {
+      "type": "Diet" | "Lifestyle" | "Vitals" | "Allergy" | "General",
+      "text": "string"
+    }
+  ]
 }
 </output_schema>
 
