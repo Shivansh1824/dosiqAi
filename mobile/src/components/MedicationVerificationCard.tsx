@@ -148,7 +148,7 @@ export default function MedicationVerificationCard({
 
   // Helper to compute initial reminder times (moved before state declarations that depend on it)
   const getInitialTimes = (): string[] => {
-    const timesPerDay = medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day ?? 0;
+    const timesPerDay = medication.total_times_per_day ?? 0;
 
     // 1. If prescription has explicit times, use them
     if (medication.time_of_day?.length > 0) {
@@ -187,8 +187,8 @@ export default function MedicationVerificationCard({
   // Reminder default notes state — initialized SYNCHRONOUSLY so notes are available from first paint.
   // useEffect runs AFTER paint, so lazy useState is the only way to guarantee notes on first frame.
   const [reminderDefaultNotes, setReminderDefaultNotes] = useState<Record<string, string>>(() => {
-    const relation = initialMedication.food_relationship || initialMedication.source_raw?.timing?.relation_to_meal;
-    if (!relation || relation === 'anytime' || relation === 'any') return {};
+    const relation = initialMedication.food_relationship;
+    if (!relation || relation === 'anytime') return {};
 
     const noteText = getMealTimingLabel(relation);
     const initialTimes = getInitialTimes();
@@ -241,8 +241,8 @@ export default function MedicationVerificationCard({
 
   // Check if frequency is "As Needed"
   const isPureAsNeeded = isAsNeededFrequency(
-    medication.timing_dosage ?? medication.source_raw?.timing?.dosage,
-    medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day
+    medication.timing_dosage ?? medication.dosage,
+    medication.total_times_per_day
   );
 
   // If it's SOS but user has added reminders, we treat it as NOT as-needed for UI purposes (show schedule)
@@ -258,8 +258,8 @@ export default function MedicationVerificationCard({
 
   // Helper to generate default notes based on food relationship
   const generateFoodRelationNotes = useCallback((times: string[]) => {
-    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
-    if (!relation || relation === 'anytime' || relation === 'any') return {};
+    const relation = medication.food_relationship;
+    if (!relation || relation === 'anytime') return {};
 
     const noteText = getMealTimingLabel(relation);
     const newNotes: Record<string, string> = {};
@@ -292,7 +292,7 @@ export default function MedicationVerificationCard({
 
   // Get interval display text
   const getIntervalText = (): string => {
-    const intervalDays = medication.interval_days ?? medication.source_raw?.interval_days;
+    const intervalDays = medication.interval_days;
     if (intervalDays === undefined || intervalDays === null) return '';
     if (intervalDays === 1) return 'Daily';
     if (intervalDays === 2) return 'Alternate Days';
@@ -361,8 +361,8 @@ export default function MedicationVerificationCard({
             let resetTimes = resetTimesList; // Use the list we just calculated
 
             // Generate notes for these times
-            const relation = initialMedication.food_relationship || initialMedication.source_raw?.timing?.relation_to_meal;
-            if (relation && relation !== 'anytime' && relation !== 'any') {
+            const relation = initialMedication.food_relationship;
+            if (relation && relation !== 'anytime') {
               const noteText = getMealTimingLabel(relation);
               const resetNotes: Record<string, string> = {};
               resetTimes.forEach(t => resetNotes[t] = noteText);
@@ -531,12 +531,12 @@ export default function MedicationVerificationCard({
 
     // Add default note if food relationship exists
     // Add default note if food relationship exists OR if user selected a specific label
-    const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
+    const relation = medication.food_relationship;
     let noteToApply = '';
 
     if (mealLabel) {
       noteToApply = mealLabel;
-    } else if (relation && relation !== 'anytime' && relation !== 'any') {
+    } else if (relation && relation !== 'anytime') {
       noteToApply = getMealTimingLabel(relation);
     }
 
@@ -653,7 +653,7 @@ export default function MedicationVerificationCard({
 
   const renderAIAnalysisContent = () => {
     const hasAttributes = !!(
-      medication.source_raw?.dosage_instruction ||
+      medication.source_raw?.instructions ||
       medication.dosage ||
       medication.duration_days ||
       medication.strength ||
@@ -662,7 +662,7 @@ export default function MedicationVerificationCard({
       medication.food_relationship
     );
 
-    const itemConfidence = medication.source_raw?.assumed_enriched_data?.confidence;
+    const itemConfidence = medication.source_raw?.confidence;
     const displayConfidence = itemConfidence !== undefined ? itemConfidence : confidenceScore;
 
     return (
@@ -696,14 +696,14 @@ export default function MedicationVerificationCard({
               </View>
 
               {/* Note Row */}
-              {(medication.source_raw?.dosage_instruction || medication.dosage) && (
+              {(medication.source_raw?.instructions || medication.dosage) && (
                 <View style={styles.tableRow}>
                   <View style={styles.tableHeaderCell}>
                     <Text style={styles.tableHeaderText}>Note</Text>
                   </View>
                   <View style={styles.tableValueCell}>
                     <Text style={styles.tableValueText}>
-                      {medication.source_raw?.dosage_instruction || medication.dosage}
+                      {medication.source_raw?.instructions || medication.dosage}
                     </Text>
                   </View>
                 </View>
@@ -880,7 +880,7 @@ export default function MedicationVerificationCard({
                 )}
 
                 {/* 4. Note */}
-                {(medication.source_raw?.dosage_instruction || medication.dosage) && (
+                {(medication.source_raw?.instructions || medication.dosage) && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -891,7 +891,7 @@ export default function MedicationVerificationCard({
                         <Feather name="file-text" size={10} color={Colors.gray600} />
                       </View>
                       <Text style={styles.aiButtonText}>
-                        {medication.source_raw?.dosage_instruction || medication.dosage}
+                        {medication.source_raw?.instructions || medication.dosage}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -916,7 +916,7 @@ export default function MedicationVerificationCard({
                 )}
 
                 {/* 6. Meal Relation — highlighted */}
-                {(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal) && (
+                {medication.food_relationship && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -927,7 +927,7 @@ export default function MedicationVerificationCard({
                         <Feather name="coffee" size={10} color="#B45309" />
                       </View>
                       <Text style={styles.aiButtonTextMeal}>
-                        {getMealTimingLabel(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal!)}
+                        {getMealTimingLabel(medication.food_relationship)}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -942,7 +942,7 @@ export default function MedicationVerificationCard({
             <CoursePeriodSection
               startDate={startDate}
               endDate={endDate}
-              interval={medication.interval_days ?? medication.source_raw?.interval_days}
+              interval={medication.interval_days ?? medication.source_raw?.gap_between_days}
               onStartDatePress={() => setShowDatePicker(true)}
               onEndDatePress={() => setShowEndDatePicker(true)}
               onIntervalChange={handleIntervalChange}
@@ -1009,9 +1009,9 @@ export default function MedicationVerificationCard({
                   intervalText={getIntervalText()}
                   medicineName={medication.name}
                   reminderToggles={reminderToggles}
-                  totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
-                  timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
-                  foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
+                  totalTimesPerDay={medication.total_times_per_day}
+                  timingDosage={medication.timing_dosage}
+                  foodRelationship={medication.food_relationship || undefined}
                   onToggleChange={handleReminderToggleChange}
                   onTimeChange={handleTimeChange}
                   defaultNotes={reminderDefaultNotes}
@@ -1021,10 +1021,10 @@ export default function MedicationVerificationCard({
 
                   onBatchToggle={handleBatchToggle}
                   onUpdateReminderTimes={handleUpdateReminderTimes}
-                  interval={medication.interval_days ?? medication.source_raw?.interval_days}
-                  sourceName={medication.source_raw?.exact_written_name}
-                  originalTotalTimes={medication.source_raw?.timing?.total_times_per_day}
-                  originalInterval={medication.source_raw?.interval_days}
+                  interval={medication.interval_days ?? medication.source_raw?.gap_between_days}
+                  sourceName={medication.source_raw?.name_as_written || medication.name}
+                  originalTotalTimes={medication.total_times_per_day}
+                  originalInterval={medication.interval_days ?? undefined}
                   shouldAnimate={isFirstItem}
                   inactiveReminderTimes={inactiveReminders}
                   onDeleteCustomReminder={handleDeleteCustomReminder}
@@ -1051,9 +1051,9 @@ export default function MedicationVerificationCard({
               }}
               timingDosage={medication.timing_dosage}
               initialMealLabel={
-                (medication.food_relationship === 'before_food' || medication.source_raw?.timing?.relation_to_meal === 'before_food') ? 'Before Meal' :
-                  (medication.food_relationship === 'after_food' || medication.source_raw?.timing?.relation_to_meal === 'after_food') ? 'After Meal' :
-                    (medication.food_relationship === 'empty_stomach' || medication.source_raw?.timing?.relation_to_meal === 'empty_stomach') ? 'Empty Stomach' : null
+                (medication.food_relationship === 'before_food') ? 'Before Meal' :
+                  (medication.food_relationship === 'after_food') ? 'After Meal' :
+                    (medication.food_relationship === 'empty_stomach') ? 'Empty Stomach' : null
               }
             />
 

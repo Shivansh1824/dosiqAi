@@ -168,7 +168,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
   // ========== MEDICATION CALCULATIONS (moved to top-level for Rules of Hooks) ==========
   // Inner medicines from document
   const innerMedicines = useMemo(() => {
-    return document?.ai_analysis_result?.prescription_data?.medicines || [];
+    return document?.ai_analysis_result?.medicines || [];
   }, [document?.ai_analysis_result]);
 
   // Get display title - prefer AI-generated filename from analysis result, fallback to document title
@@ -185,8 +185,8 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
 
     if (analysis) {
       // 1. Construct Smart Title
-      if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
-        title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
+      if (analysis.document_type === 'prescription' && analysis.diagnosis?.condition) {
+        title = `${analysis.diagnosis?.condition} Prescription`;
       } else if (analysis.document_type) {
         // Map 'invalid' to friendlier 'Needs Review' label
         if (analysis.document_type.toLowerCase() === 'invalid') {
@@ -205,10 +205,10 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
 
       // 2. Construct Subtitle (Patient • Date)
       const parts = [];
-      if (analysis.patient_info?.name) parts.push(analysis.patient_info.name);
+      if (analysis.patient?.name) parts.push(analysis.patient.name);
 
-      if (analysis.common_data?.visit_date) {
-        parts.push(analysis.common_data.visit_date);
+      if (analysis.visit_date) {
+        parts.push(analysis.visit_date);
       }
       subtitle = parts.join(' • ');
     }
@@ -764,7 +764,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
 
   // Helper to get summary from new or legacy structure
   const getSummary = (result?: DocumentAnalysisResult): string | undefined => {
-    return result?.common_data?.summary || result?.summary;
+    return result?.summary ?? undefined;
   };
 
   // Helper to format document type

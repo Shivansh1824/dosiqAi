@@ -11,11 +11,11 @@ interface UseAnalysisPDFProps {
   displayTitle: string;
 }
 
-export function useAnalysisPDF({ 
-  analysis, 
-  documentType, 
-  imageUri, 
-  displayTitle 
+export function useAnalysisPDF({
+  analysis,
+  documentType,
+  imageUri,
+  displayTitle
 }: UseAnalysisPDFProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -44,7 +44,7 @@ export function useAnalysisPDF({
         }
       }
 
-      const patientName = analysis.patient_info?.name || 'Patient';
+      const patientName = analysis.patient?.name || 'Patient';
 
       const result = await generateAnalysisPDF(
         analysis,
@@ -58,10 +58,10 @@ export function useAnalysisPDF({
         console.log('[useAnalysisPDF] PDF Ready for sharing:', result.localPath);
         // Hide loading animation FIRST so it doesn't stay behind the share sheet
         setIsGenerating(false);
-        
+
         // Give UI a moment to hide the modal before native share sheet blocks
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         await sharePDF(result.localPath);
       } else {
         throw new Error(result.error || 'Failed to generate PDF');

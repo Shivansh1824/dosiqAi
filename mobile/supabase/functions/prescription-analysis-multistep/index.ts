@@ -346,110 +346,113 @@ Deno.serve(async (req: Request) => {
                 {
                     role: "user", content: [
                         { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
-                        { type: "text", text: \`Here is the initially extracted JSON. Verify, correct, and add missing data:\n\n\${JSON.stringify(extractedData)}\` }
-        ]}
-      ];
+                        { type: "text", text: `Here is the initially extracted JSON. Verify, correct, and add missing data:\n\n${JSON.stringify(extractedData)}` }
+                    ]
+                }
+            ];
 
-      const verificationRes = await callOpenRouterAPI(verificationMessages, { useReasoning: true, temperature: 0.82 });
-      totalTokenUsage += verificationRes.usage.total_tokens;
-      finalAnalysisResult = parseAnalysisResult(verificationRes.choices[0]?.message?.content || "{}");
-      
-    } else {
-      // STEP 2: Machine-written Pipeline
-      console.log("[Multistep] Step 2: Extracting Machine-Written Data...");
-      const machineMessages = [
-        { role: "system", content: PROMPT_MACHINE_ANALYSIS },
-        { role: "user", content: [
-          { type: "image_url", image_url: { url: \`data:\${fileType};base64,\${base64Image}\` } },
-          { type: "text", text: "Extract structured data from this machine-written prescription image." }
-        ]}
-      ];
-      
-      const machineRes = await callOpenRouterAPI(machineMessages, { useReasoning: true, temperature: 0.82 });
-      totalTokenUsage += machineRes.usage.total_tokens;
-      finalAnalysisResult = parseAnalysisResult(machineRes.choices[0]?.message?.content || "{}");
+            const verificationRes = await callOpenRouterAPI(verificationMessages, { useReasoning: true, temperature: 0.82 });
+            totalTokenUsage += verificationRes.usage.total_tokens;
+            finalAnalysisResult = parseAnalysisResult(verificationRes.choices[0]?.message?.content || "{}");
+
+        } else {
+            // STEP 2: Machine-written Pipeline
+            console.log("[Multistep] Step 2: Extracting Machine-Written Data...");
+            const machineMessages = [
+                { role: "system", content: PROMPT_MACHINE_ANALYSIS },
+                {
+                    role: "user", content: [
+                        { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
+                        { type: "text", text: "Extract structured data from this machine-written prescription image." }
+                    ]
+                }
+            ];
+
+            const machineRes = await callOpenRouterAPI(machineMessages, { useReasoning: true, temperature: 0.82 });
+            totalTokenUsage += machineRes.usage.total_tokens;
+            finalAnalysisResult = parseAnalysisResult(machineRes.choices[0]?.message?.content || "{}");
+        }
+
+        const patientInfo = finalAnalysisResult.patient_info as Record<string, unknown> | undefined;
+        const prescriptionData = finalAnalysisResult.prescription_data as Record<string, unknown> | undefined;
+        const commonData = finalAnalysisResult.common_data as Record<string, unknown> | undefined;
+
+        const patientName = patientInfo?.name || null;
+        const diagnosis = prescriptionData?.medical_issue_diagnosis || null;
+        const visitDate = commonData?.visit_date || null;
+        const issuedBy = prescriptionData?.doctor_name || null;
+
+        let followUpDate = null;
+        const followUp = prescriptionData?.follow_up as Record<string, unknown> | undefined;
+        const followUpDays = followUp?.follow_up_days || followUp?.follow_up_after_no_days || prescriptionData?.follow_up_after_no_days;
+
+        if (visitDate && followUpDays && !isNaN(parseInt(String(followUpDays)))) {
+            try {
+                const date = new Date(String(visitDate));
+                date.setDate(date.getDate() + parseInt(String(followUpDays)));
+                followUpDate = date.toISOString().split('T')[0];
+            } catch (e) {
+                console.error("[DateCalc] Failed to calculate follow_up_date:", e);
+            }
+        } else {
+            followUpDate = followUp?.follow_up_date || null;
+        }
+
+        const duration = Date.now() - startTime;
+        console.log(`[Success] Multi-step analysis completed in ${duration}ms, total tokens: ${totalTokenUsage}`);
+
+        const { error: finalUpdateError } = await supabase
+            .from("documents")
+            .update({
+                ai_analysis_status: "completed",
+                ai_analysis_result: finalAnalysisResult,
+                ai_analyzed_at: new Date().toISOString(),
+                ai_analysis_tokens_used: totalTokenUsage,
+                ai_analysis_error: null,
+                patient_name: patientName,
+                diagnosis: diagnosis,
+                visit_date: visitDate,
+                follow_up_date: followUpDate,
+                issued_by: issuedBy,
+            })
+            .eq("id", documentId);
+
+        if (finalUpdateError) {
+            throw new Error(`Failed to save analysis results: ${finalUpdateError.message}`);
+        }
+
+        return new Response(
+            JSON.stringify({
+                success: true,
+                documentId,
+                analysis: finalAnalysisResult,
+                tokensUsed: totalTokenUsage,
+                duration,
+                pathway: isHandwritten ? "handwritten_multistep" : "machine_singlestep"
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Internal server error";
+        console.error("[Error] Prescription analysis failed:", error);
+
+        try {
+            if (documentId && supabase) {
+                await supabase
+                    .from("documents")
+                    .update({
+                        ai_analysis_status: "failed",
+                        ai_analysis_error: { error: errorMessage, timestamp: new Date().toISOString() },
+                    })
+                    .eq("id", documentId);
+            }
+        } catch (updateError) {
+            console.error("[Error] Failed to update document status:", updateError);
+        }
+
+        return new Response(
+            JSON.stringify({ success: false, error: errorMessage, duration: Date.now() - startTime }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
     }
-
-    const patientInfo = finalAnalysisResult.patient_info as Record<string, unknown> | undefined;
-    const prescriptionData = finalAnalysisResult.prescription_data as Record<string, unknown> | undefined;
-    const commonData = finalAnalysisResult.common_data as Record<string, unknown> | undefined;
-
-    const patientName = patientInfo?.name || null;
-    const diagnosis = prescriptionData?.medical_issue_diagnosis || null;
-    const visitDate = commonData?.visit_date || null;
-    const issuedBy = prescriptionData?.doctor_name || null;
-
-    let followUpDate = null;
-    const followUp = prescriptionData?.follow_up as Record<string, unknown> | undefined;
-    const followUpDays = followUp?.follow_up_days || followUp?.follow_up_after_no_days || prescriptionData?.follow_up_after_no_days;
-
-    if (visitDate && followUpDays && !isNaN(parseInt(String(followUpDays)))) {
-      try {
-        const date = new Date(String(visitDate));
-        date.setDate(date.getDate() + parseInt(String(followUpDays)));
-        followUpDate = date.toISOString().split('T')[0];
-      } catch (e) {
-        console.error("[DateCalc] Failed to calculate follow_up_date:", e);
-      }
-    } else {
-      followUpDate = followUp?.follow_up_date || null;
-    }
-
-    const duration = Date.now() - startTime;
-    console.log(\`[Success] Multi-step analysis completed in \${duration}ms, total tokens: \${totalTokenUsage}\`);
-
-    const { error: finalUpdateError } = await supabase
-      .from("documents")
-      .update({
-        ai_analysis_status: "completed",
-        ai_analysis_result: finalAnalysisResult,
-        ai_analyzed_at: new Date().toISOString(),
-        ai_analysis_tokens_used: totalTokenUsage,
-        ai_analysis_error: null,
-        patient_name: patientName,
-        diagnosis: diagnosis,
-        visit_date: visitDate,
-        follow_up_date: followUpDate,
-        issued_by: issuedBy,
-      })
-      .eq("id", documentId);
-
-    if (finalUpdateError) {
-      throw new Error(\`Failed to save analysis results: \${finalUpdateError.message}\`);
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        documentId,
-        analysis: finalAnalysisResult,
-        tokensUsed: totalTokenUsage,
-        duration,
-        pathway: isHandwritten ? "handwritten_multistep" : "machine_singlestep"
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    console.error("[Error] Prescription analysis failed:", error);
-
-    try {
-      if (documentId && supabase) {
-        await supabase
-          .from("documents")
-          .update({
-            ai_analysis_status: "failed",
-            ai_analysis_error: { error: errorMessage, timestamp: new Date().toISOString() },
-          })
-          .eq("id", documentId);
-      }
-    } catch (updateError) {
-      console.error("[Error] Failed to update document status:", updateError);
-    }
-
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage, duration: Date.now() - startTime }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
 });

@@ -49,12 +49,11 @@ export async function generateAnalysisPDF(
 
         // Select template based on document type
         let html: string;
-        if (documentType.toLowerCase() === 'prescription' || analysisResult.prescription_data) {
+        if (documentType.toLowerCase() === 'prescription' || analysisResult.is_prescription) {
             html = generatePrescriptionHTML(analysisResult, appLogoBase64, documentImageBase64);
         } else if (
             documentType.toLowerCase().includes('report') ||
-            documentType.toLowerCase().includes('lab') ||
-            analysisResult.report_data
+            documentType.toLowerCase().includes('lab')
         ) {
             html = generateLabReportHTML(analysisResult, appLogoBase64, documentImageBase64);
         } else {

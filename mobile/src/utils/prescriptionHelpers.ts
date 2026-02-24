@@ -10,7 +10,7 @@ import { Colors } from '../constants';
  * Helper to get summary from new or legacy structure
  */
 export const getSummary = (result?: DocumentAnalysisResult | null): string | undefined => {
-    return result?.common_data?.summary || result?.summary;
+    return result?.summary ?? undefined;
 };
 
 /**
