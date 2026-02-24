@@ -373,18 +373,13 @@ Deno.serve(async (req: Request) => {
             finalAnalysisResult = parseAnalysisResult(machineRes.choices[0]?.message?.content || "{}");
         }
 
-        const patientInfo = finalAnalysisResult.patient_info as Record<string, unknown> | undefined;
-        const prescriptionData = finalAnalysisResult.prescription_data as Record<string, unknown> | undefined;
-        const commonData = finalAnalysisResult.common_data as Record<string, unknown> | undefined;
-
-        const patientName = patientInfo?.name || null;
-        const diagnosis = prescriptionData?.medical_issue_diagnosis || null;
-        const visitDate = commonData?.visit_date || null;
-        const issuedBy = prescriptionData?.doctor_name || null;
+        const patientName = finalAnalysisResult.patient?.name || null;
+        const diagnosis = finalAnalysisResult.diagnosis?.condition || null;
+        const visitDate = finalAnalysisResult.visit_date || null;
+        const issuedBy = finalAnalysisResult.doctor?.name || null;
 
         let followUpDate = null;
-        const followUp = prescriptionData?.follow_up as Record<string, unknown> | undefined;
-        const followUpDays = followUp?.follow_up_days || followUp?.follow_up_after_no_days || prescriptionData?.follow_up_after_no_days;
+        const followUpDays = finalAnalysisResult.follow_up_days;
 
         if (visitDate && followUpDays && !isNaN(parseInt(String(followUpDays)))) {
             try {
@@ -394,8 +389,6 @@ Deno.serve(async (req: Request) => {
             } catch (e) {
                 console.error("[DateCalc] Failed to calculate follow_up_date:", e);
             }
-        } else {
-            followUpDate = followUp?.follow_up_date || null;
         }
 
         const duration = Date.now() - startTime;

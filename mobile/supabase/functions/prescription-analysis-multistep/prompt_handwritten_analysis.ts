@@ -48,6 +48,8 @@ TIMING (Structured Schedule):
 meal_relation: "before_food" | "after_food" | "with_food" | "empty_stomach" | "any" | null
 gap_between_days (days gap between doses): 1=daily, 2=alternate days, 7=weekly, 15=biweekly, 30=monthly, 0=as needed (SOS/PRN), null=not specified.
 pattern (quantity of tablets/units and timing pattern - morning-afternoon-night):
+- CRITICAL RULE: The pattern field MUST ONLY contain dash-separated numbers (e.g., "1-1-1", "1-0-1", "0-0-1", "1/2-0-0") or be strictly null.
+- NEVER output textual patterns like "SOS", "As needed", "1 in 15 days", etc. If it does not strictly adhere to the "X-X-X" structure, set pattern to null and extract that text into the "instructions" field.
 - Extract both the number of units and times of day. E.g., "2-2-2" means 2 tablets, 3 times a day.
 - EXPLICIT RULE FOR 'times_per_day': This is the number of TIMES the medicine is taken in a day, NOT the total number of tablets.
 - OD (1 tab) → pattern: "1-0-0", times_per_day: 1 (taken 1 time)
@@ -56,7 +58,7 @@ pattern (quantity of tablets/units and timing pattern - morning-afternoon-night)
 - HS (bedtime) → pattern: "0-0-1", times_per_day: 1 (taken 1 time)
 - For quantities like "2-0-2", pattern is "2-0-2", BUT times_per_day is 2 (taken morning and night, which is 2 times).
 - "1/2-0-0" → pattern: "1/2-0-0", times_per_day: 1.
-- If frequency > 3/day (QID, etc.) → pattern: actual pattern or null, times_per_day: actual count of times taken per day (not tablet count).
+- If frequency > 3/day (QID, etc.) → pattern: actual pattern (if it fits X-X-X format) or null, times_per_day: actual count of times taken per day (not tablet count).
 - SOS/PRN → gap_between_days: 0, pattern: null, times_per_day: 0
 
 duration_days: Convert handwritten duration to integer ("7 days"→7, "2 weeks"→14). If not specified → null.
@@ -132,7 +134,7 @@ Return ONLY a raw JSON object matching this structure. Empty arrays [] for no da
       "duration_days": "number | null",
       "timing": {
         "meal_relation": "before_food" | "after_food" | "with_food" | "empty_stomach" | "any" | null,
-        "pattern": "string | null", /* e.g., "1-0-1" */
+        "pattern": "string | null", /* MUST be like "1-1-1", "1-0-1", "0-0-1", or null ONLY. NEVER text like "SOS". */
         "times_per_day": "number" /* MANDATORY */
       }
     }
