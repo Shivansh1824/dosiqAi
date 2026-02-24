@@ -13,7 +13,8 @@ CRITICAL RULE FOR 'pattern': The pattern field MUST ONLY be in the format of das
 CRITICAL RULE FOR 'times_per_day': This must be the number of TIMES PER DAY the medicine is taken, NOT the total number of tablets. For example, if dosage is "2-0-2", the patient takes it in the morning and night, which is 2 times a day. Therefore, 'times_per_day' MUST be 2, not 4. Correct this if the previous step summed the tablets instead of counting the dose occurrences.
 4. INCORRECT MEDICINE NAMES & STRENGTH/DOSAGE MIXUPS: Ensure the 'name_as_written' and 'generic_name' DO NOT contain the drug strength (e.g., "20mg") or dosage (e.g., "1-0-1", "2-2-2"). Remove any strength or dosage from the name and ensure they are properly placed in the 'strength' and 'timing.pattern' fields.
 5. PATIENT & DOCTOR INFO: Ensure names and dates are correctly transcribed. Provide corrections if needed.
-6. NO CHANGES NEEDED: If the provided JSON is absolutely perfect, just output the identical JSON. 
+6. SUMMARY: Check the 'summary' text generated in the previous step. Ensure it uses ACTUAL extracted values (like the patient's real name) instead of generic placeholders like "[Patient Name]" or "<Actual Patient Name>". If you see placeholders, replace them with the correct data or "The patient" if missing.
+7. NO CHANGES NEEDED: If the provided JSON is absolutely perfect, just output the identical JSON. 
 </instructions>
 
 <output_schema>

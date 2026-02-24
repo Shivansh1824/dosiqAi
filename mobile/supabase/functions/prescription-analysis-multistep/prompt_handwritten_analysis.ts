@@ -81,9 +81,10 @@ Capture ONLY if explicitly written on the prescription (diet instructions, lifes
 Output: array of {type: "Diet|Lifestyle|Vitals|Allergy|Notes", text: "String"} or empty array [].
 
 SUMMARY (Patient-Friendly, max 50 words):
-Sentence 1: "[Patient Name] was diagnosed with [Diagnosis] by [Dr. Name] on [Visit Date]."
-Sentence 2: "Prescribed medications include [Medicine A] ([Generic Name]) for [purpose] and [Medicine B] for [purpose]."
-Sentence 3 (if applicable): "Investigations advised: [Test 1] and [Test 2]."
+- CRITICAL: You MUST use the actual extracted patient name in the summary. If the patient name is found, use it. If not found, start the sentence with "The patient". NEVER output the literal string "[Patient Name]". Apply this rule to all placeholders.
+Sentence 1: "<Actual Patient Name or 'The patient'> was diagnosed with <Actual Diagnosis> by <Actual Dr. Name> on <Actual Visit Date>."
+Sentence 2: "Prescribed medications include <Medicine A> (<Generic Name>) for <purpose> and <Medicine B> for <purpose>."
+Sentence 3 (if applicable): "Investigations advised: <Test 1> and <Test 2>."
 </extraction_rules>
 
 <output_schema>
