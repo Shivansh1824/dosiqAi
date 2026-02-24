@@ -750,8 +750,13 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
               <TouchableOpacity
                 style={[styles.developerCard, { marginRight: 12, width: 160 }]}
                 onPress={() => {
-                  // Using fixed ID as requested for easier understanding
-                  onNavigate('PrescriptionRecord', { documentId: '704145be-a05a-4c4c-a111-25d8d0c353b0' });
+                  // Find the first prescription document
+                  const firstPrescription = documents.find(d => 
+                    d.type === 'Prescription' || 
+                    d.ai_analysis_result?.document_type?.toLowerCase() === 'prescription'
+                  );
+                  const documentId = firstPrescription?.id || '44415772-4442-48b2-b664-7ef9a1d077ea';
+                  onNavigate('PrescriptionRecord', { documentId });
                 }}
               >
                 <View style={[styles.developerIcon, { backgroundColor: '#F0F9FF' }]}>

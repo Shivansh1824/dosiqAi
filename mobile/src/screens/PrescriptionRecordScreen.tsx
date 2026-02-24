@@ -17,10 +17,7 @@ import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
 import LoadingOverlay from '../components/LoadingOverlay';
 import ShareModal from '../components/ShareModal';
 import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { PrescriptionSummary, DocumentPreviewLoading } from '../components/prescription';
-import { PrescriptionMetadataCard } from '../components/prescription/PrescriptionMetadataCard';
-import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
-import MedicationVerificationCard from '../components/MedicationVerificationCard';
+import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, RecordGroupedTestsCard, RecordDocumentPreviewLoading } from '../components/record';
 import { RootStackParamList } from '../../App';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
@@ -106,6 +103,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
   // File sync logic
   useEffect(() => {
     const checkFile = async () => {
+
       if (!document?.local_file_path) {
         setFileNotFound(true);
         return;
@@ -361,7 +359,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
               </View>
             </View>
           ) : (
-            <DocumentPreviewLoading />
+            <RecordDocumentPreviewLoading />
           )}
         </View>
 
@@ -370,7 +368,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
           <>
              {/* Prescription Metadata Card */}
              {analysis?.prescription_data && (
-                <PrescriptionMetadataCard
+                <RecordMetadataCard
                     patientName={analysis.patient_info?.name}
                     patientAge={analysis.patient_info?.age}
                     patientGender={analysis.patient_info?.gender}
@@ -385,7 +383,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
 
             {/* AI Summary Section */}
             {getSummary(analysis) && (
-              <PrescriptionSummary
+              <PrescriptionRecordSummary
                 summary={getSummary(analysis)!}
                 recommendedTests={analysis?.prescription_data?.recommended_tests}
                 otherInformation={analysis?.prescription_data?.other_information}
@@ -413,21 +411,15 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
                   {innerMedicines.map((medicine: any, index: number) => {
                     const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
                     return (
-                      <MedicationVerificationCard
+                      <MedicationRecordCard
                         key={index}
                         medication={parsedMed}
                         documentId={document.id}
                         documentTitle={displayTitle}
                         suggestedStartDate={document.visit_date || document.ai_analyzed_at || new Date().toISOString()}
-                        isVerified={true} // Read-only mode
                         familyMember={familyMember}
-                        isFirstItem={index === 0}
-                        cardIndex={index + 1}
-                        onVerifyAndAdd={async () => {}} // Not used in read-only
-                        onLiveUpdate={() => {}} // Not used in read-only
-                        onDismiss={() => {}} // Not used in read-only
-                        isDismissed={false}
-                        onRestore={() => {}} // Not used in read-only
+                        confidenceScore={document.ai_analysis_result?.analysis_metadata?.confidence_score}
+                        index={index}
                       />
                     );
                   })}
@@ -446,7 +438,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
                     Recommended lab tests and investigations
                   </Text>
                   <View style={{ gap: 12, marginTop: 12 }}>
-                    <GroupedTestsCard tests={analysis.prescription_data.recommended_tests} />
+                    <RecordGroupedTestsCard tests={analysis.prescription_data.recommended_tests} />
                   </View>
                 </View>
               )}
@@ -654,7 +646,7 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
   },
   medicationsCard: {
-    backgroundColor: Colors.bgSecondary,
+    backgroundColor: 'transparent',
     paddingTop: 0,
     paddingBottom: 0,
     paddingHorizontal: 0,
@@ -664,22 +656,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   medsSectionTitle: {
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.gray900,
-    letterSpacing: 0.8,
-    marginBottom: 2,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
   },
   medsSectionSubtitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: Colors.gray500,
-    fontWeight: '500',
-    lineHeight: 16,
-    opacity: 0.8,
+    lineHeight: 20,
+    marginTop: 4,
   },
   medsCountBadge: {
     backgroundColor: Colors.primary,
@@ -695,6 +695,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     color: Colors.white,
+
   },
   errorContainer: {
     flex: 1,
