@@ -234,7 +234,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient
-        colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
       />
     <SafeAreaView style={styles.container} edges={['top']}>
