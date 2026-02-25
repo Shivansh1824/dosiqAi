@@ -38,6 +38,17 @@ export const useDocumentMedications = (
 
     const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
     const [pendingDuplicateData, setPendingDuplicateData] = useState<PendingDuplicateData | null>(null);
+    const [manualMedicines, setManualMedicines] = useState<any[]>([]);
+
+    const handleAddManualMedication = (name: string) => {
+        const newManualMed = {
+            name_as_written: name,
+            is_identified: true,
+            confidence: 1,
+            category: 'medication'
+        };
+        setManualMedicines(prev => [...prev, newManualMed]);
+    };
 
     // Check if this document has already been processed/added to tracker
     const isAlreadyAdded = useMemo(() => {
@@ -193,8 +204,13 @@ export const useDocumentMedications = (
     };
 
     const innerMedicines = useMemo(() => {
-        return document?.ai_analysis_result?.medicines || [];
-    }, [document?.ai_analysis_result]);
+        const aiMedicines = document?.ai_analysis_result?.medicines || [];
+        return [...aiMedicines, ...manualMedicines];
+    }, [document?.ai_analysis_result, manualMedicines]);
+
+    const aiMedicinesCount = useMemo(() => {
+        return document?.ai_analysis_result?.medicines?.length || 0;
+    }, [document?.ai_analysis_result?.medicines]);
 
     const allUnverifiedMedsIdx = useMemo(() => {
         if (!document) return [];
@@ -245,11 +261,13 @@ export const useDocumentMedications = (
         activeMedsForBatch,
         duplicateMedicationsMap,
         hasUnverifiedMeds,
+        aiMedicinesCount,
         onLiveUpdate,
         handleDismissMedication,
         handleRestoreMedication,
         handleResolveDuplicate,
         handleCancelDuplicate,
         handleVerifyAndAddMedication,
+        handleAddManualMedication,
     };
 };

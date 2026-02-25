@@ -11,6 +11,7 @@ interface NumberPickerModalProps {
     title?: string;
     min?: number;
     max?: number;
+    showSOS?: boolean; // NEW: Option to show SOS
 }
 
 export default function NumberPickerModal({
@@ -21,18 +22,23 @@ export default function NumberPickerModal({
     title = "Select Interval",
     min = 1,
     max = 120,
+    showSOS = false,
 }: NumberPickerModalProps) {
     const [selectedValue, setSelectedValue] = useState(initialValue);
 
     // Sync state when visible or initialValue changes
     useEffect(() => {
         if (visible) {
-            setSelectedValue(initialValue || 1);
+            setSelectedValue(initialValue !== undefined ? initialValue : 1);
         }
     }, [visible, initialValue]);
 
     // Generate numbers
     const data = Array.from({ length: max - min + 1 }, (_, i) => i + min);
+    // Prepend SOS if requested
+    if (showSOS) {
+        data.unshift(0);
+    }
 
     const renderItem = ({ item }: { item: number }) => {
         const isSelected = item === selectedValue;
@@ -45,7 +51,7 @@ export default function NumberPickerModal({
                 }}
             >
                 <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
-                    {item === 1 ? 'Everyday' : `Every ${item} Days`}
+                    {item === 0 ? 'As Needed (S.O.S)' : item === 1 ? 'Everyday' : `Every ${item} Days`}
                 </Text>
                 {isSelected && (
                     <Feather name="check" size={20} color={Colors.primary} />

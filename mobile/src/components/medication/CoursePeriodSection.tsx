@@ -59,12 +59,12 @@ export function CoursePeriodSection({
                 </View>
                 {(onIntervalChange || fixedFrequencyText) && (
                     <TouchableOpacity
-                        onPress={() => !fixedFrequencyText && setShowIntervalPicker(true)}
-                        disabled={isVerified || !!fixedFrequencyText}
+                        onPress={() => setShowIntervalPicker(true)}
+                        disabled={isVerified}
                         style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]}
                     >
                         <Text style={styles.frequencyText}>{fixedFrequencyText || getIntervalLabel()}</Text>
-                        {!isVerified && !fixedFrequencyText && <Feather name="chevron-down" size={14} color={Colors.primary} />}
+                        {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
                     </TouchableOpacity>
                 )}
             </View>
@@ -125,13 +125,14 @@ export function CoursePeriodSection({
 
             <NumberPickerModal
                 visible={showIntervalPicker}
-                initialValue={interval}
+                initialValue={fixedFrequencyText === 'S.O.S' ? 0 : interval}
                 onConfirm={(val) => {
                     onIntervalChange?.(val);
                     setShowIntervalPicker(false);
                 }}
                 onCancel={() => setShowIntervalPicker(false)}
                 title="Select Frequency"
+                showSOS={true}
             />
         </View>
     );

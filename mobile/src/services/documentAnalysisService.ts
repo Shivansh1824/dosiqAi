@@ -148,9 +148,8 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[DocumentAnalysis] 📊 REQUEST PARAMETERS');
-    console.log(`[DocumentAnalysis] isReport flag: ${isReport}`);
     console.log(`[DocumentAnalysis] Custom prompt: ${customPrompt ? 'PROVIDED' : 'NOT PROVIDED'}`);
-    console.log('[DocumentAnalysis] Expected secret key:', isReport ? 'REPORT_PROMPT' : 'DOCUMENT_ANALYSIS_PROMPT');
+    console.log('[DocumentAnalysis] Expected secret key: DOCUMENT_ANALYSIS_PROMPT');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Get current session token
@@ -165,7 +164,7 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
 
     try {
       // Determine which edge function to call based on document type
-      const edgeFunctionName = isReport ? 'analyze-report' : 'prescription-analysis-multistep';
+      const edgeFunctionName = 'document-manager';
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[DocumentAnalysis] 🎯 EDGE FUNCTION INVOCATION');
