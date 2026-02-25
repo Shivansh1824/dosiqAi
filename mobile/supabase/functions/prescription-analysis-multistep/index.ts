@@ -322,6 +322,7 @@ Deno.serve(async (req: Request) => {
         console.log(`[Multistep] Classification result: Handwritten = ${isHandwritten} (Confidence: ${classResult.confidence})`);
 
         let finalAnalysisResult: any = null;
+        let stage1AnalysisResult: any = null;
 
         if (isHandwritten) {
             // STEP 2: Handwritten Pipeline
@@ -339,6 +340,7 @@ Deno.serve(async (req: Request) => {
             const extractionRes = await callOpenRouterAPI(extractionMessages, { useReasoning: true, temperature: 0.82 });
             totalTokenUsage += extractionRes.usage.total_tokens;
             const extractedData = parseAnalysisResult(extractionRes.choices[0]?.message?.content || "{}");
+            stage1AnalysisResult = extractedData;
 
             console.log("[Multistep] Step 3: Verifying Handwritten Data...");
             const verificationMessages = [
@@ -399,6 +401,7 @@ Deno.serve(async (req: Request) => {
             .update({
                 ai_analysis_status: "completed",
                 ai_analysis_result: finalAnalysisResult,
+                ...(stage1AnalysisResult && { ai_analysis_stage1: stage1AnalysisResult }),
                 ai_analyzed_at: new Date().toISOString(),
                 ai_analysis_tokens_used: totalTokenUsage,
                 ai_analysis_error: null,
