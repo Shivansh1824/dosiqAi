@@ -39,6 +39,7 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
+import AddMedicationModal from '../components/medication/AddMedicationModal';
 import { StatusBar } from 'expo-status-bar';
 
 import { styles } from './PrescriptionSummaryScreen.styles';
@@ -94,10 +95,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     return doc?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid';
   });
 
-  // Tooltip state for dismissed medications
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const [tooltipContent, setTooltipContent] = useState('');
+  const [showAddMedicationModal, setShowAddMedicationModal] = useState(false);
 
 
 
@@ -220,6 +221,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     handleResolveDuplicate,
     handleCancelDuplicate,
     handleVerifyAndAddMedication,
+    handleAddManualMedication,
   } = useDocumentMedications(document, initialDocument, displayTitle, familyMember);
 
 
@@ -446,7 +448,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               {/* Add Medication Manually Button - Always Visible */}
                               <TouchableOpacity
                                 style={styles.addManuallyButton}
-                                onPress={() => navigation.navigate('AddMedication')}
+                                onPress={() => setShowAddMedicationModal(true)}
                                 activeOpacity={0.7}
                               >
                                 <Feather name="plus" size={20} color={Colors.primary} />
@@ -630,6 +632,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           existingMedication={pendingDuplicateData?.existingMed || null}
           onReplace={() => handleResolveDuplicate('replace')}
           onAddBoth={() => handleResolveDuplicate('add')}
+        />
+
+        {/* Add Medication Modal */}
+        <AddMedicationModal
+          visible={showAddMedicationModal}
+          onClose={() => setShowAddMedicationModal(false)}
+          onAdd={handleAddManualMedication}
         />
       </SafeAreaView>
     </View>
