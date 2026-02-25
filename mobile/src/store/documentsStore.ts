@@ -86,7 +86,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         .order('ai_analyzed_at', { ascending: false });
 
       if (error) {
-        console.error('[DocumentsStore] Fetch error:', error);
+        console.warn('[DocumentsStore] Fetch error:', error);
         set({ error: error.message, isLoading: false });
         return;
       }
@@ -463,7 +463,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     } finally {
       // ALWAYS clear interval and analyzing state
       if (progressInterval) clearInterval(progressInterval);
-      
+
       set((state) => {
         const newProgress = { ...state.analysisProgress };
         delete newProgress[documentId];
@@ -527,7 +527,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   retryAnalysis: async (documentId: string, localFilePath: string) => {
     const doc = get().documents.find(d => d.id === documentId);
     const isReport = doc?.type === 'Lab Report' || doc?.type === 'Report';
-    
+
     console.log(`[DocumentsStore] Retrying analysis for ${documentId} (isReport: ${isReport})`);
     await get().clearAnalysisError(documentId);
     await get().triggerAnalysis(documentId, localFilePath, undefined, isReport);
@@ -600,7 +600,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         .eq('user_id', userId);
 
       if (unlinkError) {
-         console.warn('[DocumentsStore] Failed to unlink meds (non-critical):', unlinkError);
+        console.warn('[DocumentsStore] Failed to unlink meds (non-critical):', unlinkError);
       }
 
       // 1. Fetch all documents for this user to get R2 keys
@@ -690,7 +690,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       try {
         await supabase.from('medication_logs').delete().eq('user_id', userId);
       } catch (e) { console.log('medication_logs table might not exist'); }
-      
+
       await supabase.from('medication_schedules').delete().eq('user_id', userId);
 
       // 3. Clear Vitals & metrics

@@ -9,7 +9,7 @@ import { Medication } from '../types/medication';
 import { FamilyMember } from '../types/familyMember';
 import { normalizeTime } from '../types/medicationSchedule';
 import DatePickerModal from './DatePickerModal';
-import { calculateEndDate, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
+import { calculateEndDate, isAsNeededFrequency, parseDateOnly, generateDefaultTimeSlots } from '../utils/medicationParser';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSectionLegacy } from './medication/ReminderTimesSectionLegacy';
@@ -629,11 +629,13 @@ export default function MedicationVerificationCard({
   };
 
   const handleIntervalChange = (days: number) => {
-    setMedication(prev => ({
-      ...prev,
-      interval_days: days,
-      verified_by_user: true
-    }));
+    setMedication(prev => {
+      return {
+        ...prev,
+        interval_days: days === 0 ? null : days,
+        verified_by_user: true
+      };
+    });
   };
 
   // Handle Analysis Detail Press
@@ -936,7 +938,6 @@ export default function MedicationVerificationCard({
             {(medication.medicine_type || medication.medicine_purpose) && <View style={styles.divider} />}
 
             {/* Course Period Section */}
-            {/* Course Period Section */}
             <CoursePeriodSection
               startDate={startDate}
               endDate={endDate}
@@ -945,7 +946,7 @@ export default function MedicationVerificationCard({
               onEndDatePress={() => setShowEndDatePicker(true)}
               onIntervalChange={handleIntervalChange}
               isVerified={isVerified}
-              fixedFrequencyText={isAsNeeded && customReminderTimes.length === 0 ? "SOS FOR PAIN" : undefined}
+              fixedFrequencyText={(medication.interval_days === null || medication.interval_days === 0) ? "S.O.S" : undefined}
             />
 
             {/* Start Date Picker Modal */}

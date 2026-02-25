@@ -39,6 +39,7 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
+import AddMedicationModal from '../components/medication/AddMedicationModal';
 import { StatusBar } from 'expo-status-bar';
 
 import { styles } from './PrescriptionSummaryScreen.styles';
@@ -94,10 +95,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     return doc?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid';
   });
 
-  // Tooltip state for dismissed medications
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const [tooltipContent, setTooltipContent] = useState('');
+  const [showAddMedicationModal, setShowAddMedicationModal] = useState(false);
 
 
 
@@ -214,12 +215,14 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     activeMedsForBatch,
     duplicateMedicationsMap,
     hasUnverifiedMeds,
+    aiMedicinesCount,
     onLiveUpdate,
     handleDismissMedication,
     handleRestoreMedication,
     handleResolveDuplicate,
     handleCancelDuplicate,
     handleVerifyAndAddMedication,
+    handleAddManualMedication,
   } = useDocumentMedications(document, initialDocument, displayTitle, familyMember);
 
 
@@ -363,7 +366,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
-                            const count = innerMedicines.length;
+                            const count = aiMedicinesCount;
+                            if (count === 0) return null;
                             return (
                               <View style={styles.medicationsHeaderCard}>
                                 <IconGlow />
@@ -403,50 +407,83 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                           {/* Unverified/All Medications List - Each card is a standalone main card */}
                           {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                             <View>
-                              {(isAlreadyAdded ? innerMedicines.map((medicine: any, index: number) => ({ medicine, index })) : allUnverifiedMedsIdx).map(({ medicine, index }: any, arrayIndex: number) => {
-                                const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
-                                const suggestedStartDate = parseDateOnly(new Date().toISOString());
-                                // Pass full medications list for history check (parser handles filtering)
-                                const duplicateOf = duplicateMedicationsMap.get(index);
+                              {(() => {
+                                const allMeds = isAlreadyAdded ? innerMedicines.map((medicine: any, index: number) => ({ medicine, index })) : allUnverifiedMedsIdx;
+                                const aiMeds = allMeds.filter((m: any) => m.index < aiMedicinesCount);
+                                const manualMeds = allMeds.filter((m: any) => m.index >= aiMedicinesCount);
+
+                                const renderMed = ({ medicine, index }: any, arrayIndex: number) => {
+                                  const parsedMed = parseAIMedication(medicine, document!.id, displayTitle, familyMember);
+                                  const suggestedStartDate = parseDateOnly(new Date().toISOString());
+                                  // Pass full medications list for history check (parser handles filtering)
+                                  const duplicateOf = duplicateMedicationsMap.get(index);
+
+                                  return (
+                                    <MedicationVerificationCard
+                                      key={index}
+                                      medication={parsedMed}
+                                      documentId={document!.id}
+                                      documentTitle={displayTitle}
+                                      suggestedStartDate={suggestedStartDate}
+                                      onVerifyAndAdd={handleVerifyAndAddMedication}
+                                      duplicateOf={duplicateOf || undefined}
+                                      medicineIndex={index}
+                                      confidenceScore={document.ai_analysis_result?.metadata?.confidence_score}
+                                      onLiveUpdate={(updates: {
+                                        current_reminder_times?: string[];
+                                        start_date?: string;
+                                        end_date?: string;
+                                        duration_days?: number;
+                                      }) => {
+                                        setMedicationLiveUpdates(prev => ({
+                                          ...prev,
+                                          [index]: { ...prev[index], ...updates }
+                                        }));
+                                      }}
+                                      onDismiss={() => handleDismissMedication(index)}
+                                      isDismissed={dismissedMedicationIds.has(`${document.id}_${index}`)}
+                                      onRestore={() => handleRestoreMedication(index)}
+                                      isFirstItem={arrayIndex === 0}
+                                      cardIndex={arrayIndex + 1}
+                                      isVerified={isAlreadyAdded}
+                                      familyMember={familyMember}
+                                      followUpDays={document?.ai_analysis_result?.follow_up_days ?? undefined}
+                                    />
+                                  );
+                                };
 
                                 return (
-                                  <MedicationVerificationCard
-                                    key={index}
-                                    medication={parsedMed}
-                                    documentId={document!.id}
-                                    documentTitle={displayTitle}
-                                    suggestedStartDate={suggestedStartDate}
-                                    onVerifyAndAdd={handleVerifyAndAddMedication}
-                                    duplicateOf={duplicateOf || undefined}
-                                    medicineIndex={index}
-                                    confidenceScore={document.ai_analysis_result?.metadata?.confidence_score}
-                                    onLiveUpdate={(updates: {
-                                      current_reminder_times?: string[];
-                                      start_date?: string;
-                                      end_date?: string;
-                                      duration_days?: number;
-                                    }) => {
-                                      setMedicationLiveUpdates(prev => ({
-                                        ...prev,
-                                        [index]: { ...prev[index], ...updates }
-                                      }));
-                                    }}
-                                    onDismiss={() => handleDismissMedication(index)}
-                                    isDismissed={dismissedMedicationIds.has(`${document.id}_${index}`)}
-                                    onRestore={() => handleRestoreMedication(index)}
-                                    isFirstItem={arrayIndex === 0}
-                                    cardIndex={arrayIndex + 1}
-                                    isVerified={isAlreadyAdded}
-                                    familyMember={familyMember}
-                                    followUpDays={document?.ai_analysis_result?.follow_up_days ?? undefined}
-                                  />
+                                  <>
+                                    {aiMeds.map(renderMed)}
+
+                                    {manualMeds.length > 0 && (
+                                      <>
+                                        {/* MANUALLY ADDED Header */}
+                                        <View style={[styles.medicationsHeaderCard, { marginTop: aiMeds.length > 0 ? 16 : 0 }]}>
+                                          <View style={styles.medicationsHeaderRow}>
+                                            <View style={styles.medicationsHeaderLeft}>
+                                              <Text style={[styles.medicationsCountText, { color: Colors.primary }]}>{manualMeds.length}</Text>
+                                              <View style={{ gap: 2, flex: 1, justifyContent: 'center' }}>
+                                                <Text style={styles.medicationsHeaderTitle}>MANUALLY ADDED</Text>
+                                                <Text style={styles.medicationsHeaderSubtitle}>
+                                                  You have added {manualMeds.length}{' '}
+                                                  {manualMeds.length === 1 ? 'medication' : 'medications'} manually.
+                                                </Text>
+                                              </View>
+                                            </View>
+                                          </View>
+                                        </View>
+                                        {manualMeds.map((item: any, idx: number) => renderMed(item, idx))}
+                                      </>
+                                    )}
+                                  </>
                                 );
-                              })}
+                              })()}
 
                               {/* Add Medication Manually Button - Always Visible */}
                               <TouchableOpacity
                                 style={styles.addManuallyButton}
-                                onPress={() => navigation.navigate('AddMedication')}
+                                onPress={() => setShowAddMedicationModal(true)}
                                 activeOpacity={0.7}
                               >
                                 <Feather name="plus" size={20} color={Colors.primary} />
@@ -630,6 +667,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           existingMedication={pendingDuplicateData?.existingMed || null}
           onReplace={() => handleResolveDuplicate('replace')}
           onAddBoth={() => handleResolveDuplicate('add')}
+        />
+
+        {/* Add Medication Modal */}
+        <AddMedicationModal
+          visible={showAddMedicationModal}
+          onClose={() => setShowAddMedicationModal(false)}
+          onAdd={handleAddManualMedication}
         />
       </SafeAreaView>
     </View>
