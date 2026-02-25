@@ -151,8 +151,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     let subtitle = '';
 
     if (analysis) {
-      if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
-        title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
+      if (analysis.document_type === 'prescription' && analysis.diagnosis?.condition) {
+        title = `${analysis.diagnosis?.condition} Prescription`;
       } else if (analysis.document_type) {
         if (analysis.document_type.toLowerCase() === 'invalid') {
           title = 'Unrecognized Document';
@@ -167,8 +167,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       }
 
       const parts = [];
-      if (analysis.patient_info?.name) parts.push(analysis.patient_info.name);
-      if (analysis.common_data?.visit_date) parts.push(analysis.common_data.visit_date);
+      if (analysis.patient?.name) parts.push(analysis.patient.name);
+      if (analysis.visit_date) parts.push(analysis.visit_date);
       subtitle = parts.join(' • ');
     }
 
@@ -334,7 +334,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 return (
                   <Animated.View layout={LinearTransition.duration(300)}>
                     {/* Verification Prompt — subtle inline note for handwritten prescriptions */}
-                    {document?.ai_analysis_result?.analysis_metadata?.handwriting_detected && (
+                    {document?.ai_analysis_result?.metadata?.handwriting_detected && (
                       <View style={[styles.verificationPrompt, { marginTop: 16, marginBottom: 8 }]}>
                         <Text style={styles.verificationPromptText}>
                           Handwritten prescription — AI accuracy may vary. Please review the details below.
@@ -348,9 +348,9 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       (hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
                         <PrescriptionSummary
                           summary={summary}
-                          recommendedTests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
-                          otherInformation={document?.ai_analysis_result?.prescription_data?.other_information}
-                          followUp={document?.ai_analysis_result?.prescription_data?.follow_up}
+                          recommendedTests={document?.ai_analysis_result?.advised_tests}
+                          otherInformation={(document?.ai_analysis_result?.additional_notes as any) ?? undefined}
+                          followUp={document?.ai_analysis_result?.follow_up_days ? { follow_up_days: document.ai_analysis_result.follow_up_days } : undefined}
                           defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
                         />
                       )}
@@ -419,7 +419,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     onVerifyAndAdd={handleVerifyAndAddMedication}
                                     duplicateOf={duplicateOf || undefined}
                                     medicineIndex={index}
-                                    confidenceScore={document.ai_analysis_result?.analysis_metadata?.confidence_score}
+                                    confidenceScore={document.ai_analysis_result?.metadata?.confidence_score}
                                     onLiveUpdate={(updates: {
                                       current_reminder_times?: string[];
                                       start_date?: string;
@@ -438,7 +438,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     cardIndex={arrayIndex + 1}
                                     isVerified={isAlreadyAdded}
                                     familyMember={familyMember}
-                                    followUpDays={document?.ai_analysis_result?.prescription_data?.follow_up?.follow_up_days}
+                                    followUpDays={document?.ai_analysis_result?.follow_up_days ?? undefined}
                                   />
                                 );
                               })}
@@ -561,8 +561,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
               {/* Advised Tests Section */}
               {document?.ai_analysis_status === 'completed' &&
-                document?.ai_analysis_result?.prescription_data?.recommended_tests &&
-                document?.ai_analysis_result?.prescription_data?.recommended_tests.length > 0 && (
+                document?.ai_analysis_result?.advised_tests &&
+                document?.ai_analysis_result?.advised_tests.length > 0 && (
                   <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: Colors.primary + '40' }]}>
                     <View style={[styles.cardHeader, { marginBottom: 4 }]}>
                       <Text style={styles.cardTitle}>Advised Tests</Text>
@@ -574,7 +574,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                     <View style={{ gap: 12, marginTop: 14 }}>
 
                       <GroupedTestsCard
-                        tests={document?.ai_analysis_result?.prescription_data?.recommended_tests}
+                        tests={document?.ai_analysis_result?.advised_tests || []}
                       />
                     </View>
                   </View>

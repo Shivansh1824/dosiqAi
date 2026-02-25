@@ -21,14 +21,19 @@ export function generatePrescriptionHTML(
   documentImageBase64?: string
 ): string {
   const {
-    patient_info,
-    common_data,
-    prescription_data,
-    analysis_metadata,
+    doctor,
+    diagnosis,
+    patient,
+    medicines,
+    advised_tests,
+    metadata,
+    summary,
+    visit_date,
+    additional_notes
   } = analysisResult;
 
-  const visitDate = common_data?.visit_date
-    ? new Date(common_data.visit_date).toLocaleDateString('en-IN', {
+  const visitDate = visit_date
+    ? new Date(visit_date).toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -423,15 +428,15 @@ export function generatePrescriptionHTML(
       <div class="info-grid">
         <div class="info-item">
           <div class="info-label">Name</div>
-          <div class="info-value">${patient_info?.name || 'Not Available'}</div>
+          <div class="info-value">${patient?.name || 'Not Available'}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Age</div>
-          <div class="info-value">${patient_info?.age || 'Not Available'}</div>
+          <div class="info-value">${patient?.age || 'Not Available'}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Gender</div>
-          <div class="info-value">${patient_info?.gender || 'Not Available'}</div>
+          <div class="info-value">${patient?.gender || 'Not Available'}</div>
         </div>
       </div>
     </div>
@@ -443,11 +448,11 @@ export function generatePrescriptionHTML(
     <div class="section-content">
       <div class="clinical-row">
         <div class="clinical-label">Doctor</div>
-        <div class="clinical-value">${prescription_data?.doctor_name || 'Not Specified'}</div>
+        <div class="clinical-value">${doctor?.name || 'Not Specified'}</div>
       </div>
       <div class="clinical-row">
         <div class="clinical-label">Hospital/Clinic</div>
-        <div class="clinical-value">${prescription_data?.hospital_name || 'Not Specified'}</div>
+        <div class="clinical-value">${doctor?.hospital_name || 'Not Specified'}</div>
       </div>
       <div class="clinical-row">
         <div class="clinical-label">Visit Date</div>
@@ -455,19 +460,19 @@ export function generatePrescriptionHTML(
       </div>
       <div class="clinical-row">
         <div class="clinical-label">Diagnosis</div>
-        <div class="clinical-value">${prescription_data?.medical_issue_diagnosis || 'Not Specified'}</div>
+        <div class="clinical-value">${diagnosis?.condition || 'Not Specified'}</div>
       </div>
     </div>
   </div>
 
   <!-- AI Analysis Summary -->
-  ${common_data?.summary
+  ${summary
       ? `
   <div class="section">
     <div class="section-title">AI Analysis Summary</div>
     <div class="section-content">
       <div class="summary-box">
-        <div class="summary-text">${common_data.summary}</div>
+        <div class="summary-text">${summary}</div>
       </div>
     </div>
   </div>
@@ -476,7 +481,7 @@ export function generatePrescriptionHTML(
     }
 
   <!-- Prescribed Medications -->
-  ${prescription_data?.medicines && prescription_data.medicines.length > 0
+  ${medicines && medicines.length > 0
       ? `
   <div class="section">
     <div class="section-title">Prescribed Medications</div>
@@ -491,23 +496,23 @@ export function generatePrescriptionHTML(
           </tr>
         </thead>
         <tbody>
-          ${prescription_data.medicines
+          ${medicines
         .map(
           (med) => `
           <tr>
             <td>
-              <div class="medicine-name">${med.exact_written_name}</div>
-              ${med.assumed_enriched_data?.generic_name
-              ? `<span class="medicine-scientific">${med.assumed_enriched_data.generic_name}</span>`
+              <div class="medicine-name">${med.name_as_written}</div>
+              ${med.generic_name
+              ? `<span class="medicine-scientific">${med.generic_name}</span>`
               : ''
             }
             </td>
             <td>
-              ${med.dosage_instruction ? `<span class="dosage-text">${med.dosage_instruction}</span>` : 'Not specified'}
+              ${med.instructions ? `<span class="dosage-text">${med.instructions}</span>` : 'Not specified'}
             </td>
-            <td>${med.frequency || 'As prescribed'}</td>
-            <td>${med.special_instructions || med.duration || 'Follow doctor\'s advice'}</td>
-          </tr>
+            <td>${med.timing?.pattern || 'As prescribed'}</td>
+            <td>${med.strength || "Follow doctor's advice"}</td>
+        </tr>
           `
         )
         .join('')}
@@ -520,13 +525,13 @@ export function generatePrescriptionHTML(
     }
 
   <!-- Recommended Tests -->
-  ${prescription_data?.recommended_tests && prescription_data.recommended_tests.length > 0
+  ${advised_tests && advised_tests.length > 0
       ? `
   <div class="section">
     <div class="section-title">Recommended Laboratory Tests</div>
     <div class="section-content">
       <div class="tests-grid">
-        ${prescription_data.recommended_tests
+        ${advised_tests
         .map(
           (test) => `
         <div class="test-item">
@@ -546,11 +551,11 @@ export function generatePrescriptionHTML(
   <div class="metadata-section">
     <div class="metadata-item">
       <span class="metadata-label">Scan Clarity:</span>
-      <span class="metadata-value">${analysis_metadata?.scan_clarity || 'Not Available'}</span>
+      <span class="metadata-value">${metadata?.scan_clarity || 'Not Available'}</span>
     </div>
     <div class="metadata-item">
       <span class="confidence-badge">
-        AI Confidence: ${Math.round((analysis_metadata?.confidence_score || 0) * 100)}%
+        AI Confidence: ${Math.round((metadata?.confidence_score || 0) * 100)}%
       </span>
     </div>
   </div>

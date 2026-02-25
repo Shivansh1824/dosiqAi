@@ -9,10 +9,11 @@ interface TimeSectionProps {
     category: TimeOfDayCategory;
     medications: MedicationWithStatus[];
     onTakeMedication: (medicationId: string, scheduledTime: string) => void;
+    onSkipMedication: (medicationId: string, scheduledTime: string) => void;
     onReschedule?: (medication: MedicationWithStatus) => void;
 }
 
-export default function TimeSection({ category, medications, onTakeMedication, onReschedule }: TimeSectionProps) {
+export default function TimeSection({ category, medications, onTakeMedication, onSkipMedication, onReschedule }: TimeSectionProps) {
     const title = getTimeOfDayText(category);
     const iconName = getTimeOfDayIcon(category);
 
@@ -58,6 +59,7 @@ export default function TimeSection({ category, medications, onTakeMedication, o
                             key={`${med.id}-${med.scheduled_time}`}
                             medication={med}
                             onTake={onTakeMedication}
+                            onSkip={onSkipMedication}
                             onReschedule={onReschedule}
                         />
                     ))}
