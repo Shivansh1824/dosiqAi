@@ -630,40 +630,10 @@ export default function MedicationVerificationCard({
 
   const handleIntervalChange = (days: number) => {
     setMedication(prev => {
-      const currentIsSOS = isAsNeededFrequency(
-        prev.timing_dosage ?? prev.dosage,
-        prev.total_times_per_day
-      );
-
-      const updates: Partial<ParsedMedication> = {
-        interval_days: days === 0 ? null : days,
-        verified_by_user: true
-      };
-
-      if (days === 0) {
-        // Switching to S.O.S
-        updates.timing_dosage = 'S.O.S';
-        updates.total_times_per_day = 0;
-        setCustomReminderTimes([]);
-        onLiveUpdate?.({ current_reminder_times: [] });
-      } else if (currentIsSOS && days > 0) {
-        // Switching from S.O.S to Scheduled (Everyday or Every X Days)
-        updates.timing_dosage = '1-0-1';
-        updates.total_times_per_day = 2;
-
-        // Reset to default times for 2x daily
-        const newTimes = generateDefaultTimeSlots('twice_daily', {
-          morning_dose_time: familyMember?.morning_dose_time || undefined,
-          afternoon_dose_time: familyMember?.afternoon_dose_time || undefined,
-          night_dose_time: familyMember?.night_dose_time || undefined,
-        });
-        setCustomReminderTimes(newTimes);
-        onLiveUpdate?.({ current_reminder_times: newTimes });
-      }
-
       return {
         ...prev,
-        ...updates
+        interval_days: days === 0 ? null : days,
+        verified_by_user: true
       };
     });
   };
@@ -968,7 +938,6 @@ export default function MedicationVerificationCard({
             {(medication.medicine_type || medication.medicine_purpose) && <View style={styles.divider} />}
 
             {/* Course Period Section */}
-            {/* Course Period Section */}
             <CoursePeriodSection
               startDate={startDate}
               endDate={endDate}
@@ -977,7 +946,7 @@ export default function MedicationVerificationCard({
               onEndDatePress={() => setShowEndDatePicker(true)}
               onIntervalChange={handleIntervalChange}
               isVerified={isVerified}
-              fixedFrequencyText={isAsNeeded && customReminderTimes.length === 0 ? "S.O.S" : undefined}
+              fixedFrequencyText={(medication.interval_days === null || medication.interval_days === 0) ? "S.O.S" : undefined}
             />
 
             {/* Start Date Picker Modal */}
