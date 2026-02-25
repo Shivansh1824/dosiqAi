@@ -78,8 +78,8 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     let subtitle = '';
 
     if (analysis) {
-      if (analysis.document_type === 'prescription' && analysis.prescription_data?.medical_issue_diagnosis) {
-        title = `${analysis.prescription_data.medical_issue_diagnosis} Prescription`;
+      if (analysis.document_type === 'prescription' && analysis.diagnosis?.condition) {
+        title = `${analysis.diagnosis?.condition} Prescription`;
       } else if (analysis.document_type) {
         title = (analysis.document_type === 'invalid' ? 'Unrecognized Document' : analysis.document_type)
           .split('_')
@@ -90,8 +90,8 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
       }
 
       const parts = [];
-      if (analysis.patient_info?.name) parts.push(analysis.patient_info.name);
-      if (analysis.common_data?.visit_date) parts.push(analysis.common_data.visit_date);
+      if (analysis.patient?.name) parts.push(analysis.patient.name);
+      if (analysis.visit_date) parts.push(analysis.visit_date);
       subtitle = parts.join(' • ');
     }
 
@@ -228,251 +228,251 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     }
   };
 
-  const innerMedicines = analysis?.prescription_data?.medicines || [];
-  const getSummary = (res?: DocumentAnalysisResult) => res?.common_data?.summary || res?.summary;
+  const innerMedicines = analysis?.medicines || [];
+  const getSummary = (res?: DocumentAnalysisResult) => res?.summary;
 
-  return (
-    <View style={{ flex: 1 }}>
-      <LinearGradient
-        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
-        style={StyleSheet.absoluteFill}
-      />
-    <SafeAreaView style={styles.container} edges={['top']}>
-
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={onBack} activeOpacity={0.6}>
-          <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
-
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{titleText}</Text>
-          {subtitleText ? (
-            <Text style={styles.headerSubtitle} numberOfLines={1}>{subtitleText}</Text>
-          ) : null}
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setShowShareModal(true)} activeOpacity={0.6}>
-            <Feather name="share-2" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setShowOptionsModal(true)} activeOpacity={0.6}>
-            <Feather name="more-horizontal" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]} 
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Document Preview (Standard UI) */}
-        <View style={styles.previewCard}>
-          {fileNotFound ? (
-            <>
-              <View style={styles.previewIconContainer}>
-                <Feather name="alert-circle" size={64} color={Colors.error} />
-              </View>
-              <Text style={styles.previewText}>File Not Found</Text>
-              <Text style={styles.errorText}>
-                The document file could not be found on this device.
-              </Text>
-            </>
-          ) : isPdf && imageUri ? (
-            <View style={styles.pdfPreviewWrapper}>
-              <Pdf
-                source={{ uri: imageUri, cache: true }}
-                page={1}
-                scale={1.0}
-                minScale={1.0}
-                maxScale={1.0}
-                spacing={0}
-                fitPolicy={0}
-                enablePaging={false}
-                enableRTL={false}
-                enableAnnotationRendering={false}
-                style={styles.pdfPreview}
-              />
-              <View style={styles.floatingButtonContainer}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleViewFullDocument}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.actionIconCircle}>
-                    <Feather name="eye" size={20} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.actionCardLabel}>View</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleDownload}
-                  activeOpacity={0.7}
-                  disabled={downloading}
-                >
-                  <View style={styles.actionIconCircle}>
-                    {downloading ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <Feather name="download" size={20} color={Colors.primary} />
-                    )}
-                  </View>
-                  <Text style={styles.actionCardLabel}>
-                    {downloading ? 'Saving...' : 'Save'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : imageUri ? (
-            <View>
-              <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="cover" />
-              <View style={styles.heroOverlay} />
-              <View style={styles.floatingButtonContainer}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleViewFullDocument}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.actionIconCircle}>
-                    <Feather name="eye" size={20} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.actionCardLabel}>View</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleDownload}
-                  activeOpacity={0.7}
-                  disabled={downloading}
-                >
-                  <View style={styles.actionIconCircle}>
-                    {downloading ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <Feather name="download" size={20} color={Colors.primary} />
-                    )}
-                  </View>
-                  <Text style={styles.actionCardLabel}>
-                    {downloading ? 'Saving...' : 'Save'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <RecordDocumentPreviewLoading />
-          )}
-        </View>
-
-        {/* AI Analysis Sections */}
-        {document.ai_analysis_status === 'completed' && (
-          <>
-             {/* Prescription Metadata Card */}
-             {analysis?.prescription_data && (
-                <RecordMetadataCard
-                    patientName={analysis.patient_info?.name}
-                    patientAge={analysis.patient_info?.age}
-                    patientGender={analysis.patient_info?.gender}
-                    doctorName={analysis.prescription_data.doctor_name}
-                    hospitalName={analysis.prescription_data.hospital_name}
-                    visitDate={analysis.common_data?.visit_date}
-                    followUpDate={analysis.prescription_data.follow_up?.follow_up_date}
-                    followUpDays={analysis.prescription_data.follow_up?.follow_up_days}
-                    diagnosis={analysis.prescription_data.medical_issue_diagnosis}
-                />
-             )}
-
-            {/* AI Summary Section */}
-            {getSummary(analysis) && (
-              <PrescriptionRecordSummary
-                summary={getSummary(analysis)!}
-                recommendedTests={analysis?.prescription_data?.recommended_tests}
-                otherInformation={analysis?.prescription_data?.other_information}
-                style={{ marginBottom: 0 }}
-                defaultExpanded={true}
-              />
-            )}
-
-            {/* Medications Section (using original card in read-only mode) */}
-            {innerMedicines.length > 0 && (
-              <View style={styles.medicationsCard}>
-                <View style={styles.medsHeader}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={styles.medsSectionTitle}>MEDS DETECTED</Text>
-                    <Text style={styles.medsSectionSubtitle}>
-                      {innerMedicines.length} {innerMedicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription
-                    </Text>
-                  </View>
-                  <View style={styles.medsCountBadge}>
-                    <Text style={styles.medsCountText}>{innerMedicines.length}</Text>
-                  </View>
-                </View>
-
-                <View>
-                  {innerMedicines.map((medicine: any, index: number) => {
-                    const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
-                    return (
-                      <MedicationRecordCard
-                        key={index}
-                        medication={parsedMed}
-                        documentId={document.id}
-                        documentTitle={displayTitle}
-                        suggestedStartDate={document.visit_date || document.ai_analyzed_at || new Date().toISOString()}
-                        familyMember={familyMember}
-                        confidenceScore={document.ai_analysis_result?.analysis_metadata?.confidence_score}
-                        index={index}
-                      />
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* Advised Tests Section */}
-            {analysis?.prescription_data?.recommended_tests &&
-              analysis.prescription_data.recommended_tests.length > 0 && (
-                <View style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>Advised Tests</Text>
-                  </View>
-                  <Text style={styles.cardSubtitle}>
-                    Recommended lab tests and investigations
-                  </Text>
-                  <View style={{ gap: 12, marginTop: 12 }}>
-                    <RecordGroupedTestsCard tests={analysis.prescription_data.recommended_tests} />
-                  </View>
-                </View>
-              )}
-          </>
-        )}
-      </ScrollView>
-
-      {/* Modals */}
-      <ShareModal
-        visible={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        documentType={documentType}
-        onShareDocument={handleShareDocument}
-        onShareAnalysis={handleShareAnalysis}
-      />
-
-      <DocumentOptionsModal
-        visible={showOptionsModal}
-        onClose={() => setShowOptionsModal(false)}
-        onDelete={() => Alert.alert('Delete', 'Are you sure?', [{ text: 'Cancel' }, { text: 'Delete', onPress: performDelete, style: 'destructive' }])}
-      />
-
-      {imageUri && (
-        <FullScreenImageModal
-          visible={showFullScreenImage}
-          imageUri={imageUri}
-          onClose={() => setShowFullScreenImage(false)}
+    return (
+      <View style={{ flex: 1 }}>
+        <LinearGradient
+          colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
+          style={StyleSheet.absoluteFill}
         />
-      )}
-
-      <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing health analysis..." />
-    </SafeAreaView>
-    </View>
-  );
+        <SafeAreaView style={styles.container} edges={['top']}>
+  
+          {/* Modern Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.headerButton} onPress={onBack} activeOpacity={0.6}>
+              <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+  
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1}>{titleText}</Text>
+              {subtitleText ? (
+                <Text style={styles.headerSubtitle} numberOfLines={1}>{subtitleText}</Text>
+              ) : null}
+            </View>
+  
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity style={styles.headerButton} onPress={() => setShowShareModal(true)} activeOpacity={0.6}>
+                <Feather name="share-2" size={22} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerButton} onPress={() => setShowOptionsModal(true)} activeOpacity={0.6}>
+                <Feather name="more-horizontal" size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+  
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]} 
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Document Preview (Standard UI) */}
+            <View style={styles.previewCard}>
+              {fileNotFound ? (
+                <>
+                  <View style={styles.previewIconContainer}>
+                    <Feather name="alert-circle" size={64} color={Colors.error} />
+                  </View>
+                  <Text style={styles.previewText}>File Not Found</Text>
+                  <Text style={styles.errorText}>
+                    The document file could not be found on this device.
+                  </Text>
+                </>
+              ) : isPdf && imageUri ? (
+                <View style={styles.pdfPreviewWrapper}>
+                  <Pdf
+                    source={{ uri: imageUri, cache: true }}
+                    page={1}
+                    scale={1.0}
+                    minScale={1.0}
+                    maxScale={1.0}
+                    spacing={0}
+                    fitPolicy={0}
+                    enablePaging={false}
+                    enableRTL={false}
+                    enableAnnotationRendering={false}
+                    style={styles.pdfPreview}
+                  />
+                  <View style={styles.floatingButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={handleViewFullDocument}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.actionIconCircle}>
+                        <Feather name="eye" size={20} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.actionCardLabel}>View</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={handleDownload}
+                      activeOpacity={0.7}
+                      disabled={downloading}
+                    >
+                      <View style={styles.actionIconCircle}>
+                        {downloading ? (
+                          <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : (
+                          <Feather name="download" size={20} color={Colors.primary} />
+                        )}
+                      </View>
+                      <Text style={styles.actionCardLabel}>
+                        {downloading ? 'Saving...' : 'Save'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : imageUri ? (
+                <View>
+                  <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="cover" />
+                  <View style={styles.heroOverlay} />
+                  <View style={styles.floatingButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={handleViewFullDocument}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.actionIconCircle}>
+                        <Feather name="eye" size={20} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.actionCardLabel}>View</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={handleDownload}
+                      activeOpacity={0.7}
+                      disabled={downloading}
+                    >
+                      <View style={styles.actionIconCircle}>
+                        {downloading ? (
+                          <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : (
+                          <Feather name="download" size={20} color={Colors.primary} />
+                        )}
+                      </View>
+                      <Text style={styles.actionCardLabel}>
+                        {downloading ? 'Saving...' : 'Save'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <RecordDocumentPreviewLoading />
+              )}
+            </View>
+  
+            {/* AI Analysis Sections */}
+            {document.ai_analysis_status === 'completed' && (
+              <>
+                 {/* Prescription Metadata Card */}
+                 {analysis && (
+                    <RecordMetadataCard
+                        patientName={analysis.patient?.name ?? undefined}
+                        patientAge={analysis.patient?.age ?? undefined}
+                        patientGender={analysis.patient?.gender ?? undefined}
+                        doctorName={analysis.doctor?.name ?? undefined}
+                        hospitalName={analysis.doctor?.hospital_name ?? undefined}
+                        visitDate={analysis.visit_date ?? undefined}
+                        followUpDate={undefined}
+                        followUpDays={analysis.follow_up_days ?? undefined}
+                        diagnosis={analysis.diagnosis?.condition ?? undefined}
+                    />
+                 )}
+  
+                {/* AI Summary Section */}
+                {getSummary(analysis) && (
+                  <PrescriptionRecordSummary
+                    summary={getSummary(analysis)!}
+                    recommendedTests={analysis?.advised_tests}
+                    otherInformation={analysis?.additional_notes?.map(note => ({ value: note.text, category: note.type }))}
+                    style={{ marginBottom: 0 }}
+                    defaultExpanded={true}
+                    followUp={{ follow_up_days: analysis?.follow_up_days ?? undefined }}
+                  />
+                )}
+  
+                {/* Medications Section (using original card in read-only mode) */}
+                {innerMedicines.length > 0 && (
+                  <View style={styles.medicationsCard}>
+                    <View style={styles.medsHeader}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.medsSectionTitle}>MEDS DETECTED</Text>
+                        <Text style={styles.medsSectionSubtitle}>
+                          {innerMedicines.length} {innerMedicines.length === 1 ? 'medication is' : 'medications are'} identified from your prescription
+                        </Text>
+                      </View>
+                      <View style={styles.medsCountBadge}>
+                        <Text style={styles.medsCountText}>{innerMedicines.length}</Text>
+                      </View>
+                    </View>
+  
+                    <View>
+                      {innerMedicines.map((medicine: any, index: number) => {
+                        const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
+                        return (
+                          <MedicationRecordCard
+                            key={index}
+                            medication={parsedMed}
+                            documentId={document.id}
+                            documentTitle={displayTitle}
+                            suggestedStartDate={document.visit_date || document.ai_analyzed_at || new Date().toISOString()}
+                            familyMember={familyMember}
+                            confidenceScore={analysis?.metadata?.confidence_score}
+                            index={index}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+  
+                {/* Advised Tests Section */}
+                {(analysis?.advised_tests?.[0]) && (
+                  <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.cardTitle}>Advised Tests</Text>
+                    </View>
+                    <Text style={styles.cardSubtitle}>
+                      Recommended lab tests and investigations
+                    </Text>
+                    <View style={{ gap: 12, marginTop: 12 }}>
+                        <RecordGroupedTestsCard tests={analysis?.advised_tests || []} />
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+  
+          {/* Modals */}
+          <ShareModal
+            visible={showShareModal}
+            onClose={() => setShowShareModal(false)}
+            documentType={documentType}
+            onShareDocument={handleShareDocument}
+            onShareAnalysis={handleShareAnalysis}
+          />
+  
+          <DocumentOptionsModal
+            visible={showOptionsModal}
+            onClose={() => setShowOptionsModal(false)}
+            onDelete={() => Alert.alert('Delete', 'Are you sure?', [{ text: 'Cancel' }, { text: 'Delete', onPress: performDelete, style: 'destructive' }])}
+          />
+  
+          {imageUri && (
+            <FullScreenImageModal
+              visible={showFullScreenImage}
+              imageUri={imageUri}
+              onClose={() => setShowFullScreenImage(false)}
+            />
+          )}
+  
+          <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing health analysis..." />
+        </SafeAreaView>
+      </View>
+    );
 }
 
 const styles = StyleSheet.create({

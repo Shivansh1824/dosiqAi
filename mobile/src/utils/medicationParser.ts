@@ -668,16 +668,16 @@ export function determineConfidence(isIdentified?: boolean): VerificationConfide
  * Clean up medication name from prescription format
  * Removes common prefixes like "SYP", "TAB", "CAP", etc.
  *
- * @param exactWrittenName - Raw name from prescription
+ * @param nameAsWritten - Raw name from prescription
  * @returns Cleaned medication name
  *
  * @example
  * cleanMedicationName("SYP CALPOL (250/5)") // returns "CALPOL (250/5)"
  * cleanMedicationName("TAB PARACETAMOL") // returns "PARACETAMOL"
  */
-export function cleanMedicationName(exactWrittenName: string): string {
-  if (!exactWrittenName) return '';
-  const original = exactWrittenName.trim();
+export function cleanMedicationName(nameAsWritten: string): string {
+  if (!nameAsWritten) return '';
+  const original = nameAsWritten.trim();
   let cleaned = original;
 
   // 1. Remove common prescription prefixes (case insensitive)
@@ -734,17 +734,6 @@ export function cleanMedicationName(exactWrittenName: string): string {
  * @param documentId - Source document ID
  * @param documentTitle - Source document title
  * @returns Parsed medication ready for user verification
- *
- * @example
- * const medicine = {
- *   exact_written_name: "SYP CALPOL (250/5)",
- *   dosage_instruction: "4ML",
- *   frequency: "Q6H",
- *   duration: "3 days",
- *   assumed_enriched_data: { is_identified: true, generic_name: "Paracetamol" }
- * };
- * const parsed = parseAIMedication(medicine, "doc123", "Prescription");
- * // Returns ParsedMedication with frequency: 'four_times_daily', duration_days: 3, etc.
  */
 export function parseAIMedication(
   medicine: MedicineInfo,
@@ -752,70 +741,64 @@ export function parseAIMedication(
   documentTitle: string,
   preferences?: { morning_dose_time?: string, afternoon_dose_time?: string, night_dose_time?: string }
 ): ParsedMedication {
-  const frequency = parseMedicalFrequency(medicine.frequency);
-  const durationDays = parseDuration(medicine.duration);
+  // Extract flat values
+  const timingPattern = medicine.timing?.pattern;
+  const timingTimesPerDay = medicine.timing?.times_per_day;
+  const frequency = parseMedicalFrequency(timingPattern || '');
+
+  const medInstructions = medicine.instructions || '';
+  const nameAsWritten = medicine.name_as_written || '';
 
   // Use code-aware time slot generation to capture 1-0-1 specific times
-  // Priority: timing.dosage (e.g. "0-0-1") > frequency (e.g. "Night daily")
-  const originalCode = medicine.timing?.dosage || medicine.frequency;
-  const timeSlots = generateTimeSlotsFromFrequencyCode(originalCode, frequency, preferences);
-  const confidence = determineConfidence(medicine.assumed_enriched_data?.is_identified);
+  const timeSlots = generateTimeSlotsFromFrequencyCode(timingPattern || '', frequency, preferences);
+
+  const medConfidence = medicine.confidence;
+  const isIdentified = medicine.is_identified;
+  const confidence = determineConfidence(medConfidence !== undefined ? medConfidence > 0.6 : isIdentified);
 
   // Build notes from special instructions
-  // User Request: Prioritize dosage_instruction. If empty, fallback to special_instructions + "From: Title"
   let notes = '';
 
-  if (medicine.dosage_instruction) {
-    const instruction = medicine.dosage_instruction.trim();
+  if (medInstructions) {
+    const instruction = medInstructions.trim();
     notes = instruction.charAt(0).toUpperCase() + instruction.slice(1);
-
-    // Append special instructions if they exist and aren't contained in dosage_instruction
-    if (medicine.special_instructions && !notes.includes(medicine.special_instructions)) {
-      notes = `${notes}\n${medicine.special_instructions}`;
-    }
   } else {
     // Fallback: Original logic
-    if (medicine.special_instructions) {
-      notes = medicine.special_instructions;
-    }
     if (documentTitle) {
-      notes = notes ? `${notes}\n\nFrom: ${documentTitle}` : `From: ${documentTitle}`;
+      notes = `From: ${documentTitle}`;
     }
   }
 
   // Parse food relationship: prioritize direct value from timing, fallback to special_instructions
   let foodRelationship: import('../types/medication').FoodRelationship = 'anytime';
-  if (medicine.timing?.relation_to_meal) {
-    // Direct value from AI analysis (e.g., 'after_food', 'before_food', 'any')
-    foodRelationship = medicine.timing.relation_to_meal as import('../types/medication').FoodRelationship;
-  } else {
-    // Fallback: parse from special_instructions
-    foodRelationship = parseFoodRelationship(medicine.special_instructions);
+  const mealRelation = medicine.timing?.meal_relation;
+  if (mealRelation && mealRelation !== 'any') {
+    foodRelationship = mealRelation as import('../types/medication').FoodRelationship;
   }
 
   // Determine final duration: AI > Parsed > Default (7 days for non-SOS)
-  let finalDuration = medicine.duration_days ?? durationDays;
+  let finalDuration = medicine.duration_days;
   if (finalDuration === null || finalDuration === undefined) {
-    const isAsNeeded = isAsNeededFrequency(medicine.timing?.dosage || medicine.dosage_instruction, medicine.timing?.total_times_per_day);
+    const isAsNeeded = isAsNeededFrequency(timingPattern || medInstructions, timingTimesPerDay);
     if (!isAsNeeded) {
       finalDuration = 5;
     }
   }
 
   return {
-    name: cleanMedicationName(medicine.exact_written_name),
+    name: cleanMedicationName(nameAsWritten),
     strength: medicine.strength,
     form: medicine.form ?? undefined,
-    generic_name: medicine.assumed_enriched_data?.generic_name,
-    medicine_type: medicine.assumed_enriched_data?.medicine_type,
-    medicine_purpose: medicine.assumed_enriched_data?.medicine_purpose,
-    dosage: medicine.dosage_instruction || '',
+    generic_name: medicine.generic_name,
+    medicine_type: medicine.category,
+    medicine_purpose: medicine.purpose,
+    dosage: medInstructions,
     frequency,
-    original_frequency_code: medicine.frequency || '',
-    duration_days: finalDuration,
-    interval_days: medicine.interval_days ?? null,
-    timing_dosage: medicine.timing?.dosage,
-    total_times_per_day: medicine.timing?.total_times_per_day,
+    original_frequency_code: timingPattern || '',
+    duration_days: finalDuration ?? null,
+    interval_days: medicine.gap_between_days ?? null,
+    timing_dosage: timingPattern,
+    total_times_per_day: timingTimesPerDay,
     time_of_day: timeSlots,
     food_relationship: foodRelationship,
     notes,

@@ -86,6 +86,8 @@ const getMealLabel = (
     if (!foodRelationship || foodRelationship === 'any' || foodRelationship === 'anytime') return null;
 
     // Determine prefix based on meal relationship
+    if (foodRelationship === 'empty_stomach') return 'Empty Stomach';
+
     const prefix = foodRelationship === 'before_food' ? 'Before' :
         foodRelationship === 'after_food' ? 'After' :
             foodRelationship === 'with_food' ? 'With' : null;

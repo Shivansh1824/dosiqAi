@@ -28,7 +28,7 @@ import type { DocumentAnalysisResult } from '../types/document';
  */
 export async function processLabReport(
   documentId: string,
-  analysisResult: DocumentAnalysisResult,
+  analysisResult: any,
   userId: string,
   familyMemberId: string
 ): Promise<{ labReportId: string; testResultIds: string[] } | null> {

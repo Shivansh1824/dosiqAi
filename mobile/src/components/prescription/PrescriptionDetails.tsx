@@ -21,9 +21,7 @@ export function PrescriptionDetails({
     analysisStatus,
     documentCreatedAt,
 }: PrescriptionDetailsProps) {
-    const prescriptionData = analysisResult?.prescription_data;
-    const patientInfo = analysisResult?.patient_info;
-    const commonData = analysisResult?.common_data;
+    // We directly access properties from the flattened analysisResult
 
     return (
         <View style={styles.card}>
@@ -37,12 +35,12 @@ export function PrescriptionDetails({
                     <View>
                         <Text style={styles.patientInfoLabel}>VISIT DATE</Text>
                         <Text style={styles.patientInfoValue} numberOfLines={1}>
-                            {commonData?.visit_date || formatDisplayDate(documentCreatedAt)}
+                            {analysisResult?.visit_date || formatDisplayDate(documentCreatedAt)}
                         </Text>
                     </View>
                 </View>
 
-                {prescriptionData?.medical_issue_diagnosis && (
+                {analysisResult?.diagnosis?.condition && (
                     <View style={styles.patientInfoChip}>
                         <View style={styles.patientIconBadge}>
                             <Feather name="activity" size={14} color={Colors.error} />
@@ -50,14 +48,14 @@ export function PrescriptionDetails({
                         <View style={{ flex: 1 }}>
                             <Text style={styles.patientInfoLabel}>DIAGNOSIS</Text>
                             <Text style={styles.patientInfoValue}>
-                                {prescriptionData.medical_issue_diagnosis}
+                                {analysisResult.diagnosis.condition}
                             </Text>
                         </View>
                     </View>
                 )}
 
 
-                {prescriptionData?.doctor_name && (
+                {analysisResult?.doctor?.name && (
                     <View style={styles.patientInfoChip}>
                         <View style={styles.patientIconBadge}>
                             <Feather name="user-plus" size={14} color={Colors.success} />
@@ -65,7 +63,7 @@ export function PrescriptionDetails({
                         <View>
                             <Text style={styles.patientInfoLabel}>DOCTOR</Text>
                             <Text style={styles.patientInfoValue} numberOfLines={1}>
-                                {formatDoctorName(prescriptionData.doctor_name)}
+                                {formatDoctorName(analysisResult.doctor.name)}
                             </Text>
                         </View>
                     </View>

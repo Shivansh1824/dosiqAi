@@ -20,29 +20,23 @@ export type MealRelation = 'before_food' | 'after_food' | 'with_food' | 'empty_s
 
 // Medicine structure from prescription
 export interface MedicineInfo {
-  exact_written_name: string;
-  assumed_enriched_data?: {
-    is_identified: boolean;
-    confidence?: number;           // NEW: 0.0-1.0 per medicine
-    generic_name?: string;
-    medicine_purpose?: string;     // NEW: "Bacterial Infection Treatment"
-    medicine_type?: string;        // NEW: "Antibiotic", "Analgesic", etc.
+  name_as_written: string;         // Renamed from exact_written_name
+  generic_name?: string;           // Flattened from assumed_enriched_data
+  is_identified?: boolean;         // Flattened from assumed_enriched_data
+  confidence?: number;             // Flattened from assumed_enriched_data (0.0-1.0)
+  purpose?: string;                // Renamed from medicine_purpose and flattened
+  category?: string;               // Renamed from medicine_type (e.g., "Antibiotic")
+  strength?: string;               // "200mg", "500mg"
+  form?: MedicineForm;             // Tablet, Syrup, etc.
+  instructions?: string;           // Renamed from dosage_instruction
+  gap_between_days?: number;       // Renamed from interval_days (1=daily, 2=alternate, 0=as needed)
+  duration_days?: number;          // Integer days
+  timing?: {                       // Structured timing
+    meal_relation?: MealRelation;  // Renamed from relation_to_meal
+    pattern?: string;              // Renamed from dosage ("1-0-1" format)
+    times_per_day?: number;        // Renamed from total_times_per_day (1, 2, 3, 4, etc.)
   };
-  strength?: string;               // NEW: "200mg", "500mg"
-  form?: MedicineForm;             // NEW: Tablet, Syrup, etc.
-  dosage_instruction?: string;
-  interval_days?: number;          // NEW: 1=daily, 2=alternate, 7=weekly, 0=as needed
-  timing?: {                       // NEW: Structured timing
-    relation_to_meal?: MealRelation;
-    dosage?: string;               // "1-0-1" format (morning-afternoon-night)
-    total_times_per_day?: number;  // 1, 2, 3, 4, etc.
-  };
-  duration_days?: number;          // NEW: Integer days
 
-  // Legacy fields (kept for backward compatibility)
-  frequency?: string;
-  duration?: string;
-  special_instructions?: string;
 }
 
 // Recommended test structure
@@ -68,71 +62,55 @@ export interface GroupedMetrics {
 
 // AI Analysis result structure matching the prompt output
 export interface DocumentAnalysisResult {
-  // Document type
+  // --- New Flattened Schema ---
+  is_prescription?: boolean;
+  is_invalid_or_unreadable?: boolean;
+  error_reason?: string | null;
+
+  metadata?: {
+    confidence_score: number;
+    scan_clarity: 'clear' | 'blurry' | 'unreadable';
+    handwriting_detected: boolean;
+  };
+
+  patient?: {
+    name?: string | null;
+    age?: string | null;
+    gender?: 'male' | 'female' | 'other' | null;
+  };
+
+  doctor?: {
+    name?: string | null;
+    hospital_name?: string | null;
+  };
+
+  diagnosis?: {
+    condition?: string | null;
+    is_inferred?: boolean;
+  };
+
+  visit_date?: string | null;
+
+  summary?: string | null;
+  follow_up_days?: number | null;
+  advised_tests?: RecommendedTest[];
+  medicines?: MedicineInfo[];
+
+  drug_interactions?: {
+    has_interactions: boolean;
+    note?: string | null;
+  };
+
+  additional_notes?: Array<{
+    type: 'Diet' | 'Lifestyle' | 'Vitals' | 'Allergy' | 'General';
+    text: string;
+  }>;
+
+
+  // Document type (Legacy - kept for app logic outside schema)
   document_type?: string;
-
-  // AI-generated filename
   file_name?: string;
-
-  // Analysis metadata
-  analysis_metadata?: {
-    confidence_score?: number;
-    scan_clarity?: string;
-    handwriting_detected?: boolean;  // NEW: Indicates handwritten prescription
-  };
-
-  // Error response
-  error_response?: {
-    is_error: boolean;
-    user_message?: string;
-    technical_reason?: string;
-  };
-
-  // Patient info
-  patient_info?: {
-    name?: string;
-    age?: string;
-    gender?: string;
-  };
-
-  // Common data (includes summary)
-  common_data?: {
-    visit_date?: string;
-    summary?: string;
-  };
-
-  // Prescription specific data
-  prescription_data?: {
-    doctor_name?: string;
-    hospital_name?: string;
-    medical_issue_diagnosis?: string;
-    diagnosis_source?: 'explicit' | 'inferred';  // NEW: How diagnosis was determined
-    follow_up?: {                                 // NEW: Follow-up info
-      follow_up_date?: string;
-      follow_up_days?: number;
-      follow_up_notes?: string;
-    };
-    recommended_tests?: RecommendedTest[];
-    medicines?: MedicineInfo[];
-    drug_interactions?: {                         // NEW: Drug interaction warning
-      potential_interactions_flag: boolean;
-      interaction_note?: string;
-    };
-    other_information?: Array<{                   // NEW: Vitals, lifestyle, allergies
-      category: 'Diet' | 'Lifestyle' | 'Vitals' | 'Allergy' | 'Notes';
-      value: string;
-    }>;
-  };
-
-  // Report/Lab specific data
-  report_data?: {
-    lab_name?: string;
-    grouped_metrics?: GroupedMetrics[];
-  };
-
-  // Legacy fields for backwards compatibility
-  summary?: string;
-  rawText?: string; // Fallback if JSON parsing fails
+  rawText?: string;
   parseError?: string;
 }
 

@@ -193,7 +193,7 @@ export const useDocumentMedications = (
     };
 
     const innerMedicines = useMemo(() => {
-        return document?.ai_analysis_result?.prescription_data?.medicines || [];
+        return document?.ai_analysis_result?.medicines || [];
     }, [document?.ai_analysis_result]);
 
     const allUnverifiedMedsIdx = useMemo(() => {

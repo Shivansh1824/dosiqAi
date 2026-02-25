@@ -37,9 +37,9 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
     }
   };
 
-  // Helper to get summary from new or legacy structure
+  // Helper to get summary from new schema
   const getSummary = (analysisResult?: DocumentAnalysisResult): string | undefined => {
-    return analysisResult?.common_data?.summary || analysisResult?.summary;
+    return analysisResult?.summary ?? undefined;
   };
 
   // Helper to format document type
@@ -49,27 +49,35 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
   };
 
   const summary = getSummary(result);
-  const patientInfo = result.patient_info;
-  const commonData = result.common_data;
-  const prescriptionData = result.prescription_data;
-  const reportData = result.report_data;
-  const analysisMetadata = result.analysis_metadata;
+  const patientInfo = result.patient;
+  const analysisMetadata = result.metadata;
+
+  const doctor = result.doctor;
+  const diagnosis = result.diagnosis;
+  const advisedTests = result.advised_tests;
+  const medicines = result.medicines;
+  const hasInteractions = result.drug_interactions?.has_interactions;
+  const interactionNote = result.drug_interactions?.note;
+  const followUpDays = result.follow_up_days;
+  const additionalNotes = result.additional_notes;
 
   return (
     <View style={styles.analysisContent}>
       {/* Document Type & Visit Date */}
-      {(result.document_type || commonData?.visit_date) && (
+      {(result.document_type || result.is_prescription || result.visit_date) && (
         <View style={styles.analysisGrid}>
-          {result.document_type && (
+          {(result.document_type || result.is_prescription !== undefined) && (
             <View style={styles.analysisGridItem}>
               <Text style={styles.analysisLabel}>Type</Text>
-              <Text style={styles.analysisValue}>{formatDocumentType(result.document_type)}</Text>
+              <Text style={styles.analysisValue}>
+                {result.is_prescription ? 'Prescription' : result.is_invalid_or_unreadable ? 'Invalid' : formatDocumentType(result.document_type || 'Unknown')}
+              </Text>
             </View>
           )}
-          {commonData?.visit_date && (
+          {result.visit_date && (
             <View style={styles.analysisGridItem}>
               <Text style={styles.analysisLabel}>Visit Date</Text>
-              <Text style={styles.analysisValue}>{commonData.visit_date}</Text>
+              <Text style={styles.analysisValue}>{result.visit_date}</Text>
             </View>
           )}
         </View>
@@ -109,7 +117,9 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
                 </View>
                 <View>
                   <Text style={styles.patientInfoLabel}>GENDER</Text>
-                  <Text style={styles.patientInfoValue}>{patientInfo.gender}</Text>
+                  <Text style={styles.patientInfoValue}>
+                    {patientInfo.gender.charAt(0).toUpperCase() + patientInfo.gender.slice(1)}
+                  </Text>
                 </View>
               </View>
             )}
@@ -118,29 +128,29 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
       )}
 
       {/* Doctor & Hospital Info */}
-      {prescriptionData && (prescriptionData.doctor_name || prescriptionData.hospital_name) && (
+      {doctor && (doctor.name || doctor.hospital_name) && (
         <View style={styles.analysisSection}>
           <Text style={styles.analysisSectionTitle}>Healthcare Provider</Text>
           <View style={styles.patientInfoContainer}>
-            {prescriptionData.doctor_name && (
+            {doctor.name && (
               <View style={styles.patientInfoChip}>
                 <View style={styles.patientIconBadge}>
                   <Feather name="user-plus" size={14} color={Colors.success} />
                 </View>
                 <View>
                   <Text style={styles.patientInfoLabel}>DOCTOR</Text>
-                  <Text style={styles.patientInfoValue}>{prescriptionData.doctor_name}</Text>
+                  <Text style={styles.patientInfoValue}>{doctor.name}</Text>
                 </View>
               </View>
             )}
-            {prescriptionData.hospital_name && (
+            {doctor.hospital_name && (
               <View style={styles.patientInfoChip}>
                 <View style={styles.patientIconBadge}>
                   <MaterialCommunityIcons name="hospital-building" size={14} color={Colors.warning} />
                 </View>
                 <View>
                   <Text style={styles.patientInfoLabel}>HOSPITAL</Text>
-                  <Text style={styles.patientInfoValue}>{prescriptionData.hospital_name}</Text>
+                  <Text style={styles.patientInfoValue}>{doctor.hospital_name}</Text>
                 </View>
               </View>
             )}
@@ -150,7 +160,7 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
 
 
       {/* Diagnosis - Enhanced with source badge */}
-      {prescriptionData?.medical_issue_diagnosis && (
+      {diagnosis?.condition && (
         <View style={styles.analysisSection}>
           <View style={styles.criticalHeader}>
             <Feather name="activity" size={18} color={Colors.primary} />
@@ -158,47 +168,57 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
               Diagnosis
             </Text>
             {/* Diagnosis Source Badge - NEW */}
-            {prescriptionData.diagnosis_source && (
+            {diagnosis.is_inferred !== undefined && (
               <View style={[
                 styles.diagnosisSourceBadge,
-                { backgroundColor: prescriptionData.diagnosis_source === 'explicit' ? Colors.success + '15' : Colors.warning + '15' }
+                { backgroundColor: !diagnosis.is_inferred ? Colors.success + '15' : Colors.warning + '15' }
               ]}>
                 <Feather
-                  name={prescriptionData.diagnosis_source === 'explicit' ? 'check-circle' : 'help-circle'}
+                  name={!diagnosis.is_inferred ? 'check-circle' : 'help-circle'}
                   size={10}
-                  color={prescriptionData.diagnosis_source === 'explicit' ? Colors.success : Colors.warning}
+                  color={!diagnosis.is_inferred ? Colors.success : Colors.warning}
                 />
                 <Text style={[
                   styles.diagnosisSourceText,
-                  { color: prescriptionData.diagnosis_source === 'explicit' ? Colors.success : Colors.warning }
+                  { color: !diagnosis.is_inferred ? Colors.success : Colors.warning }
                 ]}>
-                  {prescriptionData.diagnosis_source === 'explicit' ? 'Explicit' : 'AI Inferred'}
+                  {!diagnosis.is_inferred ? 'Explicit' : 'AI Inferred'}
                 </Text>
               </View>
             )}
           </View>
           <Text style={[styles.analysisText, { marginTop: 12 }]}>
-            {prescriptionData.medical_issue_diagnosis}
+            {diagnosis.condition}
           </Text>
         </View>
       )}
 
 
       {/* Medications */}
-      {prescriptionData?.medicines && prescriptionData.medicines.length > 0 && (
+      {medicines && medicines.length > 0 && (
         <View style={styles.analysisSection}>
           {/* Drug Interaction Warning - NEW */}
-          {prescriptionData.drug_interactions?.potential_interactions_flag && (
+          {hasInteractions && (
             <View style={styles.drugInteractionWarning}>
               <Feather name="alert-triangle" size={18} color={Colors.error} />
               <Text style={styles.drugInteractionText}>
-                {prescriptionData.drug_interactions.interaction_note || 'Potential drug interaction detected'}
+                {interactionNote || 'Potential drug interaction detected'}
               </Text>
             </View>
           )}
 
           <Text style={styles.analysisSectionTitle}>Medications</Text>
-          {prescriptionData.medicines.map((med, index) => {
+          {medicines.map((med, index) => {
+            const medConfidence = med.confidence;
+            const medGenericName = med.generic_name;
+            const medType = med.category;
+            const medPurpose = med.purpose;
+            const isIdentified = med.is_identified;
+            const timingPattern = med.timing?.pattern;
+            const medInstructions = med.instructions;
+            const medIntervalDays = med.gap_between_days;
+            const medName = med.name_as_written;
+
             // Helper to get form icon
             const getFormIcon = (form?: string | null) => {
               switch (form) {
@@ -216,7 +236,7 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
             // Helper to parse time_of_day "1-0-1" format
             const parseTimeOfDay = (timeStr?: string) => {
               if (!timeStr) return { morning: false, afternoon: false, night: false };
-              const parts = timeStr.split('-').map(p => p === '1');
+              const parts = timeStr.split('-').map(p => p !== '0');
               return {
                 morning: parts[0] || false,
                 afternoon: parts[1] || false,
@@ -267,8 +287,7 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
               }
             };
 
-            const timing = parseTimeOfDay(med.timing?.dosage);
-            const confidence = med.assumed_enriched_data?.confidence;
+            const timing = parseTimeOfDay(timingPattern);
 
             return (
               <View key={index} style={styles.medicationCard}>
@@ -279,14 +298,14 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.medicationName} numberOfLines={2}>
-                      {med.exact_written_name}
+                      {medName}
                       {med.strength && <Text style={styles.strengthText}> {med.strength}</Text>}
                     </Text>
                   </View>
-                  {confidence && (
-                    <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(confidence) + '20' }]}>
-                      <Text style={[styles.confidenceBadgeText, { color: getConfidenceColor(confidence) }]}>
-                        {Math.round(confidence * 100)}%
+                  {medConfidence && (
+                    <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(medConfidence) + '20' }]}>
+                      <Text style={[styles.confidenceBadgeText, { color: getConfidenceColor(medConfidence) }]}>
+                        {Math.round(medConfidence * 100)}%
                       </Text>
                     </View>
                   )}
@@ -294,40 +313,40 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
 
                 {/* Scientific Name + Type */}
                 <View style={styles.medicationSubtitleRow}>
-                  {med.assumed_enriched_data?.generic_name && (
+                  {medGenericName && (
                     <Text style={styles.medicationScientific}>
-                      {med.assumed_enriched_data.generic_name}
+                      {medGenericName}
                     </Text>
                   )}
-                  {med.assumed_enriched_data?.medicine_type && (
-                    <View style={[styles.medicineTypeBadge, { backgroundColor: getTypeColor(med.assumed_enriched_data.medicine_type) + '15' }]}>
-                      <Text style={[styles.medicineTypeText, { color: getTypeColor(med.assumed_enriched_data.medicine_type) }]}>
-                        {med.assumed_enriched_data.medicine_type}
+                  {medType && (
+                    <View style={[styles.medicineTypeBadge, { backgroundColor: getTypeColor(medType) + '15' }]}>
+                      <Text style={[styles.medicineTypeText, { color: getTypeColor(medType) }]}>
+                        {medType}
                       </Text>
                     </View>
                   )}
                 </View>
 
                 {/* Purpose Banner - NEW */}
-                {med.assumed_enriched_data?.medicine_purpose && (
+                {medPurpose && (
                   <View style={styles.purposeBanner}>
                     <Feather name="target" size={12} color={Colors.primary} />
-                    <Text style={styles.purposeText}>{med.assumed_enriched_data.medicine_purpose}</Text>
+                    <Text style={styles.purposeText}>{medPurpose}</Text>
                   </View>
                 )}
 
                 {/* Details Grid */}
                 <View style={styles.medicationDetailsGrid}>
                   {/* Dosage */}
-                  {med.dosage_instruction && (
+                  {medInstructions && (
                     <View style={styles.detailGridItem}>
                       <Text style={styles.detailGridLabel}>DOSAGE</Text>
-                      <Text style={styles.detailGridValue}>{med.dosage_instruction}</Text>
+                      <Text style={styles.detailGridValue}>{medInstructions}</Text>
                     </View>
                   )}
 
                   {/* Schedule (Time of Day Visual) - NEW */}
-                  {med.timing?.dosage && (
+                  {timingPattern && (
                     <View style={styles.detailGridItem}>
                       <Text style={styles.detailGridLabel}>SCHEDULE</Text>
                       <View style={styles.timeDotsContainer}>
@@ -345,18 +364,18 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
                   )}
 
                   {/* Meal Timing - NEW */}
-                  {getMealText(med.timing?.relation_to_meal) && (
+                  {getMealText(med.timing?.meal_relation) && (
                     <View style={styles.detailGridItem}>
                       <Text style={styles.detailGridLabel}>MEAL</Text>
-                      <Text style={styles.detailGridValue}>{getMealText(med.timing?.relation_to_meal)}</Text>
+                      <Text style={styles.detailGridValue}>{getMealText(med.timing?.meal_relation)}</Text>
                     </View>
                   )}
 
                   {/* Interval - NEW */}
-                  {getIntervalText(med.interval_days) && (
+                  {getIntervalText(medIntervalDays) && (
                     <View style={styles.detailGridItem}>
                       <Text style={styles.detailGridLabel}>FREQUENCY</Text>
-                      <Text style={styles.detailGridValue}>{getIntervalText(med.interval_days)}</Text>
+                      <Text style={styles.detailGridValue}>{getIntervalText(medIntervalDays)}</Text>
                     </View>
                   )}
                 </View>
@@ -374,25 +393,7 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
                   </View>
                 )}
 
-                {/* Legacy fallbacks */}
-                {!med.timing?.dosage && med.frequency && (
-                  <View style={styles.medicationDetailRow}>
-                    <Feather name="clock" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
-                    <Text style={styles.medicationDetail}>{med.frequency}</Text>
-                  </View>
-                )}
-                {!med.duration_days && med.duration && (
-                  <View style={styles.medicationDetailRow}>
-                    <Feather name="calendar" size={12} color={Colors.textSecondary} style={{ marginRight: 6 }} />
-                    <Text style={styles.medicationDetail}>{med.duration}</Text>
-                  </View>
-                )}
-                {med.special_instructions && (
-                  <View style={styles.medicationDetailRow}>
-                    <Feather name="info" size={12} color={Colors.warning} style={{ marginRight: 6 }} />
-                    <Text style={[styles.medicationDetail, { color: Colors.warning }]}>{med.special_instructions}</Text>
-                  </View>
-                )}
+
               </View>
             );
           })}
@@ -400,41 +401,31 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
       )}
 
       {/* Advised Tests */}
-      {prescriptionData?.recommended_tests && prescriptionData.recommended_tests.length > 0 && (
+      {advisedTests && advisedTests.length > 0 && (
         <View style={styles.analysisSection}>
           <Text style={styles.analysisSectionTitle}>Advised Tests</Text>
           <GroupedTestsCard
-            tests={prescriptionData.recommended_tests}
+            tests={advisedTests}
           />
         </View>
       )}
 
       {/* Follow-up Section - NEW */}
-      {prescriptionData?.follow_up?.follow_up_date && (
+      {followUpDays && (
         <View style={styles.followUpSection}>
           <Feather name="calendar" size={20} color={Colors.info} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.followUpText}>
-              Follow-up: {new Date(prescriptionData.follow_up.follow_up_date).toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })}
-            </Text>
-            {prescriptionData.follow_up.follow_up_notes && (
-              <Text style={styles.followUpNotes}>{prescriptionData.follow_up.follow_up_notes}</Text>
-            )}
+            <Text style={styles.followUpText}>Follow-up in {followUpDays} days</Text>
           </View>
         </View>
       )}
 
       {/* Other Information Section - NEW */}
-      {prescriptionData?.other_information && prescriptionData.other_information.length > 0 && (
+      {additionalNotes && additionalNotes.length > 0 && (
         <View style={styles.otherInfoSection}>
           <Text style={styles.analysisSectionTitle}>Other Information</Text>
           <View style={styles.otherInfoChipsContainer}>
-            {prescriptionData.other_information.map((info, index) => {
+            {additionalNotes.map((info, index) => {
               // Get category icon
               const getCategoryIcon = (category: string) => {
                 switch (category) {
@@ -449,10 +440,10 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
 
               return (
                 <View key={index} style={styles.otherInfoChip}>
-                  <Text style={{ fontSize: 14 }}>{getCategoryIcon(info.category)}</Text>
+                  <Text style={{ fontSize: 14 }}>{getCategoryIcon(info.type)}</Text>
                   <View>
-                    <Text style={styles.otherInfoCategory}>{info.category}</Text>
-                    <Text style={styles.otherInfoChipText}>{info.value}</Text>
+                    <Text style={styles.otherInfoCategory}>{info.type}</Text>
+                    <Text style={styles.otherInfoChipText}>{info.text}</Text>
                   </View>
                 </View>
               );
@@ -461,71 +452,7 @@ export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsD
         </View>
       )}
 
-      {/* Lab Results (from report_data) */}
-      {reportData?.grouped_metrics && reportData.grouped_metrics.length > 0 && (
-        <View style={styles.analysisSection}>
-          {reportData.lab_name && (
-            <Text style={styles.labName}>{reportData.lab_name}</Text>
-          )}
-          <View style={styles.labResultsHeader}>
-            <Text style={styles.analysisSectionTitle}>Lab Results</Text>
-            <TouchableOpacity
-              style={[
-                styles.viewLabAnalysisButton,
-                !labReportId && styles.viewLabAnalysisButtonDisabled,
-              ]}
-              onPress={() => {
-                if (labReportId) {
-                  navigation.navigate('LabReportDetail', { labReportId });
-                } else {
-                  Alert.alert(
-                    'Lab Analysis Not Available',
-                    'Interactive lab report data is being processed. Please check back in a moment.',
-                    [{ text: 'OK' }]
-                  );
-                }
-              }}
-              activeOpacity={0.7}
-              disabled={!labReportId}
-            >
-              <Feather name="trending-up" size={16} color={Colors.white} />
-              <Text style={styles.viewLabAnalysisButtonText}>View Lab Analysis</Text>
-            </TouchableOpacity>
-          </View>
-          {reportData.grouped_metrics.map((group, groupIndex) => (
-            <View key={groupIndex} style={styles.labGroup}>
-              <Text style={styles.labGroupName}>{group.group_name}</Text>
-              {group.metrics.map((metric, metricIndex) => (
-                <View key={metricIndex} style={styles.labMetricItem}>
-                  <View style={styles.labMetricHeader}>
-                    <Text style={styles.labMetricName}>{metric.metric_name}</Text>
-                    {metric.status && metric.status !== 'normal' && (
-                      <View style={[
-                        styles.metricStatusBadge,
-                        metric.status === 'critical' && styles.metricStatusCritical,
-                        metric.status === 'high' && styles.metricStatusHigh,
-                        metric.status === 'low' && styles.metricStatusLow,
-                      ]}>
-                        <Text style={styles.metricStatusText}>
-                          {metric.status.toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.labMetricValue}>
-                    {metric.value} {metric.unit || ''}
-                  </Text>
-                  {metric.reference_range && (
-                    <Text style={styles.labMetricReference}>
-                      Ref: {metric.reference_range}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          ))}
-        </View>
-      )}
+
 
       {/* Confidence Score */}
       {analysisMetadata?.confidence_score && (
