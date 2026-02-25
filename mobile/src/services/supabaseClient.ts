@@ -47,37 +47,12 @@ export const supabase = createClient(EFFECTIVE_SUPABASE_URL, EFFECTIVE_SUPABASE_
     persistSession: true,
     detectSessionInUrl: false,
   },
-  global: {
-    // Increase fetch timeout to 120s to prevent premature timeouts on slow networks or long AI tasks
-    fetch: (url, options) => {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 120000);
-      
-      // Merge signals if one was provided in options
-      if (options?.signal) {
-          options.signal.addEventListener('abort', () => {
-              controller.abort();
-              clearTimeout(id);
-          });
-      }
-
-      return fetch(url, { ...options, signal: controller.signal })
-        .then(response => {
-            clearTimeout(id);
-            return response;
-        })
-        .catch(error => {
-            clearTimeout(id);
-            throw error;
-        });
-    },
-  },
+  // NOTE: No custom fetch wrapper. The previous AbortController-based wrapper
+  // conflicted with the whatwg-fetch polyfill (used by cross-fetch inside
+  // @supabase/supabase-js), causing POST requests to fail with
+  // "Network request failed" on React Native.
+  // React Native's default fetch timeout is sufficient for all operations.
 });
-
-// Test connectivity immediately
-fetch(EFFECTIVE_SUPABASE_URL)
-  .then(res => console.log('[DEBUG] [Supabase] Connectivity Check: Status', res.status))
-  .catch(err => console.error('[DEBUG] [Supabase] Connectivity Check: FAILED', err.message));
 
 /**
  * Helper function to check if Supabase is properly configured

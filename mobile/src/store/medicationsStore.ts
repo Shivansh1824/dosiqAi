@@ -5,6 +5,14 @@ import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService'
 import { ParsedMedication } from '../types/medicationVerification';
 import { calculateEndDate } from '../utils/medicationParser';
 
+// Helper to sanitize HTML error responses from infrastructure issues (e.g. Cloudflare 525)
+const sanitizeErrorMessage = (errorMsg: string): string => {
+  if (errorMsg && errorMsg.includes('<html')) {
+    return 'Detailed network error encountered. The server might be temporarily unreachable.';
+  }
+  return errorMsg;
+};
+
 /**
  * Zustand store for medications state
  * Integrates with Supabase to fetch user medications
@@ -82,7 +90,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       if (error) {
         console.error('[MedicationsStore] Fetch error:', error);
-        set({ error: error.message, isLoading: false });
+        set({ error: sanitizeErrorMessage(error.message), isLoading: false });
         return;
       }
 
@@ -144,7 +152,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     } catch (error) {
       console.error('[MedicationsStore] Unexpected error:', error);
       set({
-        error: error instanceof Error ? error.message : 'Failed to fetch medications',
+        error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed to fetch medications',
         isLoading: false,
       });
     }
@@ -199,7 +207,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       return data as Medication;
     } catch (error) {
       console.error('[MedicationsStore] Add error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed to add', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed to add', isLoading: false });
       throw error;
     }
   },
@@ -245,7 +253,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       return data as Medication;
     } catch (error) {
       console.error('[MedicationsStore] Update error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -356,7 +364,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
     } catch (error) {
       console.error('[MedicationsStore] Add AI error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -431,7 +439,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       console.error('[MedicationsStore] Batch Add AI error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -511,7 +519,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     } catch (error) {
       console.error('[MedicationsStore] Replace medication error:', error);
       set({
-        error: error instanceof Error ? error.message : 'Failed to replace medication',
+        error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed to replace medication',
         isLoading: false,
       });
       throw error;

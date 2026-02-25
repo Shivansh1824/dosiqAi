@@ -3,6 +3,14 @@ import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { FamilyMember, FamilyMemberInsert, FamilyMemberUpdate } from '../types/familyMember';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 
+// Helper to sanitize HTML error responses from infrastructure issues (e.g. Cloudflare 525)
+const sanitizeErrorMessage = (errorMsg: string): string => {
+  if (errorMsg && errorMsg.includes('<html')) {
+    return 'Detailed network error encountered. The server might be temporarily unreachable.';
+  }
+  return errorMsg;
+};
+
 interface FamilyMembersState {
     familyMembers: FamilyMember[];
     activeMember: FamilyMember | null;
@@ -86,7 +94,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             }
         } catch (error: any) {
             console.error('[FamilyMembersStore] Error fetching family members:', error);
-            set({ error: error.message, isLoading: false });
+            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
         }
     },
 
@@ -115,7 +123,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             }
         } catch (error: any) {
             console.error('[FamilyMembersStore] Error adding family member:', error);
-            set({ error: error.message, isLoading: false });
+            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
             throw error;
         }
     },
@@ -144,7 +152,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             }));
         } catch (error: any) {
             console.error('[FamilyMembersStore] Error updating family member:', error);
-            set({ error: error.message, isLoading: false });
+            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
             throw error;
         }
     },
@@ -174,7 +182,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             });
         } catch (error: any) {
             console.error('[FamilyMembersStore] Error deleting family member:', error);
-            set({ error: error.message, isLoading: false });
+            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
             throw error;
         }
     },
