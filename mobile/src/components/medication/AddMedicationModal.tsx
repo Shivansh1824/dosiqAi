@@ -46,7 +46,7 @@ export default function AddMedicationModal({
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <View style={styles.overlay}>
-                    <KeyboardAvoidingView 
+                    <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.keyboardView}
                     >
@@ -62,7 +62,7 @@ export default function AddMedicationModal({
                                 <View style={styles.section}>
                                     <Text style={styles.sectionTitle}>MEDICATION NAME</Text>
                                     <View style={styles.inputContainer}>
-                                        <Feather name="plus-circle" size={18} color={Colors.primary} style={styles.inputIcon} />
+                                        <Feather name="camera" size={18} color={Colors.primary} style={styles.inputIcon} />
                                         <TextInput
                                             style={styles.textInput}
                                             value={medicationName}
