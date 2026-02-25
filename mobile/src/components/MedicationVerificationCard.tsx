@@ -945,7 +945,7 @@ export default function MedicationVerificationCard({
               onEndDatePress={() => setShowEndDatePicker(true)}
               onIntervalChange={handleIntervalChange}
               isVerified={isVerified}
-              fixedFrequencyText={isAsNeeded && customReminderTimes.length === 0 ? "SOS FOR PAIN" : undefined}
+              fixedFrequencyText={isAsNeeded && customReminderTimes.length === 0 ? "S.O.S" : undefined}
             />
 
             {/* Start Date Picker Modal */}
