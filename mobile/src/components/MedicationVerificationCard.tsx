@@ -823,25 +823,7 @@ export default function MedicationVerificationCard({
             {/* AI Summary Static Labels */}
             <View style={styles.summaryContainer}>
               <View style={styles.aiButtonsRow}>
-                {/* 1. Strength */}
-                {medication.strength && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Strength')}
-                  >
-                    <View style={styles.aiButton}>
-                      <View style={styles.aiButtonIcon}>
-                        <Feather name="zap" size={10} color={Colors.gray600} />
-                      </View>
-                      <Text style={styles.aiButtonText}>
-                        {medication.strength}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* 2. Purpose — highlighted */}
+                {/* 1. Purpose — highlighted */}
                 {medication.medicine_purpose && (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -859,63 +841,7 @@ export default function MedicationVerificationCard({
                   </TouchableOpacity>
                 )}
 
-                {/* 3. Type */}
-                {medication.medicine_type && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
-                  >
-                    <View
-                      style={styles.aiButton}
-                    >
-                      <View style={styles.aiButtonIcon}>
-                        <Feather name="layers" size={10} color={Colors.gray600} />
-                      </View>
-                      <Text style={styles.aiButtonText}>
-                        {medication.medicine_type}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* 4. Note */}
-                {(medication.source_raw?.instructions || medication.dosage) && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Note')}
-                  >
-                    <View style={styles.aiButton}>
-                      <View style={styles.aiButtonIcon}>
-                        <Feather name="file-text" size={10} color={Colors.gray600} />
-                      </View>
-                      <Text style={styles.aiButtonText}>
-                        {medication.source_raw?.instructions || medication.dosage}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* 5. Duration */}
-                {medication.duration_days && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Duration')}
-                  >
-                    <View style={styles.aiButton}>
-                      <View style={styles.aiButtonIcon}>
-                        <Feather name="clock" size={10} color={Colors.gray600} />
-                      </View>
-                      <Text style={styles.aiButtonText}>
-                        {medication.duration_days} Days
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* 6. Meal Relation — highlighted */}
+                {/* 2. Meal Relation — highlighted */}
                 {medication.food_relationship && (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -928,6 +854,78 @@ export default function MedicationVerificationCard({
                       </View>
                       <Text style={styles.aiButtonTextMeal}>
                         {getMealTimingLabel(medication.food_relationship)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 3. Note / Instructions — highlighted */}
+                {(medication.source_raw?.instructions || medication.dosage) && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Note')}
+                  >
+                    <View style={styles.aiButtonInstruction}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="file-text" size={10} color="#059669" />
+                      </View>
+                      <Text style={styles.aiButtonTextInstruction}>
+                        {medication.source_raw?.instructions || medication.dosage}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 4. Strength */}
+                {medication.strength && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Strength')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="zap" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.strength}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 5. Type */}
+                {medication.medicine_type && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Medication Type')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="layers" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.medicine_type}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* 6. Duration */}
+                {medication.duration_days && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => handleTooltipPress(e, 'Duration')}
+                  >
+                    <View style={styles.aiButton}>
+                      <View style={styles.aiButtonIcon}>
+                        <Feather name="clock" size={10} color={Colors.gray600} />
+                      </View>
+                      <Text style={styles.aiButtonText}>
+                        {medication.duration_days} Days
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1292,6 +1290,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Typography.fontFamily.medium,
     color: '#92400E', // amber-800
+    letterSpacing: 0,
+  },
+  // ── Highlighted chip: Instructions (emerald/green) ──
+  aiButtonInstruction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#D1FAE5', // emerald-100
+    borderWidth: 1,
+    borderColor: '#6EE7B7', // emerald-300
+    gap: 6,
+  },
+  aiButtonTextInstruction: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#065F46', // emerald-800
     letterSpacing: 0,
   },
   modalContent: {
