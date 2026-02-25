@@ -9,7 +9,7 @@ import { Medication } from '../types/medication';
 import { FamilyMember } from '../types/familyMember';
 import { normalizeTime } from '../types/medicationSchedule';
 import DatePickerModal from './DatePickerModal';
-import { calculateEndDate, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
+import { calculateEndDate, isAsNeededFrequency, parseDateOnly, generateDefaultTimeSlots } from '../utils/medicationParser';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSectionLegacy } from './medication/ReminderTimesSectionLegacy';
@@ -629,11 +629,43 @@ export default function MedicationVerificationCard({
   };
 
   const handleIntervalChange = (days: number) => {
-    setMedication(prev => ({
-      ...prev,
-      interval_days: days,
-      verified_by_user: true
-    }));
+    setMedication(prev => {
+      const currentIsSOS = isAsNeededFrequency(
+        prev.timing_dosage ?? prev.dosage,
+        prev.total_times_per_day
+      );
+
+      const updates: Partial<ParsedMedication> = {
+        interval_days: days === 0 ? null : days,
+        verified_by_user: true
+      };
+
+      if (days === 0) {
+        // Switching to S.O.S
+        updates.timing_dosage = 'S.O.S';
+        updates.total_times_per_day = 0;
+        setCustomReminderTimes([]);
+        onLiveUpdate?.({ current_reminder_times: [] });
+      } else if (currentIsSOS && days > 0) {
+        // Switching from S.O.S to Scheduled (Everyday or Every X Days)
+        updates.timing_dosage = '1-0-1';
+        updates.total_times_per_day = 2;
+
+        // Reset to default times for 2x daily
+        const newTimes = generateDefaultTimeSlots('twice_daily', {
+          morning_dose_time: familyMember?.morning_dose_time || undefined,
+          afternoon_dose_time: familyMember?.afternoon_dose_time || undefined,
+          night_dose_time: familyMember?.night_dose_time || undefined,
+        });
+        setCustomReminderTimes(newTimes);
+        onLiveUpdate?.({ current_reminder_times: newTimes });
+      }
+
+      return {
+        ...prev,
+        ...updates
+      };
+    });
   };
 
   // Handle Analysis Detail Press
