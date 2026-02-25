@@ -255,8 +255,8 @@ Deno.serve(async (req: Request) => {
         }
 
         const body = await req.json();
-        const { cloudFileKey, prompt } = body;
-        let { base64Image, fileType } = body;
+        const { cloudFileKey, prompt, skipClassification } = body;
+        let { base64Image, fileType, isHandwritten } = body;
         documentId = body.documentId;
 
         if (!documentId) {
@@ -301,25 +301,31 @@ Deno.serve(async (req: Request) => {
 
         await supabase.from("documents").update({ ai_analysis_status: "processing" }).eq("id", documentId);
 
-        // STEP 1: Classification (Is Handwritten?)
-        // Using standard Flash (fast, non-reasoning)
-        console.log("[Multistep] Step 1: Classifying handwriting...");
-        const classificationMessages = [
-            { role: "system", content: PROMPT_CHECK_HANDWRITTEN },
-            {
-                role: "user", content: [
-                    { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
-                    { type: "text", text: "Please return the JSON indicating if this is handwritten." }
-                ]
-            }
-        ];
+        let classResult: any = {};
 
-        const classificationRes = await callOpenRouterAPI(classificationMessages, { useReasoning: false, maxTokens: 500, temperature: 0.1 });
-        totalTokenUsage += classificationRes.usage.total_tokens;
+        if (!skipClassification) {
+            // STEP 1: Classification (Is Handwritten?)
+            // Using standard Flash (fast, non-reasoning)
+            console.log("[Multistep] Step 1: Classifying handwriting...");
+            const classificationMessages = [
+                { role: "system", content: PROMPT_CHECK_HANDWRITTEN },
+                {
+                    role: "user", content: [
+                        { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
+                        { type: "text", text: "Please return the JSON indicating if this is handwritten." }
+                    ]
+                }
+            ];
 
-        const classResult = parseAnalysisResult(classificationRes.choices[0]?.message?.content || "{}");
-        const isHandwritten = classResult.is_handwritten === true;
-        console.log(`[Multistep] Classification result: Handwritten = ${isHandwritten} (Confidence: ${classResult.confidence})`);
+            const classificationRes = await callOpenRouterAPI(classificationMessages, { useReasoning: false, maxTokens: 500, temperature: 0.1 });
+            totalTokenUsage += classificationRes.usage.total_tokens;
+
+            classResult = parseAnalysisResult(classificationRes.choices[0]?.message?.content || "{}");
+            isHandwritten = classResult.is_handwritten === true;
+            console.log(`[Multistep] Classification result: Handwritten = ${isHandwritten} (Confidence: ${classResult.confidence})`);
+        } else {
+            console.log(`[Multistep] Skipping Step 1 Classification. Using provided Handwritten = ${isHandwritten}`);
+        }
 
         let finalAnalysisResult: any = null;
         let stage1AnalysisResult: any = null;

@@ -12,10 +12,16 @@ echo ""
 # Navigate to mobile directory
 cd "$(dirname "$0")/.."
 
-# Deploy analyze-prescription
-echo "📦 Deploying analyze-prescription..."
-npx supabase functions deploy analyze-prescription
-echo "✅ analyze-prescription deployed successfully"
+# Deploy document-manager
+echo "📦 Deploying document-manager..."
+npx supabase functions deploy document-manager
+echo "✅ document-manager deployed successfully"
+echo ""
+
+# Deploy prescription-analysis-multistep
+echo "📦 Deploying prescription-analysis-multistep..."
+npx supabase functions deploy prescription-analysis-multistep
+echo "✅ prescription-analysis-multistep deployed successfully"
 echo ""
 
 # Deploy analyze-report
