@@ -208,6 +208,10 @@ export const useDocumentMedications = (
         return [...aiMedicines, ...manualMedicines];
     }, [document?.ai_analysis_result, manualMedicines]);
 
+    const aiMedicinesCount = useMemo(() => {
+        return document?.ai_analysis_result?.medicines?.length || 0;
+    }, [document?.ai_analysis_result?.medicines]);
+
     const allUnverifiedMedsIdx = useMemo(() => {
         if (!document) return [];
         return innerMedicines
@@ -257,6 +261,7 @@ export const useDocumentMedications = (
         activeMedsForBatch,
         duplicateMedicationsMap,
         hasUnverifiedMeds,
+        aiMedicinesCount,
         onLiveUpdate,
         handleDismissMedication,
         handleRestoreMedication,
