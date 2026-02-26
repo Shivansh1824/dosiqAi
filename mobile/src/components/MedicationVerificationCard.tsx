@@ -9,71 +9,15 @@ import { Medication } from '../types/medication';
 import { FamilyMember } from '../types/familyMember';
 import { normalizeTime } from '../types/medicationSchedule';
 import DatePickerModal from './DatePickerModal';
-import { calculateEndDate, isAsNeededFrequency, parseDateOnly, generateDefaultTimeSlots } from '../utils/medicationParser';
+import { calculateEndDate, isAsNeededFrequency, parseDateOnly, generateDefaultTimeSlots, getMealTimingLabel } from '../utils/medicationParser';
 import { MedicationHeader } from './medication/MedicationHeader';
 import { CoursePeriodSection } from './medication/CoursePeriodSection';
 import { ReminderTimesSectionLegacy } from './medication/ReminderTimesSectionLegacy';
 import AddReminderModal from './medication/AddReminderModal';
 import { InfoModal } from './InfoModal';
 import { AnimatedTooltip } from './AnimatedTooltip';
-
-const getMealTimingLabel = (relation: string): string => {
-  switch (relation) {
-    case 'before_food': return 'Before Meal';
-    case 'after_food': return 'After Meal';
-    case 'with_food': return 'With Meal';
-    case 'empty_stomach': return 'Empty Stomach';
-    case 'anytime': return 'Anytime';
-    default: return 'Anytime';
-  }
-};
-
-// ─── Icon Glow — diagonal cut gradient ────────────────────────────────────────
-const IconGlow = () => {
-  const opacity = useSharedValue(0.6);
-
-  useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(1.0, { duration: 2500 }),
-      -1,
-      true
-    );
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ rotate: '25deg' }]
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: -20,
-          top: -40,
-          width: 140,
-          height: 180,
-        },
-        style
-      ]}
-      pointerEvents="none"
-    >
-      <LinearGradient
-        colors={[
-          'rgba(59, 130, 246, 0.25)',  // Blue core
-          'rgba(124, 58, 237, 0.15)', // Violet mid
-          'rgba(96, 165, 250, 0.05)', // Sky-blue edge
-          'transparent',
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{ flex: 1 }}
-      />
-    </Animated.View>
-  );
-};
-
+import { IconGlow } from './medication/IconGlow';
+import { AIAnalysisModalContent } from './medication/AIAnalysisModalContent';
 interface MedicationVerificationCardProps {
   medication: ParsedMedication;
   documentId: string;
@@ -232,7 +176,6 @@ export default function MedicationVerificationCard({
   const [resetKey, setResetKey] = useState(0);
 
   // Info Modal content state
-  const [infoModalContent, setInfoModalContent] = useState<React.ReactNode | null>(null);
 
   // Calculate end date
   // const durationDays = medication.duration_days ?? 5; // internal Note: no longer needed for floating calculation
@@ -641,7 +584,6 @@ export default function MedicationVerificationCard({
   // Handle Analysis Detail Press
   const handleOpenAnalysisDetail = (title: string) => {
     setInfoModalTitle('dosiq Ai Analysis');
-    setInfoModalContent(renderAIAnalysisContent());
     setInfoModalVisible(true);
   };
 
@@ -653,125 +595,7 @@ export default function MedicationVerificationCard({
     setTooltipVisible(true);
   };
 
-  const renderAIAnalysisContent = () => {
-    const hasAttributes = !!(
-      medication.source_raw?.instructions ||
-      medication.dosage ||
-      medication.duration_days ||
-      medication.strength ||
-      medication.form ||
-      medication.generic_name ||
-      medication.food_relationship
-    );
 
-    const itemConfidence = medication.source_raw?.confidence;
-    const displayConfidence = itemConfidence !== undefined ? itemConfidence : confidenceScore;
-
-    return (
-      <View style={styles.modalContent}>
-        <Text style={styles.summaryTextModal}>
-          "{medication.name}" helps with {medication.medicine_purpose || 'Treatment'}.
-        </Text>
-
-        {hasAttributes && (
-          <View style={styles.expandedContentModal}>
-            <View style={styles.tableBorderContainer}>
-              {/* AI Confidence Row */}
-              <View style={styles.tableRow}>
-                <View style={styles.tableHeaderCell}>
-                  <Text style={styles.tableHeaderText}>Ai</Text>
-                </View>
-                <View style={styles.tableValueCell}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Feather
-                      name={medication.confidence === 'high' ? 'check-circle' : medication.confidence === 'medium' ? 'alert-circle' : 'alert-triangle'}
-                      size={12}
-                      color={medication.confidence === 'high' ? '#137333' : medication.confidence === 'medium' ? '#F9AB00' : '#C5221F'}
-                    />
-                    <Text style={[styles.tableValueText, { fontWeight: 'bold' }]}>
-                      {displayConfidence !== undefined
-                        ? `Ai Confidence: ${Math.round(displayConfidence * 100)}%`
-                        : 'Ai'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Note Row */}
-              {(medication.source_raw?.instructions || medication.dosage) && (
-                <View style={styles.tableRow}>
-                  <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Note</Text>
-                  </View>
-                  <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>
-                      {medication.source_raw?.instructions || medication.dosage}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Attributes Rows */}
-              {medication.duration_days && (
-                <View style={styles.tableRow}>
-                  <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Duration</Text>
-                  </View>
-                  <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{medication.duration_days} days</Text>
-                  </View>
-                </View>
-              )}
-
-              {medication.strength && (
-                <View style={styles.tableRow}>
-                  <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Strength</Text>
-                  </View>
-                  <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{medication.strength}</Text>
-                  </View>
-                </View>
-              )}
-
-              {medication.form && (
-                <View style={styles.tableRow}>
-                  <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Form</Text>
-                  </View>
-                  <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{medication.form}</Text>
-                  </View>
-                </View>
-              )}
-
-              {medication.generic_name && (
-                <View style={styles.tableRow}>
-                  <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Generic Name</Text>
-                  </View>
-                  <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{medication.generic_name}</Text>
-                  </View>
-                </View>
-              )}
-
-              {medication.food_relationship && (
-                <View style={styles.tableRow}>
-                  <View style={styles.tableHeaderCell}>
-                    <Text style={styles.tableHeaderText}>Directions</Text>
-                  </View>
-                  <View style={styles.tableValueCell}>
-                    <Text style={styles.tableValueText}>{getMealTimingLabel(medication.food_relationship)}</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  };
 
 
   return (
@@ -1109,7 +933,7 @@ export default function MedicationVerificationCard({
         onClose={() => setInfoModalVisible(false)}
         hideIcon={infoModalTitle === 'dosiq Ai Analysis'}
       >
-        {infoModalContent}
+        <AIAnalysisModalContent medication={medication} confidenceScore={confidenceScore} />
       </InfoModal>
 
       {/* Floating Tooltip specifically for medicine type and purpose */}
@@ -1311,74 +1135,7 @@ const styles = StyleSheet.create({
     color: '#065F46', // emerald-800
     letterSpacing: 0,
   },
-  modalContent: {
-    marginBottom: 20,
-  },
-  summaryTextModal: {
-    fontSize: 15, // 13 + 2 as requested
-    color: Colors.gray600,
-    lineHeight: 22,
-    fontFamily: Typography.fontFamily.medium,
-    marginBottom: 16,
-    textAlign: 'left',
-  },
-  expandedContentModal: {
-    marginTop: 0,
-  },
 
-
-  // Table Layout Styles
-  expandedContent: {
-    marginTop: 12,
-  },
-  tableBorderContainer: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    overflow: 'hidden', // Ensures inner items don't overflow corners
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: Colors.white,
-  },
-  // Last row trick: The container has a border, but we can't easily target "last child" in RN styles without logic.
-  // Instead, we can rely on the container border and make row borders separating.
-  // Actually, standard RN way is marginBottom: -1 or just verify Logic.
-  // Simplified: All rows have bottom border. The last one will double up with container bottom border unless we handle it.
-  // We'll leave it simple for now, or we could add a `style={{borderBottomWidth: 0}}` to the last item rendered.
-  // Given dynamic rendering, let's keep it consistent. The overflow hidden handles the radius.
-
-  tableHeaderCell: {
-    width: '30%', // Fixed width for "TH" column - Reduced to 30%
-    paddingVertical: 8, // Reduced from 12
-    paddingHorizontal: 10, // Reduced from 14
-    backgroundColor: '#F9FAFB', // Light gray background for headers
-    borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
-    justifyContent: 'center',
-  },
-  tableValueCell: {
-    flex: 1, // "TD" column takes remaining space
-    paddingVertical: 8, // Reduced from 12
-    paddingHorizontal: 10, // Reduced from 14
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-  },
-  tableHeaderText: {
-    fontSize: 9,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.gray500, // Matches Course Period
-    letterSpacing: 0.5, // Matches Course Period
-    textTransform: 'uppercase', // Matches Course Period
-  },
-  tableValueText: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.gray600, // Matches analysis text
-    lineHeight: 18,
-  },
   readLessContainer: {
     marginTop: 8,
     alignItems: 'flex-start', // Left aligned

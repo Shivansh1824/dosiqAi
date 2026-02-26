@@ -2,14 +2,7 @@ import { create } from 'zustand';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { FamilyMember, FamilyMemberInsert, FamilyMemberUpdate } from '../types/familyMember';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
-
-// Helper to sanitize HTML error responses from infrastructure issues (e.g. Cloudflare 525)
-const sanitizeErrorMessage = (errorMsg: string): string => {
-  if (errorMsg && errorMsg.includes('<html')) {
-    return 'Detailed network error encountered. The server might be temporarily unreachable.';
-  }
-  return errorMsg;
-};
+import { sanitizeErrorMessage, withRetry } from '../utils/apiUtils';
 
 interface FamilyMembersState {
     familyMembers: FamilyMember[];
@@ -74,13 +67,16 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
         }
 
         try {
-            const { data, error } = await supabase
-                .from('family_members')
-                .select('*')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: true });
+            const data = await withRetry(async () => {
+                const { data: result, error } = await supabase
+                    .from('family_members')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: true });
 
-            if (error) throw error;
+                if (error) throw error;
+                return result;
+            }, 2, 1000, 'fetchFamilyMembers');
 
             // Save to cache for next time
             await saveToCache(CacheKeys.familyMembers(userId), data || []);
@@ -93,8 +89,8 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                 set({ activeMember: data[0] });
             }
         } catch (error: any) {
-            console.error('[FamilyMembersStore] Error fetching family members:', error);
-            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
+            // Note: withRetry already handles infrastructure error logging cleanly
+            set({ error: error.message, isLoading: false });
         }
     },
 
@@ -102,13 +98,16 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
         set({ isLoading: true, error: null });
 
         try {
-            const { data: newMember, error } = await supabase
-                .from('family_members')
-                .insert([data])
-                .select()
-                .single();
+            const newMember = await withRetry(async () => {
+                const { data: result, error } = await supabase
+                    .from('family_members')
+                    .insert([data])
+                    .select()
+                    .single();
 
-            if (error) throw error;
+                if (error) throw error;
+                return result;
+            }, 2, 1000, 'addFamilyMember');
 
             console.log('[FamilyMembersStore] Added family member:', newMember.id);
 
@@ -122,8 +121,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                 set({ activeMember: newMember });
             }
         } catch (error: any) {
-            console.error('[FamilyMembersStore] Error adding family member:', error);
-            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
+            set({ error: error.message, isLoading: false });
             throw error;
         }
     },
@@ -132,14 +130,17 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
         set({ isLoading: true, error: null });
 
         try {
-            const { data: updatedMember, error } = await supabase
-                .from('family_members')
-                .update(data)
-                .eq('id', id)
-                .select()
-                .single();
+            const updatedMember = await withRetry(async () => {
+                const { data: result, error } = await supabase
+                    .from('family_members')
+                    .update(data)
+                    .eq('id', id)
+                    .select()
+                    .single();
 
-            if (error) throw error;
+                if (error) throw error;
+                return result;
+            }, 2, 1000, 'updateFamilyMember');
 
             console.log('[FamilyMembersStore] Updated family member:', id);
 
@@ -151,8 +152,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                 isLoading: false,
             }));
         } catch (error: any) {
-            console.error('[FamilyMembersStore] Error updating family member:', error);
-            set({ error: sanitizeErrorMessage(error.message), isLoading: false });
+            set({ error: error.message, isLoading: false });
             throw error;
         }
     },
