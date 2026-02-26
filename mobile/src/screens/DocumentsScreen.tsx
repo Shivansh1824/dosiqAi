@@ -1,48 +1,15 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../constants';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useAuthStore } from '../store/authStore';
-import { useDocumentsStore } from '../store/documentsStore';
+import { useNavigation } from '@react-navigation/native';
 import { useMedicationsStore } from '../store/medicationsStore';
+import { useDocumentList } from '../hooks/useDocumentList';
 
 export default function DocumentsScreen() {
     const navigation = useNavigation();
-    const { user } = useAuthStore();
-    const { documents, isLoading, fetchDocuments } = useDocumentsStore();
-    const [refreshing, setRefreshing] = useState(false);
-
-    // Fetch documents with cache-first approach
-    const loadData = useCallback(async () => {
-        if (user?.id) {
-            // Step 1: Load from cache instantly (no loading spinner)
-            await useDocumentsStore.getState().loadFromCache(user.id);
-
-            // Step 2: Refresh from Supabase silently in background
-            await fetchDocuments(user.id, true); // silent=true
-        }
-    }, [user?.id, fetchDocuments]);
-
-    // Initial load
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
-
-    // Refresh on focus
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [loadData])
-    );
-
-    // Pull to refresh handler
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await loadData();
-        setRefreshing(false);
-    }, [loadData]);
+    const { documents, isLoading, refreshing, onRefresh } = useDocumentList();
 
     // Format date for display
     const formatDate = (dateString: string) => {

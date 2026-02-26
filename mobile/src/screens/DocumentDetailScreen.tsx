@@ -11,6 +11,7 @@ import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
+import { useDocumentManager } from '../hooks/useDocumentManager';
 import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
 import { supabase } from '../services/supabaseClient';
 import {
@@ -40,6 +41,7 @@ import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../components/FullScreenImageModal';
+import { DocumentPreviewCard } from '../components/document/DocumentPreviewCard';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
@@ -54,17 +56,23 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
   const { addMedicationFromAI, getActiveMedications } = useMedicationsStore();
   const { user } = useAuthStore();
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [fileNotFound, setFileNotFound] = useState(false);
+  const {
+    imageUri,
+    fileNotFound,
+    downloading,
+    isDeleting: loading,
+    isPdf,
+    confirmDelete,
+    handleDownload
+  } = useDocumentManager({ document: documentProp, onDeleteSuccess: onBack });
+
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [verifiedMedications, setVerifiedMedications] = useState<Set<string>>(new Set());
   const [dismissedMedicationIds, setDismissedMedicationIds] = useState<Set<string>>(new Set());
   // Live updates for medication reminders (index -> updates)
   const [medicationLiveUpdates, setMedicationLiveUpdates] = useState<Record<number, { current_reminder_times?: string[] }>>({});
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
   const [labReportId, setLabReportId] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -167,75 +175,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   // Keep displayTitle for shared PDF viewer
   const displayTitle = titleText;
 
-  // Check if file exists locally; if not, sync from R2
-  useEffect(() => {
-    const checkAndSyncFile = async () => {
-      if (document.local_file_path) {
-        try {
-          console.log('[DocumentDetail] Original relative path:', document.local_file_path);
 
-          // Convert relative path to absolute path at runtime
-          const absolutePath = getAbsolutePath(document.local_file_path);
-
-          console.log('[DocumentDetail] Converted to absolute path:', absolutePath);
-          console.log('[DocumentDetail] Path has file:// protocol:', absolutePath.startsWith('file://'));
-
-          // First check if file exists locally
-          const exists = await fileExists(absolutePath);
-
-          if (exists) {
-            setImageUri(absolutePath);
-            setFileNotFound(false);
-            console.log('[DocumentDetail] File found and URI set successfully');
-          } else {
-            // File not found locally - try to sync from R2
-            console.log('[DocumentDetail] File not found locally, attempting R2 sync...');
-
-            if (document.cloud_file_key) {
-              try {
-                setDownloading(true);
-                console.log('[DocumentDetail] Cloud file key available:', document.cloud_file_key);
-
-                // Import and use the file sync utility
-                const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
-                const filename = extractFilename(document.local_file_path);
-
-                console.log('[DocumentDetail] Starting file sync for:', filename);
-                const { localPath, wasDownloaded } = await getFileWithSync(filename, document.cloud_file_key);
-
-                if (wasDownloaded) {
-                  console.log('[DocumentDetail] ✅ File downloaded from R2:', localPath);
-                } else {
-                  console.log('[DocumentDetail] File was already available locally:', localPath);
-                }
-
-                setImageUri(localPath);
-                setFileNotFound(false);
-                setDownloading(false);
-              } catch (syncError) {
-                console.error('[DocumentDetail] R2 sync failed:', syncError);
-                setFileNotFound(true);
-                setDownloading(false);
-              }
-            } else {
-              // No cloud key available
-              setFileNotFound(true);
-              console.error('[DocumentDetail] File not found at path and no cloud_file_key available:', absolutePath);
-            }
-          }
-        } catch (error) {
-          setFileNotFound(true);
-          console.error('[DocumentDetail] Error checking file:', error);
-          console.error('[DocumentDetail] Error details:', JSON.stringify(error, null, 2));
-        }
-      } else {
-        setFileNotFound(true);
-        console.warn('[DocumentDetail] No local_file_path provided for document:', document.id);
-      }
-    };
-
-    checkAndSyncFile();
-  }, [document.local_file_path, document.cloud_file_key]);
 
 
   useEffect(() => {
@@ -289,8 +229,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     }
   }, [document.id, document.ai_analysis_result, document.ai_analysis_result?.document_type]);
 
-  // Determine if file is PDF
-  const isPdf = document.local_file_path?.toLowerCase().endsWith('.pdf');
+
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -337,52 +276,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     }
   };
 
-  // Handle delete document
-  const confirmDelete = () => {
-    Alert.alert(
-      'Delete Document',
-      'Are you sure you want to delete this document? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: performDelete,
-        },
-      ]
-    );
-  };
 
-  const performDelete = async () => {
-    try {
-      setLoading(true);
-
-      // 1. Delete from Supabase
-      await deleteDocument(document.id);
-
-      // 2. Delete from local storage
-      if (document.local_file_path) {
-        try {
-          const absolutePath = getAbsolutePath(document.local_file_path);
-          await deleteLocalFile(absolutePath);
-          console.log('[DocumentDetail] Deleted local file:', absolutePath);
-        } catch (e) {
-          console.warn('[DocumentDetail] Failed to delete local file:', e);
-        }
-      }
-
-      // 3. Navigate back
-      onBack();
-    } catch (error) {
-      console.error('Error deleting document:', error);
-      Alert.alert('Error', 'Failed to delete document');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Handle share
   const handleShare = async () => {
@@ -413,81 +307,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
     displayTitle
   });
 
-  // Handle download
-  const handleDownload = async () => {
-    if (!imageUri) {
-      Alert.alert('Error', 'Document file not found');
-      return;
-    }
 
-    try {
-      setDownloading(true);
-
-      // For PDFs, use sharing since media library doesn't support PDFs
-      if (isPdf) {
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(imageUri, {
-            UTI: 'com.adobe.pdf',
-            mimeType: 'application/pdf',
-            dialogTitle: 'Save PDF Document'
-          });
-          setDownloading(false);
-        } else {
-          setDownloading(false);
-          Alert.alert('Error', 'Sharing is not available on this device');
-        }
-        return;
-      }
-
-      // For images, use media library
-      // Request media library permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please grant permission to save images to your photo library.'
-        );
-        setDownloading(false);
-        return;
-      }
-
-      // Create a File object from the URI to verify it exists
-      const file = new File(imageUri);
-      // Synchronous check in new API, or await check if needed? fileStorage uses .exists property.
-      if (!file.exists) {
-        Alert.alert('Error', 'File not found on device');
-        setDownloading(false);
-        return;
-      }
-
-      // Save image to media library (Photos)
-      const asset = await MediaLibrary.createAssetAsync(imageUri);
-
-      // Optionally create an album for better organization
-      const albumName = 'FamilyCareHealth';
-      const album = await MediaLibrary.getAlbumAsync(albumName);
-
-      if (album) {
-        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-      } else {
-        await MediaLibrary.createAlbumAsync(albumName, asset, false);
-      }
-
-      setDownloading(false);
-
-      Alert.alert(
-        'Download Complete',
-        `Image saved to Photos in ${albumName} album`,
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('Error downloading:', error);
-      setDownloading(false);
-      Alert.alert('Error', 'Failed to download document. Please try again.');
-    }
-  };
 
   // Save dismissed medications to AsyncStorage
   const saveDismissedToStorage = async (dismissedSet: Set<string>) => {
@@ -708,123 +528,14 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
         showsVerticalScrollIndicator={false}
       >
         {/* Document Preview Card */}
-        <View style={styles.previewCard}>
-          {fileNotFound ? (
-            <>
-              <View style={styles.previewIconContainer}>
-                <Feather name="alert-circle" size={64} color={Colors.error} />
-              </View>
-              <Text style={styles.previewText}>File Not Found</Text>
-              <Text style={styles.errorText}>
-                The document file could not be found on this device.
-              </Text>
-            </>
-          ) : isPdf && imageUri ? (
-            <>
-              {/* PDF Preview - First Page using react-native-pdf-jsi */}
-              <View style={styles.pdfPreviewWrapper}>
-                <Pdf
-                  source={{ uri: imageUri, cache: true }}
-                  page={1}
-                  scale={1.0}
-                  minScale={1.0}
-                  maxScale={1.0}
-                  spacing={0}
-                  fitPolicy={0}
-                  enablePaging={false}
-                  enableRTL={false}
-                  enableAnnotationRendering={false}
-                  style={styles.pdfPreview}
-                  onLoadComplete={(numberOfPages) => {
-                    console.log(`[DocumentDetail] PDF Loaded: ${numberOfPages} pages`);
-                  }}
-                  onError={(error) => {
-                    console.error('[DocumentDetail] PDF Error:', error);
-                  }}
-                />
-
-                {/* Floating Action Buttons - Overlay on PDF */}
-                <View style={styles.floatingButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={handleViewFullDocument}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.actionIconCircle}>
-                      <Feather name="eye" size={20} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.actionCardLabel}>View</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={handleDownload}
-                    activeOpacity={0.7}
-                    disabled={downloading}
-                  >
-                    <View style={styles.actionIconCircle}>
-                      {downloading ? (
-                        <ActivityIndicator size="small" color={Colors.primary} />
-                      ) : (
-                        <Feather name="download" size={20} color={Colors.primary} />
-                      )}
-                    </View>
-                    <Text style={styles.actionCardLabel}>
-                      {downloading ? 'Saving...' : 'Save'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </>
-          ) : imageUri ? (
-            <>
-              <View>
-                <Image
-                  source={{ uri: imageUri }}
-                  style={styles.heroImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.heroOverlay} />
-
-                {/* Floating Action Buttons - Overlay on Image */}
-                <View style={styles.floatingButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={handleViewFullDocument}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.actionIconCircle}>
-                      <Feather name="eye" size={20} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.actionCardLabel}>View</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={handleDownload}
-                    activeOpacity={0.7}
-                    disabled={downloading}
-                  >
-                    <View style={styles.actionIconCircle}>
-                      {downloading ? (
-                        <ActivityIndicator size="small" color={Colors.primary} />
-                      ) : (
-                        <Feather name="download" size={20} color={Colors.primary} />
-                      )}
-                    </View>
-                    <Text style={styles.actionCardLabel}>
-                      {downloading ? 'Saving...' : 'Save'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-
-            </>
-          ) : (
-            <DocumentPreviewLoading />
-          )}
-        </View>
+        <DocumentPreviewCard
+          isPdf={!!isPdf}
+          imageUri={imageUri}
+          fileNotFound={fileNotFound}
+          downloading={downloading}
+          onViewFullScreen={handleViewFullDocument}
+          onDownload={handleDownload}
+        />
 
 
 
