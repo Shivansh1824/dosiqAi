@@ -36,7 +36,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
 
   // New State for Preview Modal
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<{ uri: string; type: 'image' | 'document'; name: string }[]>([]);
 
   // Custom Action Sheet State
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -76,17 +76,18 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
+        allowsMultipleSelection: true,
         allowsEditing: false,
         quality: 1.0, // Use max quality, we'll compress it ourselves
       });
 
-      if (!result.canceled && result.assets[0]) {
-        // Show Preview instead of uploading directly
-        setSelectedFile({
-          uri: result.assets[0].uri,
-          type: 'image',
-          name: result.assets[0].fileName || 'Selected Image',
-        });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newFiles = result.assets.map(asset => ({
+          uri: asset.uri,
+          type: 'image' as const,
+          name: asset.fileName || 'Selected Image',
+        }));
+        setSelectedFiles(prev => [...prev, ...newFiles]);
         setPreviewModalVisible(true);
       }
     } catch (error) {
@@ -114,11 +115,12 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
 
       if (!result.canceled && result.assets[0]) {
         // Show Preview instead of uploading directly
-        setSelectedFile({
+        const newFile = {
           uri: result.assets[0].uri,
-          type: 'image',
+          type: 'image' as const,
           name: 'Captured Photo',
-        });
+        };
+        setSelectedFiles(prev => [...prev, newFile]);
         setPreviewModalVisible(true);
       }
     } catch (error) {
@@ -141,11 +143,11 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
 
         const isImage = fileName?.toLowerCase().match(/\.(jpg|jpeg|png|heic|webp)$/i);
 
-        setSelectedFile({
+        setSelectedFiles(prev => [...prev, {
           uri: uri,
           type: isImage ? 'image' : 'document',
           name: fileName,
-        });
+        }]);
         setPreviewModalVisible(true);
       }
     } catch (error) {
@@ -155,22 +157,25 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
   };
 
   const handleConfirmUpload = async () => {
-    if (!selectedFile) return;
-
-    const { uri, type, name } = selectedFile;
-    const isImage = type === 'image';
+    if (selectedFiles.length === 0) return;
 
     try {
-      if (isImage) {
-        setIsCompressing(true);
-        const compressedUri = await compressImage(uri);
-        setIsCompressing(false);
+      const isNativePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
 
-        if (compressedUri) {
-          await uploadFile(compressedUri, 'image', name);
-        }
+      if (isNativePdf) {
+         // Single native PDF
+         const { uri, name } = selectedFiles[0];
+         await uploadFile(uri, 'document', name);
       } else {
-        await uploadFile(uri, 'document', name);
+         // Multiple images (or single image) -> Convert to PDF natively
+         setIsCompressing(true);
+         const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+         
+         const { createPdfFromImages } = await import('../utils/pdfGenerator');
+         const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
+         setIsCompressing(false);
+
+         await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
@@ -178,7 +183,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       Alert.alert('Error', 'Failed to upload document. Please try again.');
     } finally {
       setPreviewModalVisible(false);
-      setSelectedFile(null);
+      setSelectedFiles([]);
     }
   };
 
@@ -460,13 +465,22 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       {/* Preview Modal */}
       <FilePreviewModal
         visible={previewModalVisible}
-        fileUri={selectedFile?.uri || null}
-        fileType={selectedFile?.type || 'image'}
-        fileName={selectedFile?.name || ''}
+        files={selectedFiles}
         onConfirm={handleConfirmUpload}
         onCancel={() => {
           setPreviewModalVisible(false);
-          setSelectedFile(null);
+          setSelectedFiles([]);
+        }}
+        onPickFromLibrary={pickImage}
+        onTakePhoto={takePhoto}
+        onPickDocument={pickDocument}
+        onRemovePage={(index) => {
+           setSelectedFiles(prev => {
+              const updated = [...prev];
+              updated.splice(index, 1);
+              if (updated.length === 0) setPreviewModalVisible(false);
+              return updated;
+           });
         }}
         isUploading={isUploading || isCompressing}
       />

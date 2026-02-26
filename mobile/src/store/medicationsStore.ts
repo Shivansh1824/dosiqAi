@@ -4,6 +4,7 @@ import { Medication, MedicationsStore, medicationColors } from '../types/medicat
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { ParsedMedication } from '../types/medicationVerification';
 import { calculateEndDate } from '../utils/medicationParser';
+import { sanitizeErrorMessage, withRetry } from '../utils/apiUtils';
 
 /**
  * Zustand store for medications state
@@ -69,22 +70,21 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       console.log(`[MedicationsStore] Fetching schedules for user: ${userId} (silent: ${silent})`);
 
-      const { data, error } = await supabase
-        .from('medication_schedules')
-        .select(`
-          *,
-          source_document:source_document_id (
-             id
-          )
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      const data = await withRetry(async () => {
+        const { data: result, error } = await supabase
+          .from('medication_schedules')
+          .select(`
+            *,
+            source_document:source_document_id (
+               id
+            )
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[MedicationsStore] Fetch error:', error);
-        set({ error: error.message, isLoading: false });
-        return;
-      }
+        if (error) throw error;
+        return result;
+      }, 2, 1000, 'fetchMedications');
 
       const medications: Medication[] = (data || []).map((row: any, index: number) => {
         // Map interval_days + times_per_day to frequency enum
@@ -144,7 +144,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     } catch (error) {
       console.error('[MedicationsStore] Unexpected error:', error);
       set({
-        error: error instanceof Error ? error.message : 'Failed to fetch medications',
+        error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed to fetch medications',
         isLoading: false,
       });
     }
@@ -182,13 +182,16 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         strength: med.strength,
       };
 
-      const { data, error } = await supabase
-        .from('medication_schedules')
-        .insert(newSchedule)
-        .select()
-        .single();
+      const data = await withRetry(async () => {
+        const { data: result, error } = await supabase
+          .from('medication_schedules')
+          .insert(newSchedule)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        return result;
+      }, 2, 1000, 'addMedication');
 
       // Optimistic update - actually we should probably refetch or reconstruct the full object
       // For now, let's trigger a silent refetch to be safe and accurate
@@ -199,7 +202,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       return data as Medication;
     } catch (error) {
       console.error('[MedicationsStore] Add error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed to add', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed to add', isLoading: false });
       throw error;
     }
   },
@@ -228,14 +231,17 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       // Note: mapping frequency back to interval_days is tricky here without more logic.
       // Ideally we update interval_days directly if changed.
 
-      const { data, error } = await supabase
-        .from('medication_schedules')
-        .update(dbUpdates)
-        .eq('id', id)
-        .select()
-        .single();
+      const data = await withRetry(async () => {
+        const { data: result, error } = await supabase
+          .from('medication_schedules')
+          .update(dbUpdates)
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        return result;
+      }, 2, 1000, 'updateMedication');
 
       // Refetch to sync state perfectly
       await get().fetchMedications(data.user_id, true);
@@ -245,7 +251,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       return data as Medication;
     } catch (error) {
       console.error('[MedicationsStore] Update error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -257,12 +263,14 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
-      const { error } = await supabase
-        .from('medication_schedules')
-        .delete()
-        .eq('id', id);
+      await withRetry(async () => {
+        const { error } = await supabase
+          .from('medication_schedules')
+          .delete()
+          .eq('id', id);
 
-      if (error) throw error;
+        if (error) throw error;
+      }, 2, 1000, 'deleteMedication');
 
       // Update local state
       const medications = get().medications.filter((med) => med.id !== id);
@@ -335,13 +343,16 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         ai_confidence: 0.95, // Default high confidence for confirmed items
       };
 
-      const { data, error } = await supabase
-        .from('medication_schedules')
-        .insert(newSchedule)
-        .select()
-        .single();
+      const data = await withRetry(async () => {
+        const { data: result, error } = await supabase
+          .from('medication_schedules')
+          .insert(newSchedule)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        return result;
+      }, 2, 1000, 'addMedicationFromAI');
 
       console.log('[MedicationsStore] AI Schedule added:', data.id);
 
@@ -356,7 +367,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
     } catch (error) {
       console.error('[MedicationsStore] Add AI error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -417,11 +428,13 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         };
       });
 
-      const { data, error } = await supabase
-        .from('medication_schedules')
-        .insert(newSchedules);
+      await withRetry(async () => {
+        const { error } = await supabase
+          .from('medication_schedules')
+          .insert(newSchedules);
 
-      if (error) throw error;
+        if (error) throw error;
+      }, 2, 1000, 'addMedicationsBatchFromAI');
 
       console.log('[MedicationsStore] Batch AI schedules added:', newSchedules.length);
 
@@ -431,7 +444,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       console.error('[MedicationsStore] Batch Add AI error:', error);
-      set({ error: error instanceof Error ? error.message : 'Failed', isLoading: false });
+      set({ error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed', isLoading: false });
       throw error;
     }
   },
@@ -487,13 +500,16 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
 
       // Add new medication
-      const { data, error } = await supabase
-        .from('medication_schedules')
-        .insert(newMedicationData)
-        .select()
-        .single();
+      const data = await withRetry(async () => {
+        const { data: result, error } = await supabase
+          .from('medication_schedules')
+          .insert(newMedicationData)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        return result;
+      }, 2, 1000, 'replaceMedication');
 
       const medications = get().medications.map(med =>
         med.id === oldMedicationId ? { ...med, end_date: new Date(Date.now() - 86400000).toISOString() } : med
@@ -511,7 +527,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     } catch (error) {
       console.error('[MedicationsStore] Replace medication error:', error);
       set({
-        error: error instanceof Error ? error.message : 'Failed to replace medication',
+        error: error instanceof Error ? sanitizeErrorMessage(error.message) : 'Failed to replace medication',
         isLoading: false,
       });
       throw error;

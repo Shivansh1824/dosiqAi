@@ -35,6 +35,17 @@ export function parseDateOnly(dateString: string | null | undefined): string {
   return new Date().toISOString().split('T')[0];
 }
 
+export const getMealTimingLabel = (relation: string): string => {
+  switch (relation) {
+    case 'before_food': return 'Before Meal';
+    case 'after_food': return 'After Meal';
+    case 'with_food': return 'With Meal';
+    case 'empty_stomach': return 'Empty Stomach';
+    case 'anytime': return 'Anytime';
+    default: return 'Anytime';
+  }
+};
+
 /**
  * Comprehensive medical frequency code mapping
  * Sources: Medical prescription abbreviations (Latin origins)
