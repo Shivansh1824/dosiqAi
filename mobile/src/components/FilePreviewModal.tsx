@@ -39,6 +39,7 @@ interface FilePreviewModalProps {
 }
 
 const { width, height } = Dimensions.get('window');
+const THUMBNAIL_SIZE = 56;
 
 /** Self-contained PDF item — React.memo + ref guard prevents infinite re-mount loops */
 const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setPdfPageCounts }: {
@@ -106,6 +107,7 @@ export default function FilePreviewModal({
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const flatListRef = useRef<FlatList>(null);
+    const thumbnailListRef = useRef<FlatList>(null);
     const [sliderWidth, setSliderWidth] = useState(width - Sizes.lg * 2);
 
     // Inline picker overlay state
@@ -140,6 +142,19 @@ export default function FilePreviewModal({
             }, 50);
         }
     }, [files, visible]);
+
+    // Auto-scroll thumbnail strip to keep active item visible
+    useEffect(() => {
+        if (visible && files.length > 1) {
+            setTimeout(() => {
+                thumbnailListRef.current?.scrollToIndex({
+                    index: currentIndex,
+                    animated: true,
+                    viewPosition: 0.5, // Center the active thumbnail
+                });
+            }, 100);
+        }
+    }, [currentIndex, visible, files.length]);
 
     const openInlinePicker = () => {
         setShowInlinePicker(true);
@@ -320,7 +335,14 @@ export default function FilePreviewModal({
                             />
                         </View>
                         
-                        {/* Remove Page Button overlays the card */}
+                        {/* Document Number Badge — top-left */}
+                        {files.length > 1 && (
+                            <View style={styles.docNumberBadge}>
+                                <Text style={styles.docNumberText}>{currentIndex + 1}</Text>
+                            </View>
+                        )}
+
+                        {/* Remove Page Button — top-right */}
                         {onRemovePage && files.length > 0 && (
                             <TouchableOpacity 
                               style={styles.removePageButton} 
@@ -332,43 +354,54 @@ export default function FilePreviewModal({
                         )}
                     </View>
                     
-                    {/* Navigation Controls for Carousel — shows for all file types when multi-file */}
+                    {/* Thumbnail Strip — WhatsApp-style navigation */}
                     {files.length > 1 && (
-                        <View style={styles.carouselNav}>
-                            <TouchableOpacity 
-                                style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]} 
-                                onPress={() => {
-                                    const nextIdx = Math.max(0, currentIndex - 1);
-                                    if (nextIdx !== currentIndex) {
-                                        setCurrentIndex(nextIdx);
-                                        flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
-                                    }
+                        <View style={styles.thumbnailStripContainer}>
+                            <FlatList
+                                ref={thumbnailListRef}
+                                data={files}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.thumbnailStripContent}
+                                keyExtractor={(item, index) => `thumb-${item.uri}-${index}`}
+                                getItemLayout={(_, index) => ({
+                                    length: THUMBNAIL_SIZE + 10, // size + gap
+                                    offset: (THUMBNAIL_SIZE + 10) * index,
+                                    index,
+                                })}
+                                renderItem={({ item, index: thumbIndex }) => {
+                                    const isActive = thumbIndex === currentIndex;
+                                    const isThumbPdf = item.type === 'document' && item.name.toLowerCase().endsWith('.pdf');
+                                    return (
+                                        <TouchableOpacity
+                                            activeOpacity={0.7}
+                                            onPress={() => {
+                                                if (thumbIndex !== currentIndex) {
+                                                    setCurrentIndex(thumbIndex);
+                                                    flatListRef.current?.scrollToIndex({ index: thumbIndex, animated: true });
+                                                }
+                                            }}
+                                            style={[
+                                                styles.thumbnailItem,
+                                                isActive && styles.thumbnailItemActive,
+                                            ]}
+                                        >
+                                            {isThumbPdf ? (
+                                                <View style={styles.pdfThumbnail}>
+                                                    <Feather name="file-text" size={22} color={isActive ? Colors.primary : 'rgba(255,255,255,0.5)'} />
+                                                    <Text style={[styles.pdfThumbnailLabel, isActive && styles.pdfThumbnailLabelActive]}>PDF</Text>
+                                                </View>
+                                            ) : (
+                                                <Image
+                                                    source={{ uri: item.uri }}
+                                                    style={styles.thumbnailImage}
+                                                    resizeMode="cover"
+                                                />
+                                            )}
+                                        </TouchableOpacity>
+                                    );
                                 }}
-                                disabled={currentIndex === 0 || isUploading}
-                            >
-                                <Feather name="chevron-left" size={24} color={currentIndex === 0 ? 'rgba(255,255,255,0.3)' : Colors.white} />
-                            </TouchableOpacity>
-                            <View style={styles.dotsContainer}>
-                                {files.map((_, i) => (
-                                    <View 
-                                        key={i} 
-                                        style={[styles.dot, i === currentIndex && styles.dotActive]} 
-                                    />
-                                ))}
-                            </View>
-                            <TouchableOpacity 
-                                style={[styles.navButton, currentIndex === files.length - 1 && styles.navButtonDisabled]} 
-                                onPress={() => {
-                                    const nextIdx = Math.min(files.length - 1, currentIndex + 1);
-                                    if (nextIdx !== currentIndex) {
-                                        setCurrentIndex(nextIdx);
-                                        flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
-                                    }
-                                }}
-                                disabled={currentIndex === files.length - 1 || isUploading}
-                            >
-                                <Feather name="chevron-right" size={24} color={currentIndex === files.length - 1 ? 'rgba(255,255,255,0.3)' : Colors.white} />
-                            </TouchableOpacity>
+                            />
                         </View>
                     )}
                     <View style={styles.statsContainer}>
@@ -617,39 +650,74 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
     },
-    carouselNav: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        paddingHorizontal: Sizes.xl,
-        marginTop: 16,
-    },
-    navButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+    docNumberBadge: {
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        minWidth: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        zIndex: 5,
     },
-    navButtonDisabled: {
-        opacity: 0.5,
+    docNumberText: {
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 0.3,
     },
-    dotsContainer: {
-        flexDirection: 'row',
+    // ─── Thumbnail Strip Styles ───
+    thumbnailStripContainer: {
+        width: '100%',
+        marginTop: 16,
         alignItems: 'center',
-        gap: 6,
     },
-    dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.3)',
+    thumbnailStripContent: {
+        paddingHorizontal: Sizes.lg,
+        gap: 10,
     },
-    dotActive: {
-        width: 20,
-        backgroundColor: Colors.white,
+    thumbnailItem: {
+        width: THUMBNAIL_SIZE,
+        height: THUMBNAIL_SIZE,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    thumbnailItemActive: {
+        borderColor: Colors.primary,
+        borderWidth: 2.5,
+        transform: [{ scale: 1.08 }],
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    thumbnailImage: {
+        width: '100%',
+        height: '100%',
+    },
+    pdfThumbnail: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 2,
+    },
+    pdfThumbnailLabel: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: 'rgba(255, 255, 255, 0.5)',
+        letterSpacing: 0.5,
+    },
+    pdfThumbnailLabelActive: {
+        color: Colors.primary,
     },
     addPageButton: {
         flexDirection: 'row',
