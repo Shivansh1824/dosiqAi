@@ -395,20 +395,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       const analysisResult = result.analysis;
       const aiDocumentType = analysisResult?.document_type;
 
-      // Process lab reports - save to lab_reports and test_results tables
-      if (analysisResult && aiDocumentType && (aiDocumentType.toLowerCase() === 'lab_report' || aiDocumentType.toLowerCase() === 'lab report')) {
-        console.log('[DocumentsStore] Detected lab report, processing to database...');
-        try {
-          await processLabReport(
-            documentId,
-            analysisResult,
-            document?.user_id || '',
-            document?.family_member_id || ''
-          );
-        } catch (error) {
-          console.error('[DocumentsStore] Error processing lab report:', error);
-        }
-      }
+      // Note: processLabReport call removed as the analyze-report Edge Function
+      // now handles database insertion for lab reports and test results directly.
+      // This avoids structure mismatch issues (tests[] vs grouped_metrics[]).
 
       if (document?.user_id) {
         if (isSupabaseConfigured()) {

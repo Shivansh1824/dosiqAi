@@ -19,7 +19,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         <button className="p-2 hover:bg-gray-100 rounded-lg">
           <Menu className="w-6 h-6 text-gray-700" />
         </button>
-        <span className="text-gray-900">FamilyCare Health</span>
+        <span className="text-gray-900 font-bold">dosiqAi</span>
         <button className="p-2 hover:bg-gray-100 rounded-lg">
           <User className="w-6 h-6 text-gray-700" />
         </button>

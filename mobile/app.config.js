@@ -43,8 +43,8 @@ export default {
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow FamilyCare Health to save documents and images to your photo library.",
-          "savePhotosPermission": "Allow FamilyCare Health to save documents and images to your photo library.",
+          "photosPermission": "Allow dosiqAi to save documents and images to your photo library.",
+          "savePhotosPermission": "Allow dosiqAi to save documents and images to your photo library.",
           "isAccessMediaLocationEnabled": true
         }
       ],

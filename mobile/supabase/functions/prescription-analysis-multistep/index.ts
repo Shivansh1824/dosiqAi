@@ -69,6 +69,7 @@ interface ApiOptions {
     useReasoning?: boolean;
     maxTokens?: number;
     temperature?: number;
+    title?: string;
 }
 
 /**
@@ -129,8 +130,8 @@ async function callOpenRouterAPI(
             headers: {
                 "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://familycarehealth.app",
-                "X-Title": "FamilyCare Health",
+                "HTTP-Referer": "https://dosiq.ai",
+                "X-Title": options.title || "dosiqAi - Doc Manager",
             },
             body: JSON.stringify(requestBody),
         });
@@ -303,6 +304,21 @@ Deno.serve(async (req: Request) => {
 
         let classResult: any = {};
 
+        // Determine content block based on file type
+        const contentBlock: any = fileType === "application/pdf"
+            ? {
+                type: "file",
+                file_url: {
+                    url: `data:application/pdf;base64,${base64Image}`
+                }
+            }
+            : {
+                type: "image_url",
+                image_url: {
+                    url: `data:${fileType};base64,${base64Image}`
+                }
+            };
+
         if (!skipClassification) {
             // STEP 1: Classification (Is Handwritten?)
             // Using standard Flash (fast, non-reasoning)
@@ -311,7 +327,7 @@ Deno.serve(async (req: Request) => {
                 { role: "system", content: PROMPT_CHECK_HANDWRITTEN },
                 {
                     role: "user", content: [
-                        { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
+                        contentBlock,
                         { type: "text", text: "Please return the JSON indicating if this is handwritten." }
                     ]
                 }
@@ -337,13 +353,17 @@ Deno.serve(async (req: Request) => {
                 { role: "system", content: PROMPT_HANDWRITTEN_ANALYSIS },
                 {
                     role: "user", content: [
-                        { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
+                        contentBlock,
                         { type: "text", text: "Extract structured data from this handwritten prescription image." }
                     ]
                 }
             ];
 
-            const extractionRes = await callOpenRouterAPI(extractionMessages, { useReasoning: true, temperature: 0.82 });
+            const extractionRes = await callOpenRouterAPI(extractionMessages, {
+                useReasoning: true,
+                temperature: 0.82,
+                title: "dosiqAi Pres-Hand-S1"
+            });
             totalTokenUsage += extractionRes.usage.total_tokens;
             const extractedData = parseAnalysisResult(extractionRes.choices[0]?.message?.content || "{}");
             stage1AnalysisResult = extractedData;
@@ -353,13 +373,17 @@ Deno.serve(async (req: Request) => {
                 { role: "system", content: PROMPT_HANDWRITTEN_VERIFICATION },
                 {
                     role: "user", content: [
-                        { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
+                        contentBlock,
                         { type: "text", text: `Here is the initially extracted JSON. Verify, correct, and add missing data:\n\n${JSON.stringify(extractedData)}` }
                     ]
                 }
             ];
 
-            const verificationRes = await callOpenRouterAPI(verificationMessages, { useReasoning: true, temperature: 0.82 });
+            const verificationRes = await callOpenRouterAPI(verificationMessages, {
+                useReasoning: true,
+                temperature: 0.82,
+                title: "dosiqAi Pres-Hand-S2"
+            });
             totalTokenUsage += verificationRes.usage.total_tokens;
             finalAnalysisResult = parseAnalysisResult(verificationRes.choices[0]?.message?.content || "{}");
 
@@ -370,13 +394,17 @@ Deno.serve(async (req: Request) => {
                 { role: "system", content: PROMPT_MACHINE_ANALYSIS },
                 {
                     role: "user", content: [
-                        { type: "image_url", image_url: { url: `data:${fileType};base64,${base64Image}` } },
+                        contentBlock,
                         { type: "text", text: "Extract structured data from this machine-written prescription image." }
                     ]
                 }
             ];
 
-            const machineRes = await callOpenRouterAPI(machineMessages, { useReasoning: true, temperature: 0.82 });
+            const machineRes = await callOpenRouterAPI(machineMessages, {
+                useReasoning: true,
+                temperature: 0.82,
+                title: "dosiqAi Pres-Mach-S1"
+            });
             totalTokenUsage += machineRes.usage.total_tokens;
             finalAnalysisResult = parseAnalysisResult(machineRes.choices[0]?.message?.content || "{}");
         }

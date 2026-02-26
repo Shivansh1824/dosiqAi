@@ -570,7 +570,7 @@ export function generatePrescriptionHTML(
 
   <!-- Footer -->
   <div class="footer">
-    <span class="footer-brand">FamilyCare Health</span> • Professional Medical Record Management
+    <span class="footer-brand">dosiqAi</span> • Professional Medical Record Management
   </div>
 </body>
 </html>

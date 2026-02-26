@@ -266,51 +266,38 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       console.log('[ScanDocument] Setting up R2 upload promise handler...');
       console.log('[ScanDocument] Document ID for cloud key update:', actualDocumentId);
 
-      startR2Upload()
-        .then(async (cloudFileKey: string | null) => {
-          console.log('[ScanDocument] R2 upload promise resolved with key:', cloudFileKey);
+      // Start R2 upload and WAIT for it (Crucial for large files like PDFs)
+      console.log('[ScanDocument] Starting R2 upload...');
+      try {
+        const cloudFileKey = await startR2Upload();
+        console.log('[ScanDocument] R2 upload completed with key:', cloudFileKey);
 
-          if (cloudFileKey && actualDocumentId) {
-            // Use DocumentsStore function which has the correct Supabase context
-            const { updateCloudFileKey } = useDocumentsStore.getState();
-            const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
-
-            if (success) {
-              console.log('[ScanDocument] ✅ Cloud file key saved via store!');
-            } else {
-              console.error('[ScanDocument] ❌ Failed to save cloud file key via store');
-            }
-          } else {
-            console.warn('[ScanDocument] Skipping cloud key update - cloudFileKey:', cloudFileKey, 'documentId:', actualDocumentId);
+        if (cloudFileKey && actualDocumentId) {
+          const { updateCloudFileKey } = useDocumentsStore.getState();
+          const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
+          if (success) {
+            console.log('[ScanDocument] ✅ Cloud file key saved via store!');
+            // Update local store to ensure triggerAnalysis sees the cloudFileKey
+            await fetchDocuments(user.id, true);
           }
-        })
-        .catch((error: any) => {
-          console.error('[ScanDocument] R2 upload promise rejected:', error);
-        });
+        }
+      } catch (error) {
+        console.error('[ScanDocument] R2 upload failed:', error);
+      }
 
-
-      // Increment upload count
-
+      // Increment upload count and refresh limits
       await incrementUploadCount(user.id);
-
-      // Refresh upload limit
       await refreshUploadLimit(user.id);
-
-      // Refresh documents list
       await fetchDocuments(user.id);
 
-      // Get absolute path for analysis
+      // Trigger analysis in background
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
-
-      // Trigger analysis in background (non-blocking) with correct document ID
-      console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId, 'isReport:', isReport);
-      console.log('[ScanDocument] Analysis path:', analysisPath);
+      console.log('[ScanDocument] Triggering analysis for:', actualDocumentId);
 
       triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
         console.error('[ScanDocument] Background analysis failed:', error);
       });
 
-      // Navigate back
       onBack();
     } catch (error) {
       console.error('Upload error:', error);

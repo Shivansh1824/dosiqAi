@@ -126,13 +126,28 @@ async function callOpenRouterAPI(
   try {
     console.log(`[OpenRouter] Calling Gemini 3 Flash (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
+    // Determine content block based on file type
+    const contentBlock: any = fileType === "application/pdf"
+      ? {
+        type: "file",
+        file_url: {
+          url: `data:application/pdf;base64,${base64Image}`
+        }
+      }
+      : {
+        type: "image_url",
+        image_url: {
+          url: `data:${fileType};base64,${base64Image}`,
+        },
+      };
+
     const response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://familycarehealth.app",
-        "X-Title": "FamilyCare Health",
+        "HTTP-Referer": "https://dosiq.ai",
+        "X-Title": "dosiqAi - Doc Manager",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -143,15 +158,10 @@ async function callOpenRouterAPI(
             content: systemPrompt,
           },
           {
-            // User prompt: image FIRST (Gemini 3 anchors reasoning better with data before instructions)
+            // User prompt: content block FIRST (Gemini 3 anchors reasoning better with data before instructions)
             role: "user",
             content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${fileType};base64,${base64Image}`,
-                },
-              },
+              contentBlock,
               {
                 type: "text",
                 text: userPrompt,

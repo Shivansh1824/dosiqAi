@@ -64,13 +64,25 @@ async function callOpenRouterAPI(
   try {
     console.log(`[OpenRouter] 📤 Calling Gemini 3 Flash (Attempt ${retryCount + 1})`);
 
+    const contentBlock: any = fileType === "application/pdf"
+      ? {
+        type: "file",
+        file_url: {
+          url: `data:application/pdf;base64,${base64Image}`
+        }
+      }
+      : {
+        type: "image_url",
+        image_url: { url: `data:${fileType};base64,${base64Image}` }
+      };
+
     const response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://dosiq.ai",
-        "X-Title": "dosiqAi",
+        "X-Title": "dosiqAi - Doc Manager",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -79,10 +91,7 @@ async function callOpenRouterAPI(
             role: "user",
             content: [
               { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: { url: `data:${fileType};base64,${base64Image}` }
-              },
+              contentBlock,
             ],
           },
         ],

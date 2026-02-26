@@ -9,36 +9,44 @@ echo "🚀 Deploying Edge Functions to Supabase"
 echo "========================================"
 echo ""
 
+PROJECT_REF="fliepnlohnlifsvvfoau"
+
 # Navigate to mobile directory
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Deploy document-manager
 echo "📦 Deploying document-manager..."
-npx supabase functions deploy document-manager
+npx supabase functions deploy document-manager --project-ref $PROJECT_REF
 echo "✅ document-manager deployed successfully"
 echo ""
 
 # Deploy prescription-analysis-multistep
 echo "📦 Deploying prescription-analysis-multistep..."
-npx supabase functions deploy prescription-analysis-multistep
+npx supabase functions deploy prescription-analysis-multistep --project-ref $PROJECT_REF
 echo "✅ prescription-analysis-multistep deployed successfully"
+echo ""
+
+# Deploy analyze-prescription
+echo "📦 Deploying analyze-prescription..."
+npx supabase functions deploy analyze-prescription --project-ref $PROJECT_REF
+echo "✅ analyze-prescription deployed successfully"
 echo ""
 
 # Deploy analyze-report
 echo "📦 Deploying analyze-report..."
-npx supabase functions deploy analyze-report
+npx supabase functions deploy analyze-report --project-ref $PROJECT_REF
 echo "✅ analyze-report deployed successfully"
 echo ""
 
 # Deploy match-biomarkers
 echo "📦 Deploying match-biomarkers..."
-npx supabase functions deploy match-biomarkers
+npx supabase functions deploy match-biomarkers --project-ref $PROJECT_REF
 echo "✅ match-biomarkers deployed successfully"
 echo ""
 
 # Deploy process-biomarkers
 echo "📦 Deploying process-biomarkers..."
-npx supabase functions deploy process-biomarkers
+npx supabase functions deploy process-biomarkers --project-ref $PROJECT_REF
 echo "✅ process-biomarkers deployed successfully"
 echo ""
 
