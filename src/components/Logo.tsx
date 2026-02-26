@@ -18,7 +18,7 @@ export default function Logo({ className = "" }: { className?: string }) {
             rx="24"
             fill="url(#gradient)"
           />
-          
+
           {/* Shield shape */}
           <path
             d="M60 25C60 25 45 28 35 35C35 45 33 70 60 90C87 70 85 45 85 35C75 28 60 25 60 25Z"
@@ -27,7 +27,7 @@ export default function Logo({ className = "" }: { className?: string }) {
             strokeWidth="3"
             strokeLinejoin="round"
           />
-          
+
           {/* Medical cross - horizontal bar */}
           <rect
             x="47"
@@ -37,7 +37,7 @@ export default function Logo({ className = "" }: { className?: string }) {
             rx="2"
             fill="url(#gradient)"
           />
-          
+
           {/* Medical cross - vertical bar */}
           <rect
             x="56"
@@ -47,7 +47,7 @@ export default function Logo({ className = "" }: { className?: string }) {
             rx="2"
             fill="url(#gradient)"
           />
-          
+
           <defs>
             <linearGradient
               id="gradient"
@@ -63,14 +63,11 @@ export default function Logo({ className = "" }: { className?: string }) {
           </defs>
         </svg>
       </div>
-      
+
       {/* App Name */}
       <div className="flex flex-col">
         <span className="text-[36px] text-gray-800 tracking-tight" style={{ fontWeight: 'bold', lineHeight: '1' }}>
-          FamilyCare
-        </span>
-        <span className="text-[36px] text-gray-800 tracking-tight" style={{ fontWeight: 'bold', lineHeight: '1' }}>
-          Health
+          dosiqAi
         </span>
       </div>
     </div>

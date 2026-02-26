@@ -594,7 +594,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
       const asset = await MediaLibrary.createAssetAsync(imageUri);
 
       // Optionally create an album for better organization
-      const albumName = 'FamilyCareHealth';
+      const albumName = 'dosiqAi';
       const album = await MediaLibrary.getAlbumAsync(albumName);
 
       if (album) {

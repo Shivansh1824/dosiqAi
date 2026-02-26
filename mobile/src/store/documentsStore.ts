@@ -542,19 +542,19 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         console.log('[DocumentsStore] ✓ Cleared AsyncStorage cache for user:', userId);
       }
 
-      // 3. Delete all files from FamilyCareHealth directory
+      // 3. Delete all files from dosiqAi directory
       const { Directory, Paths } = await import('expo-file-system');
 
       if (Paths.document) {
-        const APP_FOLDER_NAME = 'FamilyCareHealth';
+        const APP_FOLDER_NAME = 'dosiqAi';
         const appDir = new Directory(Paths.document, APP_FOLDER_NAME);
 
         if (appDir.exists) {
-          console.log('[DocumentsStore] Deleting FamilyCareHealth directory...');
+          console.log('[DocumentsStore] Deleting dosiqAi directory...');
           await appDir.delete();
           console.log('[DocumentsStore] ✓ Deleted all local document files');
         } else {
-          console.log('[DocumentsStore] FamilyCareHealth directory does not exist');
+          console.log('[DocumentsStore] dosiqAi directory does not exist');
         }
       }
 
