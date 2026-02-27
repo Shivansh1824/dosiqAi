@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 
 /**
@@ -59,8 +59,7 @@ export const useDocumentUpload = () => {
 
             // 4. Supabase Insert (Storing the Relative Path)
             setStatus('Finalizing...');
-            const { error } = await supabase
-                .from('documents')
+            const { error } = await from('documents')
                 .insert({
                     user_id: userId,
                     title: filename, // UUID filename

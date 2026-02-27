@@ -6,7 +6,7 @@ import { Colors, Sizes, Typography } from '../constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
@@ -163,19 +163,19 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const isNativePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
 
       if (isNativePdf) {
-         // Single native PDF
-         const { uri, name } = selectedFiles[0];
-         await uploadFile(uri, 'document', name);
+        // Single native PDF
+        const { uri, name } = selectedFiles[0];
+        await uploadFile(uri, 'document', name);
       } else {
-         // Multiple images (or single image) -> Convert to PDF natively
-         setIsCompressing(true);
-         const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
-         
-         const { createPdfFromImages } = await import('../utils/pdfGenerator');
-         const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
-         setIsCompressing(false);
+        // Multiple images (or single image) -> Convert to PDF natively
+        setIsCompressing(true);
+        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
 
-         await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
+        const { createPdfFromImages } = await import('../utils/pdfGenerator');
+        const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
+        setIsCompressing(false);
+
+        await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
@@ -194,10 +194,6 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       return;
     }
 
-    if (!isSupabaseConfigured()) {
-      Alert.alert('Error', 'Database service not configured.');
-      return;
-    }
 
     // DEFENSIVE CHECK: If no active member, auto-create the primary "Self" member
     // This ensures the main user can ALWAYS upload their documents
@@ -475,12 +471,12 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         onTakePhoto={takePhoto}
         onPickDocument={pickDocument}
         onRemovePage={(index) => {
-           setSelectedFiles(prev => {
-              const updated = [...prev];
-              updated.splice(index, 1);
-              if (updated.length === 0) setPreviewModalVisible(false);
-              return updated;
-           });
+          setSelectedFiles(prev => {
+            const updated = [...prev];
+            updated.splice(index, 1);
+            if (updated.length === 0) setPreviewModalVisible(false);
+            return updated;
+          });
         }}
         isUploading={isUploading || isCompressing}
       />

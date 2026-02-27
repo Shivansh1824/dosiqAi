@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { Document, DocumentsStore, getDocumentColor } from '../types/document';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInfo } from '../services/documentAnalysisService';
@@ -71,16 +71,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     }
 
     try {
-      if (!isSupabaseConfigured()) {
-        console.warn('[DocumentsStore] Supabase not configured, using empty documents');
-        set({ documents: [], isLoading: false });
-        return;
-      }
 
       console.log(`[DocumentsStore] Fetching documents for user: ${userId} (silent: ${silent})`);
 
-      const { data, error } = await supabase
-        .from('documents')
+      const { data, error } = await from('documents')
         .select('*, lab_reports(report_date)')
         .eq('user_id', userId)
         .order('ai_analyzed_at', { ascending: false });
@@ -119,17 +113,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
 
       // Exclude color field - it will be calculated when fetched, not stored in DB
       const { color, ...newDoc } = doc;
 
       console.log('[DocumentsStore] 📤 Inserting Payload to DB:', JSON.stringify(newDoc, null, 2));
 
-      const { data, error } = await supabase
-        .from('documents')
+      const { data, error } = await from('documents')
         .insert(newDoc)
         .select()
         .single();
@@ -185,16 +175,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    */
   updateCloudFileKey: async (documentId: string, cloudFileKey: string): Promise<boolean> => {
     try {
-      if (!isSupabaseConfigured()) {
-        console.warn('[DocumentsStore] Supabase not configured');
-        return false;
-      }
-
       console.log('[DocumentsStore] Updating cloud_file_key for document:', documentId);
       console.log('[DocumentsStore] Cloud key:', cloudFileKey);
 
-      const { data, error } = await supabase
-        .from('documents')
+      const { data, error } = await from('documents')
         .update({ cloud_file_key: cloudFileKey })
         .eq('id', documentId)
         .select();
@@ -225,14 +209,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
 
       // 0. IMPORTANT: Unlink medications first to prevent Foreign Key constraint errors
       // We keep the medication schedules but remove the link to the document being deleted
-      const { error: unlinkError } = await supabase
-        .from('medication_schedules')
+      const { error: unlinkError } = await from('medication_schedules')
         .update({ source_document_id: null })
         .eq('source_document_id', id);
 
@@ -258,8 +238,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       // 3. Delete from Supabase
-      const { error } = await supabase
-        .from('documents')
+      const { error } = await from('documents')
         .delete()
         .eq('id', id);
 
@@ -293,14 +272,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     }
 
     try {
-      if (!isSupabaseConfigured()) {
-        console.warn('[DocumentsStore] syncDocuments: Supabase not configured');
-        return;
-      }
 
       // Fetch only document IDs from Supabase (efficient query)
-      const { data: remoteDocuments, error } = await supabase
-        .from('documents')
+      const { data: remoteDocuments, error } = await from('documents')
         .select('id')
         .eq('user_id', userId);
 
@@ -348,9 +322,8 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }));
 
       // Update status to 'processing' in database immediately
-      if (isSupabaseConfigured()) {
-        await supabase
-          .from('documents')
+      if (true) {
+        await from('documents')
           .update({ ai_analysis_status: 'processing' })
           .eq('id', documentId);
       }
@@ -400,7 +373,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       // This avoids structure mismatch issues (tests[] vs grouped_metrics[]).
 
       if (document?.user_id) {
-        if (isSupabaseConfigured()) {
+        if (true) {
           try {
             const updateFields: any = {
               ai_analysis_status: 'completed',
@@ -427,8 +400,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
             }
 
 
-            await supabase
-              .from('documents')
+            await from('documents')
               .update(updateFields)
               .eq('id', documentId);
 
@@ -482,13 +454,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    */
   clearAnalysisError: async (documentId: string) => {
     try {
-      if (!isSupabaseConfigured()) {
-        console.warn('[DocumentsStore] Supabase not configured');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('documents')
+      const { error } = await from('documents')
         .update({
           ai_analysis_status: 'pending',
           ai_analysis_error: null,
@@ -574,17 +540,12 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
 
       console.log('[DocumentsStore] Clearing ALL cloud documents for user:', userId);
-
       // 0. IMPORTANT: Unlink all medications first to prevent Foreign Key constraint errors
       // This honors "Clear Cloud Documents" asking to keep meds but remove docs
       console.log('[DocumentsStore] Unlinking medications from all documents...');
-      const { error: unlinkError } = await supabase
-        .from('medication_schedules')
+      const { error: unlinkError } = await from('medication_schedules')
         .update({ source_document_id: null })
         .eq('user_id', userId);
 
@@ -593,8 +554,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       // 1. Fetch all documents for this user to get R2 keys
-      const { data: userDocs, error: fetchError } = await supabase
-        .from('documents')
+      const { data: userDocs, error: fetchError } = await from('documents')
         .select('id, cloud_file_key')
         .eq('user_id', userId);
 
@@ -611,8 +571,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       // 3. Delete from Supabase - Order matters for Foreign Keys
       // Delete test_results first (child of lab_reports)
-      const { error: testResultsError } = await supabase
-        .from('test_results')
+      const { error: testResultsError } = await from('test_results')
         .delete()
         .eq('user_id', userId);
 
@@ -622,8 +581,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       // Delete lab_reports (child of documents)
-      const { error: labReportsError } = await supabase
-        .from('lab_reports')
+      const { error: labReportsError } = await from('lab_reports')
         .delete()
         .eq('user_id', userId);
 
@@ -632,8 +590,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       // Delete documents (parent)
-      const { error: deleteError } = await supabase
-        .from('documents')
+      const { error: deleteError } = await from('documents')
         .delete()
         .eq('user_id', userId);
 
@@ -662,9 +619,6 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
 
       console.log('[DocumentsStore] 🚨 STARTING COMPREHENSIVE ACCOUNT DATA WIPE for:', userId);
 
@@ -677,20 +631,20 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       // 2. Clear Medications & Logs
       console.log('[DocumentsStore] Clearing Medications...');
       try {
-        await supabase.from('medication_logs').delete().eq('user_id', userId);
+        await from('medication_logs').delete().eq('user_id', userId);
       } catch (e) { console.log('medication_logs table might not exist'); }
 
-      await supabase.from('medication_schedules').delete().eq('user_id', userId);
+      await from('medication_schedules').delete().eq('user_id', userId);
 
       // 3. Clear Vitals & metrics
       console.log('[DocumentsStore] Clearing Vitals & Charts...');
-      await supabase.from('health_vitals').delete().eq('user_id', userId);
-      await supabase.from('metric_annotations').delete().eq('user_id', userId);
-      await supabase.from('chart_preferences').delete().eq('user_id', userId);
+      await from('health_vitals').delete().eq('user_id', userId);
+      await from('metric_annotations').delete().eq('user_id', userId);
+      await from('chart_preferences').delete().eq('user_id', userId);
 
       // 4. Clear Appointments
       console.log('[DocumentsStore] Clearing Appointments...');
-      await supabase.from('appointments').delete().eq('user_id', userId);
+      await from('appointments').delete().eq('user_id', userId);
 
       // NOTE: We explicitly DO NOT delete:
       // - family_members (Profiles preserved)

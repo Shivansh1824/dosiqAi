@@ -68,8 +68,7 @@ export default {
         projectId: "4e25fcb2-a9f4-42c9-8ddd-ace3d3b9d906"
       },
       // Environment variables accessible via expo-constants
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
 
       // R2 Storage Configuration
       R2_ACCESS_KEY_ID: process.env.EXPO_PUBLIC_R2_ACCESS_KEY_ID,

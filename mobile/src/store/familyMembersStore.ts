@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from, auth } from '../services/supabaseClient';
 import { FamilyMember, FamilyMemberInsert, FamilyMemberUpdate } from '../types/familyMember';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { sanitizeErrorMessage, withRetry } from '../utils/apiUtils';
@@ -68,8 +68,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
 
         try {
             const data = await withRetry(async () => {
-                const { data: result, error } = await supabase
-                    .from('family_members')
+                const { data: result, error } = await from('family_members')
                     .select('*')
                     .eq('user_id', userId)
                     .order('created_at', { ascending: true });
@@ -99,8 +98,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
 
         try {
             const newMember = await withRetry(async () => {
-                const { data: result, error } = await supabase
-                    .from('family_members')
+                const { data: result, error } = await from('family_members')
                     .insert([data])
                     .select()
                     .single();
@@ -131,8 +129,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
 
         try {
             const updatedMember = await withRetry(async () => {
-                const { data: result, error } = await supabase
-                    .from('family_members')
+                const { data: result, error } = await from('family_members')
                     .update(data)
                     .eq('id', id)
                     .select()
@@ -161,8 +158,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
         set({ isLoading: true, error: null });
 
         try {
-            const { error } = await supabase
-                .from('family_members')
+            const { error } = await from('family_members')
                 .delete()
                 .eq('id', id);
 
@@ -206,16 +202,8 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
      */
     ensurePrimaryMemberExists: async (userId: string, userName: string): Promise<FamilyMember | null> => {
         try {
-            // IMPORTANT: Only proceed if Supabase is configured and session is active
-            // Without an active Supabase session, RLS policies will block queries/inserts
-            if (!isSupabaseConfigured()) {
-                console.warn('[FamilyMembersStore] Supabase not configured, cannot create family member');
-                set({ isInitialized: true });
-                return null;
-            }
-
             // Verify Supabase session is active before attempting database operations
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            const { data: { session }, error: sessionError } = await auth.getSession();
             if (sessionError || !session) {
                 console.warn('[FamilyMembersStore] No active Supabase session, cannot create family member');
                 set({ isInitialized: true });
@@ -225,8 +213,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             // DEFENSIVE FIX: Query database FIRST (single source of truth)
             // This prevents race conditions where multiple calls check in-memory state
             // before any of them complete the insert
-            const { data: existingMembers, error: queryError } = await supabase
-                .from('family_members')
+            const { data: existingMembers, error: queryError } = await from('family_members')
                 .select('*')
                 .eq('user_id', userId)
                 .eq('relationship', 'Self')
@@ -271,8 +258,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             // No Self member exists - try to create one
             console.log('[FamilyMembersStore] Creating primary member for user:', userId);
 
-            const { data: newMember, error } = await supabase
-                .from('family_members')
+            const { data: newMember, error } = await from('family_members')
                 .insert([{
                     user_id: userId,
                     name: userName || 'Me',
@@ -290,8 +276,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                     console.log('[FamilyMembersStore] Duplicate detected (race condition), fetching existing member');
 
                     // Fetch the member that was created by the other call
-                    const { data: fetchedMembers } = await supabase
-                        .from('family_members')
+                    const { data: fetchedMembers } = await from('family_members')
                         .select('*')
                         .eq('user_id', userId)
                         .eq('relationship', 'Self')
