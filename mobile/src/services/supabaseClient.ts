@@ -47,12 +47,27 @@ export const supabase = createClient(EFFECTIVE_SUPABASE_URL, EFFECTIVE_SUPABASE_
     persistSession: true,
     detectSessionInUrl: false,
   },
-  // NOTE: No custom fetch wrapper. The previous AbortController-based wrapper
-  // conflicted with the whatwg-fetch polyfill (used by cross-fetch inside
-  // @supabase/supabase-js), causing POST requests to fail with
-  // "Network request failed" on React Native.
-  // React Native's default fetch timeout is sufficient for all operations.
+  global: {
+    fetch: async (url, options) => {
+      try {
+        const response = await fetch(url, options);
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('text/html')) {
+          const clone = response.clone();
+          const body = await clone.text();
+          console.error(`[Supabase DEBUG] ⚠️ Received HTML from ${url}:`, body.substring(0, 500));
+        }
+        
+        return response;
+      } catch (error) {
+        console.error(`[Supabase DEBUG] Fetch error for ${url}:`, error);
+        throw error;
+      }
+    }
+  }
 });
+
 
 /**
  * Helper function to check if Supabase is properly configured

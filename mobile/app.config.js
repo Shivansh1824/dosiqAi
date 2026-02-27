@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "dosiqAi",
+    name: "dosiq Ai",
     slug: "dosiqai",
     scheme: "dosiqai",
     version: "1.0.0",

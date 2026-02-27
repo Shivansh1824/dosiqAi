@@ -242,14 +242,14 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
             if (existingMembers && existingMembers.length > 0) {
                 const selfMember = existingMembers[0];
                 console.log('[FamilyMembersStore] Primary member already exists:', selfMember.id);
-                
+
                 // Validate that it's not a placeholder (has valid UUID)
                 if (selfMember.id.startsWith('local-')) {
                     console.warn('[FamilyMembersStore] Found placeholder member, will not use for database operations');
                     set({ isInitialized: true });
                     return null;
                 }
-                
+
                 // Update in-memory state if not already there
                 const currentMembers = get().familyMembers;
                 if (!currentMembers.find(m => m.id === selfMember.id)) {
@@ -257,20 +257,20 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                         familyMembers: [...state.familyMembers, selfMember],
                     }));
                 }
-                
+
                 // Set as active and mark as initialized
                 if (!get().activeMember) {
                     set({ activeMember: selfMember, isInitialized: true });
                 } else {
                     set({ isInitialized: true });
                 }
-                
+
                 return selfMember;
             }
 
             // No Self member exists - try to create one
             console.log('[FamilyMembersStore] Creating primary member for user:', userId);
-            
+
             const { data: newMember, error } = await supabase
                 .from('family_members')
                 .insert([{
@@ -288,7 +288,7 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                 if (error.code === '23505') {
                     // Another call/thread created it between our query and insert
                     console.log('[FamilyMembersStore] Duplicate detected (race condition), fetching existing member');
-                    
+
                     // Fetch the member that was created by the other call
                     const { data: fetchedMembers } = await supabase
                         .from('family_members')
@@ -296,29 +296,29 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
                         .eq('user_id', userId)
                         .eq('relationship', 'Self')
                         .limit(1);
-                    
+
                     if (fetchedMembers && fetchedMembers.length > 0) {
                         const selfMember = fetchedMembers[0];
                         console.log('[FamilyMembersStore] Successfully recovered from race condition:', selfMember.id);
-                        
+
                         // Update state with the existing member
                         set(state => ({
                             familyMembers: [...state.familyMembers.filter(m => m.id !== selfMember.id), selfMember],
                             activeMember: selfMember,
                             isInitialized: true,
                         }));
-                        
+
                         return selfMember;
                     }
                 }
-                
+
                 // Other database error - throw it
                 throw error;
             }
 
             // Success - new member created
             console.log('[FamilyMembersStore] Primary member created:', newMember.id);
-            
+
             // Add to state and set as active
             set((state) => ({
                 familyMembers: [...state.familyMembers, newMember],
