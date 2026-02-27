@@ -6,7 +6,7 @@
  */
 
 import { File } from 'expo-file-system';
-import { supabase } from './supabaseClient';
+import { getStoredTokens, functions, rpc, from } from './supabaseClient';
 
 export interface AnalyzeDocumentParams {
   documentId: string;
@@ -153,9 +153,9 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Get current session token
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { accessToken: token } = await getStoredTokens();
 
-    if (sessionError || !session) {
+    if (!token) {
       throw new Error('Not authenticated');
     }
 
@@ -175,19 +175,20 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
       console.log(`[DocumentAnalysis] Presigned URL: ${requestBody.presignedUrl ? 'Generated' : 'N/A'}`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      const { data, error } = await supabase.functions.invoke(edgeFunctionName, {
+      const { data, error } = await functions.invoke(edgeFunctionName, {
         body: requestBody,
       });
 
       if (error) {
+        const err = error as any;
         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.error('[DocumentAnalysis] ❌ INVOCATION FAILED');
-        console.error(`[DocumentAnalysis] Error Name: ${error.name}`);
-        console.error(`[DocumentAnalysis] Error Message: ${error.message}`);
-        console.error(`[DocumentAnalysis] Stack: ${error.stack}`);
+        console.error(`[DocumentAnalysis] Error Name: ${err.name}`);
+        console.error(`[DocumentAnalysis] Error Message: ${err.message}`);
+        console.error(`[DocumentAnalysis] Stack: ${err.stack}`);
 
         // Check for specific fetch/timeout issues
-        if (error.message?.includes('fetch') || error.name === 'FunctionsFetchError') {
+        if (err.message?.includes('fetch') || err.name === 'FunctionsFetchError') {
           console.error('[DocumentAnalysis] 🚩 This looks like a network or payload size issue.');
           console.error('[DocumentAnalysis] Tips: Check internet connection, decrease image quality, or increase timeout.');
         }
@@ -226,7 +227,7 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
  */
 export const checkUploadLimit = async (userId: string): Promise<UploadLimitInfo> => {
   try {
-    const { data, error } = await supabase.rpc('check_upload_limit', {
+    const { data, error } = await rpc.call('check_upload_limit', {
       p_user_id: userId,
       p_max_uploads: 5,
     });
@@ -237,8 +238,7 @@ export const checkUploadLimit = async (userId: string): Promise<UploadLimitInfo>
     }
 
     // Get current count
-    const { data: limitData } = await supabase
-      .from('upload_limits')
+    const { data: limitData } = await from('upload_limits')
       .select('upload_count')
       .eq('user_id', userId)
       .eq('upload_date', new Date().toISOString().split('T')[0])
@@ -263,7 +263,7 @@ export const checkUploadLimit = async (userId: string): Promise<UploadLimitInfo>
  */
 export const incrementUploadCount = async (userId: string): Promise<number> => {
   try {
-    const { data, error } = await supabase.rpc('increment_upload_count', {
+    const { data, error } = await rpc.call('increment_upload_count', {
       p_user_id: userId,
     });
 
@@ -288,7 +288,7 @@ export const incrementUploadCount = async (userId: string): Promise<number> => {
  */
 export const getUploadCount = async (userId: string): Promise<number> => {
   try {
-    const { data, error } = await supabase.rpc('get_upload_count', {
+    const { data, error } = await rpc.call('get_upload_count', {
       p_user_id: userId,
     });
 

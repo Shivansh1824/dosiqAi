@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { toLocalDateString } from '../utils/dateUtils';
 import { SyncService } from '../services/SyncService';
 
@@ -50,10 +50,8 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) return;
 
-      const { data, error } = await supabase
-        .from('medication_logs')
+      const { data, error } = await from('medication_logs')
         .select('*')
         .eq('user_id', userId)
         .gte('scheduled_date', startDate)
@@ -62,16 +60,16 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
       if (error) throw error;
 
       const newLogs = (data || []) as MedicationLog[];
-      
+
       set((state: MedicationLogsState) => {
         const mergedLogs = [...state.logs];
         newLogs.forEach(newLog => {
           const index = mergedLogs.findIndex(
-            (l: MedicationLog) => l.medication_id === newLog.medication_id && 
-                                  l.scheduled_date === newLog.scheduled_date && 
-                                  l.scheduled_time === newLog.scheduled_time
+            (l: MedicationLog) => l.medication_id === newLog.medication_id &&
+              l.scheduled_date === newLog.scheduled_date &&
+              l.scheduled_time === newLog.scheduled_time
           );
-          
+
           if (index !== -1) {
             if (mergedLogs[index].sync_status !== 'pending') {
               mergedLogs[index] = { ...newLog, sync_status: 'synced' };
@@ -95,7 +93,7 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
 
   markAsTaken: async (userId: string, medicationId: string, dateStr: string, timeStr: string) => {
     const now = new Date().toISOString();
-    
+
     // 1. Optimistic Update
     const tempId = `temp-${Date.now()}`;
     const optimisticLog: MedicationLog = {
@@ -120,8 +118,7 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
       // 2. Early Action (Notification suppression)
       await SyncService.handleEarlyAction(medicationId, timeStr, dateStr);
 
-      const { error } = await supabase
-        .from('medication_logs')
+      const { error } = await from('medication_logs')
         .upsert({
           medication_id: medicationId,
           user_id: userId,
@@ -137,14 +134,14 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
       if (error) throw error;
 
       set((state: MedicationLogsState) => ({
-        logs: state.logs.map((l: MedicationLog) => 
+        logs: state.logs.map((l: MedicationLog) =>
           l.id === tempId ? { ...l, sync_status: 'synced' } : l
         )
       }));
     } catch (error) {
       console.error('[MedicationLogsStore] Mark as taken error:', error);
       set((state: MedicationLogsState) => ({
-        logs: state.logs.map((l: MedicationLog) => 
+        logs: state.logs.map((l: MedicationLog) =>
           l.id === tempId ? { ...l, sync_status: 'error' } : l
         )
       }));
@@ -153,7 +150,7 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
 
   markAsSkipped: async (userId: string, medicationId: string, dateStr: string, timeStr: string) => {
     const now = new Date().toISOString();
-    
+
     const tempId = `temp-skip-${Date.now()}`;
     const optimisticLog: MedicationLog = {
       id: tempId,
@@ -177,8 +174,7 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
       // 2. Early Action (Notification suppression)
       await SyncService.handleEarlyAction(medicationId, timeStr, dateStr);
 
-      const { error } = await supabase
-        .from('medication_logs')
+      const { error } = await from('medication_logs')
         .upsert({
           medication_id: medicationId,
           user_id: userId,
@@ -194,14 +190,14 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
       if (error) throw error;
 
       set((state: MedicationLogsState) => ({
-        logs: state.logs.map((l: MedicationLog) => 
+        logs: state.logs.map((l: MedicationLog) =>
           l.id === tempId ? { ...l, sync_status: 'synced' } : l
         )
       }));
     } catch (error) {
       console.error('[MedicationLogsStore] Mark as skipped error:', error);
       set((state: MedicationLogsState) => ({
-        logs: state.logs.map((l: MedicationLog) => 
+        logs: state.logs.map((l: MedicationLog) =>
           l.id === tempId ? { ...l, sync_status: 'error' } : l
         )
       }));
@@ -210,9 +206,9 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
 
   getLog: (medicationId: string, dateStr: string, timeStr: string) => {
     return get().logs.find(
-      (l: MedicationLog) => l.medication_id === medicationId && 
-                            l.scheduled_date === dateStr && 
-                            l.scheduled_time === timeStr
+      (l: MedicationLog) => l.medication_id === medicationId &&
+        l.scheduled_date === dateStr &&
+        l.scheduled_time === timeStr
     );
   }
 }));

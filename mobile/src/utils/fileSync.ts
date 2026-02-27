@@ -13,7 +13,7 @@ import { File, Directory, Paths } from 'expo-file-system';
 import { getPresignedUrl } from '../services/storageService';
 import { Buffer } from 'buffer';
 
-const APP_FOLDER = 'FamilyCareHealth';
+const APP_FOLDER = 'dosiqAi';
 const DOCS_FOLDER = 'documents';
 
 export interface FileRetrievalResult {
@@ -135,7 +135,7 @@ export const isFileAvailableLocally = async (filename: string): Promise<boolean>
 /**
  * Extract filename from a local_file_path or cloud_file_key
  * 
- * @param path - Path like "FamilyCareHealth/documents/abc.pdf" or "users/id/documents/abc.pdf"
+ * @param path - Path like "dosiqAi/documents/abc.pdf" or "users/id/documents/abc.pdf"
  * @returns Just the filename: "abc.pdf"
  */
 export const extractFilename = (path: string): string => {

@@ -3,7 +3,7 @@
  * Business logic for processing lab data, calculating trends, and preparing chart data
  */
 
-import { supabase } from './supabaseClient';
+import { from, rpc } from './supabaseClient';
 import type {
   LabReport,
   TestResult,
@@ -61,8 +61,7 @@ export async function processLabReport(
     };
 
     // Insert lab report
-    const { data: labReport, error: labReportError } = await supabase
-      .from('lab_reports')
+    const { data: labReport, error: labReportError } = await from('lab_reports')
       .insert(labReportData)
       .select()
       .single();
@@ -102,8 +101,7 @@ export async function processLabReport(
           measured_at: labReportData.report_date,
         };
 
-        const { data: testResult, error: testResultError } = await supabase
-          .from('test_results')
+        const { data: testResult, error: testResultError } = await from('test_results')
           .insert(testResultData)
           .select()
           .single();
@@ -141,7 +139,7 @@ export async function processLabReport(
  */
 export async function calculateTestResultTrend(testResultId: string): Promise<void> {
   try {
-    const { error } = await supabase.rpc('calculate_test_result_trend', {
+    const { error } = await rpc.call('calculate_test_result_trend', {
       p_test_result_id: testResultId,
     });
 
@@ -159,8 +157,7 @@ export async function recalculateTrendsForFamilyMember(
   familyMemberId: string
 ): Promise<void> {
   try {
-    const { data: testResults, error } = await supabase
-      .from('test_results')
+    const { data: testResults, error } = await from('test_results')
       .select('id')
       .eq('family_member_id', familyMemberId)
       .not('result_numeric', 'is', null);
@@ -189,8 +186,7 @@ export async function compareWithPrevious(
   testResultId: string
 ): Promise<MetricComparison | null> {
   try {
-    const { data: current, error: currentError } = await supabase
-      .from('test_results')
+    const { data: current, error: currentError } = await from('test_results')
       .select('*')
       .eq('id', testResultId)
       .single();
@@ -198,8 +194,7 @@ export async function compareWithPrevious(
     if (currentError) throw currentError;
 
     // Get previous result
-    const { data: previous, error: previousError } = await supabase
-      .from('test_results')
+    const { data: previous, error: previousError } = await from('test_results')
       .select('*')
       .eq('family_member_id', current.family_member_id)
       .eq('test_code', current.test_code)
@@ -235,15 +230,13 @@ export async function compareLabReports(
   previousReportId: string
 ): Promise<MetricComparison[]> {
   try {
-    const { data: currentResults, error: currentError } = await supabase
-      .from('test_results')
+    const { data: currentResults, error: currentError } = await from('test_results')
       .select('*')
       .eq('lab_report_id', currentReportId);
 
     if (currentError) throw currentError;
 
-    const { data: previousResults, error: previousError } = await supabase
-      .from('test_results')
+    const { data: previousResults, error: previousError } = await from('test_results')
       .select('*')
       .eq('lab_report_id', previousReportId);
 

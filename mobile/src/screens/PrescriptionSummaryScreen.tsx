@@ -14,7 +14,7 @@ import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
 import { getSummary } from '../utils/prescriptionHelpers';
-import { supabase } from '../services/supabaseClient';
+import { auth } from '../services/supabaseClient';
 
 import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
 import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
@@ -506,7 +506,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                                   setIsVerifyingAll(true);
                                   try {
-                                    const currentUser = (await supabase.auth.getUser()).data.user;
+                                    const currentUser = (await auth.getUser()).data.user;
                                     if (!currentUser || !document) return;
 
                                     const suggestedStartDate = parseDateOnly(new Date().toISOString());

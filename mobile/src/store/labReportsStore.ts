@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../services/supabaseClient';
+import { from, auth } from '../services/supabaseClient';
 import type {
   LabReport,
   TestResult,
@@ -222,8 +222,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
       }
 
       // Fetch from Supabase
-      const { data: labReportsData, error: labReportsError } = await supabase
-        .from('lab_reports')
+      const { data: labReportsData, error: labReportsError } = await from('lab_reports')
         .select('*')
         .eq('family_member_id', familyMemberId)
         .order('report_date', { ascending: false });
@@ -233,8 +232,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
       // Fetch test results for each lab report
       const labReportsWithResults: LabReportWithResults[] = await Promise.all(
         (labReportsData || []).map(async (report) => {
-          const { data: testResults, error: testResultsError } = await supabase
-            .from('test_results')
+          const { data: testResults, error: testResultsError } = await from('test_results')
             .select('*')
             .eq('lab_report_id', report.id)
             .order('category', { ascending: true })
@@ -270,16 +268,14 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const { data: labReport, error: labReportError } = await supabase
-        .from('lab_reports')
+      const { data: labReport, error: labReportError } = await from('lab_reports')
         .select('*')
         .eq('id', labReportId)
         .single();
 
       if (labReportError) throw labReportError;
 
-      const { data: testResults, error: testResultsError } = await supabase
-        .from('test_results')
+      const { data: testResults, error: testResultsError } = await from('test_results')
         .select('*')
         .eq('lab_report_id', labReportId)
         .order('category', { ascending: true })
@@ -335,7 +331,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
       }
 
       // Fetch from Supabase
-      let query = supabase.from('chart_preferences').select('*').eq('user_id', userId);
+      let query = from('chart_preferences').select('*').eq('user_id', userId);
 
       if (familyMemberId) {
         query = query.eq('family_member_id', familyMemberId);
@@ -363,8 +359,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
           pinned_metrics: null,
         };
 
-        const { data: newPrefs, error: insertError } = await supabase
-          .from('chart_preferences')
+        const { data: newPrefs, error: insertError } = await from('chart_preferences')
           .insert(defaultPrefs)
           .select()
           .single();
@@ -400,8 +395,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
       const current = get().chartPreferences;
       if (!current) throw new Error('No chart preferences loaded');
 
-      const { error } = await supabase
-        .from('chart_preferences')
+      const { error } = await from('chart_preferences')
         .update(preferences)
         .eq('id', current.id);
 
@@ -432,10 +426,10 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { error } = await supabase.from('metric_annotations').insert({
+      const { error } = await from('metric_annotations').insert({
         user_id: user.id,
         test_result_id: testResultId,
         note,
@@ -453,8 +447,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
 
   getAnnotationsForTestResult: async (testResultId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('metric_annotations')
+      const { data, error } = await from('metric_annotations')
         .select('*')
         .eq('test_result_id', testResultId)
         .order('created_at', { ascending: false });
@@ -504,8 +497,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
       }
 
       // Fetch from Supabase
-      let query = supabase
-        .from('test_results')
+      let query = from('test_results')
         .select('*')
         .eq('family_member_id', familyMemberId)
         .eq('test_code', testCode)

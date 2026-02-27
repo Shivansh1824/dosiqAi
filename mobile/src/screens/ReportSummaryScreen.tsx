@@ -12,7 +12,7 @@ import { useDocumentsStore } from '../store/documentsStore';
 import { useMedicationsStore } from '../store/medicationsStore';
 import { useAuthStore } from '../store/authStore';
 import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
-import { supabase } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import {
   METRIC_STATUS_COLORS,
 } from '../types/medicalReport';
@@ -350,8 +350,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
     const loadLabReportId = async () => {
       if (!document) return;
       try {
-        const { data, error } = await supabase
-          .from('lab_reports')
+        const { data, error } = await from('lab_reports')
           .select('id')
           .eq('document_id', document.id)
           .single();
@@ -594,7 +593,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
       const asset = await MediaLibrary.createAssetAsync(imageUri);
 
       // Optionally create an album for better organization
-      const albumName = 'FamilyCareHealth';
+      const albumName = 'dosiqAi';
       const album = await MediaLibrary.getAlbumAsync(albumName);
 
       if (album) {
