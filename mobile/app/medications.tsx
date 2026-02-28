@@ -3,24 +3,25 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Sizes, Typography } from '../constants';
-import { useNavigation } from '@react-navigation/native';
-import CalendarStrip from '../components/CalendarStrip';
-import MedicationCard from '../components/MedicationCard';
-import CalendarModal, { CalendarEvent } from '../components/CalendarModal';
-import { MedicationWithStatus } from '../types/medicationSchedule';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useMedicationLogsStore } from '../store/medicationLogsStore';
-import { useAuthStore } from '../store/authStore';
-import { cancelReminder } from '../services/notificationService';
-import { toLocalDateString, fromLocalDateString, getTodayLocal } from '../utils/dateUtils';
+import { Colors, Sizes, Typography } from '../src/constants';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import CalendarStrip from '../src/components/CalendarStrip';
+import MedicationCard from '../src/components/MedicationCard';
+import CalendarModal, { CalendarEvent } from '../src/components/CalendarModal';
+import { MedicationWithStatus } from '../src/types/medicationSchedule';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useMedicationLogsStore } from '../src/store/medicationLogsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { cancelReminder } from '../src/services/notificationService';
+import { toLocalDateString, fromLocalDateString, getTodayLocal } from '../src/utils/dateUtils';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNotifications } from '../hooks/useNotifications';
-import { useMedicationSync } from '../hooks/useMedicationSync';
+import { useNotifications } from '../src/hooks/useNotifications';
+import { useMedicationSync } from '../src/hooks/useMedicationSync';
 
 export default function MedicationsScreen() {
-    const navigation = useNavigation();
+    const router = useRouter();
     const { user } = useAuthStore();
     const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
@@ -232,7 +233,7 @@ export default function MedicationsScreen() {
     // Handle add medication
     const handleAddMedication = () => {
         // @ts-ignore - Dynamic navigation
-        navigation.navigate('AddMedication');
+        router.push('/addmedication');
     };
 
 
@@ -246,7 +247,7 @@ export default function MedicationsScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
-                    onPress={() => navigation.goBack()}
+                    onPress={() => router.back()}
                     style={styles.backButton}
                     activeOpacity={0.7}
                 >

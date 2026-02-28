@@ -1,3 +1,4 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 /**
  * LabMetricTrendScreen
  * Full-screen interactive chart for detailed analysis of a single lab metric
@@ -17,15 +18,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { Colors, Sizes } from '../constants';
-import { useLabReportsStore } from '../store/labReportsStore';
-import { LabMetricChart } from '../components/charts/LabMetricChart';
-import { TrendIndicator } from '../components/charts/TrendIndicator';
-import { TimeRangeSelector } from '../components/charts/TimeRangeSelector';
-import type { TimeRangeOption, TimeSeriesData } from '../types/labReport';
-import { STATUS_COLORS } from '../types/labReport';
-import { exportTimeSeriesAsCSV } from '../services/labAnalyticsService';
-import { RootStackParamList } from '../../App';
+import { Colors, Sizes } from '../src/constants';
+import { useLabReportsStore } from '../src/store/labReportsStore';
+import { LabMetricChart } from '../src/components/charts/LabMetricChart';
+import { TrendIndicator } from '../src/components/charts/TrendIndicator';
+import { TimeRangeSelector } from '../src/components/charts/TimeRangeSelector';
+import type { TimeRangeOption, TimeSeriesData } from '../src/types/labReport';
+import { STATUS_COLORS } from '../src/types/labReport';
+import { exportTimeSeriesAsCSV } from '../src/services/labAnalyticsService';
+
 import * as Sharing from 'expo-sharing';
 import { Paths, File } from 'expo-file-system';
 
@@ -41,7 +42,7 @@ export default function LabMetricTrendScreen({
   navigation,
   route,
 }: LabMetricTrendScreenProps) {
-  const { testResultId, familyMemberId, testCode, testName } = route.params;
+  const { testResultId, familyMemberId, testCode, testName } = useLocalSearchParams();
 
   const { getMetricTimeSeries, getAnnotationsForTestResult, addAnnotation, isLoading, error } =
     useLabReportsStore();
@@ -123,7 +124,7 @@ export default function LabMetricTrendScreen({
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{testName}</Text>
@@ -141,7 +142,7 @@ export default function LabMetricTrendScreen({
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Error</Text>
@@ -165,7 +166,7 @@ export default function LabMetricTrendScreen({
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>

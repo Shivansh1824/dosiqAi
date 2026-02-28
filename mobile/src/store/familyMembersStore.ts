@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from, auth } from '../services/supabaseClient';
+import { from, auth } from '../lib/apiClient';
 import { FamilyMember, FamilyMemberInsert, FamilyMemberUpdate } from '../types/familyMember';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { sanitizeErrorMessage, withRetry } from '../utils/apiUtils';

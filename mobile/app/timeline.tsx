@@ -2,7 +2,8 @@ import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SectionList, Dimensions, StatusBar, Modal, Pressable, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { 
   FadeInUp, 
   useSharedValue, 
@@ -12,12 +13,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { Document, getDocumentTitle } from '../types/document';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { Document, getDocumentTitle } from '../src/types/document';
 import * as Haptics from 'expo-haptics';
-import { Colors, Sizes, Typography } from '../constants';
-import { useAuthStore } from '../store/authStore';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { useAuthStore } from '../src/store/authStore';
 
 const { width } = Dimensions.get('window');
 
@@ -30,12 +31,12 @@ const { width } = Dimensions.get('window');
  * Header component matching Medications Screen style
  */
 const Header = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   return (
     <View style={styles.header}>
       <TouchableOpacity
-        onPress={() => navigation.goBack()}
+        onPress={() => router.back()}
         style={styles.backButton}
         activeOpacity={0.7}
         accessibilityLabel="Go back"
@@ -435,7 +436,7 @@ const SkeletonLoader = () => (
 
 
 export default function TimelineScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { documents, isLoading } = useDocumentsStore();
   const fetchDocuments = useDocumentsStore((state: any) => state.fetchDocuments);
   const deleteDocument = useDocumentsStore((state: any) => state.deleteDocument);

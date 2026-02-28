@@ -2,12 +2,13 @@ import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
+import { Colors, Sizes, Typography } from '../src/constants';
 
-import { useNavigation } from '@react-navigation/native';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../App';
-import { useAuthStore } from '../store/authStore';
+
+import { useAuthStore } from '../src/store/authStore';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, cancelAnimation } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import {
@@ -15,24 +16,22 @@ import {
   useFadeSlideUp,
   useFadeIn,
   useButtonPress,
-} from '../utils/animations';
+} from '../src/utils/animations';
 
-type Onboarding3ScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding3'>;
+type Onboarding2ScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding2'>;
 
-export default function Onboarding3Screen() {
-  const navigation = useNavigation<Onboarding3ScreenNavigationProp>();
-  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
+export default function Onboarding2Screen() {
+  const router = useRouter();
 
-  const handleGetStarted = async () => {
-    await completeOnboarding();
-    navigation.navigate('Login');
+  const handleContinue = () => {
+    router.push('/onboarding3');
   };
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+    if (router.canGoBack()) {
+      router.back();
     } else {
-      navigation.replace('Onboarding2');
+      router.replace('/onboarding1');
     }
   };
 
@@ -42,7 +41,7 @@ export default function Onboarding3Screen() {
       const SWIPE_VELOCITY_THRESHOLD = 500;
 
       if (event.velocityX < -SWIPE_VELOCITY_THRESHOLD) {
-        handleGetStarted();
+        handleContinue();
       } else if (event.velocityX > SWIPE_VELOCITY_THRESHOLD) {
         handleBack();
       }
@@ -58,7 +57,7 @@ export default function Onboarding3Screen() {
   // Progress animation for active dot
   const progress = useSharedValue(0);
 
-  // Auto-advance to Login after 2.5 seconds
+  // Auto-advance timer + progress animation
   useEffect(() => {
     progress.value = withTiming(1, {
       duration: Sizes.animation.splash,
@@ -66,14 +65,14 @@ export default function Onboarding3Screen() {
     });
 
     const autoAdvanceTimer = setTimeout(() => {
-      handleGetStarted();
+      router.push('/onboarding3');
     }, Sizes.animation.splash);
 
     return () => {
       cancelAnimation(progress);
       clearTimeout(autoAdvanceTimer);
     };
-  }, [navigation]);
+  }, [router]);
 
   const activeDotAnimation = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + (progress.value * 0.3) }],
@@ -96,7 +95,7 @@ export default function Onboarding3Screen() {
         style={styles.skipButton}
         onPress={() => {
           useAuthStore.getState().completeOnboarding();
-          navigation.navigate('Login');
+          router.push('/login');
         }}
         activeOpacity={0.7}
       >
@@ -107,45 +106,45 @@ export default function Onboarding3Screen() {
         {/* Feature Icon with Gradient Container */}
         <Animated.View style={[styles.iconContainer, iconAnimation]}>
           <LinearGradient
-            colors={['#FB8C00', '#FFA726']}
+            colors={[Colors.secondary, Colors.secondaryLight]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientIconContainer}
           >
-            <Feather name="bell" size={140} color={Colors.white} strokeWidth={1.5} />
+            <Feather name="users" size={140} color={Colors.white} strokeWidth={1.5} />
           </LinearGradient>
         </Animated.View>
 
         {/* Title */}
         <Animated.View style={titleAnimation}>
-          <Text style={styles.title}>Medicine Reminders</Text>
+          <Text style={styles.title}>Multiple Profiles</Text>
         </Animated.View>
 
         {/* Description */}
         <Animated.View style={descAnimation}>
           <Text style={styles.description}>
-            Never miss a dose with smart scheduling and alarm notifications
+            Create profiles for each family member and manage their health separately
           </Text>
         </Animated.View>
 
         {/* Pagination Dots with Progress Animation */}
         <Animated.View style={[styles.pagination, paginationAnimation]}>
           <View style={styles.dot} />
-          <View style={styles.dot} />
           <Animated.View style={[styles.dot, styles.dotActive, activeDotAnimation]} />
+          <View style={styles.dot} />
         </Animated.View>
       </View>
 
-      {/* Get Started Button */}
+      {/* Continue Button */}
       <Animated.View style={buttonPressAnimation.animatedStyle}>
         <TouchableOpacity
           style={styles.button}
-          onPress={handleGetStarted}
+          onPress={handleContinue}
           onPressIn={buttonPressAnimation.onPressIn}
           onPressOut={buttonPressAnimation.onPressOut}
           activeOpacity={1}
         >
-          <Text style={styles.buttonText}>Get Started</Text>
+          <Text style={styles.buttonText}>Continue</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

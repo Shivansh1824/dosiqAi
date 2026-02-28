@@ -1,3 +1,4 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 /**
  * LabReportDetailScreen
  * Interactive lab report viewer with charts and trend analysis
@@ -16,15 +17,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { Colors, Sizes, Typography } from '../constants';
-import { useLabReportsStore } from '../store/labReportsStore';
-import { LabMetricChart } from '../components/charts/LabMetricChart';
-import { TrendIndicator } from '../components/charts/TrendIndicator';
-import { TimeRangeSelector } from '../components/charts/TimeRangeSelector';
-import type { TimeRangeOption, GroupedTestResults } from '../types/labReport';
-import { STATUS_COLORS } from '../types/labReport';
-import { RootStackParamList } from '../../App';
-import ShareModal from '../components/ShareModal';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { useLabReportsStore } from '../src/store/labReportsStore';
+import { LabMetricChart } from '../src/components/charts/LabMetricChart';
+import { TrendIndicator } from '../src/components/charts/TrendIndicator';
+import { TimeRangeSelector } from '../src/components/charts/TimeRangeSelector';
+import type { TimeRangeOption, GroupedTestResults } from '../src/types/labReport';
+import { STATUS_COLORS } from '../src/types/labReport';
+
+import ShareModal from '../src/components/ShareModal';
 import * as Sharing from 'expo-sharing';
 import { Alert, Share } from 'react-native';
 
@@ -40,7 +41,7 @@ export default function LabReportDetailScreen({
   navigation,
   route,
 }: LabReportDetailScreenProps) {
-  const { labReportId } = route.params;
+  const { labReportId } = useLocalSearchParams();
   const {
     loadSingleLabReport,
     getSummary,
@@ -317,7 +318,7 @@ export default function LabReportDetailScreen({
             ) : chartData ? (
               <TouchableOpacity
                 onPress={() => {
-                  navigation.navigate('LabMetricTrend', {
+                  router.navigate('/labmetrictrend', {
                     testResultId: result.id,
                     familyMemberId: labReport.family_member_id,
                     testCode: result.test_code,
@@ -401,7 +402,7 @@ export default function LabReportDetailScreen({
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Lab Report</Text>
@@ -419,7 +420,7 @@ export default function LabReportDetailScreen({
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Error</Text>
@@ -437,7 +438,7 @@ export default function LabReportDetailScreen({
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>

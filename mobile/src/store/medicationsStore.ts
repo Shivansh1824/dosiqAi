@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { Medication, MedicationsStore, medicationColors } from '../types/medication';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { ParsedMedication } from '../types/medicationVerification';

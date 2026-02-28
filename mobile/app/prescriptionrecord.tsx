@@ -1,32 +1,32 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Colors, Typography } from '../constants';
-import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath } from '../utils/fileStorage';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAuthStore } from '../store/authStore';
-import { parseAIMedication } from '../utils/medicationParser';
-import { supabase } from '../services/supabaseClient';
-import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
-import LoadingOverlay from '../components/LoadingOverlay';
-import ShareModal from '../components/ShareModal';
-import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, RecordGroupedTestsCard, RecordDocumentPreviewLoading } from '../components/record';
-import { RootStackParamList } from '../../App';
+import { Colors, Typography } from '../src/constants';
+import { Document, DocumentAnalysisResult } from '../src/types/document';
+import { fileExists, getAbsolutePath } from '../src/utils/fileStorage';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { parseAIMedication } from '../src/utils/medicationParser';
+import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
+import LoadingOverlay from '../src/components/LoadingOverlay';
+import ShareModal from '../src/components/ShareModal';
+import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
+import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, RecordGroupedTestsCard, RecordDocumentPreviewLoading } from '../src/components/record';
+
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
+import FullScreenImageModal from '../src/components/FullScreenImageModal';
 
-type PrescriptionRecordNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionRecord'>;
+type PrescriptionRecordNavigationProp = StackNavigationProp<any, 'PrescriptionRecord'>;
 
 interface PrescriptionRecordScreenProps {
   onBack: () => void;
@@ -36,17 +36,30 @@ interface PrescriptionRecordScreenProps {
 }
 
 export default function PrescriptionRecordScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionRecordScreenProps) {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const paramDocumentId = params.documentId as string;
+
   const { familyMembers } = useFamilyMembersStore();
   const { documents, deleteDocument } = useDocumentsStore();
   const { medications } = useMedicationsStore();
   const { user } = useAuthStore();
 
+  console.log('🐞 [DIAGNOSTICS] PrescriptionRecordScreen Params:', { documentIdProp: documentId, paramDocumentId, hasDocumentProp: !!documentProp, documentsInStore: documents.length });
+
+  const handleBack = onBack || (() => { router.back(); });
+
   // Resolve document
   const document = useMemo(() => {
     if (documentProp) return documentProp;
-    if (documentId) return documents.find(d => d.id === documentId);
-    return undefined;
-  }, [documentProp, documentId, documents]);
+    const effectiveDocumentId = documentId || paramDocumentId;
+    let foundDoc = undefined;
+    if (effectiveDocumentId) {
+      foundDoc = documents.find(d => d.id === effectiveDocumentId);
+    }
+    console.log('🐞 [DIAGNOSTICS] Resolved initialDocument Record:', { effectiveDocumentId, foundDocExists: !!foundDoc });
+    return foundDoc;
+  }, [documentProp, documentId, paramDocumentId, documents]);
 
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [fileNotFound, setFileNotFound] = useState(false);
@@ -119,7 +132,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
         } else if (document.cloud_file_key) {
           try {
             setDownloading(true);
-            const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
+            const { getFileWithSync, extractFilename } = await import('../src/utils/fileSync');
             const filename = extractFilename(document.local_file_path);
             const { localPath } = await getFileWithSync(filename, document.cloud_file_key);
             setImageUri(localPath);
@@ -156,7 +169,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.headerButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Document Error</Text>
@@ -165,7 +178,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
         <View style={styles.errorContainer}>
           <Feather name="alert-circle" size={48} color={Colors.error} />
           <Text style={styles.errorTitle}>Document Not Found</Text>
-          <TouchableOpacity style={styles.errorButton} onPress={onBack}>
+          <TouchableOpacity style={styles.errorButton} onPress={handleBack}>
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -178,7 +191,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
   const handleViewFullDocument = () => {
     if (!imageUri) return;
     if (isPdf) {
-      navigation.navigate('PdfViewer', { uri: imageUri, title: displayTitle });
+      router.push({ pathname: '/pdfviewer', params: { uri: imageUri, title: displayTitle } });
     } else {
       setShowFullScreenImage(true);
     }
@@ -211,7 +224,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     try {
       setLoading(true);
       await deleteDocument(document.id);
-      onBack();
+      handleBack();
     } catch (err) {
       Alert.alert('Error', 'Failed to delete document');
     } finally {
@@ -241,7 +254,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
 
         {/* Modern Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerButton} onPress={onBack} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleBack} activeOpacity={0.6}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
 

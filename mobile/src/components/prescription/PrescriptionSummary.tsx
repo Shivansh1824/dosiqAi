@@ -237,13 +237,10 @@ const styles = StyleSheet.create({
     outerShell: {
         backgroundColor: Colors.white,
         borderRadius: 24, // More rounded for modern feel
-        marginHorizontal: 16,
-        marginTop: 10,
-        marginBottom: 10,
         paddingHorizontal: 20, // Increased padding
         paddingTop: 18,        // Increased top padding
         paddingBottom: 20,     // Increased bottom padding
-        position: 'relative', 
+        position: 'relative',
         overflow: 'hidden',
         // Card Shadows
         shadowColor: '#1a1a2e',

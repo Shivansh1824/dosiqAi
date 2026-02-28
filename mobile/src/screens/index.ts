@@ -1,9 +1,0 @@
-export { default as WelcomeScreen } from './WelcomeScreen';
-export { default as Onboarding1Screen } from './Onboarding1Screen';
-export { default as Onboarding2Screen } from './Onboarding2Screen';
-export { default as Onboarding3Screen } from './Onboarding3Screen';
-export { default as LoginScreen } from './LoginScreen';
-export { default as SignupScreen } from './SignupScreen';
-export { default as HomeScreen } from './HomeScreen';
-export { default as ScanDocumentScreen } from './ScanDocumentScreen';
-export { default as PrescriptionSummaryScreen } from './PrescriptionSummaryScreen';

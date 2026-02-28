@@ -1,3 +1,4 @@
+process.env.EXPO_ROUTER_APP_ROOT = './app';
 export default {
   expo: {
     name: "dosiq Ai",
@@ -39,6 +40,7 @@ export default {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      "expo-router",
       "expo-font",
       [
         "expo-media-library",
@@ -75,6 +77,9 @@ export default {
       R2_SECRET_ACCESS_KEY: process.env.EXPO_PUBLIC_R2_SECRET_ACCESS_KEY,
       R2_ENDPOINT: process.env.EXPO_PUBLIC_R2_ENDPOINT,
       R2_BUCKET_NAME: process.env.EXPO_PUBLIC_R2_BUCKET_NAME,
+    },
+    experiments: {
+      typedRoutes: true,
     }
   }
 };

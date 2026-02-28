@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { Appointment, AppointmentsStore, getAppointmentColor } from '../types/appointment';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 

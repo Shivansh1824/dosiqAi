@@ -1,18 +1,14 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import Logo from '../components/Logo';
-import { Colors, Sizes, Typography } from '../constants';
-import { useAuthStore } from '../store/authStore';
-import { RootStackParamList } from '../../App';
-
-type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
+import Logo from '../src/components/Logo';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { useAuthStore } from '../src/store/authStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,7 +28,7 @@ const FeatureCard = ({ icon, title, description, index }: { icon: keyof typeof F
 );
 
 export default function WelcomeScreen() {
-  const navigation = useNavigation<WelcomeScreenNavigationProp>();
+  const router = useRouter();
   const { isAuthenticated } = useAuthStore();
 
   const showGetStartedButton = !isAuthenticated;
@@ -43,18 +39,18 @@ export default function WelcomeScreen() {
   useEffect(() => {
     if (isAuthenticated) {
       const timer = setTimeout(() => {
-        navigation.replace('Home');
+        router.replace('/home');
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, navigation]);
+  }, [isAuthenticated, router]);
 
   const handleGetStarted = () => {
-    navigation.navigate('Onboarding1');
+    router.push('/onboarding1');
   };
 
   const handleSignIn = () => {
-    navigation.navigate('Login');
+    router.push('/login');
   };
 
   return (

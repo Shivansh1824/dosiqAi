@@ -6,7 +6,7 @@
  */
 
 import { File } from 'expo-file-system';
-import { getStoredTokens, functions, rpc, from } from './supabaseClient';
+import { getStoredTokens, functions, rpc, from } from '../lib/apiClient';
 
 export interface AnalyzeDocumentParams {
   documentId: string;

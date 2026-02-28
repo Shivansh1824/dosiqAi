@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { HealthMetric } from '../types/healthMetrics';
 import { saveToCache, loadFromCache } from '../services/cacheService';
 
