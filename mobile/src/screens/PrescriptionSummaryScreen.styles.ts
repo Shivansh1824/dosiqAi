@@ -260,16 +260,16 @@ export const styles = StyleSheet.create({
         flex: 1,
     },
     medicationsCountText: {
-        fontSize: 32,
+        fontSize: 55,
         fontFamily: 'PlusJakartaSans-Bold',
         color: Colors.primary,
-        minWidth: 36,
+        minWidth: 42,
     },
     medicationsHeaderTitle: {
-        fontSize: 11,
+        fontSize: 17,
         fontFamily: 'PlusJakartaSans-Bold',
-        color: Colors.textSecondary,
-        letterSpacing: 0.8,
+        color: Colors.textPrimary,
+        letterSpacing: 1.1,
         textTransform: 'uppercase',
     },
     medicationsHeaderSubtitle: {
