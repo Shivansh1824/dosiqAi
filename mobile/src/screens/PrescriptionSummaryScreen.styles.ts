@@ -26,9 +26,7 @@ export const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 12,
         paddingVertical: 10,
-        backgroundColor: Colors.bgPrimary,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        backgroundColor: 'transparent',
     },
     headerTitleContainer: {
         flex: 1,
@@ -222,8 +220,6 @@ export const styles = StyleSheet.create({
     // ─── Verification Prompt ──────────────────────────────────────────────────────
     verificationPrompt: {
         backgroundColor: Colors.warningLight + '33',
-        borderLeftWidth: 3,
-        borderLeftColor: Colors.warning,
         borderRadius: 8,
         paddingHorizontal: 14,
         paddingVertical: 10,
