@@ -79,7 +79,6 @@ export const VerifiedMedicationsGroup = ({ medicationNames, onViewInTracker }: V
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
     backgroundColor: '#F9FAFB',
     borderRadius: 20,
     padding: 20,

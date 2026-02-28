@@ -237,8 +237,6 @@ const styles = StyleSheet.create({
     outerShell: {
         backgroundColor: Colors.white,
         borderRadius: 24, // More rounded for modern feel
-        marginTop: 10,
-        marginBottom: 10,
         paddingHorizontal: 20, // Increased padding
         paddingTop: 18,        // Increased top padding
         paddingBottom: 20,     // Increased bottom padding

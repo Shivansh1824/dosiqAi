@@ -347,10 +347,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 const summary = document ? getSummary(document.ai_analysis_result) : undefined;
 
                 return (
-                  <Animated.View layout={LinearTransition.duration(300)}>
+                  <Animated.View layout={LinearTransition.duration(300)} style={{ gap: 12 }}>
                     {/* Verification Prompt — subtle inline note for handwritten prescriptions */}
                     {document?.ai_analysis_result?.metadata?.handwriting_detected && (
-                      <View style={[styles.verificationPrompt, { marginTop: 16, marginBottom: 8 }]}>
+                      <View style={styles.verificationPrompt}>
                         <Text style={styles.verificationPromptText}>
                           Handwritten prescription — AI accuracy may vary. Please review the details below.
                         </Text>
@@ -375,6 +375,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       innerMedicines.length > 0 && (
                         <Animated.View
                           layout={LinearTransition.duration(250)}
+                          style={{ gap: 12 }}
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
@@ -418,7 +419,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                           {/* Unverified/All Medications List - Each card is a standalone main card */}
                           {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View>
+                            <View style={{ gap: 12 }}>
                               {(() => {
                                 const allMeds = isAlreadyAdded ? innerMedicines.map((medicine: any, index: number) => ({ medicine, index })) : allUnverifiedMedsIdx;
                                 const aiMeds = allMeds.filter((m: any) => m.index < aiMedicinesCount);
@@ -471,7 +472,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     {manualMeds.length > 0 && (
                                       <>
                                         {/* MANUALLY ADDED Header */}
-                                        <View style={[styles.medicationsHeaderCard, { marginTop: aiMeds.length > 0 ? 16 : 0 }]}>
+                                        <View style={styles.medicationsHeaderCard}>
                                           <View style={styles.medicationsHeaderRow}>
                                             <View style={styles.medicationsHeaderLeft}>
                                               <Text style={[styles.medicationsCountText, { color: Colors.primary }]}>{manualMeds.length}</Text>
@@ -506,7 +507,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                           {/* Action Button - "Confirm & Add" when not added, "View in Tracker" when already added */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View style={{ paddingBottom: 8, paddingTop: 4 }}>
+                            <View>
                               <TouchableOpacity
                                 style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                                 onPress={async () => {
