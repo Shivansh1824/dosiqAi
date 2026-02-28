@@ -411,6 +411,24 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
                     <View>
                       {innerMedicines.map((medicine: any, index: number) => {
                         const parsedMed = parseAIMedication(medicine, document.id, displayTitle, familyMember);
+                        
+                        // Override AI defaults with user-verified schedules if available
+                        const savedMed = document?.id ? medications.find(m => 
+                          m.source_document_id === document.id && 
+                          m.name.toLowerCase() === parsedMed.name.toLowerCase()
+                        ) : null;
+
+                        if (savedMed) {
+                          parsedMed.time_of_day = savedMed.time_of_day;
+                          if (savedMed.frequency) parsedMed.frequency = savedMed.frequency;
+                          if (savedMed.interval_days !== undefined) parsedMed.interval_days = savedMed.interval_days;
+                          if (savedMed.start_date) parsedMed.start_date = savedMed.start_date;
+                          if (savedMed.duration_days !== undefined) parsedMed.duration_days = savedMed.duration_days;
+                          if (savedMed.dosage) parsedMed.dosage = savedMed.dosage;
+                          if (savedMed.food_relationship) parsedMed.food_relationship = savedMed.food_relationship;
+                          parsedMed.verified_by_user = true;
+                        }
+
                         return (
                           <MedicationRecordCard
                             key={index}

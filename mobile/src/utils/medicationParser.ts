@@ -761,7 +761,15 @@ export function parseAIMedication(
   const nameAsWritten = medicine.name_as_written || '';
 
   // Use code-aware time slot generation to capture 1-0-1 specific times
-  const timeSlots = generateTimeSlotsFromFrequencyCode(timingPattern || '', frequency, preferences);
+  let timeSlots = generateTimeSlotsFromFrequencyCode(timingPattern || '', frequency, preferences);
+
+  // NEW FIX: If timeSlots is empty but we have a explicit times_per_day, fallback to generating slots based on count
+  if (timeSlots.length === 0 && timingTimesPerDay && timingTimesPerDay > 0) {
+    if (timingTimesPerDay === 1) timeSlots = generateDefaultTimeSlots('once_daily', preferences);
+    else if (timingTimesPerDay === 2) timeSlots = generateDefaultTimeSlots('twice_daily', preferences);
+    else if (timingTimesPerDay === 3) timeSlots = generateDefaultTimeSlots('three_times_daily', preferences);
+    else if (timingTimesPerDay >= 4) timeSlots = generateDefaultTimeSlots('four_times_daily', preferences);
+  }
 
   const medConfidence = medicine.confidence;
   const isIdentified = medicine.is_identified;

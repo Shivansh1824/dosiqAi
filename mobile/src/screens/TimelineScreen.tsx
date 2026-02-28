@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SectionList, SafeAreaView, Dimensions, StatusBar, Modal, Pressable, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SectionList, Dimensions, StatusBar, Modal, Pressable, Alert, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { 

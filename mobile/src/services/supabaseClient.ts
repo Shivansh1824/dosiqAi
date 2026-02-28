@@ -11,9 +11,11 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-// Load environment variables from expo-constants
-const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl;
-const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey;
+// Load environment variables directly via process.env (Expo SDK 49+ recommended)
+// Fallback to expo-constants for backward compatibility
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || Constants.expoConfig?.extra?.supabaseUrl;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || Constants.expoConfig?.extra?.supabaseAnonKey;
+
 
 // Use placeholder values if not configured (for build/development)
 const EFFECTIVE_SUPABASE_URL = SUPABASE_URL || 'https://placeholder.supabase.co';

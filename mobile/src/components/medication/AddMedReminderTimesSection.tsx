@@ -736,10 +736,10 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     reminderTitle: {
-        fontSize: 16,
+        fontSize: 12,
         ...Typography.fontWeights.extrabold,
-        color: Colors.gray600,
-        letterSpacing: 1.2,
+        color: Colors.gray500,
+        letterSpacing: 1,
     },
     explanatoryText: {
         fontSize: 12,

@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Colors, Typography } from '../../constants';
 import NumberPickerModal from '../NumberPickerModal';
+import { InfoModal, InfoSection } from '../InfoModal';
 
 interface CoursePeriodSectionProps {
     startDate: string;
@@ -44,6 +45,7 @@ export function CoursePeriodSection({
     fixedFrequencyText,
 }: CoursePeriodSectionProps) {
     const [showIntervalPicker, setShowIntervalPicker] = useState(false);
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
 
     const getIntervalLabel = () => {
         if (!interval || interval === 1) return 'EVERYDAY';
@@ -56,6 +58,12 @@ export function CoursePeriodSection({
                 <View style={styles.headerLeft}>
                     <Feather name="calendar" size={16} color={Colors.primary} />
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
+                    <TouchableOpacity
+                        onPress={() => setInfoModalVisible(true)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Feather name="info" size={16} color={Colors.gray400} />
+                    </TouchableOpacity>
                 </View>
                 {(onIntervalChange || fixedFrequencyText) && (
                     <TouchableOpacity
@@ -133,6 +141,28 @@ export function CoursePeriodSection({
                 onCancel={() => setShowIntervalPicker(false)}
                 title="Select Frequency"
                 showSOS={true}
+            />
+
+            <InfoModal
+                visible={infoModalVisible}
+                title="About Course Period"
+                onClose={() => setInfoModalVisible(false)}
+                content={[
+                    {
+                        label: "WHAT DID AI DISCOVER?",
+                        icon: "cpu",
+                        text: (
+                            <Text style={{ fontSize: 16, lineHeight: 24, color: Colors.gray700, fontWeight: '500' }}>
+                                dosiq AI identified that you should take this medication from <Text style={{ color: Colors.primary, fontWeight: '700' }}>{formatDateDisplay(startDate)}</Text> to <Text style={{ color: Colors.primary, fontWeight: '700' }}>{hasEndDate ? formatDateDisplay(endDate) : 'Continuous'}</Text>.
+                            </Text>
+                        )
+                    },
+                    {
+                        label: "YOUR REVIEW",
+                        icon: "check-circle",
+                        text: "Review the course period to ensure it's correct. You can easily adjust the dates if needed."
+                    }
+                ]}
             />
         </View>
     );

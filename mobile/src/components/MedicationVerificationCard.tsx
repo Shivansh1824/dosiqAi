@@ -233,6 +233,15 @@ export default function MedicationVerificationCard({
     }
   }, [customReminderTimes, generateFoodRelationNotes]);
 
+  // NEW FIX: Broadcast state immediately and when custom times/dates change so parent has the generated reminder times
+  useEffect(() => {
+    onLiveUpdate?.({
+      current_reminder_times: customReminderTimes,
+      start_date: startDate,
+      end_date: endDate,
+    });
+  }, [customReminderTimes, startDate, endDate]);
+
   // Get interval display text
   const getIntervalText = (): string => {
     const intervalDays = medication.interval_days;

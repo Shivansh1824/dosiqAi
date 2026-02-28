@@ -4,10 +4,11 @@ import { Feather } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Colors, Sizes, Typography } from '../constants';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export interface InfoSection {
     label?: string;
-    text: string;
+    text: React.ReactNode | string;
     icon?: keyof typeof Feather.glyphMap;
 }
 
@@ -18,7 +19,7 @@ interface InfoModalProps {
     icon?: keyof typeof Feather.glyphMap;
     // Hybrid Props: Support both structured content and legacy children/body
     content?: InfoSection[];
-    body?: string;
+    body?: React.ReactNode | string;
     children?: React.ReactNode;
     hideIcon?: boolean;
 }
@@ -42,7 +43,7 @@ export const InfoModal: React.FC<InfoModalProps> = ({
         >
             <Pressable style={styles.overlay} onPress={onClose}>
                 {Platform.OS === 'ios' && (
-                    <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={40} style={StyleSheet.absoluteFill} tint="dark" />
                 )}
                 <Animated.View 
                     entering={FadeIn.duration(200).springify()} 
@@ -51,11 +52,6 @@ export const InfoModal: React.FC<InfoModalProps> = ({
                 >
                     <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
                         <View style={[styles.header, hideIcon && { marginBottom: 24 }]}>
-                            {!hideIcon && (
-                                <View style={styles.iconContainer}>
-                                    <Feather name={icon} size={20} color={Colors.primary} />
-                                </View>
-                            )}
                             <Text style={styles.title}>{title}</Text>
                         </View>
 
@@ -76,14 +72,25 @@ export const InfoModal: React.FC<InfoModalProps> = ({
                             ))}
                             
                             {/* Legacy Body */}
-                            {body && <Text style={styles.legacyBody}>{body}</Text>}
+                            {body && (
+                                typeof body === 'string' 
+                                    ? <Text style={styles.legacyBody}>{body}</Text>
+                                    : body
+                            )}
 
                             {/* Custom Children */}
                             {children}
                         </View>
 
-                        <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
-                            <Text style={styles.closeButtonText}>Got it</Text>
+                        <TouchableOpacity style={styles.closeButtonContainer} onPress={onClose} activeOpacity={0.8}>
+                            <LinearGradient
+                                colors={['#3B82F6', '#2563EB']} // Deep, rich blue
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.closeButton}
+                            >
+                                <Text style={styles.closeButtonText}>Got it</Text>
+                            </LinearGradient>
                         </TouchableOpacity>
                     </Pressable>
                 </Animated.View>
@@ -95,49 +102,51 @@ export const InfoModal: React.FC<InfoModalProps> = ({
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(0, 0, 0, 0.6)' : 'transparent',
         justifyContent: 'center',
         alignItems: 'center',
         padding: Sizes.xl,
     },
     modalContent: {
         width: '100%',
-        maxWidth: 340,
+        maxWidth: 320, // Slightly narrower for a more elegant proportion
     },
     card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.98)', // Just off-white for depth
+        borderRadius: 28, // Scaled back from 32 for tighter geometry
+        padding: 24, // Slightly reduced padding for a sharper, more precise feel
+        shadowColor: '#1a1a2e', // Deeper, cooler shadow
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
+        shadowRadius: 32,
         elevation: 10,
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.8)', // Glass edge reflection
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: 'row', // Horizontal alignment
+        alignItems: 'center', 
         marginBottom: 20,
     },
     iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: '#F0F9FF',
+        width: 32, // Further reduced acting as an inline icon
+        height: 32,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: 12, // Space between icon and text instead of below
+        backgroundColor: '#F0F9FF', // Clean solid blue matching native feel
     },
     title: {
-        fontSize: 22,
-        fontWeight: '700',
+        fontSize: 20, // Scaled down to match inline aesthetic
+        fontWeight: '800', 
         color: Colors.gray900,
-        letterSpacing: -0.3,
+        letterSpacing: -0.4, 
+        textAlign: 'left', // Align text naturally
+        flex: 1, // Take remaining space
     },
     contentContainer: {
-        marginBottom: 24,
+        marginBottom: 16, // Tightened from 28 to reduce awkward gap before button
     },
     section: {
         marginBottom: 24,
@@ -167,24 +176,29 @@ const styles = StyleSheet.create({
     legacyBody: {
         fontSize: 16,
         lineHeight: 24,
-        color: Colors.gray600,
+        color: Colors.gray700, // Dimmed slightly from black
         fontWeight: '500',
+        textAlign: 'left', // Left aligned
+        letterSpacing: 0.1,
+    },
+    closeButtonContainer: {
+        width: '100%',
+        shadowColor: '#3B82F6', // Colored shadow for premium feel
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 6,
     },
     closeButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        borderRadius: 16,
+        paddingVertical: 14,
+        borderRadius: 16, // Change to squircle (iOS standard) instead of full pill
         alignItems: 'center',
         width: '100%',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
     },
     closeButtonText: {
         color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 0.3,
     },
 });
