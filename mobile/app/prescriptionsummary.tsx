@@ -506,7 +506,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                           {/* Action Button - "Confirm & Add" when not added, "View in Tracker" when already added */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 4 }}>
+                            <View style={{ paddingBottom: 8, paddingTop: 4 }}>
                               <TouchableOpacity
                                 style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                                 onPress={async () => {
