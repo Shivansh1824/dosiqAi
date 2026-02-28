@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { Medication, MedicationsStore, medicationColors } from '../types/medication';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { ParsedMedication } from '../types/medicationVerification';
@@ -62,17 +62,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     }
 
     try {
-      if (!isSupabaseConfigured()) {
-        console.warn('[MedicationsStore] Supabase not configured');
-        set({ medications: [], isLoading: false });
-        return;
-      }
-
       console.log(`[MedicationsStore] Fetching schedules for user: ${userId} (silent: ${silent})`);
 
       const data = await withRetry(async () => {
-        const { data: result, error } = await supabase
-          .from('medication_schedules')
+        const { data: result, error } = await from('medication_schedules')
           .select(`
             *,
             source_document:source_document_id (
@@ -157,7 +150,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       if (!med.family_member_id) throw new Error('Family member ID is required');
 
       // Map UI fields to DB fields
@@ -183,8 +175,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       };
 
       const data = await withRetry(async () => {
-        const { data: result, error } = await supabase
-          .from('medication_schedules')
+        const { data: result, error } = await from('medication_schedules')
           .insert(newSchedule)
           .select()
           .single();
@@ -214,8 +205,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
-
       // Map updates to DB columns
       const dbUpdates: any = { ...updates, updated_at: new Date().toISOString() };
 
@@ -232,8 +221,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       // Ideally we update interval_days directly if changed.
 
       const data = await withRetry(async () => {
-        const { data: result, error } = await supabase
-          .from('medication_schedules')
+        const { data: result, error } = await from('medication_schedules')
           .update(dbUpdates)
           .eq('id', id)
           .select()
@@ -262,10 +250,8 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   deleteMedication: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       await withRetry(async () => {
-        const { error } = await supabase
-          .from('medication_schedules')
+        const { error } = await from('medication_schedules')
           .delete()
           .eq('id', id);
 
@@ -303,7 +289,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
       const medStartDate = parsedMed.start_date || startDate;
@@ -344,8 +329,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       };
 
       const data = await withRetry(async () => {
-        const { data: result, error } = await supabase
-          .from('medication_schedules')
+        const { data: result, error } = await from('medication_schedules')
           .insert(newSchedule)
           .select()
           .single();
@@ -386,7 +370,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
       if (!familyMemberId) throw new Error('Family member ID required for AI medication');
 
       const newSchedules = parsedMeds.map(parsedMed => {
@@ -429,8 +412,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       });
 
       await withRetry(async () => {
-        const { error } = await supabase
-          .from('medication_schedules')
+        const { error } = await from('medication_schedules')
           .insert(newSchedules);
 
         if (error) throw error;
@@ -485,10 +467,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
-
       // Mark old medication as inactive (soft delete by setting end date to yesterday)
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -501,8 +479,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       // Add new medication
       const data = await withRetry(async () => {
-        const { data: result, error } = await supabase
-          .from('medication_schedules')
+        const { data: result, error } = await from('medication_schedules')
           .insert(newMedicationData)
           .select()
           .single();

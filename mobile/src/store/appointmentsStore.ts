@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { Appointment, AppointmentsStore, getAppointmentColor } from '../types/appointment';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 
@@ -54,19 +54,12 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
     }
 
     try {
-      if (!isSupabaseConfigured()) {
-        console.warn('[AppointmentsStore] Supabase not configured');
-        set({ appointments: [], isLoading: false });
-        return;
-      }
-
       console.log(`[AppointmentsStore] Fetching appointments for user: ${userId} (silent: ${silent})`);
 
       // Fetch only upcoming and scheduled appointments
       const today = new Date().toISOString().split('T')[0];
 
-      const { data, error } = await supabase
-        .from('appointments')
+      const { data, error } = await from('appointments')
         .select('*')
         .eq('user_id', userId)
         .eq('status', 'scheduled')
@@ -107,17 +100,12 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
-
       const newApt = {
         ...apt,
         color: apt.color || getAppointmentColor(apt.appointment_type),
       };
 
-      const { data, error } = await supabase
-        .from('appointments')
+      const { data, error } = await from('appointments')
         .insert(newApt)
         .select()
         .single();
@@ -151,12 +139,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
-
-      const { data, error } = await supabase
-        .from('appointments')
+      const { data, error } = await from('appointments')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -187,12 +170,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-      }
-
-      const { error } = await supabase
-        .from('appointments')
+      const { error } = await from('appointments')
         .delete()
         .eq('id', id);
 

@@ -44,7 +44,7 @@ export type AuthStore = AuthState & AuthActions;
 
 // AsyncStorage keys
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: '@familycare_auth_token',
-  HAS_SEEN_ONBOARDING: '@familycare_has_seen_onboarding',
-  USER_DATA: '@familycare_user_data',
+  AUTH_TOKEN: '@dosiqai_auth_token',
+  HAS_SEEN_ONBOARDING: '@dosiqai_has_seen_onboarding',
+  USER_DATA: '@dosiqai_user_data',
 } as const;

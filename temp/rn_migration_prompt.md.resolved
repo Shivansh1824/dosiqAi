@@ -1,0 +1,740 @@
+# DosiqAI React Native — Supabase → Self-Hosted VPS Migration
+
+## Overview
+
+We are replacing the Supabase backend with a self-hosted VPS API. The new API is a drop-in replacement — same URL path patterns, same JSON shapes.
+
+**New API base URL**: `https://api.dosiqai.com`
+
+All tables (`documents`, `lab_reports`, `test_results`, `family_members`, `medication_schedules`, `medication_logs`, `appointments`, `chart_preferences`, `metric_annotations`, `health_vitals`, `upload_limits`) are already in the new Postgres database on the VPS.
+
+**Do not change any UI, navigation, or business logic.** Only change how data is fetched and how auth tokens are managed.
+
+---
+
+## Step 1 — Create `src/lib/apiClient.ts`
+
+Create this new file as the single replacement for `supabaseClient.ts`. It handles all HTTP calls, auto-refreshes tokens, and exposes helpers that match the Supabase calling convention.
+
+```ts
+// src/lib/apiClient.ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const BASE_URL = 'https://api.dosiqai.com';
+
+const KEYS = {
+  ACCESS_TOKEN: 'vps_access_token',
+  REFRESH_TOKEN: 'vps_refresh_token',
+  USER_DATA: 'vps_user_data',
+};
+
+// ─── Token helpers ────────────────────────────────────────────────────────────
+export async function getStoredTokens() {
+  const [access, refresh] = await Promise.all([
+    AsyncStorage.getItem(KEYS.ACCESS_TOKEN),
+    AsyncStorage.getItem(KEYS.REFRESH_TOKEN),
+  ]);
+  return { accessToken: access, refreshToken: refresh };
+}
+
+export async function saveTokens(accessToken: string, refreshToken: string) {
+  await AsyncStorage.multiSet([
+    [KEYS.ACCESS_TOKEN, accessToken],
+    [KEYS.REFRESH_TOKEN, refreshToken],
+  ]);
+}
+
+export async function clearTokens() {
+  await AsyncStorage.multiRemove([KEYS.ACCESS_TOKEN, KEYS.REFRESH_TOKEN, KEYS.USER_DATA]);
+}
+
+export async function saveUser(user: any) {
+  await AsyncStorage.setItem(KEYS.USER_DATA, JSON.stringify(user));
+}
+
+export async function getStoredUser() {
+  const raw = await AsyncStorage.getItem(KEYS.USER_DATA);
+  return raw ? JSON.parse(raw) : null;
+}
+
+// ─── Core fetch with auto-refresh ────────────────────────────────────────────
+async function _fetch(path: string, options: RequestInit = {}, retry = true): Promise<Response> {
+  const { accessToken, refreshToken } = await getStoredTokens();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+
+  // Auto-refresh on TOKEN_EXPIRED
+  if (res.status === 401 && retry && refreshToken) {
+    try {
+      const body = await res.clone().json();
+      if (body.code === 'TOKEN_EXPIRED') {
+        const refreshRes = await fetch(`${BASE_URL}/auth/v1/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (refreshRes.ok) {
+          const tokens = await refreshRes.json();
+          await saveTokens(tokens.access_token, tokens.refresh_token);
+          return _fetch(path, options, false);
+        }
+      }
+    } catch (_) {}
+    // Refresh failed — clear session
+    await clearTokens();
+    throw new Error('SESSION_EXPIRED');
+  }
+
+  return res;
+}
+
+// ─── Auth API ─────────────────────────────────────────────────────────────────
+export const auth = {
+  async signUp(email: string, password: string, name?: string) {
+    const res = await fetch(`${BASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, full_name: name }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { data: null, error: { message: data.error } };
+    await saveTokens(data.access_token, data.refresh_token);
+    await saveUser(data.user);
+    return { data: { user: data.user, session: { access_token: data.access_token, refresh_token: data.refresh_token } }, error: null };
+  },
+
+  async signInWithPassword(email: string, password: string) {
+    const res = await fetch(`${BASE_URL}/auth/v1/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { data: null, error: { message: data.error } };
+    await saveTokens(data.access_token, data.refresh_token);
+    await saveUser(data.user);
+    return { data: { user: data.user, session: { access_token: data.access_token, refresh_token: data.refresh_token } }, error: null };
+  },
+
+  async signOut() {
+    const { refreshToken } = await getStoredTokens();
+    try {
+      await _fetch('/auth/v1/logout', { method: 'POST', body: JSON.stringify({ refresh_token: refreshToken }) });
+    } catch (_) {}
+    await clearTokens();
+    return { error: null };
+  },
+
+  async getSession() {
+    const { accessToken, refreshToken } = await getStoredTokens();
+    if (!accessToken) return { data: { session: null }, error: null };
+    // Decode JWT to check expiry without a library
+    try {
+      const payload = JSON.parse(atob(accessToken.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) {
+        // Try refresh
+        if (!refreshToken) { await clearTokens(); return { data: { session: null }, error: null }; }
+        const res = await fetch(`${BASE_URL}/auth/v1/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (!res.ok) { await clearTokens(); return { data: { session: null }, error: null }; }
+        const tokens = await res.json();
+        await saveTokens(tokens.access_token, tokens.refresh_token);
+        const user = await getStoredUser();
+        return { data: { session: { access_token: tokens.access_token, refresh_token: tokens.refresh_token, user } }, error: null };
+      }
+      const user = await getStoredUser();
+      return { data: { session: { access_token: accessToken, refresh_token: refreshToken, user } }, error: null };
+    } catch (_) {
+      await clearTokens();
+      return { data: { session: null }, error: null };
+    }
+  },
+
+  async getUser() {
+    try {
+      const res = await _fetch('/auth/v1/me');
+      const data = await res.json();
+      if (!res.ok) return { data: { user: null }, error: { message: data.error } };
+      return { data: { user: data.user }, error: null };
+    } catch (_) {
+      return { data: { user: null }, error: { message: 'Failed to get user' } };
+    }
+  },
+
+  async sendOtp(identifier: string) {
+    const isEmail = identifier.includes('@');
+    const res = await fetch(`${BASE_URL}/auth/v1/send-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(isEmail ? { email: identifier } : { phone: identifier }),
+    });
+    const data = await res.json();
+    return res.ok ? { data, error: null } : { data: null, error: { message: data.error } };
+  },
+
+  async verifyOtp(identifier: string, token: string) {
+    const isEmail = identifier.includes('@');
+    const res = await fetch(`${BASE_URL}/auth/v1/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(isEmail ? { email: identifier, code: token } : { phone: identifier, code: token }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { data: null, error: { message: data.error } };
+    await saveTokens(data.access_token, data.refresh_token);
+    await saveUser(data.user);
+    return { data: { user: data.user, session: { access_token: data.access_token } }, error: null };
+  },
+
+  async updateUser(updates: { data?: { name?: string } }) {
+    const res = await _fetch('/auth/v1/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ full_name: updates?.data?.name }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { data: null, error: { message: data.error } };
+    await saveUser(data.user);
+    return { data: { user: data.user }, error: null };
+  },
+
+  // Google OAuth — returns a URL to open in the browser
+  getGoogleOAuthUrl() {
+    return `${BASE_URL}/auth/v1/google`;
+  },
+};
+
+// ─── Check user exists (used by authStore.checkUserExists) ───────────────────
+// The app uses a dummy signInWithPassword to detect if a user exists.
+// Replace with a dedicated endpoint check.
+export async function checkUserExists(email: string): Promise<boolean> {
+  const res = await fetch(`${BASE_URL}/auth/v1/check-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (res.ok) {
+    const data = await res.json();
+    return data.exists === true;
+  }
+  return false;
+}
+
+// ─── DB query builder (replaces supabase.from()) ─────────────────────────────
+// Returns { data, error } in exact Supabase shape.
+export function from(table: string) {
+  return new QueryBuilder(table);
+}
+
+class QueryBuilder {
+  private _table: string;
+  private _method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET';
+  private _body: any = null;
+  private _filters: string[] = [];
+  private _select: string = '*';
+  private _order: string[] = [];
+  private _limit: number | null = null;
+  private _single = false;
+  private _maybeSingle = false;
+  private _upsertConflict: string | null = null;
+
+  constructor(table: string) { this._table = table; }
+
+  select(columns = '*') { this._select = columns; return this; }
+  eq(col: string, val: any) { this._filters.push(`${col}=eq.${encodeURIComponent(val)}`); return this; }
+  neq(col: string, val: any) { this._filters.push(`${col}=neq.${encodeURIComponent(val)}`); return this; }
+  gt(col: string, val: any) { this._filters.push(`${col}=gt.${encodeURIComponent(val)}`); return this; }
+  gte(col: string, val: any) { this._filters.push(`${col}=gte.${encodeURIComponent(val)}`); return this; }
+  lt(col: string, val: any) { this._filters.push(`${col}=lt.${encodeURIComponent(val)}`); return this; }
+  lte(col: string, val: any) { this._filters.push(`${col}=lte.${encodeURIComponent(val)}`); return this; }
+  is(col: string, val: any) { this._filters.push(`${col}=is.${encodeURIComponent(val)}`); return this; }
+  not(col: string, op: string, val: any) { this._filters.push(`${col}=not.${op}.${encodeURIComponent(val)}`); return this; }
+  in(col: string, vals: any[]) { this._filters.push(`${col}=in.(${vals.map(encodeURIComponent).join(',')})`); return this; }
+  order(col: string, opts?: { ascending?: boolean }) {
+    this._order.push(`${col}:${opts?.ascending === false ? 'desc' : 'asc'}`);
+    return this;
+  }
+  limit(n: number) { this._limit = n; return this; }
+  single() { this._single = true; this._limit = 1; return this; }
+  maybeSingle() { this._maybeSingle = true; this._limit = 1; return this; }
+
+  insert(data: any) {
+    this._method = 'POST'; this._body = data; return this;
+  }
+  update(data: any) {
+    this._method = 'PATCH'; this._body = data; return this;
+  }
+  upsert(data: any, opts?: { onConflict?: string }) {
+    this._method = 'POST'; this._body = data; this._upsertConflict = opts?.onConflict || null;
+    return this;
+  }
+  delete() { this._method = 'DELETE'; return this; }
+
+  async then(resolve: (val: any) => any, reject?: (err: any) => any) {
+    return this._execute().then(resolve, reject);
+  }
+
+  private async _execute(): Promise<{ data: any; error: any }> {
+    try {
+      let path = `/api/${this._table}`;
+      const params = new URLSearchParams();
+
+      if (this._method === 'GET') {
+        if (this._select !== '*') params.set('select', this._select);
+        this._filters.forEach(f => { const [k, v] = f.split('='); params.append(k, v); });
+        if (this._order.length) params.set('order', this._order.join(','));
+        if (this._limit !== null) params.set('limit', String(this._limit));
+        const qs = params.toString();
+        if (qs) path += `?${qs}`;
+      } else if (this._method === 'PATCH' || this._method === 'DELETE') {
+        this._filters.forEach(f => { const [k, v] = f.split('='); params.append(k, v); });
+        const qs = params.toString();
+        if (qs) path += `?${qs}`;
+      } else if (this._upsertConflict) {
+        params.set('upsert', 'true');
+        params.set('on_conflict', this._upsertConflict);
+        const qs = params.toString();
+        if (qs) path += `?${qs}`;
+      }
+
+      const res = await _fetch(path, {
+        method: this._method,
+        ...(this._body ? { body: JSON.stringify(this._body) } : {}),
+      });
+
+      if (res.status === 204) return { data: null, error: null };
+
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: { message: json.error || 'Request failed', code: json.code } };
+
+      let data = json.data ?? json;
+      if (this._single && Array.isArray(data)) data = data[0] ?? null;
+      if (this._maybeSingle && Array.isArray(data)) data = data[0] ?? null;
+
+      return { data, error: null };
+    } catch (err: any) {
+      return { data: null, error: { message: err.message } };
+    }
+  }
+}
+
+// ─── Edge Functions (replaces supabase.functions.invoke) ─────────────────────
+export const functions = {
+  async invoke(name: string, options?: { body?: any; headers?: Record<string, string> }) {
+    try {
+      const res = await _fetch(`/functions/v1/${name}`, {
+        method: 'POST',
+        body: JSON.stringify(options?.body),
+        headers: options?.headers,
+      });
+      const data = await res.json();
+      if (!res.ok) return { data: null, error: { message: data.error || 'Function call failed' } };
+      return { data, error: null };
+    } catch (err: any) {
+      return { data: null, error: { message: err.message } };
+    }
+  },
+};
+
+// ─── RPC calls (replaces supabase.rpc()) ──────────────────────────────────────
+export const rpc = {
+  async call(fnName: string, params: Record<string, any> = {}) {
+    try {
+      const res = await _fetch(`/rpc/${fnName}`, {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      const data = await res.json();
+      if (!res.ok) return { data: null, error: { message: data.error } };
+      return { data: data.result ?? data, error: null };
+    } catch (err: any) {
+      return { data: null, error: { message: err.message } };
+    }
+  },
+};
+
+// ─── Convenience export matching supabase shape ───────────────────────────────
+export const api = { auth, from, functions, rpc };
+export default api;
+```
+
+---
+
+## Step 2 — Replace `src/services/supabaseClient.ts`
+
+Replace the entire file contents with:
+
+```ts
+// src/services/supabaseClient.ts
+// ⚠️ Supabase replaced with self-hosted VPS API.
+// This file re-exports the new API client in the same shape
+// so all existing imports continue to work without changes.
+export { auth, from, functions, rpc, getStoredTokens, saveTokens, clearTokens, saveUser, getStoredUser } from '../lib/apiClient';
+
+// Legacy compat: files that import `supabase` directly
+import api from '../lib/apiClient';
+export const supabase = {
+  auth: api.auth,
+  from: api.from,
+  functions: api.functions,
+  rpc: { call: api.rpc.call },
+} as const;
+```
+
+> **Why**: Several stores do `import { supabase } from '../services/supabaseClient'`. By re-exporting `supabase` with the same surface, those files require zero changes except for the specific calls listed below.
+
+---
+
+## Step 3 — Update `src/store/authStore.ts`
+
+Make the following targeted changes. Do **not** rewrite the whole file — only modify these specific calls:
+
+### 3a. `initialize()` — replace `supabase.auth.getSession()`
+```ts
+// BEFORE (line ~54):
+const { data: { session } } = await supabase.auth.getSession();
+
+// AFTER:
+const { data: { session } } = await auth.getSession();
+// session.user is now at session.user (same shape)
+// session.access_token is the JWT (same key name)
+```
+
+### 3b. `login()` — replace `supabase.auth.signInWithPassword()`
+```ts
+// BEFORE (line ~231):
+const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+// AFTER:
+const { data, error } = await auth.signInWithPassword(email, password);
+// data.user and data.session shape is identical
+```
+
+### 3c. `logout()` — replace `supabase.auth.signOut()`
+```ts
+// BEFORE (line ~290):
+await supabase.auth.signOut();
+
+// AFTER:
+await auth.signOut();
+// also clears AsyncStorage tokens automatically
+```
+
+### 3d. `loginWithGoogle()` — replace `supabase.auth.signInWithOAuth()`
+```ts
+// BEFORE (line ~327):
+await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'familyhealth://auth/callback' } });
+
+// AFTER:
+const googleUrl = auth.getGoogleOAuthUrl();
+await Linking.openURL(googleUrl);
+// The VPS will redirect to: dosiqai://auth?access_token=...&refresh_token=...&user=...
+// Handle this in App.tsx deep link handler (see Step 7)
+```
+
+### 3e. `loginWithApple()` — Apple OAuth not yet supported on VPS
+```ts
+// Apple OAuth requires Apple Developer integration on the server.
+// For now, show a "Coming Soon" message or remove the Apple login button.
+// REPLACE the loginWithApple action body with:
+set({ error: 'Apple Sign-In coming soon. Please use email or Google.' });
+```
+
+### 3f. `sendPhoneOTP()` — replace `supabase.auth.signInWithOtp()`
+```ts
+// BEFORE (line ~398):
+const { error } = await supabase.auth.signInWithOtp({ phone: phoneNumber });
+
+// AFTER:
+const { data, error } = await auth.sendOtp(phoneNumber);
+```
+
+### 3g. `verifyPhoneOTP()` — replace `supabase.auth.verifyOtp()`
+```ts
+// BEFORE (line ~462):
+const { data, error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+
+// AFTER:
+const { data, error } = await auth.verifyOtp(phone, otp);
+```
+
+### 3h. `checkUserExists()` — replace dummy signInWithPassword
+```ts
+// BEFORE (line ~534):
+const { error } = await supabase.auth.signInWithPassword({ email, password: 'dummy-check-...' });
+// Then checks if error.message includes "Invalid login" vs "Email not confirmed"
+
+// AFTER:
+import { checkUserExists } from '../lib/apiClient';
+const exists = await checkUserExists(email);
+// exists === true → user has an account
+// exists === false → new user
+```
+
+### 3i. `signup()` — replace `supabase.auth.signUp()`
+```ts
+// BEFORE (line ~625):
+const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+
+// AFTER:
+const { data, error } = await auth.signUp(email, password, name);
+```
+
+### 3j. `signupWithPhone()` — replace OTP verify + updateUser
+```ts
+// BEFORE (line ~688, 701):
+const { data, error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+await supabase.auth.updateUser({ data: { name } });
+
+// AFTER:
+const { data, error } = await auth.verifyOtp(phone, otp);
+if (data && name) await auth.updateUser({ data: { name } });
+```
+
+---
+
+## Step 4 — Update stores that do `supabase.from('table')`
+
+Because `supabaseClient.ts` now exports a `supabase` shim with `from()`, most calls **automatically work**. However, these specific patterns need adjustment:
+
+### 4a. Joined queries (`select('*, lab_reports(report_date)')`)
+The new `/api/documents` endpoint supports `?select=` with dot notation for joins. No code change needed IF the API returns the same shape. If it doesn't, flatten the select:
+```ts
+// If join select breaks, split into two calls:
+const { data: docs } = await from('documents').eq('user_id', uid).order('ai_analyzed_at', { ascending: false });
+// then fetch lab_reports separately if needed
+```
+
+### 4b. `upsert` with `onConflict` (`medication_logs`)
+```ts
+// BEFORE (medicationLogsStore.ts ~123):
+await supabase.from('medication_logs').upsert({ ...log }, { onConflict: 'medication_id,scheduled_date,scheduled_time' });
+
+// AFTER (no change needed — QueryBuilder handles this):
+await from('medication_logs').upsert({ ...log }, { onConflict: 'medication_id,scheduled_date,scheduled_time' });
+```
+
+### 4c. `maybeSingle()` (chart_preferences)
+```ts
+// No change — QueryBuilder supports .maybeSingle()
+```
+
+---
+
+## Step 5 — Update `src/services/documentAnalysisService.ts`
+
+### 5a. Replace `supabase.auth.getSession()` (line ~156)
+```ts
+// BEFORE:
+const { data: { session } } = await supabase.auth.getSession();
+const token = session?.access_token;
+
+// AFTER:
+import { getStoredTokens } from '../lib/apiClient';
+const { accessToken: token } = await getStoredTokens();
+```
+
+### 5b. Replace `supabase.functions.invoke('document-manager')` (line ~178)
+```ts
+// BEFORE:
+const { data, error } = await supabase.functions.invoke('document-manager', { body: { ... } });
+
+// AFTER:
+const { data, error } = await functions.invoke('document-manager', { body: { ... } });
+// Response shape is identical: { success, documentId, analysis, tokensUsed, duration, error, code }
+```
+
+### 5c. Replace RPC calls (lines ~229, ~266, ~291)
+```ts
+// BEFORE:
+const { data } = await supabase.rpc('check_upload_limit', { p_user_id: userId, p_max_uploads: 5 });
+const { data } = await supabase.rpc('increment_upload_count', { p_user_id: userId });
+const { data } = await supabase.rpc('get_upload_count', { p_user_id: userId });
+
+// AFTER:
+const { data } = await rpc.call('check_upload_limit', { p_user_id: userId, p_max_uploads: 5 });
+const { data } = await rpc.call('increment_upload_count', { p_user_id: userId });
+const { data } = await rpc.call('get_upload_count', { p_user_id: userId });
+```
+
+---
+
+## Step 6 — Update `src/services/labAnalyticsService.ts`
+
+### Replace RPC call (line ~144)
+```ts
+// BEFORE:
+await supabase.rpc('calculate_test_result_trend', { p_test_result_id: id });
+
+// AFTER:
+await rpc.call('calculate_test_result_trend', { p_test_result_id: id });
+```
+
+---
+
+## Step 7 — Update `App.tsx` deep link / OAuth callback (line ~168)
+
+### Replace `supabase.auth.getSession()` after OAuth redirect
+```ts
+// BEFORE:
+// Deep link handler calls supabase.auth.getSession() to pick up OAuth tokens
+
+// AFTER:
+// Parse the deep link URL manually (VPS sends tokens in the URL):
+// dosiqai://auth?access_token=<JWT>&refresh_token=<token>&user=<encoded JSON>
+
+import { saveTokens, saveUser } from './src/lib/apiClient';
+
+// Inside your Linking event handler:
+const url = new URL(event.url);
+const accessToken = url.searchParams.get('access_token');
+const refreshToken = url.searchParams.get('refresh_token');
+const userParam = url.searchParams.get('user');
+
+if (accessToken && refreshToken) {
+  await saveTokens(accessToken, refreshToken);
+  if (userParam) await saveUser(JSON.parse(decodeURIComponent(userParam)));
+  // Then trigger authStore.initialize() or set isAuthenticated = true
+}
+```
+
+---
+
+## Step 8 — Update `src/screens/PreferenceOnboardingScreen.tsx`
+
+### Replace `supabase.auth.getUser()` (lines ~78 and ~167)
+```ts
+// BEFORE:
+const { data: { user } } = await supabase.auth.getUser();
+
+// AFTER:
+const { data: { user } } = await auth.getUser();
+// user.id is the UUID — same field name
+```
+
+---
+
+## Step 9 — Update `src/screens/HomeScreen.tsx` (line ~247)
+
+### Replace `supabase.auth.getSession()` in `uploadFile()`
+```ts
+// BEFORE:
+const { data: { session } } = await supabase.auth.getSession();
+
+// AFTER:
+const { data: { session } } = await auth.getSession();
+```
+
+---
+
+## Step 10 — Update `src/screens/PrescriptionSummaryScreen.tsx` (line ~509)
+
+### Replace `supabase.auth.getUser()`
+```ts
+// BEFORE:
+const { data: { user } } = await supabase.auth.getUser();
+
+// AFTER:
+const { data: { user } } = await auth.getUser();
+```
+
+---
+
+## Step 11 — Update `src/store/familyMembersStore.ts` (line ~218)
+
+### Replace `supabase.auth.getSession()`
+```ts
+// BEFORE:
+const { data: { session } } = await supabase.auth.getSession();
+
+// AFTER:
+const { data: { session } } = await auth.getSession();
+```
+
+---
+
+## Step 12 — Update `src/store/labReportsStore.ts` (line ~435)
+
+### Replace `supabase.auth.getUser()`
+```ts
+// BEFORE:
+const { data: { user } } = await supabase.auth.getUser();
+
+// AFTER:
+const { data: { user } } = await auth.getUser();
+```
+
+---
+
+## Step 13 — Update [.env](file:///home/ubuntu/api-dosiqai/.env) and `app.config.js`
+
+### In [.env](file:///home/ubuntu/api-dosiqai/.env):
+```bash
+# Remove:
+EXPO_PUBLIC_SUPABASE_URL=https://fliepnlohnlifsvvfoau.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Add:
+EXPO_PUBLIC_API_BASE_URL=https://api.dosiqai.com
+```
+
+### In `app.config.js` extra section:
+```js
+// Remove:
+supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+
+// Add:
+apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
+```
+
+---
+
+## Step 14 — Remove Supabase package
+
+```bash
+npm uninstall @supabase/supabase-js react-native-url-polyfill
+```
+
+Remove the import from `supabaseClient.ts`:
+```ts
+// Remove this line:
+import 'react-native-url-polyfill/auto';
+```
+
+---
+
+## What Does NOT Need to Change
+
+| Feature | Status |
+|---|---|
+| R2 Storage (`storageService.ts`) | ✅ Unchanged — R2 credentials and bucket are the same |
+| UI components | ✅ Unchanged |
+| Zustand store structure | ✅ Unchanged |
+| Navigation (React Navigation) | ✅ Unchanged |
+| AsyncStorage persistence | ✅ Unchanged — just different keys |
+| Realtime subscriptions | ✅ N/A — none were used |
+| Supabase Storage | ✅ N/A — app uses R2, not Supabase Storage |
+
+---
+
+## Important: Existing Users
+
+All users from Supabase have been migrated to the VPS with their original UUIDs and bcrypt password hashes. **Existing users can log in with their original emails and passwords without any change.**
+
+---
+
+## Token Storage Keys
+
+The new client uses these AsyncStorage keys (different from Supabase's internal keys — this clears any stale Supabase sessions automatically):
+- `vps_access_token` — JWT access token
+- `vps_refresh_token` — Refresh token
+- `vps_user_data` — Cached user object JSON

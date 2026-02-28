@@ -5,15 +5,15 @@ import { useAuthStore } from '../store/authStore';
 
 /**
  * Local file storage utility for offline-first document management
- * Files are stored in: {DocumentDirectory}/FamilyCareHealth/documents/
+ * Files are stored in: {DocumentDirectory}/dosiqAi/documents/
  * All files use UUID-based filenames for uniqueness and consistency
  */
 
-const APP_FOLDER_NAME = 'FamilyCareHealth';
+const APP_FOLDER_NAME = 'dosiqAi';
 const DOCUMENTS_FOLDER_NAME = 'documents';
 
 /**
- * Get the base FamilyCareHealth directory path
+ * Get the base dosiqAi directory path
  */
 export const getAppDirectory = async (): Promise<string> => {
     // Use Paths.document for the document directory in new API
@@ -34,7 +34,7 @@ export const getAppDirectory = async (): Promise<string> => {
 };
 
 /**
- * Get the flat documents directory path (FamilyCareHealth/documents/)
+ * Get the flat documents directory path (dosiqAi/documents/)
  * This is the new storage location for all documents using UUID filenames
  */
 export const getDocumentsDirectory = async (): Promise<string> => {
@@ -225,8 +225,8 @@ export const getFileSize = async (localPath: string): Promise<number> => {
 /**
  * Convert absolute file URI to relative path (from Documents directory)
  * This ensures paths remain valid across app rebuilds when container IDs change
- * @param absoluteUri - Absolute file URI (e.g., file:///path/to/Documents/FamilyCareHealth/...)
- * @returns Relative path from Documents directory (e.g., FamilyCareHealth/...)
+ * @param absoluteUri - Absolute file URI (e.g., file:///path/to/Documents/dosiqAi/...)
+ * @returns Relative path from Documents directory (e.g., dosiqAi/...)
  */
 export const getRelativePath = (absoluteUri: string): string => {
     if (!Paths.document) {
@@ -246,8 +246,8 @@ export const getRelativePath = (absoluteUri: string): string => {
 /**
  * Convert relative path to absolute file URI
  * This reconstructs the full path at runtime using the current container location
- * @param relativePath - Relative path from Documents directory (e.g., FamilyCareHealth/...)
- * @returns Absolute file URI (e.g., file:///current/path/to/Documents/FamilyCareHealth/...)
+ * @param relativePath - Relative path from Documents directory (e.g., dosiqAi/...)
+ * @returns Absolute file URI (e.g., file:///current/path/to/Documents/dosiqAi/...)
  */
 export const getAbsolutePath = (relativePath: string): string => {
     if (!Paths.document) {

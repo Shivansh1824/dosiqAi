@@ -7,7 +7,7 @@ import Animated, { FadeInDown, FadeInUp, FadeIn, FadeOut, useSharedValue, useAni
 import { Colors, Sizes, Typography } from '../constants';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { supabase } from '../services/supabaseClient';
+import { auth, from } from '../services/supabaseClient';
 import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
@@ -75,11 +75,10 @@ export default function PreferenceOnboardingScreen() {
     const fetchPreferences = async () => {
         try {
             setIsLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await auth.getUser();
             if (!user) return;
 
-            const { data, error } = await supabase
-                .from('family_members')
+            const { data, error } = await from('family_members')
                 .select('*')
                 .eq('user_id', user.id)
                 .eq('relationship', 'Self')
@@ -164,7 +163,7 @@ export default function PreferenceOnboardingScreen() {
     const performSave = async (silent = true) => {
         try {
             setSaveStatus('saving');
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await auth.getUser();
             if (!user) return;
 
             const formatTimeToDB = (date: Date) => {
@@ -200,8 +199,7 @@ export default function PreferenceOnboardingScreen() {
                 updated_at: new Date().toISOString(),
             };
 
-            const { data: memberData, error: memberError } = await supabase
-                .from('family_members')
+            const { data: memberData, error: memberError } = await from('family_members')
                 .select('id')
                 .eq('user_id', user.id)
                 .eq('relationship', 'Self')
@@ -209,8 +207,7 @@ export default function PreferenceOnboardingScreen() {
 
             if (memberError || !memberData) throw new Error('Could not find primary family profile');
 
-            const { error } = await supabase
-                .from('family_members')
+            const { error } = await from('family_members')
                 .update(preferences)
                 .eq('id', memberData.id);
 

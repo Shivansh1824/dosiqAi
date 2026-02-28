@@ -191,7 +191,7 @@ export function useDocumentManager({ document, onDeleteSuccess }: UseDocumentMan
       const asset = await MediaLibrary.createAssetAsync(imageUri);
 
       // Create an album for better organization
-      const albumName = 'FamilyCareHealth';
+      const albumName = 'dosiqAi';
       const album = await MediaLibrary.getAlbumAsync(albumName);
 
       if (album) {

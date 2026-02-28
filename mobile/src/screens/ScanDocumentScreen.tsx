@@ -6,7 +6,7 @@ import { Colors, Sizes, Typography } from '../constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 import { useFamilyMembersStore } from '../store/familyMembersStore';
@@ -163,19 +163,19 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       const isNativePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
 
       if (isNativePdf) {
-         // Single native PDF
-         const { uri, name } = selectedFiles[0];
-         await uploadFile(uri, 'document', name);
+        // Single native PDF
+        const { uri, name } = selectedFiles[0];
+        await uploadFile(uri, 'document', name);
       } else {
-         // Multiple images (or single image) -> Convert to PDF natively
-         setIsCompressing(true);
-         const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
-         
-         const { createPdfFromImages } = await import('../utils/pdfGenerator');
-         const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
-         setIsCompressing(false);
+        // Multiple images (or single image) -> Convert to PDF natively
+        setIsCompressing(true);
+        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
 
-         await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
+        const { createPdfFromImages } = await import('../utils/pdfGenerator');
+        const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
+        setIsCompressing(false);
+
+        await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
@@ -194,10 +194,6 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       return;
     }
 
-    if (!isSupabaseConfigured()) {
-      Alert.alert('Error', 'Database service not configured.');
-      return;
-    }
 
     // DEFENSIVE CHECK: If no active member, auto-create the primary "Self" member
     // This ensures the main user can ALWAYS upload their documents
@@ -271,51 +267,38 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       console.log('[ScanDocument] Setting up R2 upload promise handler...');
       console.log('[ScanDocument] Document ID for cloud key update:', actualDocumentId);
 
-      startR2Upload()
-        .then(async (cloudFileKey: string | null) => {
-          console.log('[ScanDocument] R2 upload promise resolved with key:', cloudFileKey);
+      // Start R2 upload and WAIT for it (Crucial for large files like PDFs)
+      console.log('[ScanDocument] Starting R2 upload...');
+      try {
+        const cloudFileKey = await startR2Upload();
+        console.log('[ScanDocument] R2 upload completed with key:', cloudFileKey);
 
-          if (cloudFileKey && actualDocumentId) {
-            // Use DocumentsStore function which has the correct Supabase context
-            const { updateCloudFileKey } = useDocumentsStore.getState();
-            const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
-
-            if (success) {
-              console.log('[ScanDocument] ✅ Cloud file key saved via store!');
-            } else {
-              console.error('[ScanDocument] ❌ Failed to save cloud file key via store');
-            }
-          } else {
-            console.warn('[ScanDocument] Skipping cloud key update - cloudFileKey:', cloudFileKey, 'documentId:', actualDocumentId);
+        if (cloudFileKey && actualDocumentId) {
+          const { updateCloudFileKey } = useDocumentsStore.getState();
+          const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
+          if (success) {
+            console.log('[ScanDocument] ✅ Cloud file key saved via store!');
+            // Update local store to ensure triggerAnalysis sees the cloudFileKey
+            await fetchDocuments(user.id, true);
           }
-        })
-        .catch((error: any) => {
-          console.error('[ScanDocument] R2 upload promise rejected:', error);
-        });
+        }
+      } catch (error) {
+        console.error('[ScanDocument] R2 upload failed:', error);
+      }
 
-
-      // Increment upload count
-
+      // Increment upload count and refresh limits
       await incrementUploadCount(user.id);
-
-      // Refresh upload limit
       await refreshUploadLimit(user.id);
-
-      // Refresh documents list
       await fetchDocuments(user.id);
 
-      // Get absolute path for analysis
+      // Trigger analysis in background
       const analysisPath = absolutePath || getAbsolutePath(relativePath);
-
-      // Trigger analysis in background (non-blocking) with correct document ID
-      console.log('[ScanDocument] Triggering analysis for document:', actualDocumentId, 'isReport:', isReport);
-      console.log('[ScanDocument] Analysis path:', analysisPath);
+      console.log('[ScanDocument] Triggering analysis for:', actualDocumentId);
 
       triggerAnalysis(actualDocumentId, analysisPath, undefined, isReport).catch((error) => {
         console.error('[ScanDocument] Background analysis failed:', error);
       });
 
-      // Navigate back
       onBack();
     } catch (error) {
       console.error('Upload error:', error);
@@ -488,12 +471,12 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         onTakePhoto={takePhoto}
         onPickDocument={pickDocument}
         onRemovePage={(index) => {
-           setSelectedFiles(prev => {
-              const updated = [...prev];
-              updated.splice(index, 1);
-              if (updated.length === 0) setPreviewModalVisible(false);
-              return updated;
-           });
+          setSelectedFiles(prev => {
+            const updated = [...prev];
+            updated.splice(index, 1);
+            if (updated.length === 0) setPreviewModalVisible(false);
+            return updated;
+          });
         }}
         isUploading={isUploading || isCompressing}
       />

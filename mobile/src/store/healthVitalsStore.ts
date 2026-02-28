@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../services/supabaseClient';
+import { from } from '../services/supabaseClient';
 import { HealthMetric } from '../types/healthMetrics';
 import { saveToCache, loadFromCache } from '../services/cacheService';
 
@@ -44,8 +44,7 @@ export const useHealthVitalsStore = create<HealthVitalsStore>((set, get) => ({
         }
 
         try {
-            const { data, error } = await supabase
-                .from('health_vitals')
+            const { data, error } = await from('health_vitals')
                 .select('*')
                 .eq('user_id', userId)
                 .order('measured_at', { ascending: false });
@@ -81,8 +80,7 @@ export const useHealthVitalsStore = create<HealthVitalsStore>((set, get) => ({
         set({ isLoading: true, error: null });
 
         try {
-            const { data, error } = await supabase
-                .from('health_vitals')
+            const { data, error } = await from('health_vitals')
                 .insert([
                     {
                         user_id: userId, // This should be passed from the component
@@ -131,8 +129,7 @@ export const useHealthVitalsStore = create<HealthVitalsStore>((set, get) => ({
         set({ isLoading: true, error: null });
 
         try {
-            const { error } = await supabase
-                .from('health_vitals')
+            const { error } = await from('health_vitals')
                 .update({
                     label: updates.label,
                     value: updates.value,
@@ -164,8 +161,7 @@ export const useHealthVitalsStore = create<HealthVitalsStore>((set, get) => ({
         set({ isLoading: true, error: null });
 
         try {
-            const { error } = await supabase
-                .from('health_vitals')
+            const { error } = await from('health_vitals')
                 .delete()
                 .eq('id', id);
 
@@ -202,8 +198,7 @@ export const useHealthVitalsStore = create<HealthVitalsStore>((set, get) => ({
                 measured_at: vital.date || new Date().toISOString(),
             }));
 
-            const { data, error } = await supabase
-                .from('health_vitals')
+            const { data, error } = await from('health_vitals')
                 .insert(records)
                 .select();
 

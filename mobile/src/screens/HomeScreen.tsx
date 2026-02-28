@@ -12,7 +12,7 @@ import { useFamilyMembersStore } from '../store/familyMembersStore';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { auth, from } from '../services/supabaseClient';
 import { DocumentType } from '../types/document';
 import { compressImage } from '../utils/imageCompression';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
@@ -232,11 +232,6 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       return;
     }
 
-    if (!isSupabaseConfigured()) {
-      Alert.alert('Error', 'Database service not configured.');
-      return;
-    }
-
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[HomeScreen] 📁 UPLOAD FILE CALLED');
     console.log(`[HomeScreen] File type: ${type}`);
@@ -244,7 +239,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await auth.getSession();
       if (sessionError || !session) {
         Alert.alert('Session Expired', 'Your login session has expired. Please log out and log in again.');
         return;
@@ -428,19 +423,19 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       const isNativePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
 
       if (isNativePdf) {
-         // Single native PDF
-         const { uri, name } = selectedFiles[0];
-         await uploadFile(uri, 'document', name);
+        // Single native PDF
+        const { uri, name } = selectedFiles[0];
+        await uploadFile(uri, 'document', name);
       } else {
-         // Multiple images (or single image) -> Convert to PDF natively
-         setIsCompressing(true);
-         const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
-         
-         const { createPdfFromImages } = await import('../utils/pdfGenerator');
-         const pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
-         setIsCompressing(false);
+        // Multiple images (or single image) -> Convert to PDF natively
+        setIsCompressing(true);
+        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
 
-         await uploadFile(pdfUri, 'document', 'uploaded_document.pdf');
+        const { createPdfFromImages } = await import('../utils/pdfGenerator');
+        const pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        setIsCompressing(false);
+
+        await uploadFile(pdfUri, 'document', 'uploaded_document.pdf');
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
@@ -714,8 +709,8 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
                 style={[styles.developerCard, { marginRight: 12, width: 160 }]}
                 onPress={() => {
                   // Find the first prescription document
-                  const firstPrescription = documents.find(d => 
-                    d.type === 'Prescription' || 
+                  const firstPrescription = documents.find(d =>
+                    d.type === 'Prescription' ||
                     d.ai_analysis_result?.document_type?.toLowerCase() === 'prescription'
                   );
                   const documentId = firstPrescription?.id || '44415772-4442-48b2-b664-7ef9a1d077ea';
@@ -811,12 +806,12 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         onTakePhoto={takePhoto}
         onPickDocument={pickDocument}
         onRemovePage={(index) => {
-           setSelectedFiles(prev => {
-              const updated = [...prev];
-              updated.splice(index, 1);
-              if (updated.length === 0) setPreviewModalVisible(false);
-              return updated;
-           });
+          setSelectedFiles(prev => {
+            const updated = [...prev];
+            updated.splice(index, 1);
+            if (updated.length === 0) setPreviewModalVisible(false);
+            return updated;
+          });
         }}
         isUploading={isUploading || isCompressing}
       />

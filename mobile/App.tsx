@@ -29,7 +29,7 @@ SplashScreen.preventAutoHideAsync();
 console.log('[DEBUG] [App.tsx] React and RN components imported');
 console.log('[DEBUG] [App.tsx] About to import supabaseClient...');
 
-import { supabase } from './src/services/supabaseClient';
+import { auth, saveTokens, saveUser } from './src/services/supabaseClient';
 
 console.log('[DEBUG] [App.tsx] supabaseClient imported successfully');
 
@@ -127,7 +127,7 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
-  
+
   console.log('[DEBUG] [App] State initialized - showProfileModal:', showProfileModal, 'isNavigationReady:', isNavigationReady);
 
   const [fontsLoaded] = useFonts({
@@ -162,22 +162,40 @@ export default function App() {
 
   // Handle deep links for OAuth
   useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
+    const handleDeepLink = async (event: { url: string }) => {
       console.log('[App] Deep link received:', event.url);
-      // Force session refresh when returning from OAuth
-      supabase.auth.getSession().then(({ data, error }) => {
-        if (data.session) {
-          console.log('[App] Session refreshed from deep link');
-          useAuthStore.getState().setAuthenticated(true);
-          useAuthStore.getState().setUser({
-            id: data.session.user.id,
-            email: data.session.user.email || '',
-            name: data.session.user.user_metadata?.name || data.session.user.email?.split('@')[0] || 'User',
-            createdAt: data.session.user.created_at,
+      try {
+        const parsedUrl = Linking.parse(event.url);
+
+        // Manual parsing for OAuth callback from VPS
+        if (parsedUrl.queryParams?.access_token && parsedUrl.queryParams?.refresh_token) {
+          const { access_token, refresh_token, user: userStr } = parsedUrl.queryParams;
+          await saveTokens(access_token as string, refresh_token as string);
+
+          if (userStr) {
+            try {
+              const user = JSON.parse(decodeURIComponent(userStr as string));
+              await saveUser(user);
+            } catch (e) {
+              console.error('[App] Failed to parse user from deep link:', e);
+            }
+          }
+
+          console.log('[App] Tokens saved from deep link. Initializing auth store...');
+          await useAuthStore.getState().initialize();
+        } else {
+          // Fallback or other deep links
+          auth.getSession().then(({ data, error }) => {
+            if (data?.session) {
+              console.log('[App] Session refreshed from deep link');
+              useAuthStore.getState().initialize();
+            }
+            if (error) console.error('[App] Deep link session error:', error);
           });
         }
-        if (error) console.error('[App] Deep link session error:', error);
-      });
+      } catch (err) {
+        console.error('[App] Deep link error:', err);
+      }
     };
 
     const subscription = Linking.addEventListener('url', handleDeepLink);
@@ -227,7 +245,7 @@ export default function App() {
         notifeeSub();
       };
     },
-    
+
     config: {
       screens: {
         Login: 'auth/callback',
@@ -252,16 +270,16 @@ export default function App() {
     initializeNotifications().then((success) => {
       console.log('[DEBUG] [App] Notification initialization:', success ? 'success' : 'failed');
     });
-    
+
     // Set up foreground event handler (for logging and side effects)
     const unsubscribe = setupForegroundEventHandler();
     console.log('[DEBUG] [App] Foreground notification handler set up');
-    
+
     // Register log medication callback for notification service
     setLogMedicationCallback(async (entry) => {
       console.log('[App] 💊 Log medication callback received:', entry);
       const userId = useAuthStore.getState().user?.id;
-      
+
       if (!userId) {
         console.warn('[App] Cannot log medication: User not logged in');
         return;
@@ -272,25 +290,25 @@ export default function App() {
         // notifications send ISO string for scheduled_time
         const dateObj = new Date(entry.scheduled_time);
         const dateStr = toLocalDateString(dateObj);
-        const timeStr = dateObj.toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          hour12: false 
+        const timeStr = dateObj.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
         });
 
         if (entry.status === 'taken') {
           await useMedicationLogsStore.getState().markAsTaken(
-            userId, 
-            entry.medication_id, 
-            dateStr, 
+            userId,
+            entry.medication_id,
+            dateStr,
             timeStr
           );
           console.log('[App] ✅ Marked as taken via notification');
         } else if (entry.status === 'skipped') {
           await useMedicationLogsStore.getState().markAsSkipped(
-            userId, 
-            entry.medication_id, 
-            dateStr, 
+            userId,
+            entry.medication_id,
+            dateStr,
             timeStr
           );
           console.log('[App] ⏭️ Marked as skipped via notification');
@@ -299,7 +317,7 @@ export default function App() {
         console.error('[App] Failed to log medication action:', error);
       }
     });
-    
+
     // Register navigation callback for notification service
     const { setNavigationCallback } = require('./src/services/notificationEventHandler');
     setNavigationCallback((screen: string, params: any) => {
@@ -310,7 +328,7 @@ export default function App() {
       console.log('[App] Navigation ready?:', navigationRef.isReady());
       console.log('[App] Current state:', JSON.stringify(navigationRef.getCurrentRoute()));
       console.log('='.repeat(60));
-      
+
       if (navigationRef.isReady()) {
         console.log('[App] Attempting navigation to', screen);
         try {
@@ -408,14 +426,14 @@ export default function App() {
                               // Detailed routing logic based on document type
                               const doc = params?.document;
                               const docType = doc?.ai_analysis_result?.document_type?.toLowerCase() || doc?.type?.toLowerCase();
-                              
+
                               if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
                                 navigation.navigate('ReportSummary', params);
                               } else {
                                 // For prescriptions, check if already added to tracker
                                 const medications = useMedicationsStore.getState().medications;
                                 const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;
-                                
+
                                 if (isAlreadyAdded) {
                                   navigation.navigate('PrescriptionRecord', params);
                                 } else {
@@ -489,14 +507,14 @@ export default function App() {
                       }}
                     </Stack.Screen>
                     <Stack.Screen name="Documents" component={DocumentsScreen} />
-                      <Stack.Screen
-                        name="Medications"
-                        component={MedicationsScreen}
-                        options={{
-                          gestureEnabled: Platform.OS === 'ios',
-                          gestureDirection: 'horizontal',
-                        }}
-                      />
+                    <Stack.Screen
+                      name="Medications"
+                      component={MedicationsScreen}
+                      options={{
+                        gestureEnabled: Platform.OS === 'ios',
+                        gestureDirection: 'horizontal',
+                      }}
+                    />
                     <Stack.Screen
                       name="MedicationList"
                       component={MedicationHomeScreen}

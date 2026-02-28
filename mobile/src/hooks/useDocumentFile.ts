@@ -112,7 +112,7 @@ export const useDocumentFile = (
             }
 
             const asset = await MediaLibrary.createAssetAsync(imageUri);
-            const albumName = 'FamilyCareHealth';
+            const albumName = 'dosiqAi';
             const album = await MediaLibrary.getAlbumAsync(albumName);
 
             if (album) {
