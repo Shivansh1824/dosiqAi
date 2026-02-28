@@ -20,30 +20,31 @@ export function useMedicineAlarmCheck(navigationRef: NavigationContainerRef<any>
       try {
         // Only proceed if navigation is ready
         if (!navigationRef.isReady()) {
-            console.log('[useMedicineAlarmCheck] Navigation not ready yet');
-            return;
+          console.log('[useMedicineAlarmCheck] Navigation not ready yet');
+          return;
         }
 
         const notifications = await notifee.getDisplayedNotifications();
-        
+
         // Find a notification that is marked as full screen
         const alarm = notifications.find(n => n.notification.data?.isFullScreen === 'true');
 
         if (alarm) {
-            console.log('[useMedicineAlarmCheck] 🚨 Full screen alarm detected:', alarm.notification.id);
-            const data = alarm.notification.data;
-            
-            // Check if we are already on the MedicineAlarm screen to avoid redundant navigation
-            const currentRoute = navigationRef.getCurrentRoute();
-            if (currentRoute?.name === 'MedicineAlarm') {
-                console.log('[useMedicineAlarmCheck] Already on MedicineAlarm screen, skipping navigation');
-                // Optional: Update params if needed, but usually a new screen push is safer for alarms
-                return;
-            }
+          console.log('[useMedicineAlarmCheck] 🚨 Full screen alarm detected:', alarm.notification.id);
+          const data = alarm.notification.data;
 
-            console.log('[useMedicineAlarmCheck] Navigating to MedicineAlarm...');
-            // Navigate to MedicineAlarm with data
-            navigationRef.navigate('MedicineAlarm', data);
+          // Check if we are already on the MedicineAlarm screen to avoid redundant navigation
+          const currentRoute = navigationRef.getCurrentRoute();
+          if (currentRoute?.name === 'medicinealarm') {
+            console.log('[useMedicineAlarmCheck] Already on medicinealarm screen, skipping navigation');
+            // Optional: Update params if needed, but usually a new screen push is safer for alarms
+            return;
+          }
+
+          console.log('[useMedicineAlarmCheck] Navigating to medicinealarm...');
+          // Navigate to MedicineAlarm with data
+          // @ts-ignore - Expo router handles this but types might complain
+          navigationRef.navigate('/medicinealarm', data);
         }
       } catch (error) {
         console.error('[useMedicineAlarmCheck] Error checking alarms:', error);
@@ -65,7 +66,7 @@ export function useMedicineAlarmCheck(navigationRef: NavigationContainerRef<any>
 
       // Also check if we just transitioned to active (e.g. from a cold start state)
       if (nextAppState === 'active') {
-         checkActiveAlarm();
+        checkActiveAlarm();
       }
 
       appState.current = nextAppState;

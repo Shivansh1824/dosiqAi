@@ -1,3 +1,4 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -12,18 +13,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
-import { File } from 'expo-file-system';
-import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../../App';
-import { Colors, Typography, Sizes } from '../constants';
+import * as FileSystem from 'expo-file-system';
+import { Colors, Typography, Sizes } from '../src/constants';
 import * as Sharing from 'expo-sharing';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-type Props = StackScreenProps<RootStackParamList, 'PdfViewer'>;
+export default function PdfViewerScreen() {
+  const router = useRouter();
+  const { uri: rawUri, title: rawTitle } = useLocalSearchParams();
+  const uri = Array.isArray(rawUri) ? rawUri[0] : (rawUri || '');
+  const title = Array.isArray(rawTitle) ? rawTitle[0] : (rawTitle || '');
 
-export default function PdfViewerScreen({ route, navigation }: Props) {
-  const { uri, title } = route.params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,8 +50,8 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
 
         // For local files, check if it exists
         if (uri.startsWith('file://')) {
-          const file = new File(uri);
-          if (!file.exists) {
+          const info = await FileSystem.getInfoAsync(uri);
+          if (!info.exists) {
             throw new Error('PDF file not found');
           }
         }
@@ -68,8 +69,8 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
   }, [uri, title, loadAttempts]);
 
   const handleClose = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    router.back();
+  }, [router]);
 
   const handleRetry = useCallback(() => {
     console.log('[PdfViewer] Retrying PDF load, attempt:', loadAttempts + 1);

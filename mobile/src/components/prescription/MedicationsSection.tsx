@@ -13,7 +13,7 @@ import { parseAIMedication, detectDuplicateMedication } from '../../utils/medica
 import { Alert } from 'react-native';
 import { useMedicationsStore } from '../../store/medicationsStore';
 import { useFamilyMembersStore } from '../../store/familyMembersStore';
-import { supabase } from '../../services/supabaseClient';
+import { supabase } from '../../lib/apiClient';
 
 interface MedicationsSectionProps {
     medicines: MedicineInfo[];

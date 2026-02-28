@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { toLocalDateString } from '../utils/dateUtils';
 import { SyncService } from '../services/SyncService';
 

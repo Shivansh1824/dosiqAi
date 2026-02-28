@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
 
 /**

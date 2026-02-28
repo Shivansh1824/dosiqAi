@@ -1,3 +1,4 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
 import Animated, { LinearTransition, useSharedValue, withTiming, withRepeat, useAnimatedStyle } from 'react-native-reanimated';
@@ -5,51 +6,51 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Sizes, Typography } from '../constants';
-import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath, deleteLocalFile } from '../utils/fileStorage';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAuthStore } from '../store/authStore';
-import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
-import { getSummary } from '../utils/prescriptionHelpers';
-import { auth } from '../services/supabaseClient';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { Document, DocumentAnalysisResult } from '../src/types/document';
+import { fileExists, getAbsolutePath, deleteLocalFile } from '../src/utils/fileStorage';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../src/utils/medicationParser';
+import { getSummary } from '../src/utils/prescriptionHelpers';
+import { auth } from '../src/lib/apiClient';
 
-import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
-import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
-import LoadingOverlay from '../components/LoadingOverlay';
-import ShareModal from '../components/ShareModal';
-import AnalysisLoading from '../components/AnalysisLoading';
-import DocumentOptionsModal from '../components/DocumentOptionsModal';
+import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../src/services/pdfGenerationService';
+import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
+import LoadingOverlay from '../src/components/LoadingOverlay';
+import ShareModal from '../src/components/ShareModal';
+import AnalysisLoading from '../src/components/AnalysisLoading';
+import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNotifications } from '../hooks/useNotifications';
-import { useDocumentActions } from '../hooks/useDocumentActions';
-import MedicationVerificationCard from '../components/MedicationVerificationCard';
-import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
+import { useNotifications } from '../src/hooks/useNotifications';
+import { useDocumentActions } from '../src/hooks/useDocumentActions';
+import MedicationVerificationCard from '../src/components/MedicationVerificationCard';
+import { VerifiedMedicationsGroup } from '../src/components/prescription/VerifiedMedicationsGroup';
 
-import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
-import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
-import { AnimatedTooltip } from '../components/AnimatedTooltip';
-import { RootStackParamList } from '../../App';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../src/components/prescription';
+import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCard';
+import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
+
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
-import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
-import AddMedicationModal from '../components/medication/AddMedicationModal';
+import FullScreenImageModal from '../src/components/FullScreenImageModal';
+import { DuplicateMedicationModal } from '../src/components/medication/DuplicateMedicationModal';
+import AddMedicationModal from '../src/components/medication/AddMedicationModal';
 import { StatusBar } from 'expo-status-bar';
 
-import { styles } from './PrescriptionSummaryScreen.styles';
-import { IconGlow } from '../components/common/IconGlow';
-import { PrescriptionHeader } from '../components/prescription/PrescriptionHeader';
-import { DocumentPreviewCard } from '../components/prescription/DocumentPreviewCard';
-import { useDocumentFile } from '../hooks/useDocumentFile';
-import { useDocumentMedications } from '../hooks/useDocumentMedications';
+import { styles } from '../src/screens/PrescriptionSummaryScreen.styles';
+import { IconGlow } from '../src/components/common/IconGlow';
+import { PrescriptionHeader } from '../src/components/prescription/PrescriptionHeader';
+import { DocumentPreviewCard } from '../src/components/prescription/DocumentPreviewCard';
+import { useDocumentFile } from '../src/hooks/useDocumentFile';
+import { useDocumentMedications } from '../src/hooks/useDocumentMedications';
 
-type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
+type PrescriptionSummaryNavigationProp = StackNavigationProp<any, 'PrescriptionSummary'>;
 
 interface PrescriptionSummaryScreenProps {
   onBack: () => void;
@@ -59,6 +60,7 @@ interface PrescriptionSummaryScreenProps {
 }
 
 export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionSummaryScreenProps) {
+  const router = useRouter();
   const { familyMembers } = useFamilyMembersStore();
 
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
@@ -396,7 +398,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             return verifiedNames.length > 0 ? (
                               <VerifiedMedicationsGroup
                                 medicationNames={verifiedNames}
-                                onViewInTracker={() => navigation.navigate('Medications')}
+                                onViewInTracker={() => router.push('/medications')}
                               />
                             ) : null;
                           })()}
@@ -500,7 +502,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                 onPress={async () => {
                                   // If already added, just navigate to tracker
                                   if (isAlreadyAdded) {
-                                    navigation.navigate('Medications');
+                                    router.push('/medications');
                                     return;
                                   }
 

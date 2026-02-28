@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { from, auth } from '../services/supabaseClient';
+import { from, auth } from '../lib/apiClient';
 import type {
   LabReport,
   TestResult,

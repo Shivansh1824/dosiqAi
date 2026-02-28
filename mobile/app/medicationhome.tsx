@@ -1,16 +1,17 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes } from '../constants';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { Medication } from '../types/medication';
-import { getTodayLocal, fromLocalDateString } from '../utils/dateUtils';
-import ActiveMedicationCard from '../components/ActiveMedicationCard';
-import MedicationListItem from '../components/MedicationListItem';
+import { Colors, Sizes } from '../src/constants';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { Medication } from '../src/types/medication';
+import { getTodayLocal, fromLocalDateString } from '../src/utils/dateUtils';
+import ActiveMedicationCard from '../src/components/ActiveMedicationCard';
+import MedicationListItem from '../src/components/MedicationListItem';
 
 export default function MedicationHomeScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { medications } = useMedicationsStore();
 
   // Helper function to check if medication is active
@@ -36,7 +37,7 @@ export default function MedicationHomeScreen() {
 
   // Navigation handlers
   const handleBack = () => {
-    navigation.goBack();
+    router.back();
   };
 
   const handleSearch = () => {

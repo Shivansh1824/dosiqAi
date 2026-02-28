@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes } from '../constants';
-import { useNavigation } from '@react-navigation/native';
-import { useAuthStore } from '../store/authStore';
-import { useDocumentsStore } from '../store/documentsStore';
+import { Colors, Sizes } from '../src/constants';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuthStore } from '../src/store/authStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
 
 export default function ProfileScreen() {
-    const navigation = useNavigation();
+    const router = useRouter();
     const { user, logout } = useAuthStore();
     const { clearAllLocalDocuments, clearAllCloudDocuments, clearAllAccountData } = useDocumentsStore();
     const [isClearing, setIsClearing] = useState(false);
@@ -27,7 +28,7 @@ export default function ProfileScreen() {
 
     const handleLogout = () => {
         logout();
-        navigation.reset({
+        router.reset({
             index: 0,
             routes: [{ name: 'Welcome' as never }],
         });
@@ -37,7 +38,7 @@ export default function ProfileScreen() {
         if (label === 'Clear Documents') {
             setShowClearOptions(true);
         } else if (label === 'Customize Experience') {
-            navigation.navigate('PreferenceOnboarding' as never);
+            router.navigate('/preferenceonboarding' as never);
         } else if (label === 'Export Debug Logs') {
             handleExportLogs();
         } else {
@@ -149,7 +150,7 @@ export default function ProfileScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Profile</Text>

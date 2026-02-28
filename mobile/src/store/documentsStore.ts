@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { Document, DocumentsStore, getDocumentColor } from '../types/document';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInfo } from '../services/documentAnalysisService';

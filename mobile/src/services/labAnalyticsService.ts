@@ -2,8 +2,8 @@
  * Lab Analytics Service
  * Business logic for processing lab data, calculating trends, and preparing chart data
  */
+import { from, rpc } from '../lib/apiClient';
 
-import { from, rpc } from './supabaseClient';
 import type {
   LabReport,
   TestResult,
@@ -245,7 +245,7 @@ export async function compareLabReports(
     const comparisons: MetricComparison[] = [];
 
     for (const current of currentResults || []) {
-      const previous = previousResults?.find((p) => p.test_code === current.test_code);
+      const previous = previousResults?.find((p: any) => p.test_code === current.test_code);
 
       if (previous && current.result_numeric !== null && previous.result_numeric !== null) {
         const change = current.result_numeric - previous.result_numeric;

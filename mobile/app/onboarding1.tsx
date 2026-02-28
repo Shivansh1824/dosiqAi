@@ -2,12 +2,13 @@ import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
+import { Colors, Sizes, Typography } from '../src/constants';
 
-import { useNavigation } from '@react-navigation/native';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../App';
-import { useAuthStore } from '../store/authStore';
+
+import { useAuthStore } from '../src/store/authStore';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, cancelAnimation } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import {
@@ -15,22 +16,22 @@ import {
   useFadeSlideUp,
   useFadeIn,
   useButtonPress,
-} from '../utils/animations';
+} from '../src/utils/animations';
 
 type Onboarding1ScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding1'>;
 
 export default function Onboarding1Screen() {
-  const navigation = useNavigation<Onboarding1ScreenNavigationProp>();
+  const router = useRouter();
 
   const handleContinue = () => {
-    navigation.navigate('Onboarding2');
+    router.push('/onboarding2');
   };
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+    if (router.canGoBack()) {
+      router.back();
     } else {
-      navigation.replace('Welcome');
+      router.replace('/welcome');
     }
   };
 
@@ -64,14 +65,14 @@ export default function Onboarding1Screen() {
     });
 
     const autoAdvanceTimer = setTimeout(() => {
-      navigation.navigate('Onboarding2');
+      router.push('/onboarding2');
     }, Sizes.animation.splash);
 
     return () => {
       cancelAnimation(progress);
       clearTimeout(autoAdvanceTimer);
     };
-  }, [navigation]);
+  }, [router]);
 
   const activeDotAnimation = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + (progress.value * 0.3) }],
@@ -94,7 +95,7 @@ export default function Onboarding1Screen() {
         style={styles.skipButton}
         onPress={() => {
           useAuthStore.getState().completeOnboarding();
-          navigation.navigate('Login');
+          router.push('/login');
         }}
         activeOpacity={0.7}
       >

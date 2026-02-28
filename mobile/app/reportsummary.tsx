@@ -1,43 +1,44 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Sizes, Typography } from '../constants';
-import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath, deleteLocalFile } from '../utils/fileStorage';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAuthStore } from '../store/authStore';
-import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
-import { from } from '../services/supabaseClient';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { Document, DocumentAnalysisResult } from '../src/types/document';
+import { fileExists, getAbsolutePath, deleteLocalFile } from '../src/utils/fileStorage';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../src/utils/medicationParser';
+import { from } from '../src/lib/apiClient';
 import {
   METRIC_STATUS_COLORS,
-} from '../types/medicalReport';
-import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
-import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
-import LoadingOverlay from '../components/LoadingOverlay';
-import ShareModal from '../components/ShareModal';
-import AnalysisLoading from '../components/AnalysisLoading';
-import DocumentOptionsModal from '../components/DocumentOptionsModal';
+} from '../src/types/medicalReport';
+import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../src/services/pdfGenerationService';
+import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
+import LoadingOverlay from '../src/components/LoadingOverlay';
+import ShareModal from '../src/components/ShareModal';
+import AnalysisLoading from '../src/components/AnalysisLoading';
+import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNotifications } from '../hooks/useNotifications';
-import MedicationVerificationCard from '../components/MedicationVerificationCard';
-import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
-import { AnalysisResultsDisplay } from '../components/prescription/AnalysisResultsDisplay';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
-import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
-import { AnimatedTooltip } from '../components/AnimatedTooltip';
-import { RootStackParamList } from '../../App';
+import { useNotifications } from '../src/hooks/useNotifications';
+import MedicationVerificationCard from '../src/components/MedicationVerificationCard';
+import { VerifiedMedicationsGroup } from '../src/components/prescription/VerifiedMedicationsGroup';
+import { AnalysisResultsDisplay } from '../src/components/prescription/AnalysisResultsDisplay';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../src/components/prescription';
+import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCard';
+import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
+
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
-import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
+import FullScreenImageModal from '../src/components/FullScreenImageModal';
+import { DuplicateMedicationModal } from '../src/components/medication/DuplicateMedicationModal';
 
 type ReportSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
@@ -118,8 +119,8 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
   // Duplicate Resolution State
   const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
   const [pendingDuplicateData, setPendingDuplicateData] = useState<{
-    newMed: import('../types/medicationVerification').ParsedMedication;
-    existingMed: import('../types/medication').Medication;
+    newMed: import('../src/types/medicationVerification').ParsedMedication;
+    existingMed: import('../src/types/medication').Medication;
     startDate: string;
     resolve: () => void;
     reject: (reason?: any) => void;
@@ -241,7 +242,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
 
   // Pre-calculate duplicates map to avoid O(N*M) in render loop
   const duplicateMedicationsMap = useMemo(() => {
-    const map = new Map<number, import('../types/medication').Medication>();
+    const map = new Map<number, import('../src/types/medication').Medication>();
     if (!document || !medications || medications.length === 0) return map;
 
     allUnverifiedMedsIdx.forEach(({ medicine, index }) => {
@@ -290,7 +291,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
               console.log('[PrescriptionSummary] Cloud file key available:', document.cloud_file_key);
 
               // Import and use the file sync utility
-              const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
+              const { getFileWithSync, extractFilename } = await import('../src/utils/fileSync');
               const filename = extractFilename(document.local_file_path);
 
               console.log('[PrescriptionSummary] Starting file sync for:', filename);
@@ -456,7 +457,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
 
     if (isPdf) {
       // Navigate to embedded PDF viewer
-      navigation.navigate('PdfViewer', {
+      router.navigate('/pdfviewer', {
         uri: imageUri,
         title: displayTitle
       });
@@ -709,7 +710,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
   };
 
   // Handle verify and add medication from AI extraction
-  const handleVerifyAndAddMedication = async (parsedMed: import('../types/medicationVerification').ParsedMedication, startDate: string) => {
+  const handleVerifyAndAddMedication = async (parsedMed: import('../src/types/medicationVerification').ParsedMedication, startDate: string) => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to add medications');
       return;

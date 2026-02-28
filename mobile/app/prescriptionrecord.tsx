@@ -1,30 +1,31 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Colors, Typography } from '../constants';
-import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath } from '../utils/fileStorage';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAuthStore } from '../store/authStore';
-import { parseAIMedication } from '../utils/medicationParser';
-import { supabase } from '../services/supabaseClient';
-import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
-import LoadingOverlay from '../components/LoadingOverlay';
-import ShareModal from '../components/ShareModal';
-import DocumentOptionsModal from '../components/DocumentOptionsModal';
-import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, RecordGroupedTestsCard, RecordDocumentPreviewLoading } from '../components/record';
-import { RootStackParamList } from '../../App';
+import { Colors, Typography } from '../src/constants';
+import { Document, DocumentAnalysisResult } from '../src/types/document';
+import { fileExists, getAbsolutePath } from '../src/utils/fileStorage';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { parseAIMedication } from '../src/utils/medicationParser';
+import { supabase } from '../src/lib/apiClient';
+import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
+import LoadingOverlay from '../src/components/LoadingOverlay';
+import ShareModal from '../src/components/ShareModal';
+import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
+import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, RecordGroupedTestsCard, RecordDocumentPreviewLoading } from '../src/components/record';
+
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
+import FullScreenImageModal from '../src/components/FullScreenImageModal';
 
 type PrescriptionRecordNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionRecord'>;
 
@@ -119,7 +120,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
         } else if (document.cloud_file_key) {
           try {
             setDownloading(true);
-            const { getFileWithSync, extractFilename } = await import('../utils/fileSync');
+            const { getFileWithSync, extractFilename } = await import('../src/utils/fileSync');
             const filename = extractFilename(document.local_file_path);
             const { localPath } = await getFileWithSync(filename, document.cloud_file_key);
             setImageUri(localPath);
@@ -178,7 +179,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
   const handleViewFullDocument = () => {
     if (!imageUri) return;
     if (isPdf) {
-      navigation.navigate('PdfViewer', { uri: imageUri, title: displayTitle });
+      router.push({ pathname: '/pdfviewer', params: { uri: imageUri, title: displayTitle } });
     } else {
       setShowFullScreenImage(true);
     }
