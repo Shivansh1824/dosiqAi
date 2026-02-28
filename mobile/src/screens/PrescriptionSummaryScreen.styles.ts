@@ -280,22 +280,27 @@ export const styles = StyleSheet.create({
     },
 
     // ─── Add Manually Button ──────────────────────────────────────────────────────
+    addManuallyButtonContainer: {
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
     addManuallyButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        backgroundColor: Colors.bgPrimary,
+        gap: 6,
+        backgroundColor: Colors.white,
         borderWidth: 1.5,
-        borderColor: Colors.primary + '40',
-        borderRadius: 12,
-        paddingVertical: 14,
-        marginTop: 8,
+        borderStyle: 'dashed',
+        borderColor: Colors.borderDark,
+        borderRadius: 24,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
     },
     addManuallyButtonText: {
-        fontSize: 14,
+        fontSize: 13,
         fontFamily: 'PlusJakartaSans-SemiBold',
-        color: Colors.primary,
+        color: Colors.textSecondary,
     },
 
     // ─── Verify All Button ────────────────────────────────────────────────────────

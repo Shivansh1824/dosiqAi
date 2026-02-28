@@ -494,14 +494,16 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               })()}
 
                               {/* Add Medication Manually Button - Always Visible */}
-                              <TouchableOpacity
-                                style={styles.addManuallyButton}
-                                onPress={() => setShowAddMedicationModal(true)}
-                                activeOpacity={0.7}
-                              >
-                                <Feather name="plus" size={20} color={Colors.primary} />
-                                <Text style={styles.addManuallyButtonText}>Add Medication Manually</Text>
-                              </TouchableOpacity>
+                              <View style={styles.addManuallyButtonContainer}>
+                                <TouchableOpacity
+                                  style={styles.addManuallyButton}
+                                  onPress={() => setShowAddMedicationModal(true)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Feather name="plus" size={16} color={Colors.textSecondary} />
+                                  <Text style={styles.addManuallyButtonText}>Add missing medication</Text>
+                                </TouchableOpacity>
+                              </View>
                             </View>
                           )}
 
