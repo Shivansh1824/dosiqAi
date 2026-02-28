@@ -13,7 +13,6 @@ import { useDocumentsStore } from '../src/store/documentsStore';
 import { useMedicationsStore } from '../src/store/medicationsStore';
 import { useAuthStore } from '../src/store/authStore';
 import { parseAIMedication } from '../src/utils/medicationParser';
-import { supabase } from '../src/lib/apiClient';
 import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
 import LoadingOverlay from '../src/components/LoadingOverlay';
 import ShareModal from '../src/components/ShareModal';
@@ -27,7 +26,7 @@ import * as FileSystem from 'expo-file-system';
 import { File } from 'expo-file-system';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
 
-type PrescriptionRecordNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionRecord'>;
+type PrescriptionRecordNavigationProp = StackNavigationProp<any, 'PrescriptionRecord'>;
 
 interface PrescriptionRecordScreenProps {
   onBack: () => void;
@@ -37,17 +36,30 @@ interface PrescriptionRecordScreenProps {
 }
 
 export default function PrescriptionRecordScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionRecordScreenProps) {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const paramDocumentId = params.documentId as string;
+
   const { familyMembers } = useFamilyMembersStore();
   const { documents, deleteDocument } = useDocumentsStore();
   const { medications } = useMedicationsStore();
   const { user } = useAuthStore();
 
+  console.log('🐞 [DIAGNOSTICS] PrescriptionRecordScreen Params:', { documentIdProp: documentId, paramDocumentId, hasDocumentProp: !!documentProp, documentsInStore: documents.length });
+
+  const handleBack = onBack || (() => { router.back(); });
+
   // Resolve document
   const document = useMemo(() => {
     if (documentProp) return documentProp;
-    if (documentId) return documents.find(d => d.id === documentId);
-    return undefined;
-  }, [documentProp, documentId, documents]);
+    const effectiveDocumentId = documentId || paramDocumentId;
+    let foundDoc = undefined;
+    if (effectiveDocumentId) {
+      foundDoc = documents.find(d => d.id === effectiveDocumentId);
+    }
+    console.log('🐞 [DIAGNOSTICS] Resolved initialDocument Record:', { effectiveDocumentId, foundDocExists: !!foundDoc });
+    return foundDoc;
+  }, [documentProp, documentId, paramDocumentId, documents]);
 
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [fileNotFound, setFileNotFound] = useState(false);
@@ -157,7 +169,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.headerButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Document Error</Text>
@@ -166,7 +178,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
         <View style={styles.errorContainer}>
           <Feather name="alert-circle" size={48} color={Colors.error} />
           <Text style={styles.errorTitle}>Document Not Found</Text>
-          <TouchableOpacity style={styles.errorButton} onPress={onBack}>
+          <TouchableOpacity style={styles.errorButton} onPress={handleBack}>
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -212,7 +224,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
     try {
       setLoading(true);
       await deleteDocument(document.id);
-      onBack();
+      handleBack();
     } catch (err) {
       Alert.alert('Error', 'Failed to delete document');
     } finally {
@@ -242,7 +254,7 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
 
         {/* Modern Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerButton} onPress={onBack} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleBack} activeOpacity={0.6}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
 

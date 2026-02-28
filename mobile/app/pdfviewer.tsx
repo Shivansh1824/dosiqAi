@@ -50,8 +50,8 @@ export default function PdfViewerScreen() {
 
         // For local files, check if it exists
         if (uri.startsWith('file://')) {
-          const info = await FileSystem.getInfoAsync(uri);
-          if (!info.exists) {
+          const file = new FileSystem.File(uri);
+          if (!file.exists) {
             throw new Error('PDF file not found');
           }
         }

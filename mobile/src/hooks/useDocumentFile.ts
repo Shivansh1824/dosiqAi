@@ -3,12 +3,14 @@ import { Alert } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { fileExists, getAbsolutePath } from '../utils/fileStorage';
+import { useRouter } from 'expo-router';
 
 export const useDocumentFile = (
     document: any | undefined,
     navigation: any,
     titleText: string
 ) => {
+    const router = useRouter();
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [fileNotFound, setFileNotFound] = useState(false);
     const [downloading, setDownloading] = useState(false);
@@ -68,9 +70,12 @@ export const useDocumentFile = (
         }
 
         if (isPdf) {
-            navigation.navigate('PdfViewer', {
-                uri: imageUri,
-                title: titleText,
+            router.push({
+                pathname: '/pdfviewer',
+                params: {
+                    uri: imageUri,
+                    title: titleText,
+                }
             });
         } else {
             setShowFullScreenImage(true);

@@ -61,17 +61,27 @@ interface PrescriptionSummaryScreenProps {
 
 export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionSummaryScreenProps) {
   const router = useRouter();
-  const { familyMembers } = useFamilyMembersStore();
+  const params = useLocalSearchParams();
+  const paramDocumentId = params.documentId as string;
 
+  const { familyMembers } = useFamilyMembersStore();
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
 
-  // Resolve document: either passed directly or found in store by ID
+  console.log('🐞 [DIAGNOSTICS] PrescriptionSummaryScreen Params:', { documentIdProp: documentId, paramDocumentId, hasDocumentProp: !!documentProp, documentsInStore: documents.length });
+
+  const handleBack = onBack || (() => { router.back(); });
+
   // Resolve document: either passed directly or found in store by ID
   const initialDocument = useMemo(() => {
     if (documentProp) return documentProp;
-    if (documentId) return documents.find(d => d.id === documentId);
-    return undefined; // Or find locally
-  }, [documentProp, documentId, documents]);
+    const effectiveDocumentId = documentId || paramDocumentId;
+    let foundDoc = undefined;
+    if (effectiveDocumentId) {
+      foundDoc = documents.find(d => d.id === effectiveDocumentId);
+    }
+    console.log('🐞 [DIAGNOSTICS] Resolved initialDocument:', { effectiveDocumentId, foundDocExists: !!foundDoc });
+    return foundDoc;
+  }, [documentProp, documentId, paramDocumentId, documents]);
 
   const { addMedicationFromAI, medications } = useMedicationsStore();
   const { user } = useAuthStore();
@@ -200,7 +210,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     confirmDelete,
     handleShare,
     handleShareDocument,
-  } = useDocumentActions(document, imageUri, onBack);
+  } = useDocumentActions(document, imageUri, handleBack);
 
   const {
     verifiedMedications,
@@ -254,7 +264,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           </View>
         )}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Document Error</Text>
@@ -266,7 +276,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           <Text style={styles.errorMessage}>
             The document you're trying to view could not be loaded. Please go back and try again.
           </Text>
-          <TouchableOpacity style={styles.errorButton} onPress={onBack} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.errorButton} onPress={handleBack} activeOpacity={0.8}>
             <Feather name="arrow-left" size={20} color={Colors.white} />
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -302,7 +312,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Modern Header */}
         <PrescriptionHeader
-          onBack={onBack}
+          onBack={handleBack}
           titleText={titleText}
           subtitleText={subtitleText}
           onShare={handleShare}
