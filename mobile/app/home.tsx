@@ -1,39 +1,66 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, Alert, RefreshControl, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
-import { extractFirstName, formatProfileName } from '../utils/nameFormatting';
-import { useAuthStore } from '../store/authStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAppointmentsStore } from '../store/appointmentsStore';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { extractFirstName, formatProfileName } from '../src/utils/nameFormatting';
+import { useAuthStore } from '../src/store/authStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAppointmentsStore } from '../src/store/appointmentsStore';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { auth, from } from '../services/supabaseClient';
-import { DocumentType } from '../types/document';
-import { compressImage } from '../utils/imageCompression';
-import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
-import AddFamilyMemberModal from '../components/AddFamilyMemberModal';
-import AnalysisLoading from '../components/AnalysisLoading';
-import FilePreviewModal from '../components/FilePreviewModal';
-import ActionSheet from '../components/ActionSheet';
+import { auth, from } from '../src/lib/apiClient';
+import { DocumentType } from '../src/types/document';
+import { compressImage } from '../src/utils/imageCompression';
+import { saveFileLocallyWithUUID, getAbsolutePath } from '../src/utils/fileStorage';
+import AddFamilyMemberModal from '../src/components/AddFamilyMemberModal';
+import AnalysisLoading from '../src/components/AnalysisLoading';
+import FilePreviewModal from '../src/components/FilePreviewModal';
+import ActionSheet from '../src/components/ActionSheet';
+import ProfileSwitcherModal from '../src/components/ProfileSwitcherModal';
 
-import { reconcileReminders } from '../services/notificationService';
+import { reconcileReminders } from '../src/services/notificationService';
 
-interface HomeScreenProps {
-  onNavigate: (screen: 'scan' | 'document' | 'documents' | 'medications' | 'medicationList' | 'health' | 'profile' | 'medicineAlarm' | 'preferenceOnboarding' | 'PrescriptionRecord' | 'ReportSummary' | 'Timeline', params?: any) => void;
-  onProfileSwitch: () => void;
-}
-
-export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenProps) {
+export default function HomeScreen() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const { documents, isLoading: isLoadingDocs, fetchDocuments, addDocument } = useDocumentsStore();
   const { medications, fetchMedications } = useMedicationsStore();
   const { appointments, fetchAppointments } = useAppointmentsStore();
   const { familyMembers, activeMember, fetchFamilyMembers, setActiveMember } = useFamilyMembersStore();
+
+  const onProfileSwitch = () => setShowProfileModal(true);
+
+  const onNavigate = (screen: string, params?: any) => {
+    if (screen === 'scan') router.push('/scandocument');
+    else if (screen === 'PrescriptionRecord') router.push({ pathname: '/prescriptionrecord', params });
+    else if (screen === 'ReportSummary') router.push({ pathname: '/reportsummary', params });
+    else if (screen === 'document') {
+      const doc = params?.document;
+      const docType = doc?.ai_analysis_result?.document_type?.toLowerCase() || doc?.type?.toLowerCase();
+
+      if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
+        router.push({ pathname: '/reportsummary', params });
+      } else {
+        const meds = useMedicationsStore.getState().medications;
+        const isAlreadyAdded = doc?.id ? meds.some((m: any) => m.source_document_id === doc.id) : false;
+        if (isAlreadyAdded) router.push({ pathname: '/prescriptionrecord', params });
+        else router.push({ pathname: '/prescriptionsummary', params });
+      }
+    }
+    else if (screen === 'documents') router.push('/documents');
+    else if (screen === 'medications') router.push('/medications');
+    else if (screen === 'medicationList') router.push('/medicationhome');
+    else if (screen === 'health') router.push('/health');
+    else if (screen === 'profile') router.push('/profile');
+    else if (screen === 'medicineAlarm') router.push({ pathname: '/medicinealarm', params });
+    else if (screen === 'preferenceOnboarding') router.push('/preferenceonboarding');
+    else if (screen === 'Timeline') router.push('/timeline');
+  };
 
   // Filtered counts for stat cards
   const documentsCount = documents.length;
@@ -66,6 +93,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const [refreshing, setRefreshing] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // New State for Preview Modal
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
@@ -290,7 +318,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Save document metadata to database
-      // title = UUID filename for consistency across local, Supabase, and R2
+      // title = UUID filename for consistency across local, VPS, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
         type: docType,
@@ -314,7 +342,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
           console.log('[HomeScreen] R2 upload promise resolved with key:', cloudFileKey);
 
           if (cloudFileKey && actualDocumentId) {
-            // Use DocumentsStore function which has the correct Supabase context
+            // Use DocumentsStore function which has the correct DB context
             const { updateCloudFileKey } = useDocumentsStore.getState();
             const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
 
@@ -370,7 +398,7 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
   const [actionSheetConfig, setActionSheetConfig] = useState<{
     title?: string;
     subtitle?: string;
-    options: import('../components/ActionSheet').ActionSheetOption[];
+    options: import('../src/components/ActionSheet').ActionSheetOption[];
   }>({ options: [] });
 
   const [uploadType, setUploadType] = useState<'prescription' | 'report'>('prescription');
@@ -427,20 +455,29 @@ export default function HomeScreen({ onNavigate, onProfileSwitch }: HomeScreenPr
         const { uri, name } = selectedFiles[0];
         await uploadFile(uri, 'document', name);
       } else {
-        // Multiple images (or single image) -> Convert to PDF natively
         setIsCompressing(true);
-        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+        const hasDocument = selectedFiles.some(f => f.type === 'document' || f.name.toLowerCase().endsWith('.pdf'));
 
-        const { createPdfFromImages } = await import('../utils/pdfGenerator');
-        const pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        let pdfUri = '';
+        if (hasDocument) {
+          // Mixed files (images and PDFs) -> Merge them all properly
+          const { mergeFilesToPdf } = await import('../src/utils/pdfGenerator');
+          pdfUri = await mergeFilesToPdf(selectedFiles, 'uploaded_document.pdf');
+        } else {
+          // Images only -> Convert to PDF natively
+          const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+          const { createPdfFromImages } = await import('../src/utils/pdfGenerator');
+          pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        }
+
         setIsCompressing(false);
-
         await uploadFile(pdfUri, 'document', 'uploaded_document.pdf');
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
       setIsCompressing(false);
-      Alert.alert('Error', 'Failed to upload document. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      Alert.alert('Upload Error', `Failed to upload document: ${errorMessage}`);
     } finally {
       setPreviewModalVisible(false);
       setSelectedFiles([]);

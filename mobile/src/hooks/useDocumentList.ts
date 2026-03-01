@@ -14,7 +14,7 @@ export function useDocumentList() {
             // Step 1: Load from cache instantly (no loading spinner)
             await useDocumentsStore.getState().loadFromCache(user.id);
 
-            // Step 2: Refresh from Supabase silently in background
+            // Step 2: Refresh from API silently in background
             await fetchDocuments(user.id, true); // silent=true
         }
     }, [user?.id, fetchDocuments]);

@@ -2,31 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform, ActivityIndicator, LayoutAnimation } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
-import { medicationColors } from '../types/medication';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { medicationColors } from '../src/types/medication';
 
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useAuthStore } from '../store/authStore';
-import { useNavigation } from '@react-navigation/native';
-import { useNotifications } from '../hooks/useNotifications';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useAuthStore } from '../src/store/authStore';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useNotifications } from '../src/hooks/useNotifications';
 import * as Haptics from 'expo-haptics';
 import { Modal, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import DatePickerModal from '../components/DatePickerModal';
-import { InfoModal } from '../components/InfoModal';
-import { AddMedCoursePeriodSection as CoursePeriodSection } from '../components/medication/AddMedCoursePeriodSection';
-import { AddMedReminderTimesSection as ReminderTimesSection } from '../components/medication/AddMedReminderTimesSection';
-import AddReminderModal from '../components/medication/AddReminderModal';
-import UnitPickerModal from '../components/UnitPickerModal';
-import { SuccessAnimation } from '../components/ui/SuccessAnimation';
-import { calculateEndDate, parseDateOnly } from '../utils/medicationParser';
-import { normalizeTime } from '../types/medicationSchedule';
+import DatePickerModal from '../src/components/DatePickerModal';
+import { InfoModal } from '../src/components/InfoModal';
+import { AddMedCoursePeriodSection as CoursePeriodSection } from '../src/components/medication/AddMedCoursePeriodSection';
+import { AddMedReminderTimesSection as ReminderTimesSection } from '../src/components/medication/AddMedReminderTimesSection';
+import AddReminderModal from '../src/components/medication/AddReminderModal';
+import UnitPickerModal from '../src/components/UnitPickerModal';
+import { SuccessAnimation } from '../src/components/ui/SuccessAnimation';
+import { calculateEndDate, parseDateOnly } from '../src/utils/medicationParser';
+import { normalizeTime } from '../src/types/medicationSchedule';
 
 export default function AddMedicationScreen() {
-    const navigation = useNavigation();
+    const router = useRouter();
     const { user } = useAuthStore();
     const { addMedication } = useMedicationsStore();
     const { familyMembers, ensurePrimaryMemberExists } = useFamilyMembersStore();
@@ -283,7 +284,7 @@ export default function AddMedicationScreen() {
                 {/* Elite H-Level Header */}
                 <View style={styles.header}>
                     <TouchableOpacity
-                        onPress={() => navigation.goBack()}
+                        onPress={() => router.back()}
                         style={styles.backButton}
                         activeOpacity={0.7}
                     >
@@ -538,7 +539,7 @@ export default function AddMedicationScreen() {
 
                 <SuccessAnimation
                     visible={showSuccess}
-                    onAnimationFinish={() => navigation.goBack()}
+                    onAnimationFinish={() => router.back()}
                 />
 
 

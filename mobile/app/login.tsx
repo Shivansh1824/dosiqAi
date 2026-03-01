@@ -8,21 +8,22 @@ import {
   Platform,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
-import { useNavigation } from '@react-navigation/native';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated from 'react-native-reanimated';
-import { Button, Input, Divider, PhoneLoginModal } from '../components';
-import { Colors, Sizes, Typography } from '../constants';
-import { useAuthStore } from '../store/authStore';
-import { useFadeSlideUp, useFadeIn } from '../utils/animations';
-import { RootStackParamList } from '../../App';
+import { Button, Input, Divider, PhoneLoginModal } from '../src/components';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { useAuthStore } from '../src/store/authStore';
+import { useFadeSlideUp, useFadeIn } from '../src/utils/animations';
+
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
 export default function LoginScreen() {
-  const navigation = useNavigation<LoginScreenNavigationProp>();
+  const router = useRouter();
   const { login, loginWithGoogle } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -70,7 +71,7 @@ export default function LoginScreen() {
       await login(email, password);
 
       // Navigate to home after successful login
-      navigation.replace('Home');
+      router.replace('/home');
     } catch (error) {
       console.error('Login error:', error);
       setEmailError(error instanceof Error ? error.message : 'Login failed. Please try again.');
@@ -99,7 +100,7 @@ export default function LoginScreen() {
 
   const handlePhoneLoginSuccess = () => {
     // Navigate directly to Home
-    navigation.replace('Home');
+    router.replace('/home');
   };
 
   const handleForgotPassword = () => {
@@ -107,7 +108,7 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
-    navigation.navigate('Signup');
+    router.push('/signup');
   };
 
   return (
@@ -127,10 +128,10 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
+              if (router.canGoBack()) {
+                router.back();
               } else {
-                navigation.replace('Welcome');
+                router.replace('/welcome');
               }
             }}
             accessibilityRole="button"

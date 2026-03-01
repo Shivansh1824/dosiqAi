@@ -1,47 +1,48 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Sizes, Typography } from '../constants';
-import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath, deleteLocalFile } from '../utils/fileStorage';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAuthStore } from '../store/authStore';
-import { useDocumentManager } from '../hooks/useDocumentManager';
-import { parseAIMedication, detectDuplicateMedication } from '../utils/medicationParser';
-import { supabase } from '../services/supabaseClient';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { Document, DocumentAnalysisResult } from '../src/types/document';
+import { fileExists, getAbsolutePath, deleteLocalFile } from '../src/utils/fileStorage';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { useDocumentManager } from '../src/hooks/useDocumentManager';
+import { parseAIMedication, detectDuplicateMedication } from '../src/utils/medicationParser';
+import api from '../src/lib/apiClient';
 import {
   MedicalReportAnalysis,
   calculateReportSummary,
   formatReportDate,
   getAbnormalCountInCategory,
   METRIC_STATUS_COLORS,
-} from '../types/medicalReport';
-import { InfoRow, MetricCard, ExpandableSection } from '../components/medicalReport';
-import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
-import LoadingOverlay from '../components/LoadingOverlay';
-import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
-import ShareModal from '../components/ShareModal';
-import AnalysisLoading from '../components/AnalysisLoading';
-import DocumentOptionsModal from '../components/DocumentOptionsModal';
+} from '../src/types/medicalReport';
+import { InfoRow, MetricCard, ExpandableSection } from '../src/components/medicalReport';
+import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../src/services/pdfGenerationService';
+import LoadingOverlay from '../src/components/LoadingOverlay';
+import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
+import ShareModal from '../src/components/ShareModal';
+import AnalysisLoading from '../src/components/AnalysisLoading';
+import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
-import MedicationVerificationCard from '../components/MedicationVerificationCard';
-import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
-import { AnalysisResultsDisplay } from '../components/prescription/AnalysisResultsDisplay';
-import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
-import { RootStackParamList } from '../../App';
+import MedicationVerificationCard from '../src/components/MedicationVerificationCard';
+import { VerifiedMedicationsGroup } from '../src/components/prescription/VerifiedMedicationsGroup';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../src/components/prescription';
+import { AnalysisResultsDisplay } from '../src/components/prescription/AnalysisResultsDisplay';
+import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCard';
+
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
-import { DocumentPreviewCard } from '../components/document/DocumentPreviewCard';
+import FullScreenImageModal from '../src/components/FullScreenImageModal';
+import { DocumentPreviewCard } from '../src/components/document/DocumentPreviewCard';
 
 type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
 
@@ -56,6 +57,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
   const { addMedicationFromAI, getActiveMedications } = useMedicationsStore();
   const { user } = useAuthStore();
+  const router = useRouter();
   const {
     imageUri,
     fileNotFound,
@@ -199,7 +201,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   useEffect(() => {
     const loadLabReportId = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await api
           .from('lab_reports')
           .select('id')
           .eq('document_id', document.id)
@@ -264,9 +266,12 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
     if (isPdf) {
       // Navigate to embedded PDF viewer
-      navigation.navigate('PdfViewer', {
-        uri: imageUri,
-        title: displayTitle
+      router.navigate({
+        pathname: '/pdfviewer',
+        params: {
+          uri: imageUri,
+          title: displayTitle
+        }
       });
       console.log('[DocumentDetail] Navigated to PdfViewer with URI:', imageUri);
     } else {
@@ -351,7 +356,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   };
 
   // Handle verify and add medication from AI extraction
-  const handleVerifyAndAddMedication = async (parsedMed: import('../types/medicationVerification').ParsedMedication, startDate: string) => {
+  const handleVerifyAndAddMedication = async (parsedMed: import('../src/types/medicationVerification').ParsedMedication, startDate: string) => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to add medications');
       return;
@@ -831,7 +836,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
                       return verifiedNames.length > 0 ? (
                         <VerifiedMedicationsGroup
                           medicationNames={verifiedNames}
-                          onViewInTracker={() => navigation.navigate('Medications')}
+                          onViewInTracker={() => router.push('/medications')}
                         />
                       ) : null;
                     })()}

@@ -951,8 +951,6 @@ export default function MedicationVerificationCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    marginHorizontal: 16,
     paddingTop: 0, // Header has its own padding
     borderRadius: 20,
     backgroundColor: '#FFFFFF',

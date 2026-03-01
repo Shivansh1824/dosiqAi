@@ -1,21 +1,22 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Typography } from '../constants';
+import { Colors, Sizes, Typography } from '../src/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { from } from '../services/supabaseClient';
-import { useAuthStore } from '../store/authStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { DocumentType } from '../types/document';
-import { compressImage } from '../utils/imageCompression';
-import { saveFileLocallyWithUUID, getAbsolutePath } from '../utils/fileStorage';
-import { incrementUploadCount } from '../services/documentAnalysisService';
-import FilePreviewModal from '../components/FilePreviewModal';
-import ActionSheet from '../components/ActionSheet';
+import { from } from '../src/lib/apiClient';
+import { useAuthStore } from '../src/store/authStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { DocumentType } from '../src/types/document';
+import { compressImage } from '../src/utils/imageCompression';
+import { saveFileLocallyWithUUID, getAbsolutePath } from '../src/utils/fileStorage';
+import { incrementUploadCount } from '../src/services/documentAnalysisService';
+import FilePreviewModal from '../src/components/FilePreviewModal';
+import ActionSheet from '../src/components/ActionSheet';
 
 interface ScanDocumentScreenProps {
   onBack: () => void;
@@ -25,7 +26,7 @@ const { width } = Dimensions.get('window');
 const FRAME_WIDTH = width - Sizes.xl * 2;
 const FRAME_HEIGHT = FRAME_WIDTH * (4 / 3);
 
-// Removed: No longer uploading to Supabase Storage
+// Removed: No longer uploading to Storage directly
 
 export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) {
   const [isUploading, setIsUploading] = useState(false);
@@ -43,7 +44,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
   const [actionSheetConfig, setActionSheetConfig] = useState<{
     title?: string;
     subtitle?: string;
-    options: import('../components/ActionSheet').ActionSheetOption[];
+    options: import('../src/components/ActionSheet').ActionSheetOption[];
   }>({ options: [] });
 
   // Load upload limit on mount
@@ -160,19 +161,18 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     if (selectedFiles.length === 0) return;
 
     try {
-      const isNativePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
+      const isSinglePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
 
-      if (isNativePdf) {
-        // Single native PDF
+      if (isSinglePdf) {
+        // Single native PDF - upload as is to avoid unnecessary processing
         const { uri, name } = selectedFiles[0];
         await uploadFile(uri, 'document', name);
       } else {
-        // Multiple images (or single image) -> Convert to PDF natively
+        // Mixed files, multiple PDFs, or images -> Merge/Convert to single PDF natively
         setIsCompressing(true);
-        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
 
-        const { createPdfFromImages } = await import('../utils/pdfGenerator');
-        const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
+        const { mergeFilesToPdf } = await import('../src/utils/pdfGenerator');
+        const pdfUri = await mergeFilesToPdf(selectedFiles, 'scanned_document.pdf');
         setIsCompressing(false);
 
         await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
@@ -187,7 +187,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     }
   };
 
-  // Upload file - saves locally and stores metadata in Supabase
+  // Upload file - saves locally and stores metadata in VPS database
   const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string, isReportOverride?: boolean) => {
     if (!user?.id) {
       Alert.alert('Error', 'Please log in to upload documents.');
@@ -259,7 +259,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         color: '', // Will be calculated by store from document type
       });
 
-      // Get the actual document ID from Supabase (UUID)
+      // Get the actual document ID from Database (UUID)
       const actualDocumentId = savedDocument?.id || filename;
       console.log('[ScanDocument] Document saved with ID:', actualDocumentId);
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { from } from '../services/supabaseClient';
+import { from } from '../lib/apiClient';
 import { Medication, MedicationsStore, medicationColors } from '../types/medication';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { ParsedMedication } from '../types/medicationVerification';
@@ -8,7 +8,7 @@ import { sanitizeErrorMessage, withRetry } from '../utils/apiUtils';
 
 /**
  * Zustand store for medications state
- * Integrates with Supabase to fetch user medications
+ * Integrates with the API to fetch user medications
  *
  * Color Management Strategy:
  * - Colors calculated on-the-fly, NOT stored in database

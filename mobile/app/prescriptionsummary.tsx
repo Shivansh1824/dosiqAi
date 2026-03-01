@@ -1,3 +1,4 @@
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
 import Animated, { LinearTransition, useSharedValue, withTiming, withRepeat, useAnimatedStyle } from 'react-native-reanimated';
@@ -5,51 +6,51 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Sizes, Typography } from '../constants';
-import { Document, DocumentAnalysisResult } from '../types/document';
-import { fileExists, getAbsolutePath, deleteLocalFile } from '../utils/fileStorage';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { useDocumentsStore } from '../store/documentsStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAuthStore } from '../store/authStore';
-import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../utils/medicationParser';
-import { getSummary } from '../utils/prescriptionHelpers';
-import { auth } from '../services/supabaseClient';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { Document, DocumentAnalysisResult } from '../src/types/document';
+import { fileExists, getAbsolutePath, deleteLocalFile } from '../src/utils/fileStorage';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { useDocumentsStore } from '../src/store/documentsStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../src/utils/medicationParser';
+import { getSummary } from '../src/utils/prescriptionHelpers';
+import { auth } from '../src/lib/apiClient';
 
-import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../services/pdfGenerationService';
-import { useAnalysisPDF } from '../hooks/useAnalysisPDF';
-import LoadingOverlay from '../components/LoadingOverlay';
-import ShareModal from '../components/ShareModal';
-import AnalysisLoading from '../components/AnalysisLoading';
-import DocumentOptionsModal from '../components/DocumentOptionsModal';
+import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../src/services/pdfGenerationService';
+import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
+import LoadingOverlay from '../src/components/LoadingOverlay';
+import ShareModal from '../src/components/ShareModal';
+import AnalysisLoading from '../src/components/AnalysisLoading';
+import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNotifications } from '../hooks/useNotifications';
-import { useDocumentActions } from '../hooks/useDocumentActions';
-import MedicationVerificationCard from '../components/MedicationVerificationCard';
-import { VerifiedMedicationsGroup } from '../components/prescription/VerifiedMedicationsGroup';
+import { useNotifications } from '../src/hooks/useNotifications';
+import { useDocumentActions } from '../src/hooks/useDocumentActions';
+import MedicationVerificationCard from '../src/components/MedicationVerificationCard';
+import { VerifiedMedicationsGroup } from '../src/components/prescription/VerifiedMedicationsGroup';
 
-import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../components/prescription';
-import { GroupedTestsCard } from '../components/prescription/GroupedTestsCard';
-import { AnimatedTooltip } from '../components/AnimatedTooltip';
-import { RootStackParamList } from '../../App';
+import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../src/components/prescription';
+import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCard';
+import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
+
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
-import FullScreenImageModal from '../components/FullScreenImageModal';
-import { DuplicateMedicationModal } from '../components/medication/DuplicateMedicationModal';
-import AddMedicationModal from '../components/medication/AddMedicationModal';
+import FullScreenImageModal from '../src/components/FullScreenImageModal';
+import { DuplicateMedicationModal } from '../src/components/medication/DuplicateMedicationModal';
+import AddMedicationModal from '../src/components/medication/AddMedicationModal';
 import { StatusBar } from 'expo-status-bar';
 
-import { styles } from './PrescriptionSummaryScreen.styles';
-import { IconGlow } from '../components/common/IconGlow';
-import { PrescriptionHeader } from '../components/prescription/PrescriptionHeader';
-import { DocumentPreviewCard } from '../components/prescription/DocumentPreviewCard';
-import { useDocumentFile } from '../hooks/useDocumentFile';
-import { useDocumentMedications } from '../hooks/useDocumentMedications';
+import { styles } from '../src/screens/PrescriptionSummaryScreen.styles';
+import { IconGlow } from '../src/components/common/IconGlow';
+import { PrescriptionHeader } from '../src/components/prescription/PrescriptionHeader';
+import { DocumentPreviewCard } from '../src/components/prescription/DocumentPreviewCard';
+import { useDocumentFile } from '../src/hooks/useDocumentFile';
+import { useDocumentMedications } from '../src/hooks/useDocumentMedications';
 
-type PrescriptionSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
+type PrescriptionSummaryNavigationProp = StackNavigationProp<any, 'PrescriptionSummary'>;
 
 interface PrescriptionSummaryScreenProps {
   onBack: () => void;
@@ -59,17 +60,28 @@ interface PrescriptionSummaryScreenProps {
 }
 
 export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionSummaryScreenProps) {
-  const { familyMembers } = useFamilyMembersStore();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const paramDocumentId = params.documentId as string;
 
+  const { familyMembers } = useFamilyMembersStore();
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
 
-  // Resolve document: either passed directly or found in store by ID
+  console.log('🐞 [DIAGNOSTICS] PrescriptionSummaryScreen Params:', { documentIdProp: documentId, paramDocumentId, hasDocumentProp: !!documentProp, documentsInStore: documents.length });
+
+  const handleBack = onBack || (() => { router.back(); });
+
   // Resolve document: either passed directly or found in store by ID
   const initialDocument = useMemo(() => {
     if (documentProp) return documentProp;
-    if (documentId) return documents.find(d => d.id === documentId);
-    return undefined; // Or find locally
-  }, [documentProp, documentId, documents]);
+    const effectiveDocumentId = documentId || paramDocumentId;
+    let foundDoc = undefined;
+    if (effectiveDocumentId) {
+      foundDoc = documents.find(d => d.id === effectiveDocumentId);
+    }
+    console.log('🐞 [DIAGNOSTICS] Resolved initialDocument:', { effectiveDocumentId, foundDocExists: !!foundDoc });
+    return foundDoc;
+  }, [documentProp, documentId, paramDocumentId, documents]);
 
   const { addMedicationFromAI, medications } = useMedicationsStore();
   const { user } = useAuthStore();
@@ -198,7 +210,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     confirmDelete,
     handleShare,
     handleShareDocument,
-  } = useDocumentActions(document, imageUri, onBack);
+  } = useDocumentActions(document, imageUri, handleBack);
 
   const {
     verifiedMedications,
@@ -252,7 +264,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           </View>
         )}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Document Error</Text>
@@ -264,7 +276,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           <Text style={styles.errorMessage}>
             The document you're trying to view could not be loaded. Please go back and try again.
           </Text>
-          <TouchableOpacity style={styles.errorButton} onPress={onBack} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.errorButton} onPress={handleBack} activeOpacity={0.8}>
             <Feather name="arrow-left" size={20} color={Colors.white} />
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -300,7 +312,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Modern Header */}
         <PrescriptionHeader
-          onBack={onBack}
+          onBack={handleBack}
           titleText={titleText}
           subtitleText={subtitleText}
           onShare={handleShare}
@@ -335,10 +347,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                 const summary = document ? getSummary(document.ai_analysis_result) : undefined;
 
                 return (
-                  <Animated.View layout={LinearTransition.duration(300)}>
+                  <Animated.View layout={LinearTransition.duration(300)} style={{ gap: 12 }}>
                     {/* Verification Prompt — subtle inline note for handwritten prescriptions */}
                     {document?.ai_analysis_result?.metadata?.handwriting_detected && (
-                      <View style={[styles.verificationPrompt, { marginTop: 16, marginBottom: 8 }]}>
+                      <View style={styles.verificationPrompt}>
                         <Text style={styles.verificationPromptText}>
                           Handwritten prescription — AI accuracy may vary. Please review the details below.
                         </Text>
@@ -363,6 +375,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                       innerMedicines.length > 0 && (
                         <Animated.View
                           layout={LinearTransition.duration(250)}
+                          style={{ gap: 12 }}
                         >
                           {/* MEDS DETECTED Header - Styled like AI Summary (standalone collapsible card) */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (() => {
@@ -396,7 +409,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                             return verifiedNames.length > 0 ? (
                               <VerifiedMedicationsGroup
                                 medicationNames={verifiedNames}
-                                onViewInTracker={() => navigation.navigate('Medications')}
+                                onViewInTracker={() => router.push('/medications')}
                               />
                             ) : null;
                           })()}
@@ -406,7 +419,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
                           {/* Unverified/All Medications List - Each card is a standalone main card */}
                           {((!isAlreadyAdded && allUnverifiedMedsIdx.length > 0) || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View>
+                            <View style={{ gap: 12 }}>
                               {(() => {
                                 const allMeds = isAlreadyAdded ? innerMedicines.map((medicine: any, index: number) => ({ medicine, index })) : allUnverifiedMedsIdx;
                                 const aiMeds = allMeds.filter((m: any) => m.index < aiMedicinesCount);
@@ -459,7 +472,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     {manualMeds.length > 0 && (
                                       <>
                                         {/* MANUALLY ADDED Header */}
-                                        <View style={[styles.medicationsHeaderCard, { marginTop: aiMeds.length > 0 ? 16 : 0 }]}>
+                                        <View style={styles.medicationsHeaderCard}>
                                           <View style={styles.medicationsHeaderRow}>
                                             <View style={styles.medicationsHeaderLeft}>
                                               <Text style={[styles.medicationsCountText, { color: Colors.primary }]}>{manualMeds.length}</Text>
@@ -481,26 +494,28 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                               })()}
 
                               {/* Add Medication Manually Button - Always Visible */}
-                              <TouchableOpacity
-                                style={styles.addManuallyButton}
-                                onPress={() => setShowAddMedicationModal(true)}
-                                activeOpacity={0.7}
-                              >
-                                <Feather name="plus" size={20} color={Colors.primary} />
-                                <Text style={styles.addManuallyButtonText}>Add Medication Manually</Text>
-                              </TouchableOpacity>
+                              <View style={styles.addManuallyButtonContainer}>
+                                <TouchableOpacity
+                                  style={styles.addManuallyButton}
+                                  onPress={() => setShowAddMedicationModal(true)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Feather name="plus" size={16} color={Colors.textSecondary} />
+                                  <Text style={styles.addManuallyButtonText}>Add missing medication</Text>
+                                </TouchableOpacity>
+                              </View>
                             </View>
                           )}
 
                           {/* Action Button - "Confirm & Add" when not added, "View in Tracker" when already added */}
                           {(hasUnverifiedMeds || (isAlreadyAdded && verifiedMedications.size === 0)) && (
-                            <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 4 }}>
+                            <View>
                               <TouchableOpacity
                                 style={[styles.verifyAllButton, isVerifyingAll && styles.verifyAllButtonDisabled]}
                                 onPress={async () => {
                                   // If already added, just navigate to tracker
                                   if (isAlreadyAdded) {
-                                    navigation.navigate('Medications');
+                                    router.push('/medications');
                                     return;
                                   }
 

@@ -13,7 +13,6 @@ import { parseAIMedication, detectDuplicateMedication } from '../../utils/medica
 import { Alert } from 'react-native';
 import { useMedicationsStore } from '../../store/medicationsStore';
 import { useFamilyMembersStore } from '../../store/familyMembersStore';
-import { supabase } from '../../services/supabaseClient';
 
 interface MedicationsSectionProps {
     medicines: MedicineInfo[];
@@ -63,7 +62,7 @@ export function MedicationsSection({
                 const isDismissed = dismissedMedicationIds.has(dismissId);
                 const parsedMed = parseAIMedication(medicines[index], documentId, documentTitle, familyMember);
                 const isVerified = verifiedMedications.has(parsedMed.name);
-                
+
                 // Only include in "Verify All" if it's NOT verified AND NOT dismissed
                 return !isVerified && !isDismissed;
             })
@@ -80,7 +79,7 @@ export function MedicationsSection({
         setIsVerifyingAll(true);
         try {
             const suggestedStartDate = documentCreatedAt.split('T')[0];
-            
+
             // Use batch addition for better performance and single alert
             await addMedicationsBatchFromAI(
                 unverifiedMeds,
@@ -133,7 +132,7 @@ export function MedicationsSection({
                     .map(medicine => parseAIMedication(medicine, documentId, documentTitle, familyMember))
                     .filter(med => verifiedMedications.has(med.name))
                     .map(med => med.name);
-                
+
                 return <VerifiedMedicationsGroup medicationNames={verifiedMedNames} />;
             })()}
 

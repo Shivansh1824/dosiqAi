@@ -135,7 +135,7 @@ async function handleNotificationEvent(type: EventType, detail: any) {
       break;
     case 'default':
       if (navigationCallback) {
-        navigationCallback('MedicineAlarm', medicationData);
+        navigationCallback('/medicinealarm', medicationData);
       }
       break;
   }

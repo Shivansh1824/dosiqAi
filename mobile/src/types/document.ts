@@ -35,8 +35,22 @@ export interface MedicineInfo {
     meal_relation?: MealRelation;  // Renamed from relation_to_meal
     pattern?: string;              // Renamed from dosage ("1-0-1" format)
     times_per_day?: number;        // Renamed from total_times_per_day (1, 2, 3, 4, etc.)
+    // Legacy support for older components
+    relation_to_meal?: string;
+    total_times_per_day?: number;
+    dosage?: string;
   };
-
+  // Legacy support for older components
+  source_raw?: any;
+  assumed_enriched_data?: {
+    confidence?: number;
+    generic_name?: string;
+    is_identified?: boolean;
+    medicine_type?: string;
+    medicine_purpose?: string;
+  };
+  dosage_instruction?: string;
+  relation_to_meal?: string;
 }
 
 // Recommended test structure

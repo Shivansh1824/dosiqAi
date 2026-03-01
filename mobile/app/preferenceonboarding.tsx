@@ -4,23 +4,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp, FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, interpolateColor } from 'react-native-reanimated';
-import { Colors, Sizes, Typography } from '../constants';
-import { useNavigation } from '@react-navigation/native';
+import { Colors, Sizes, Typography } from '../src/constants';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { auth, from } from '../services/supabaseClient';
+import { auth, from } from '../src/lib/apiClient';
 import Svg, { Path, Line, G, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import { TuneSelectionModal } from '../components/TuneSelectionModal';
-import { FollowUpRemindersSection } from '../components/FollowUpRemindersSection';
-import { InfoModal, InfoSection } from '../components/InfoModal';
-import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../services/tuneService';
-import { useFamilyMembersStore } from '../store/familyMembersStore';
-import { rescheduleAllNotificationsForMember } from '../services/notificationService';
+import { TuneSelectionModal } from '../src/components/TuneSelectionModal';
+import { FollowUpRemindersSection } from '../src/components/FollowUpRemindersSection';
+import { InfoModal, InfoSection } from '../src/components/InfoModal';
+import { Tune, getAppTunes, getDefaultTune, findTuneByFilename, getSystemTunes } from '../src/services/tuneService';
+import { useFamilyMembersStore } from '../src/store/familyMembersStore';
+import { rescheduleAllNotificationsForMember } from '../src/services/notificationService';
 
 
 export default function PreferenceOnboardingScreen() {
-    const navigation = useNavigation();
+    const router = useRouter();
 
     // State for Time Preferences
     const [morningTime, setMorningTime] = useState(new Date());
@@ -380,7 +381,7 @@ export default function PreferenceOnboardingScreen() {
 
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
                         <Feather name="arrow-left" size={24} color={Colors.gray800} />
                     </TouchableOpacity>
                     <View style={styles.headerTitleContainer}>

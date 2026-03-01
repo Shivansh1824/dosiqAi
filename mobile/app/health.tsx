@@ -2,22 +2,23 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Sizes } from '../constants';
-import { useNavigation } from '@react-navigation/native';
-import { useAuthStore } from '../store/authStore';
-import { useMedicationsStore } from '../store/medicationsStore';
-import { useAppointmentsStore } from '../store/appointmentsStore';
-import { useHealthVitalsStore } from '../store/healthVitalsStore';
-import { getFrequencyText } from '../types/medication';
-import { formatAppointmentDateTime } from '../types/appointment';
-import { HealthMetric, HealthAlert } from '../types/healthMetrics';
-import VitalCard from '../components/VitalCard';
-import FindingCard from '../components/FindingCard';
-import AlertBanner from '../components/AlertBanner';
-import BMICalculatorModal from '../components/BMICalculatorModal';
+import { Colors, Sizes } from '../src/constants';
+import { } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuthStore } from '../src/store/authStore';
+import { useMedicationsStore } from '../src/store/medicationsStore';
+import { useAppointmentsStore } from '../src/store/appointmentsStore';
+import { useHealthVitalsStore } from '../src/store/healthVitalsStore';
+import { getFrequencyText } from '../src/types/medication';
+import { formatAppointmentDateTime } from '../src/types/appointment';
+import { HealthMetric, HealthAlert } from '../src/types/healthMetrics';
+import VitalCard from '../src/components/VitalCard';
+import FindingCard from '../src/components/FindingCard';
+import AlertBanner from '../src/components/AlertBanner';
+import BMICalculatorModal from '../src/components/BMICalculatorModal';
 
 export default function HealthScreen() {
-    const navigation = useNavigation();
+    const router = useRouter();
     const { user } = useAuthStore();
     const { medications, isLoading: isLoadingMeds, fetchMedications } = useMedicationsStore();
     const { appointments, isLoading: isLoadingApts, fetchAppointments } = useAppointmentsStore();
@@ -38,7 +39,7 @@ export default function HealthScreen() {
                     useHealthVitalsStore.getState().loadFromCache(user.id),
                 ]);
 
-                // Step 2: Refresh from Supabase silently in background
+                // Step 2: Refresh from API silently in background
                 await Promise.all([
                     fetchMedications(user.id, true),
                     fetchAppointments(user.id, true),
@@ -225,7 +226,7 @@ export default function HealthScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Health Overview</Text>

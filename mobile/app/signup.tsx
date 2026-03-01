@@ -8,21 +8,22 @@ import {
     Platform,
     ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {     } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated from 'react-native-reanimated';
-import { Button, Input } from '../components';
-import { Colors, Sizes, Typography } from '../constants';
-import { useAuthStore } from '../store/authStore';
-import { useFadeSlideUp, useFadeIn } from '../utils/animations';
-import { RootStackParamList } from '../../App';
+import { Button, Input } from '../src/components';
+import { Colors, Sizes, Typography } from '../src/constants';
+import { useAuthStore } from '../src/store/authStore';
+import { useFadeSlideUp, useFadeIn } from '../src/utils/animations';
+
 
 type SignupScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Signup'>;
 
 export default function SignupScreen() {
-    const navigation = useNavigation<SignupScreenNavigationProp>();
+    const router = useRouter();
     const { signup } = useAuthStore();
 
     const [name, setName] = useState('');
@@ -99,7 +100,7 @@ export default function SignupScreen() {
             await signup(email, password, name);
 
             // Navigate to home after successful signup
-            navigation.replace('Home');
+            router.replace('/home');
         } catch (error) {
             console.error('Signup error:', error);
             setEmailError(error instanceof Error ? error.message : 'Signup failed. Please try again.');
@@ -109,7 +110,7 @@ export default function SignupScreen() {
     };
 
     const handleSignIn = () => {
-        navigation.navigate('Login');
+        router.push('/login');
     };
 
     return (
@@ -129,10 +130,10 @@ export default function SignupScreen() {
                     <TouchableOpacity
                         style={styles.backButton}
                         onPress={() => {
-                            if (navigation.canGoBack()) {
-                                navigation.goBack();
+                            if (router.canGoBack()) {
+                                router.back();
                             } else {
-                                navigation.replace('Welcome');
+                                router.replace('/welcome');
                             }
                         }}
                         accessibilityRole="button"

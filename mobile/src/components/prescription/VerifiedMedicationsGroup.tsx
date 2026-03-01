@@ -34,17 +34,17 @@ export const VerifiedMedicationsGroup = ({ medicationNames, onViewInTracker }: V
         {medicationNames.map((name, index) => (
           <View key={index} style={styles.medicationNode}>
             {/* Vertical Main Branch segment */}
-            <View 
+            <View
               style={[
-                styles.verticalMainBranch, 
+                styles.verticalMainBranch,
                 index === 0 && styles.firstBranch,
                 index === medicationNames.length - 1 && styles.lastBranch
-              ]} 
+              ]}
             />
-            
+
             {/* Horizontal Branch to Name */}
             <View style={styles.horizontalBranch} />
-            
+
             {/* Medication Name Chip */}
             <View style={styles.nameChip}>
               <Text style={styles.medicationName} numberOfLines={1}>
@@ -79,8 +79,6 @@ export const VerifiedMedicationsGroup = ({ medicationNames, onViewInTracker }: V
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginBottom: 24,
     backgroundColor: '#F9FAFB',
     borderRadius: 20,
     padding: 20,

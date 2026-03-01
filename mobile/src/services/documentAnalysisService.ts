@@ -1,12 +1,12 @@
 /**
  * Document Analysis Service
  *
- * Handles AI-powered document analysis using OpenRouter API via Supabase Edge Function
+ * Handles AI-powered document analysis using OpenRouter API via VPS API
  * Includes base64 conversion, upload limit tracking, and API communication
  */
 
 import { File } from 'expo-file-system';
-import { getStoredTokens, functions, rpc, from } from './supabaseClient';
+import { getStoredTokens, functions, rpc, from } from '../lib/apiClient';
 
 export interface AnalyzeDocumentParams {
   documentId: string;
@@ -89,7 +89,7 @@ export const getMimeType = (filePath: string): string => {
 };
 
 /**
- * Call Supabase Edge Function to analyze document
+ * Call VPS API to analyze document
  *
  * @param params - Document ID, file path, and optional custom prompt
  * @returns Analysis response with results or error
@@ -159,15 +159,15 @@ export const analyzeDocument = async (params: AnalyzeDocumentParams): Promise<An
       throw new Error('Not authenticated');
     }
 
-    // Call Edge Function
-    console.log('[DocumentAnalysis] Calling Edge Function...');
+    // Call API Function
+    console.log('[DocumentAnalysis] Calling API Function...');
 
     try {
-      // Determine which edge function to call based on document type
+      // Determine which function to call based on document type
       const edgeFunctionName = 'document-manager';
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[DocumentAnalysis] 🎯 EDGE FUNCTION INVOCATION');
+      console.log('[DocumentAnalysis] 🎯 API FUNCTION INVOCATION');
       console.log(`[DocumentAnalysis] Target: ${edgeFunctionName}`);
       console.log(`[DocumentAnalysis] Document ID: ${requestBody.documentId}`);
       console.log(`[DocumentAnalysis] File Type: ${requestBody.fileType}`);
