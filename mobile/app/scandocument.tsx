@@ -29,6 +29,7 @@ const FRAME_HEIGHT = FRAME_WIDTH * (4 / 3);
 // Removed: No longer uploading to Storage directly
 
 export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) {
+  const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const { user } = useAuthStore();
@@ -134,7 +135,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
+        type: ['application/pdf'],
         copyToCacheDirectory: true,
       });
 
@@ -142,11 +143,9 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         const uri = result.assets[0].uri;
         const fileName = result.assets[0].name;
 
-        const isImage = fileName?.toLowerCase().match(/\.(jpg|jpeg|png|heic|webp)$/i);
-
         setSelectedFiles(prev => [...prev, {
           uri: uri,
-          type: isImage ? 'image' : 'document',
+          type: 'document',
           name: fileName,
         }]);
         setPreviewModalVisible(true);
@@ -161,27 +160,31 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     if (selectedFiles.length === 0) return;
 
     try {
-      const isSinglePdf = selectedFiles.length === 1 && selectedFiles[0].type === 'document' && selectedFiles[0].name.toLowerCase().endsWith('.pdf');
+      const isPdfUpload = selectedFiles.some(f => f.type === 'document' && f.name.toLowerCase().endsWith('.pdf'));
 
-      if (isSinglePdf) {
+      if (isPdfUpload) {
         // Single native PDF - upload as is to avoid unnecessary processing
         const { uri, name } = selectedFiles[0];
         await uploadFile(uri, 'document', name);
+        setPreviewModalVisible(false);
+        setSelectedFiles([]);
       } else {
-        // Mixed files, multiple PDFs, or images -> Merge/Convert to single PDF natively
+        // Images -> Convert to single PDF natively
         setIsCompressing(true);
 
-        const { mergeFilesToPdf } = await import('../src/utils/pdfGenerator');
-        const pdfUri = await mergeFilesToPdf(selectedFiles, 'scanned_document.pdf');
+        const { createPdfFromImages } = await import('../src/utils/pdfGenerator');
+        const imageUris = selectedFiles.map(f => f.uri);
+        const pdfUri = await createPdfFromImages(imageUris, 'scanned_document.pdf');
         setIsCompressing(false);
 
         await uploadFile(pdfUri, 'document', 'scanned_document.pdf');
+        setPreviewModalVisible(false);
+        setSelectedFiles([]);
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
       setIsCompressing(false);
       Alert.alert('Error', 'Failed to upload document. Please try again.');
-    } finally {
       setPreviewModalVisible(false);
       setSelectedFiles([]);
     }
@@ -299,7 +302,11 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         console.error('[ScanDocument] Background analysis failed:', error);
       });
 
-      onBack();
+      if (onBack) {
+        onBack();
+      } else {
+        router.back();
+      }
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');
