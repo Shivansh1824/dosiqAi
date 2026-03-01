@@ -430,17 +430,35 @@ export default function FilePreviewModal({
                 {/* Bottom Actions Footer */}
                 <View style={[styles.footer, (hasInlineAddPage || onAddPage) ? { paddingTop: 0 } : undefined]}>
 
-                    {/* Add Page Button — available for both image and PDF flows */}
+                    {/* Add More Actions Row — direct access for better 2026 UX */}
                     {(hasInlineAddPage || onAddPage) && !isPdfSelected && (
-                        <TouchableOpacity
-                            style={styles.addPageButton}
-                            onPress={handleAddPagePress}
-                            disabled={isUploading}
-                            activeOpacity={0.8}
-                        >
-                            <Feather name="plus-circle" size={20} color={Colors.primary} />
-                            <Text style={styles.addPageText}>Add More Images</Text>
-                        </TouchableOpacity>
+                        <View style={styles.addActionsRow}>
+                            <TouchableOpacity
+                                style={[styles.inlineActionButton, styles.cameraAction]}
+                                onPress={handleTakePhoto}
+                                disabled={isUploading}
+                                activeOpacity={0.8}
+                            >
+                                <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+                                <View style={styles.inlineActionContent}>
+                                    <Feather name="camera" size={18} color={Colors.white} />
+                                    <Text style={styles.inlineActionText}>Camera</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.inlineActionButton, styles.galleryAction]}
+                                onPress={handlePickLibrary}
+                                disabled={isUploading}
+                                activeOpacity={0.8}
+                            >
+                                <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+                                <View style={styles.inlineActionContent}>
+                                    <Feather name="image" size={18} color={Colors.white} />
+                                    <Text style={styles.inlineActionText}>Gallery</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     )}
 
                     <Text style={styles.helperText}>
@@ -725,23 +743,42 @@ const styles = StyleSheet.create({
     pdfThumbnailLabelActive: {
         color: Colors.primary,
     },
-    addPageButton: {
+    addActionsRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 100,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        marginBottom: 8,
+        gap: 12,
+        marginBottom: 12,
+        width: '100%',
+        paddingHorizontal: 20,
     },
-    addPageText: {
+    inlineActionButton: {
+        flex: 1,
+        height: 50,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    cameraAction: {
+        borderColor: 'rgba(59, 130, 246, 0.5)', // Subtle blue tint
+    },
+    galleryAction: {
+        borderColor: 'rgba(99, 102, 241, 0.5)', // Subtle indigo tint
+    },
+    inlineActionContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    inlineActionText: {
         color: Colors.white,
         fontSize: 15,
-        fontWeight: '600',
+        fontWeight: '700',
+        letterSpacing: 0.3,
     },
 
     // Stats Styles
