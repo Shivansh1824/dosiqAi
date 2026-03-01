@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Database Models (match Supabase schema)
+// Database Models (match API schema)
 // ============================================================================
 
 export interface LabReport {

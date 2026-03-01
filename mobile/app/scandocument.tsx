@@ -26,7 +26,7 @@ const { width } = Dimensions.get('window');
 const FRAME_WIDTH = width - Sizes.xl * 2;
 const FRAME_HEIGHT = FRAME_WIDTH * (4 / 3);
 
-// Removed: No longer uploading to Supabase Storage
+// Removed: No longer uploading to Storage directly
 
 export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) {
   const [isUploading, setIsUploading] = useState(false);
@@ -187,7 +187,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
     }
   };
 
-  // Upload file - saves locally and stores metadata in Supabase
+  // Upload file - saves locally and stores metadata in VPS database
   const uploadFile = async (uri: string, type: 'image' | 'document', fileName?: string, isReportOverride?: boolean) => {
     if (!user?.id) {
       Alert.alert('Error', 'Please log in to upload documents.');
@@ -259,7 +259,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         color: '', // Will be calculated by store from document type
       });
 
-      // Get the actual document ID from Supabase (UUID)
+      // Get the actual document ID from Database (UUID)
       const actualDocumentId = savedDocument?.id || filename;
       console.log('[ScanDocument] Document saved with ID:', actualDocumentId);
 

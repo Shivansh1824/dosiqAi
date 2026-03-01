@@ -15,17 +15,17 @@
  */
 export const sanitizeErrorMessage = (errorMsg: string | undefined | null): string => {
   if (!errorMsg) return 'An unknown error occurred.';
-  
+
   // Detect HTML responses (common in proxy/gateway errors like 525 or 502)
   if (errorMsg.includes('<html') || errorMsg.includes('<!DOCTYPE')) {
     return 'Detailed network error encountered. The server might be temporarily unreachable or experiencing high latency.';
   }
-  
+
   return errorMsg;
 };
 
 /**
- * Executes a Supabase query (or any Promise-returning function) with exponential backoff retry logic.
+ * Executes a Database query (or any Promise-returning function) with exponential backoff retry logic.
  * This is crucial for handling transient network drops or SSL Handshake failures.
  * 
  * @param operation The async function to execute
@@ -48,16 +48,16 @@ export const withRetry = async <T>(
     } catch (error: any) {
       const isHtmlError = error?.message && (error.message.includes('<html') || error.message.includes('<!DOCTYPE'));
       const isNetworkError = error?.message?.includes('Network request failed') || error?.message?.includes('socket');
-      
+
       // Only retry on potential infrastructure/network errors, not auth or validation errors
       const shouldRetry = isHtmlError || isNetworkError || error?.status >= 500;
 
       if (!shouldRetry || attempt === maxRetries) {
         // If we shouldn't retry, or we're out of attempts, throw a sanitized error
         if (isHtmlError) {
-            console.error(`[apiUtils] ${operationName} failed: Infrastructure Error (Sanitized)`);
+          console.error(`[apiUtils] ${operationName} failed: Infrastructure Error (Sanitized)`);
         } else {
-            console.error(`[apiUtils] ${operationName} failed:`, error);
+          console.error(`[apiUtils] ${operationName} failed:`, error);
         }
         throw new Error(sanitizeErrorMessage(error?.message));
       }
@@ -65,7 +65,7 @@ export const withRetry = async <T>(
       attempt++;
       const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s...
       console.warn(`[apiUtils] ${operationName} failed (Attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
-      
+
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

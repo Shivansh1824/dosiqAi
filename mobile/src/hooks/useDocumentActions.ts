@@ -26,7 +26,7 @@ export function useDocumentActions(document: Document | null | undefined, imageU
         try {
             setIsDeleting(true);
 
-            // 1. Delete from Supabase
+            // 1. Delete from Database
             if (document) {
                 await deleteDocument(document.id);
             }

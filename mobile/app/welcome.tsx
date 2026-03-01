@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
-import {     } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -12,8 +10,6 @@ import Logo from '../src/components/Logo';
 import { Colors, Sizes, Typography } from '../src/constants';
 import { useAuthStore } from '../src/store/authStore';
 
-
-type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
 
 const { width, height } = Dimensions.get('window');
 
@@ -48,7 +44,7 @@ export default function WelcomeScreen() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, navigation]);
+  }, [isAuthenticated, router]);
 
   const handleGetStarted = () => {
     router.push('/onboarding1');

@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDocumentsStore } from '../store/documentsStore';
 
 /**
- * Hook to automatically sync documents with Supabase every 30 minutes (silent, no UI)
+ * Hook to automatically sync documents with the Database every 30 minutes (silent, no UI)
  * Pauses sync when app goes to background to save battery
  *
  * Usage in useAppInitialization.ts:

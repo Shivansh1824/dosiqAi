@@ -202,10 +202,10 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
      */
     ensurePrimaryMemberExists: async (userId: string, userName: string): Promise<FamilyMember | null> => {
         try {
-            // Verify Supabase session is active before attempting database operations
+            // Verify API session is active before attempting database operations
             const { data: { session }, error: sessionError } = await auth.getSession();
             if (sessionError || !session) {
-                console.warn('[FamilyMembersStore] No active Supabase session, cannot create family member');
+                console.warn('[FamilyMembersStore] No active API session, cannot create family member');
                 set({ isInitialized: true });
                 return null;
             }

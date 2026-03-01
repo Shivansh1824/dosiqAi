@@ -318,7 +318,7 @@ export default function HomeScreen() {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Save document metadata to database
-      // title = UUID filename for consistency across local, Supabase, and R2
+      // title = UUID filename for consistency across local, VPS, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
         type: docType,
@@ -342,7 +342,7 @@ export default function HomeScreen() {
           console.log('[HomeScreen] R2 upload promise resolved with key:', cloudFileKey);
 
           if (cloudFileKey && actualDocumentId) {
-            // Use DocumentsStore function which has the correct Supabase context
+            // Use DocumentsStore function which has the correct DB context
             const { updateCloudFileKey } = useDocumentsStore.getState();
             const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
 
@@ -476,7 +476,8 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Error in confirm upload:', error);
       setIsCompressing(false);
-      Alert.alert('Error', 'Failed to upload document. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      Alert.alert('Upload Error', `Failed to upload document: ${errorMessage}`);
     } finally {
       setPreviewModalVisible(false);
       setSelectedFiles([]);
