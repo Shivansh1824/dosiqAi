@@ -454,6 +454,8 @@ export default function HomeScreen() {
         // Single native PDF
         const { uri, name } = selectedFiles[0];
         await uploadFile(uri, 'document', name);
+        setPreviewModalVisible(false);
+        setSelectedFiles([]);
       } else {
         setIsCompressing(true);
         const hasDocument = selectedFiles.some(f => f.type === 'document' || f.name.toLowerCase().endsWith('.pdf'));
@@ -472,6 +474,8 @@ export default function HomeScreen() {
 
         setIsCompressing(false);
         await uploadFile(pdfUri, 'document', 'uploaded_document.pdf');
+        setPreviewModalVisible(false);
+        setSelectedFiles([]);
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);

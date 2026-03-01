@@ -29,6 +29,7 @@ const FRAME_HEIGHT = FRAME_WIDTH * (4 / 3);
 // Removed: No longer uploading to Storage directly
 
 export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) {
+  const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const { user } = useAuthStore();
@@ -301,7 +302,11 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
         console.error('[ScanDocument] Background analysis failed:', error);
       });
 
-      onBack();
+      if (onBack) {
+        onBack();
+      } else {
+        router.back();
+      }
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Error', 'Failed to save document. Please try again.');
