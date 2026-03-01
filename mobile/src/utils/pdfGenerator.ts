@@ -1,6 +1,6 @@
 // @ts-ignore
 import RNImageToPdf from 'react-native-image-to-pdf';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { PDFDocument } from 'pdf-lib';
 import { compressImage } from './imageCompression';
 
@@ -92,6 +92,8 @@ export const createPdfFromImages = async (
  * Images are compressed and embedded into their own pages.
  * Existing PDFs have all their pages copied into the new document.
  *
+ * Uses the new expo-file-system File/Paths API (SDK 54+).
+ *
  * @param files - Array of files (images and PDFs)
  * @param filename - Optional custom filename for the output PDF
  * @returns The URI of the generated PDF file
@@ -117,31 +119,46 @@ export const mergeFilesToPdf = async (
         if (isPdf) {
           console.log(`[pdfGenerator] Loading PDF: ${file.name}`);
           const uri = file.uri.startsWith('file://') ? file.uri : `file://${file.uri}`;
-          const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+
+          // Read PDF as base64 using new File API
+          const pdfFile = new File(uri);
+          if (!pdfFile.exists) {
+            console.error(`[pdfGenerator] PDF file not found: ${uri}`);
+            continue;
+          }
+          const base64 = await pdfFile.base64();
 
           const donorPdf = await PDFDocument.load(base64);
           const donorPages = await mergedPdf.copyPages(donorPdf, donorPdf.getPageIndices());
           donorPages.forEach((page) => mergedPdf.addPage(page));
+          console.log(`[pdfGenerator] PDF merged: ${donorPages.length} pages added`);
 
         } else if (file.type === 'image' || ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(fileExt)) {
           console.log(`[pdfGenerator] Processing image: ${file.name}`);
-          // 1. Compress image
+
+          // 1. Compress image (compressImage always outputs JPEG format)
           const compressedUriStr = await (compressImage(file.uri) as any) || file.uri;
           const uri = compressedUriStr.startsWith('file://') ? compressedUriStr : `file://${compressedUriStr}`;
 
-          // 2. Read as base64
-          const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+          // 2. Read as base64 using new File API
+          const imgFile = new File(uri);
+          if (!imgFile.exists) {
+            console.error(`[pdfGenerator] Image file not found: ${uri}`);
+            continue;
+          }
+          const base64 = await imgFile.base64();
 
-          // 3. Determine type and embed
-          const isPng = fileExt === 'png' || uri.toLowerCase().endsWith('.png');
+          // 3. Determine actual type from the compressed output URI, NOT the original extension.
+          //    compressImage() always outputs JPEG (via ImageManipulator SaveFormat.JPEG),
+          //    so after compression we should always use embedJpg — regardless of original extension.
+          const compressedExt = uri.split('.').pop()?.toLowerCase() || '';
+          const isActuallyPng = compressedExt === 'png';
 
           let image;
-          if (isPng) {
+          if (isActuallyPng) {
             image = await mergedPdf.embedPng(base64);
           } else {
-            // pdf-lib's embedJpg works for standard JPEGs. 
-            // Warning: HEIC/WebP might need pre-conversion via ImageManipulator if compressImage doesn't output JPEG.
-            // compressImage in this codebase returns JPEG by default for all inputs.
+            // compressImage outputs JPEG, so this is the correct path for all compressed images
             image = await mergedPdf.embedJpg(base64);
           }
 
@@ -154,6 +171,7 @@ export const mergeFilesToPdf = async (
             width: dims.width,
             height: dims.height,
           });
+          console.log(`[pdfGenerator] Image page added: ${dims.width}x${dims.height}`);
         }
       } catch (err) {
         console.error(`[pdfGenerator] Failed to process file ${file.name}:`, err);
@@ -164,14 +182,16 @@ export const mergeFilesToPdf = async (
     // Save PDF to base64
     const pdfBytes = await mergedPdf.saveAsBase64();
 
-    // Write to temporary local file
-    const cacheDir = (FileSystem as any).cacheDirectory;
-    if (!cacheDir) {
+    // Write to cache directory using new Paths API
+    if (!Paths.cache) {
       throw new Error('Cache directory is not available');
     }
 
-    const outputUri = `${cacheDir}${filename}`;
-    await FileSystem.writeAsStringAsync(outputUri, pdfBytes, { encoding: 'base64' });
+    const outputUri = `${Paths.cache.uri}/${filename}`;
+    const outputFile = new File(outputUri);
+
+    // Write base64 content to file
+    await outputFile.write(pdfBytes, { encoding: 'base64' });
 
     console.log(`[pdfGenerator] Merged PDF successfully created at: ${outputUri}`);
     return outputUri;
@@ -180,4 +200,3 @@ export const mergeFilesToPdf = async (
     throw error;
   }
 };
-
