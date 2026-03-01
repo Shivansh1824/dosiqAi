@@ -455,14 +455,22 @@ export default function HomeScreen() {
         const { uri, name } = selectedFiles[0];
         await uploadFile(uri, 'document', name);
       } else {
-        // Multiple images (or single image) -> Convert to PDF natively
         setIsCompressing(true);
-        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+        const hasDocument = selectedFiles.some(f => f.type === 'document' || f.name.toLowerCase().endsWith('.pdf'));
 
-        const { createPdfFromImages } = await import('../src/utils/pdfGenerator');
-        const pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        let pdfUri = '';
+        if (hasDocument) {
+          // Mixed files (images and PDFs) -> Merge them all properly
+          const { mergeFilesToPdf } = await import('../src/utils/pdfGenerator');
+          pdfUri = await mergeFilesToPdf(selectedFiles, 'uploaded_document.pdf');
+        } else {
+          // Images only -> Convert to PDF natively
+          const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+          const { createPdfFromImages } = await import('../src/utils/pdfGenerator');
+          pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        }
+
         setIsCompressing(false);
-
         await uploadFile(pdfUri, 'document', 'uploaded_document.pdf');
       }
     } catch (error) {
