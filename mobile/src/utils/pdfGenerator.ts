@@ -119,22 +119,20 @@ export const mergeFilesToPdf = async (
         if (isPdf) {
           console.log(`[pdfGenerator] Loading PDF: ${file.name}`);
           const uri = file.uri.startsWith('file://') ? file.uri : `file://${file.uri}`;
-          console.log(`🐞 [DIAGNOSTICS] PDF uri: ${uri}`);
 
           // Read PDF as base64 using new File API
           const pdfFile = new File(uri);
-          console.log(`🐞 [DIAGNOSTICS] PDF exists? ${pdfFile.exists}, size? ${pdfFile.size}`);
+
           if (!pdfFile.exists) {
             console.error(`[pdfGenerator] PDF file not found: ${uri}`);
             continue;
           }
           const base64 = await pdfFile.base64();
-          console.log(`🐞 [DIAGNOSTICS] Read base64 length: ${base64?.length}, first 20: ${base64?.substring(0, 20)}`);
 
-          const donorPdf = await PDFDocument.load(base64);
-          console.log(`🐞 [DIAGNOSTICS] loaded donorPdf, pages: ${donorPdf.getPageCount()}`);
+          const donorPdf = await PDFDocument.load(base64, { ignoreEncryption: true });
+          
           const donorPages = await mergedPdf.copyPages(donorPdf, donorPdf.getPageIndices());
-          console.log(`🐞 [DIAGNOSTICS] copied donorPages, got: ${donorPages.length}`);
+          
           donorPages.forEach((page) => mergedPdf.addPage(page));
           console.log(`[pdfGenerator] PDF merged: ${donorPages.length} pages added`);
 
@@ -180,7 +178,6 @@ export const mergeFilesToPdf = async (
         }
       } catch (err: any) {
         console.error(`[pdfGenerator] Failed to process file ${file.name}:`, err);
-        console.error(`🐞 [DIAGNOSTICS] PDF Merge Catch Block Error for ${file.name}:`, err?.toString?.());
         // Throw the error so it bubbles up to the UI, instead of silently producing an incomplete PDF
         throw new Error(`Failed to process ${file.name}: ${err?.message || err?.toString()}`);
       }
