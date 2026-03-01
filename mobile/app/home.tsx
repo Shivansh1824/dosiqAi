@@ -476,9 +476,42 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Error in confirm upload:', error);
       setIsCompressing(false);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes('security restrictions') || errorMessage.includes('password-protected or encrypted')) {
+        Alert.alert(
+          'Cannot Merge PDF',
+          'One of the selected PDFs has standard security restrictions (often used by labs or hospitals) that prevent it from being merged with other files.\n\nWould you like to upload these files separately instead?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Upload Separately',
+              onPress: async () => {
+                setPreviewModalVisible(false);
+                setIsUploading(true);
+                let successCount = 0;
+                for (const file of selectedFiles) {
+                  try {
+                    await uploadFile(file.uri, file.type, file.name);
+                    successCount++;
+                  } catch (e) {
+                    console.error('Failed to upload separate file', e);
+                  }
+                }
+                setIsUploading(false);
+                setSelectedFiles([]);
+                if (successCount < selectedFiles.length) {
+                  Alert.alert('Upload Incomplete', `Only uploaded ${successCount} out of ${selectedFiles.length} files.`);
+                }
+              }
+            }
+          ]
+        );
+        // Return early to prevent the finally block from clearing the selected files immediately
+        return;
+      }
+
       Alert.alert('Upload Error', `Failed to upload document: ${errorMessage}`);
-    } finally {
       setPreviewModalVisible(false);
       setSelectedFiles([]);
     }

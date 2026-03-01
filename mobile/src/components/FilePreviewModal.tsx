@@ -13,6 +13,7 @@ import {
     StatusBar,
     Animated,
     FlatList,
+    Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
@@ -135,7 +136,7 @@ export default function FilePreviewModal({
                 newIndex = Math.max(0, files.length - 1);
                 setCurrentIndex(newIndex);
             }
-            
+
             // Sync FlatList to ensure it stays on the correct page when files are added/removed
             setTimeout(() => {
                 flatListRef.current?.scrollToIndex({ index: newIndex, animated: false });
@@ -217,6 +218,10 @@ export default function FilePreviewModal({
     };
 
     const handlePickDocument = () => {
+        if (files.some(f => f.type === 'image')) {
+            Alert.alert('Invalid Selection', 'Please upload PDFs separately.');
+            return;
+        }
         closeInlinePicker();
         setTimeout(() => {
             onPickDocument?.();
@@ -226,10 +231,11 @@ export default function FilePreviewModal({
     if (!visible || files.length === 0) return null;
 
     const currentFile = files[currentIndex] || files[0];
-    
+
     // Determine if current file is a native PDF
     const isPdf = currentFile.type === 'document' && currentFile.name.toLowerCase().endsWith('.pdf');
     const isImageFlow = currentFile.type === 'image';
+    const isPdfSelected = files.some(f => f.type === 'document' && f.name.toLowerCase().endsWith('.pdf'));
 
     // Compute dynamic page and token counts
     // Compute dynamic page count FOR THE CURRENT DOCUMENT ONLY
@@ -287,7 +293,7 @@ export default function FilePreviewModal({
                 {/* Content Preview */}
                 <View style={styles.contentContainer}>
                     <View style={styles.previewCard}>
-                        <View 
+                        <View
                             style={styles.sliderContainer}
                             onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
                         >
@@ -334,7 +340,7 @@ export default function FilePreviewModal({
                                 }}
                             />
                         </View>
-                        
+
                         {/* Document Number Badge — top-left */}
                         {files.length > 1 && (
                             <View style={styles.docNumberBadge}>
@@ -344,16 +350,16 @@ export default function FilePreviewModal({
 
                         {/* Remove Page Button — top-right */}
                         {onRemovePage && files.length > 0 && (
-                            <TouchableOpacity 
-                              style={styles.removePageButton} 
-                              onPress={() => onRemovePage(currentIndex)}
-                              disabled={isUploading}
+                            <TouchableOpacity
+                                style={styles.removePageButton}
+                                onPress={() => onRemovePage(currentIndex)}
+                                disabled={isUploading}
                             >
                                 <Feather name="trash-2" size={20} color={Colors.white} />
                             </TouchableOpacity>
                         )}
                     </View>
-                    
+
                     {/* Thumbnail Strip — WhatsApp-style navigation */}
                     {files.length > 1 && (
                         <View style={styles.thumbnailStripContainer}>
@@ -423,9 +429,9 @@ export default function FilePreviewModal({
 
                 {/* Bottom Actions Footer */}
                 <View style={[styles.footer, (hasInlineAddPage || onAddPage) ? { paddingTop: 0 } : undefined]}>
-                    
+
                     {/* Add Page Button — available for both image and PDF flows */}
-                    {(hasInlineAddPage || onAddPage) && (
+                    {(hasInlineAddPage || onAddPage) && !isPdfSelected && (
                         <TouchableOpacity
                             style={styles.addPageButton}
                             onPress={handleAddPagePress}
@@ -433,7 +439,7 @@ export default function FilePreviewModal({
                             activeOpacity={0.8}
                         >
                             <Feather name="plus-circle" size={20} color={Colors.primary} />
-                            <Text style={styles.addPageText}>Add Another Document</Text>
+                            <Text style={styles.addPageText}>Add More Images</Text>
                         </TouchableOpacity>
                     )}
 
@@ -470,7 +476,7 @@ export default function FilePreviewModal({
 
                 {/* ─── Inline Source Picker Overlay ─── */}
                 {showInlinePicker && (
-                    <Animated.View 
+                    <Animated.View
                         style={styles.pickerCardWrapper}
                         pointerEvents="box-none" // Let touches pass through the wrapper if not on card
                     >
@@ -479,7 +485,7 @@ export default function FilePreviewModal({
                             <Animated.View style={[styles.pickerBackdrop, { opacity: pickerFadeAnim }]} />
                         </TouchableWithoutFeedback>
 
-                        <Animated.View 
+                        <Animated.View
                             style={[
                                 styles.pickerCardContainer,
                                 { transform: [{ translateY: pickerTranslateY }] },
@@ -488,14 +494,14 @@ export default function FilePreviewModal({
                             {/* Layered blur architecture for true 2026 depth calculation */}
                             <BlurView intensity={65} tint="systemThinMaterialDark" style={StyleSheet.absoluteFill} />
                             <View style={styles.pickerCardOverlay} />
-                            
+
                             <View style={styles.pickerCard}>
                                 {/* Handle bar */}
                                 <View style={styles.pickerHandle}>
                                     <View style={styles.pickerHandleBar} />
                                 </View>
 
-                                <Text style={styles.pickerTitle}>Add Another Page</Text>
+                                <Text style={styles.pickerTitle}>Add More Images</Text>
                                 <Text style={styles.pickerSubtitle}>Choose a source to scan or import</Text>
 
                                 <View style={styles.pickerOptionsRow}>
@@ -524,7 +530,7 @@ export default function FilePreviewModal({
                                     </TouchableOpacity>
 
                                     {/* Choose Files Option */}
-                                    {onPickDocument && (
+                                    {onPickDocument && !files.some(f => f.type === 'image') && (
                                         <TouchableOpacity
                                             style={styles.pickerOptionThreeCol}
                                             onPress={handlePickDocument}
@@ -536,16 +542,16 @@ export default function FilePreviewModal({
                                             <Text style={styles.pickerOptionText}>Choose Files</Text>
                                         </TouchableOpacity>
                                     )}
-                            </View>
+                                </View>
 
-                            {/* Cancel */}
-                            <TouchableOpacity
-                                style={styles.pickerCancelButton}
-                                onPress={closeInlinePicker}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.pickerCancelText}>Cancel</Text>
-                            </TouchableOpacity>
+                                {/* Cancel */}
+                                <TouchableOpacity
+                                    style={styles.pickerCancelButton}
+                                    onPress={closeInlinePicker}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.pickerCancelText}>Cancel</Text>
+                                </TouchableOpacity>
                             </View>
                         </Animated.View>
                     </Animated.View>
@@ -594,7 +600,7 @@ const styles = StyleSheet.create({
     previewCard: {
         width: '100%',
         // Adjust height to leave room for stats
-        height: '75%', 
+        height: '75%',
         backgroundColor: '#000',
         borderRadius: 24,
         overflow: 'hidden',
@@ -737,7 +743,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '600',
     },
-    
+
     // Stats Styles
     statsContainer: {
         flexDirection: 'row',
@@ -863,7 +869,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 5,
         borderRadius: 3,
-        backgroundColor: 'rgba(255, 255, 255, 0.25)', 
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
     },
     pickerTitle: {
         fontSize: 24,
@@ -892,7 +898,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: width * 0.41,
         paddingVertical: 28,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderRadius: 32,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -906,7 +912,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: (width - 48 - 24) / 3, // 3 columns with 12px gaps and 24px*2 padding
         paddingVertical: 22,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderRadius: 24,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.08)',
