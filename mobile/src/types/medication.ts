@@ -62,6 +62,7 @@ export interface Medication {
 export interface MedicationsState {
   medications: Medication[];
   isLoading: boolean;
+  isInitialized: boolean;
   error: string | null;
 }
 

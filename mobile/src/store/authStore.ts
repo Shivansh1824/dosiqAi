@@ -9,10 +9,11 @@ import * as Linking from 'expo-linking';
  * Integrates with the VPS authentication
  * Persists to AsyncStorage for offline access
  */
-export const useAuthStore = create<AuthStore>((set) => ({
+export const useAuthStore = create<AuthStore>((set, get) => ({
   // Initial state
   isAuthenticated: false,
   hasSeenOnboarding: false,
+  isInitialized: false,
   isLoading: true,
   user: null,
 
@@ -34,6 +35,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
    * Call this on app start
    */
   initialize: async () => {
+    // PREVENT redundant parallel calls during boot
+    if (get().isInitialized || get().isLoading) return;
+
     try {
       console.log('[DEBUG] [AuthStore] initialize() called');
       set({ isLoading: true });
@@ -96,6 +100,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         hasSeenOnboarding,
         user: null,
         isLoading: false,
+        isInitialized: true,
       });
 
       console.log('[DEBUG] [AuthStore] No active session, user needs to log in.');

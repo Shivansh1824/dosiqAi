@@ -49,13 +49,17 @@ export const withRetry = async <T>(
       const isHtmlError = error?.message && (error.message.includes('<html') || error.message.includes('<!DOCTYPE'));
       const isNetworkError = error?.message?.includes('Network request failed') || error?.message?.includes('socket');
 
-      // Only retry on potential infrastructure/network errors, not auth or validation errors
-      const shouldRetry = isHtmlError || isNetworkError || error?.status >= 500;
+      // Only retry on potential infrastructure/network errors or Rate Limits
+      // Not on 400 Bad Request, 401 Unauthorized, or 403 Forbidden
+      const isRateLimit = error?.status === 429 || error?.message?.includes('Too many requests');
+      const shouldRetry = isHtmlError || isNetworkError || isRateLimit || error?.status >= 500;
 
       if (!shouldRetry || attempt === maxRetries) {
         // If we shouldn't retry, or we're out of attempts, throw a sanitized error
         if (isHtmlError) {
           console.error(`[apiUtils] ${operationName} failed: Infrastructure Error (Sanitized)`);
+        } else if (isRateLimit) {
+          console.error(`[apiUtils] ${operationName} failed: Rate Limit Exceeded`);
         } else {
           console.error(`[apiUtils] ${operationName} failed:`, error);
         }
@@ -63,7 +67,15 @@ export const withRetry = async <T>(
       }
 
       attempt++;
-      const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s...
+
+      // Exponential backoff: 1s, 2s, 4s...
+      let delay = baseDelay * Math.pow(2, attempt - 1);
+
+      // Add Jitter for 429s to prevent synchronized retries ("thundering herd")
+      if (isRateLimit) {
+        delay += Math.floor(Math.random() * 1000); // Add 0-1000ms jitter
+      }
+
       console.warn(`[apiUtils] ${operationName} failed (Attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
 
       await new Promise(resolve => setTimeout(resolve, delay));
