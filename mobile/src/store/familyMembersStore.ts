@@ -201,6 +201,11 @@ export const useFamilyMembersStore = create<FamilyMembersStore>((set, get) => ({
      * handling duplicate key errors (23505) if another call creates the member simultaneously
      */
     ensurePrimaryMemberExists: async (userId: string, userName: string): Promise<FamilyMember | null> => {
+        // PREVENT redundant parallel calls from multiple UI entry points
+        if (get().isInitialized && get().activeMember) {
+            return get().activeMember;
+        }
+
         try {
             // Verify API session is active before attempting database operations
             const { data: { session }, error: sessionError } = await auth.getSession();

@@ -1,13 +1,6 @@
-/**
- * PDF Generation Service (react-native-html-to-pdf version)
- * 
- * Using react-native-html-to-pdf instead of expo-print
- * for better New Architecture compatibility
- */
-
-import { generatePDF } from 'react-native-html-to-pdf';
+import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { File, Paths } from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
 import { DocumentAnalysisResult } from '../types/document';
 import { generatePrescriptionHTML, generateLabReportHTML } from '../utils/pdfTemplates';
 
@@ -33,7 +26,7 @@ export interface ShareResult {
 }
 
 /**
- * Generate PDF from analysis result using react-native-html-to-pdf
+ * Generate PDF from analysis result using expo-print
  */
 export async function generateAnalysisPDF(
     analysisResult: DocumentAnalysisResult,
@@ -62,32 +55,26 @@ export async function generateAnalysisPDF(
 
         console.log('[PDFGeneration] HTML template generated, size:', html.length, 'chars');
 
-        // Generate filename
-        const timestamp = Date.now();
-        const safePatientName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
-        const filename = `${safePatientName}_Analysis_${timestamp}`;
-
-        // Generate PDF using react-native-html-to-pdf
-        const options = {
+        // Generate PDF using expo-print
+        console.log('[PDFGeneration] Calling Print.printToFileAsync...');
+        const result = await Print.printToFileAsync({
             html,
-            fileName: filename,
-            directory: 'Documents',
-        };
-
-        console.log('[PDFGeneration] Calling generatePDF...');
-        const result = await generatePDF(options);
+            base64: false,
+        });
 
         console.log('[PDFGeneration] PDF generated successfully');
-        console.log('[PDFGeneration] File path:', result.filePath);
+        console.log('[PDFGeneration] File path:', result.uri);
 
         const generationTimeMs = Date.now() - startTime;
 
-        // Get file size
+        // Get file size using New API (ExpoFile)
         let fileSize = 0;
         try {
-            if (result.filePath) {
-                const file = new File(result.filePath);
-                fileSize = file.size || 0;
+            if (result.uri) {
+                const file = new ExpoFile(result.uri);
+                if (file.exists) {
+                    fileSize = file.size || 0;
+                }
             }
         } catch (e) {
             console.log('[PDFGeneration] Could not get file size:', e);
@@ -97,7 +84,7 @@ export async function generateAnalysisPDF(
 
         return {
             success: true,
-            localPath: result.filePath || undefined,
+            localPath: result.uri,
             fileSize,
             generationTimeMs,
         };
@@ -131,8 +118,8 @@ export async function sharePDF(pdfPath: string, message?: string): Promise<Share
         // Ensure file path has file:// protocol
         const uri = pdfPath.startsWith('file://') ? pdfPath : `file://${pdfPath}`;
 
-        // Verify file exists
-        const file = new File(uri);
+        // Verify file exists using New API (ExpoFile)
+        const file = new ExpoFile(uri);
         if (!file.exists) {
             console.error('[PDFShare] File not found:', uri);
             return {

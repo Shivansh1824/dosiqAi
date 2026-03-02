@@ -21,7 +21,7 @@ import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, Re
 
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
 import { File } from 'expo-file-system';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
@@ -294,18 +294,13 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
               </>
             ) : isPdf && imageUri ? (
               <View style={styles.pdfPreviewWrapper}>
-                <Pdf
-                  source={{ uri: imageUri, cache: true }}
-                  page={1}
-                  scale={1.0}
-                  minScale={1.0}
-                  maxScale={1.0}
-                  spacing={0}
-                  fitPolicy={0}
-                  enablePaging={false}
-                  enableRTL={false}
-                  enableAnnotationRendering={false}
+                <WebView
+                  source={{ uri: imageUri }}
                   style={styles.pdfPreview}
+                  originWhitelist={['*']}
+                  scalesPageToFit={true}
+                  useWebKit={true}
+                  scrollEnabled={false}
                 />
                 <View style={styles.floatingButtonContainer}>
                   <TouchableOpacity

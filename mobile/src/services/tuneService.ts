@@ -1,38 +1,12 @@
-import { Platform } from 'react-native';
+// Audio playback management using expo-audio (New Architecture compatible)
+import { createAudioPlayer, useAudioPlayer } from 'expo-audio';
 
-// Wait, the duplicate import of Platform was on line 71, let's fix the entire top of the file up to line 74.
-// Note: expo-audio doesn't have an Audio.Sound object. Let's check what it has.
-// import { AudioPlayer, useAudioPlayer } from 'expo-audio'; // We'll see if this works, but we can't use hooks here.
-
-// Conditionally import for Android only
-let NotificationSounds: any = null;
-if (Platform.OS === 'android') {
-    try {
-        console.log('[TuneService] Requirement check for react-native-notification-sounds');
-        const module = require('react-native-notification-sounds');
-
-        // Comprehensive resolution
-        if (module.getNotifications) {
-            NotificationSounds = module;
-        } else if (module.default && module.default.getNotifications) {
-            NotificationSounds = module.default;
-        } else {
-            NotificationSounds = module.default || module;
-        }
-
-        console.log('[TuneService] NotificationSounds resolved. Methods:',
-            Object.keys(NotificationSounds).filter(k => typeof NotificationSounds[k] === 'function')
-        );
-
-    } catch (e) {
-        console.warn('[TuneService] react-native-notification-sounds loading failed:', e);
-    }
-}
-
-// Audio Assets
+// App Assets
 const TUNE_3S = require('../../assets/sounds/dosiqai_alert_3s.mp3');
 const TUNE_6S = require('../../assets/sounds/dosiqai_alert_6s.mp3');
 const TUNE_12S = require('../../assets/sounds/dosiqai_alert_12s.mp3');
+
+import { Platform } from 'react-native';
 
 export type TuneType = 'app' | 'system' | 'none';
 
@@ -71,9 +45,8 @@ const IOS_DEFAULT_TUNE: Tune = {
     type: 'system',
 };
 
-// Audio playback management
-// We need to use imperative Expo Audio APIs. Let's try to mock or temporarily define this while we figure out imperative playback.
 let currentSound: any = null;
+let currentSubscription: any = null;
 
 // The rest of the playback logic
 export async function playTunePreview(tune: Tune): Promise<void> {
@@ -85,20 +58,15 @@ export async function playTunePreview(tune: Tune): Promise<void> {
     }
 
     try {
-        // Warning: This imperative call needs to be correct for `expo-audio`.
-        // The official `expo-audio` does not have a direct replacement for `Audio.Sound.createAsync()` out of the hook context yet in all configurations,
-        // but `createAudioSound` or `createAudioPlayer` are typical. Let's try `require('expo-audio').createAudioPlayer` or similar, or just leave it commented if un-sure.
-        // As a fallback, we'll try to instantiate a player if possible.
-        const { createAudioPlayer } = require('expo-audio');
-
-        let player = null;
+        let source = null;
         if (tune.type === 'app' && tune.file) {
-            player = createAudioPlayer(tune.file);
+            source = tune.file;
         } else if (tune.type === 'system' && tune.uri && Platform.OS === 'android') {
-            player = createAudioPlayer(tune.uri);
+            source = tune.uri;
         }
 
-        if (player) {
+        if (source) {
+            const player = createAudioPlayer(source);
             currentSound = player;
             player.play();
         }
@@ -107,11 +75,16 @@ export async function playTunePreview(tune: Tune): Promise<void> {
         throw error;
     }
 }
+
 export async function stopPreview(): Promise<void> {
+    if (currentSubscription) {
+        currentSubscription.remove();
+        currentSubscription = null;
+    }
+
     if (currentSound) {
         try {
             currentSound.pause();
-            currentSound.release();
         } catch (error) {
             console.warn('Error stopping preview:', error);
         }
@@ -121,12 +94,13 @@ export async function stopPreview(): Promise<void> {
 
 export function onPlaybackFinish(callback: () => void): void {
     if (currentSound) {
-        // Wait, expo-audio player exposes a listener or events?
-        // For now, let's just mimic it loosely.
-        const subscription = currentSound.addListener('playbackStatusUpdate', (status: any) => {
-            if (status.isLoaded && status.didJustFinish) {
+        currentSubscription = currentSound.addListener('playbackStatusUpdate', (status: any) => {
+            if (status.didJustFinish) {
                 callback();
-                subscription.remove();
+                if (currentSubscription) {
+                    currentSubscription.remove();
+                    currentSubscription = null;
+                }
             }
         });
     }

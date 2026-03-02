@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useDocumentSync } from './useDocumentSync';
 import { SyncService } from '../services/SyncService';
@@ -16,15 +16,20 @@ export const useAppInitialization = () => {
 
   const [isAuthReady, setIsAuthReady] = useState(false);
   const initialize = useAuthStore((state) => state.initialize);
+  const isInitializing = useRef(false);
 
-  // Start automatic document sync (60-second polling)
+  // Start automatic document sync (polling)
   useDocumentSync();
 
   useEffect(() => {
+    // PREVENT redundant initialization if already running or ready
+    if (isInitializing.current || isAuthReady) return;
+
     console.log('[DEBUG] [useAppInitialization] useEffect triggered');
 
     const initApp = async () => {
       try {
+        isInitializing.current = true;
         console.log('[DEBUG] [AppInit] Starting app initialization...');
         console.log('[DEBUG] [AppInit] Timestamp:', new Date().toISOString());
 

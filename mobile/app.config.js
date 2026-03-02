@@ -8,7 +8,6 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon-ios.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
     description: "Your health journey, simplified and secure",
     splash: {
       image: "./assets/splash-icon.png",
@@ -32,7 +31,6 @@ export default {
         foregroundImage: "./assets/icon-android-foreground.png",
         backgroundColor: "#373636"
       },
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.dosiqai"
     },
@@ -42,6 +40,7 @@ export default {
     plugins: [
       "expo-router",
       "expo-font",
+      "expo-asset",
       [
         "expo-media-library",
         {
