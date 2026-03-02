@@ -135,7 +135,7 @@ export const saveFileLocallyWithUUID = async (
 
         // R2 Upload Integration - Returns a deferred function (NOT an IIFE)
         // The caller controls when the upload starts to avoid network contention
-        // with concurrent Supabase DB operations.
+        // with concurrent Database operations.
         const startR2Upload = (): Promise<string | null> => {
             return (async (): Promise<string | null> => {
                 try {

@@ -318,7 +318,7 @@ export default function HomeScreen() {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Save document metadata to database
-      // title = UUID filename for consistency across local, Supabase, and R2
+      // title = UUID filename for consistency across local, VPS, and R2
       const savedDocument = await addDocument({
         user_id: user.id,
         type: docType,
@@ -342,7 +342,7 @@ export default function HomeScreen() {
           console.log('[HomeScreen] R2 upload promise resolved with key:', cloudFileKey);
 
           if (cloudFileKey && actualDocumentId) {
-            // Use DocumentsStore function which has the correct Supabase context
+            // Use DocumentsStore function which has the correct DB context
             const { updateCloudFileKey } = useDocumentsStore.getState();
             const success = await updateCloudFileKey(actualDocumentId, cloudFileKey);
 
@@ -454,22 +454,68 @@ export default function HomeScreen() {
         // Single native PDF
         const { uri, name } = selectedFiles[0];
         await uploadFile(uri, 'document', name);
+        setPreviewModalVisible(false);
+        setSelectedFiles([]);
       } else {
-        // Multiple images (or single image) -> Convert to PDF natively
         setIsCompressing(true);
-        const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+        const hasDocument = selectedFiles.some(f => f.type === 'document' || f.name.toLowerCase().endsWith('.pdf'));
 
-        const { createPdfFromImages } = await import('../src/utils/pdfGenerator');
-        const pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        let pdfUri = '';
+        if (hasDocument) {
+          // Mixed files (images and PDFs) -> Merge them all properly
+          const { mergeFilesToPdf } = await import('../src/utils/pdfGenerator');
+          pdfUri = await mergeFilesToPdf(selectedFiles, 'uploaded_document.pdf');
+        } else {
+          // Images only -> Convert to PDF natively
+          const imageUris = selectedFiles.filter(f => f.type === 'image').map(f => f.uri);
+          const { createPdfFromImages } = await import('../src/utils/pdfGenerator');
+          pdfUri = await createPdfFromImages(imageUris, 'uploaded_document.pdf');
+        }
+
         setIsCompressing(false);
-
         await uploadFile(pdfUri, 'document', 'uploaded_document.pdf');
+        setPreviewModalVisible(false);
+        setSelectedFiles([]);
       }
     } catch (error) {
       console.error('Error in confirm upload:', error);
       setIsCompressing(false);
-      Alert.alert('Error', 'Failed to upload document. Please try again.');
-    } finally {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes('security restrictions') || errorMessage.includes('password-protected or encrypted')) {
+        Alert.alert(
+          'Cannot Merge PDF',
+          'One of the selected PDFs has standard security restrictions (often used by labs or hospitals) that prevent it from being merged with other files.\n\nWould you like to upload these files separately instead?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Upload Separately',
+              onPress: async () => {
+                setPreviewModalVisible(false);
+                setIsUploading(true);
+                let successCount = 0;
+                for (const file of selectedFiles) {
+                  try {
+                    await uploadFile(file.uri, file.type, file.name);
+                    successCount++;
+                  } catch (e) {
+                    console.error('Failed to upload separate file', e);
+                  }
+                }
+                setIsUploading(false);
+                setSelectedFiles([]);
+                if (successCount < selectedFiles.length) {
+                  Alert.alert('Upload Incomplete', `Only uploaded ${successCount} out of ${selectedFiles.length} files.`);
+                }
+              }
+            }
+          ]
+        );
+        // Return early to prevent the finally block from clearing the selected files immediately
+        return;
+      }
+
+      Alert.alert('Upload Error', `Failed to upload document: ${errorMessage}`);
       setPreviewModalVisible(false);
       setSelectedFiles([]);
     }

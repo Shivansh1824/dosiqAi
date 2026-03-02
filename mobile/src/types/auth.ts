@@ -1,6 +1,6 @@
 /**
  * Authentication and user types
- * These will be used with Supabase in the future
+ * These will be used with the VPS API in the future
  */
 
 export interface User {

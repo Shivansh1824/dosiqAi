@@ -6,7 +6,7 @@ import * as Linking from 'expo-linking';
 
 /**
  * Zustand store for authentication state
- * Integrates with Supabase authentication
+ * Integrates with the VPS authentication
  * Persists to AsyncStorage for offline access
  */
 export const useAuthStore = create<AuthStore>((set) => ({

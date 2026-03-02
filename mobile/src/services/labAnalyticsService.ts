@@ -135,7 +135,7 @@ export async function processLabReport(
 
 /**
  * Calculate trend for a specific test result by comparing with previous results
- * Calls the Supabase function calculate_test_result_trend
+ * Calls the API function calculate_test_result_trend
  */
 export async function calculateTestResultTrend(testResultId: string): Promise<void> {
   try {

@@ -221,7 +221,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
         }
       }
 
-      // Fetch from Supabase
+      // Fetch from API
       const { data: labReportsData, error: labReportsError } = await from('lab_reports')
         .select('*')
         .eq('family_member_id', familyMemberId)
@@ -330,7 +330,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
         set({ chartPreferences: JSON.parse(cached) });
       }
 
-      // Fetch from Supabase
+      // Fetch from API
       let query = from('chart_preferences').select('*').eq('user_id', userId);
 
       if (familyMemberId) {
@@ -496,7 +496,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
         startDate = new Date(2000, 0, 1); // Far past for 'all'
       }
 
-      // Fetch from Supabase
+      // Fetch from API
       let query = from('test_results')
         .select('*')
         .eq('family_member_id', familyMemberId)

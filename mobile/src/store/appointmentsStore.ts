@@ -5,7 +5,7 @@ import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService'
 
 /**
  * Zustand store for appointments state
- * Integrates with Supabase to fetch user appointments
+ * Integrates with the API to fetch user appointments
  */
 export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
   // Initial state

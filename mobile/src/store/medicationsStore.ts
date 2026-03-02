@@ -8,7 +8,7 @@ import { sanitizeErrorMessage, withRetry } from '../utils/apiUtils';
 
 /**
  * Zustand store for medications state
- * Integrates with Supabase to fetch user medications
+ * Integrates with the API to fetch user medications
  *
  * Color Management Strategy:
  * - Colors calculated on-the-fly, NOT stored in database

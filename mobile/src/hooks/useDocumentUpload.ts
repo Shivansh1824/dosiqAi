@@ -57,7 +57,7 @@ export const useDocumentUpload = () => {
             const r2Key = `${userId}/${analysisResult.document_type}s/${filename}`;
             await uploadToR2(absolutePath, r2Key);
 
-            // 4. Supabase Insert (Storing the Relative Path)
+            // 4. Database Insert (Storing the Relative Path)
             setStatus('Finalizing...');
             const { error } = await from('documents')
                 .insert({

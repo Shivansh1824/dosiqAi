@@ -78,8 +78,8 @@ export default function RootLayout() {
                         <View style={styles.appWrapper}>
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'white' } }}>
                                 <Stack.Screen name="index" />
-                                <Stack.Screen name="Login" />
-                                <Stack.Screen name="Onboarding1" />
+                                <Stack.Screen name="login" />
+                                <Stack.Screen name="onboarding1" />
                                 {/* Other screens added here implicitly by file structure */}
                             </Stack>
                         </View>

@@ -8,7 +8,7 @@ import { deleteFileFromR2, deleteUserFilesFromR2 } from '../services/storageServ
 
 /**
  * Zustand store for documents state
- * Integrates with Supabase to fetch user documents
+ * Integrates with the VPS API to fetch user documents
  *
  * Color Management Strategy:
  * - Colors calculated on-the-fly, NOT stored in database
@@ -54,7 +54,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   },
 
   /**
-   * Fetch documents for a specific user from Supabase
+   * Fetch documents for a specific user from the API
    * @param userId - User ID
    * @param silent - If true, don't show loading spinner (for background refresh)
    */
@@ -107,7 +107,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   },
 
   /**
-   * Add a new document to Supabase
+   * Add a new document to the Database
    */
   addDocument: async (doc) => {
     set({ isLoading: true, error: null });
@@ -202,7 +202,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   },
 
   /**
-   * Delete a document from Supabase
+   * Delete a document from the Database
    */
 
   deleteDocument: async (id: string) => {
@@ -237,7 +237,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         }
       }
 
-      // 3. Delete from Supabase
+      // 3. Delete from Database
       const { error } = await from('documents')
         .delete()
         .eq('id', id);
@@ -273,7 +273,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
     try {
 
-      // Fetch only document IDs from Supabase (efficient query)
+      // Fetch only document IDs from Database (efficient query)
       const { data: remoteDocuments, error } = await from('documents')
         .select('id')
         .eq('user_id', userId);
@@ -569,7 +569,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         console.error('[DocumentsStore] R2 cleanup failed (continuing with DB):', r2Error);
       }
 
-      // 3. Delete from Supabase - Order matters for Foreign Keys
+      // 3. Delete from Database - Order matters for Foreign Keys
       // Delete test_results first (child of lab_reports)
       const { error: testResultsError } = await from('test_results')
         .delete()

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, A
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Sizes } from '../src/constants';
-import {     } from '@react-navigation/native';
+import { } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 import { useMedicationsStore } from '../src/store/medicationsStore';
@@ -39,7 +39,7 @@ export default function HealthScreen() {
                     useHealthVitalsStore.getState().loadFromCache(user.id),
                 ]);
 
-                // Step 2: Refresh from Supabase silently in background
+                // Step 2: Refresh from API silently in background
                 await Promise.all([
                     fetchMedications(user.id, true),
                     fetchAppointments(user.id, true),

@@ -117,7 +117,7 @@ export function useDocumentManager({ document, onDeleteSuccess }: UseDocumentMan
     try {
       setIsDeleting(true);
 
-      // 1. Delete from Supabase & API wrapper
+      // 1. Delete from Database & API wrapper
       await deleteDocument(document.id);
 
       // 2. Delete from local storage

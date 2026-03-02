@@ -492,7 +492,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
     try {
       setLoading(true);
 
-      // 1. Delete from Supabase
+      // 1. Delete from Database
       if (document) {
         await deleteDocument(document.id);
       }

@@ -14,7 +14,7 @@ import { useMedicationsStore } from '../src/store/medicationsStore';
 import { useAuthStore } from '../src/store/authStore';
 import { useDocumentManager } from '../src/hooks/useDocumentManager';
 import { parseAIMedication, detectDuplicateMedication } from '../src/utils/medicationParser';
-import { supabase } from '../src/lib/apiClient';
+import api from '../src/lib/apiClient';
 import {
   MedicalReportAnalysis,
   calculateReportSummary,
@@ -57,6 +57,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
   const { addMedicationFromAI, getActiveMedications } = useMedicationsStore();
   const { user } = useAuthStore();
+  const router = useRouter();
   const {
     imageUri,
     fileNotFound,
@@ -200,7 +201,7 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
   useEffect(() => {
     const loadLabReportId = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await api
           .from('lab_reports')
           .select('id')
           .eq('document_id', document.id)
@@ -265,9 +266,12 @@ export default function DocumentDetailScreen({ onBack, document: documentProp, n
 
     if (isPdf) {
       // Navigate to embedded PDF viewer
-      router.navigate('/pdfviewer', {
-        uri: imageUri,
-        title: displayTitle
+      router.navigate({
+        pathname: '/pdfviewer',
+        params: {
+          uri: imageUri,
+          title: displayTitle
+        }
       });
       console.log('[DocumentDetail] Navigated to PdfViewer with URI:', imageUri);
     } else {
