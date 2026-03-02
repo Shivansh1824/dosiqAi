@@ -44,9 +44,9 @@ interface FilePreviewModalProps {
 const { width, height } = Dimensions.get('window');
 const THUMBNAIL_SIZE = 56;
 
-/** 
- * Self-contained PDF item — Uses WebView for rendering and pdf-lib for page counting 
- * Fabric-compatible replacement for react-native-pdf
+/**
+ * Self-contained PDF item — Uses WebView for rendering and pdf-lib for page counting
+ * Fabric-compatible replacement for legacy PDF components.
  */
 const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setPdfPageCounts }: {
     uri: string;

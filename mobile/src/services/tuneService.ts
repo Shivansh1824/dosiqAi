@@ -1,27 +1,12 @@
-import { Platform } from 'react-native';
-
-// Wait, the duplicate import of Platform was on line 71, let's fix the entire top of the file up to line 74.
-// Note: expo-audio doesn't have an Audio.Sound object. Let's check what it has.
-// import { AudioPlayer, useAudioPlayer } from 'expo-audio'; // We'll see if this works, but we can't use hooks here.
-
 // Audio playback management using expo-audio (New Architecture compatible)
-import { createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, useAudioPlayer } from 'expo-audio';
 
-let NotificationSounds: any = null;
-if (Platform.OS === 'android') {
-    try {
-        // High risk module, wrapped in try-catch for New Architecture compatibility
-        const module = require('react-native-notification-sounds');
-        NotificationSounds = module.default || module;
-    } catch (e) {
-        console.warn('[TuneService] react-native-notification-sounds failed to load. System sounds disabled.');
-    }
-}
-
-// Audio Assets
+// App Assets
 const TUNE_3S = require('../../assets/sounds/dosiqai_alert_3s.mp3');
 const TUNE_6S = require('../../assets/sounds/dosiqai_alert_6s.mp3');
 const TUNE_12S = require('../../assets/sounds/dosiqai_alert_12s.mp3');
+
+import { Platform } from 'react-native';
 
 export type TuneType = 'app' | 'system' | 'none';
 
@@ -60,9 +45,8 @@ const IOS_DEFAULT_TUNE: Tune = {
     type: 'system',
 };
 
-// Audio playback management
-// We need to use imperative Expo Audio APIs. Let's try to mock or temporarily define this while we figure out imperative playback.
 let currentSound: any = null;
+let currentSubscription: any = null;
 
 // The rest of the playback logic
 export async function playTunePreview(tune: Tune): Promise<void> {
@@ -74,14 +58,15 @@ export async function playTunePreview(tune: Tune): Promise<void> {
     }
 
     try {
-        let player = null;
+        let source = null;
         if (tune.type === 'app' && tune.file) {
-            player = createAudioPlayer(tune.file);
+            source = tune.file;
         } else if (tune.type === 'system' && tune.uri && Platform.OS === 'android') {
-            player = createAudioPlayer(tune.uri);
+            source = tune.uri;
         }
 
-        if (player) {
+        if (source) {
+            const player = createAudioPlayer(source);
             currentSound = player;
             player.play();
         }
@@ -90,10 +75,15 @@ export async function playTunePreview(tune: Tune): Promise<void> {
         throw error;
     }
 }
+
 export async function stopPreview(): Promise<void> {
+    if (currentSubscription) {
+        currentSubscription.remove();
+        currentSubscription = null;
+    }
+
     if (currentSound) {
         try {
-            // Using pause/release for cleanup
             currentSound.pause();
         } catch (error) {
             console.warn('Error stopping preview:', error);
@@ -104,12 +94,13 @@ export async function stopPreview(): Promise<void> {
 
 export function onPlaybackFinish(callback: () => void): void {
     if (currentSound) {
-        // Wait, expo-audio player exposes a listener or events?
-        // For now, let's just mimic it loosely.
-        const subscription = currentSound.addListener('playbackStatusUpdate', (status: any) => {
-            if (status.isLoaded && status.didJustFinish) {
+        currentSubscription = currentSound.addListener('playbackStatusUpdate', (status: any) => {
+            if (status.didJustFinish) {
                 callback();
-                subscription.remove();
+                if (currentSubscription) {
+                    currentSubscription.remove();
+                    currentSubscription = null;
+                }
             }
         });
     }
