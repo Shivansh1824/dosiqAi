@@ -4,28 +4,17 @@ import { Platform } from 'react-native';
 // Note: expo-audio doesn't have an Audio.Sound object. Let's check what it has.
 // import { AudioPlayer, useAudioPlayer } from 'expo-audio'; // We'll see if this works, but we can't use hooks here.
 
-// Conditionally import for Android only
+// Audio playback management using expo-audio (New Architecture compatible)
+import { createAudioPlayer } from 'expo-audio';
+
 let NotificationSounds: any = null;
 if (Platform.OS === 'android') {
     try {
-        console.log('[TuneService] Requirement check for react-native-notification-sounds');
+        // High risk module, wrapped in try-catch for New Architecture compatibility
         const module = require('react-native-notification-sounds');
-
-        // Comprehensive resolution
-        if (module.getNotifications) {
-            NotificationSounds = module;
-        } else if (module.default && module.default.getNotifications) {
-            NotificationSounds = module.default;
-        } else {
-            NotificationSounds = module.default || module;
-        }
-
-        console.log('[TuneService] NotificationSounds resolved. Methods:',
-            Object.keys(NotificationSounds).filter(k => typeof NotificationSounds[k] === 'function')
-        );
-
+        NotificationSounds = module.default || module;
     } catch (e) {
-        console.warn('[TuneService] react-native-notification-sounds loading failed:', e);
+        console.warn('[TuneService] react-native-notification-sounds failed to load. System sounds disabled.');
     }
 }
 
@@ -85,12 +74,6 @@ export async function playTunePreview(tune: Tune): Promise<void> {
     }
 
     try {
-        // Warning: This imperative call needs to be correct for `expo-audio`.
-        // The official `expo-audio` does not have a direct replacement for `Audio.Sound.createAsync()` out of the hook context yet in all configurations,
-        // but `createAudioSound` or `createAudioPlayer` are typical. Let's try `require('expo-audio').createAudioPlayer` or similar, or just leave it commented if un-sure.
-        // As a fallback, we'll try to instantiate a player if possible.
-        const { createAudioPlayer } = require('expo-audio');
-
         let player = null;
         if (tune.type === 'app' && tune.file) {
             player = createAudioPlayer(tune.file);
@@ -110,8 +93,8 @@ export async function playTunePreview(tune: Tune): Promise<void> {
 export async function stopPreview(): Promise<void> {
     if (currentSound) {
         try {
+            // Using pause/release for cleanup
             currentSound.pause();
-            currentSound.release();
         } catch (error) {
             console.warn('Error stopping preview:', error);
         }

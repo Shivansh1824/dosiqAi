@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants';
 import { DocumentPreviewLoading } from './DocumentPreviewLoading';
@@ -45,19 +45,14 @@ export function DocumentPreview({
             <View style={styles.container}>
                 <View style={styles.previewWrapper}>
                     {isPdf ? (
-                        <Pdf
-                            source={{ uri: imageUri, cache: true }}
-                            page={1}
-                            scale={1.0}
-                            minScale={1.0}
-                            maxScale={1.0}
-                            spacing={0}
-                            fitPolicy={0}
-                            enablePaging={false}
-                            enableRTL={false}
-                            enableAnnotationRendering={false}
+                        <WebView
+                            source={{ uri: imageUri }}
                             style={styles.previewContent}
-                            onError={(error) => console.error('[DocumentPreview] PDF Error:', error)}
+                            originWhitelist={['*']}
+                            scalesPageToFit={true}
+                            useWebKit={true}
+                            scrollEnabled={false}
+                            pointerEvents="none" // Prevent interaction in the inline preview
                         />
                     ) : (
                         <Image
@@ -66,7 +61,7 @@ export function DocumentPreview({
                             resizeMode="cover"
                         />
                     )}
-                    
+
                     {/* PDF Overlay to prevent interaction stealing if needed, or just visual polish */}
                     <View style={styles.overlay} pointerEvents="none" />
 
@@ -74,19 +69,19 @@ export function DocumentPreview({
                         <View style={styles.glassBarShadow}>
                             {/* Use systemChromeMaterialLight for that specific macOS/iOS popover look if available, else light */}
                             <BlurView intensity={80} tint="systemChromeMaterialLight" style={styles.glassBar}>
-                                <TouchableOpacity 
-                                    style={styles.actionButton} 
+                                <TouchableOpacity
+                                    style={styles.actionButton}
                                     onPress={onView}
                                     activeOpacity={0.6}
                                 >
                                     <Feather name="eye" size={20} color={Colors.primary} style={styles.actionIcon} />
                                     <Text style={styles.actionText}>View</Text>
                                 </TouchableOpacity>
-                                
+
                                 <View style={styles.divider} />
-                                
-                                <TouchableOpacity 
-                                    style={styles.actionButton} 
+
+                                <TouchableOpacity
+                                    style={styles.actionButton}
                                     onPress={onDownload}
                                     activeOpacity={0.6}
                                     disabled={downloading}
@@ -139,7 +134,7 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.02)', // Very subtle overlay
     },
-    
+
     // Floating Bar Styles
     floatingBarContainer: {
         position: 'absolute',
@@ -170,7 +165,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         // Make background transparent on iOS to let blur handle it fully
         // Use slight white tint on Android where BlurView might be limited
-        backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(255,255,255,0.9)', 
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(255,255,255,0.9)',
     },
     actionButton: {
         flexDirection: 'row',

@@ -38,13 +38,12 @@ import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCar
 
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
 import { DocumentPreviewCard } from '../src/components/document/DocumentPreviewCard';
 
-type DocumentDetailNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
+type DocumentDetailNavigationProp = StackNavigationProp<any, 'PrescriptionSummary'>;
 
 interface DocumentDetailScreenProps {
   onBack: () => void;
@@ -1105,7 +1104,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray500,
   },
-  // PDF Preview styles for react-native-pdf-jsi
+  // PDF Preview styles
   pdfPreviewWrapper: {
     width: '100%',
     height: 208, // Reduced from 260 (20% reduction)

@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
 
 /**
  * Compresses an image for optimal storage and upload.
@@ -27,9 +27,9 @@ export const compressImage = async (uri: string): Promise<string | null> => {
         // Get original file size
         let originalSize = 0;
         try {
-            const file = new File(uri);
-            if (file.exists) {
-                originalSize = file.size || 0;
+            const fileInfo = await FileSystem.getInfoAsync(uri);
+            if (fileInfo.exists) {
+                originalSize = fileInfo.size || 0;
             }
         } catch (error) {
             console.warn('Could not get original file size:', error);
@@ -48,9 +48,9 @@ export const compressImage = async (uri: string): Promise<string | null> => {
         // Get compressed file size
         let compressedSize = 0;
         try {
-            const compressedFile = new File(manipulatedImage.uri);
-            if (compressedFile.exists) {
-                compressedSize = compressedFile.size || 0;
+            const compressedFileInfo = await FileSystem.getInfoAsync(manipulatedImage.uri);
+            if (compressedFileInfo.exists) {
+                compressedSize = compressedFileInfo.size || 0;
             }
         } catch (error) {
             console.warn('Could not get compressed file size:', error);
