@@ -34,13 +34,13 @@ import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
 
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../src/components/medication/DuplicateMedicationModal';
 
-type ReportSummaryNavigationProp = StackNavigationProp<RootStackParamList, 'PrescriptionSummary'>;
+type ReportSummaryNavigationProp = StackNavigationProp<any, 'PrescriptionSummary'>;
 
 interface ReportSummaryScreenProps {
   onBack: () => void;
@@ -64,6 +64,7 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
   const { addMedicationFromAI, medications } = useMedicationsStore();
   const { user } = useAuthStore();
   const { scheduleAllForMedication } = useNotifications();
+  const router = useRouter();
   const [isReady, setIsReady] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
 
@@ -457,9 +458,12 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
 
     if (isPdf) {
       // Navigate to embedded PDF viewer
-      router.navigate('/pdfviewer', {
-        uri: imageUri,
-        title: displayTitle
+      router.navigate({
+        pathname: '/pdfviewer',
+        params: {
+          uri: imageUri,
+          title: displayTitle
+        }
       });
       console.log('[PrescriptionSummary] Navigated to PdfViewer with URI:', imageUri);
     } else {
@@ -866,26 +870,15 @@ export default function ReportSummaryScreen({ onBack, document: documentProp, do
                   </>
                 ) : isPdf && imageUri ? (
                   <>
-                    {/* PDF Preview - First Page using react-native-pdf-jsi */}
+                    {/* PDF Preview - First Page using WebView */}
                     <View style={styles.pdfPreviewWrapper}>
-                      <Pdf
-                        source={{ uri: imageUri, cache: true }}
-                        page={1}
-                        scale={1.0}
-                        minScale={1.0}
-                        maxScale={1.0}
-                        spacing={0}
-                        fitPolicy={0}
-                        enablePaging={false}
-                        enableRTL={false}
-                        enableAnnotationRendering={false}
+                      <WebView
+                        source={{ uri: imageUri }}
                         style={styles.pdfPreview}
-                        onLoadComplete={(numberOfPages) => {
-                          console.log(`[PrescriptionSummary] PDF Loaded: ${numberOfPages} pages`);
-                        }}
-                        onError={(error) => {
-                          console.error('[PrescriptionSummary] PDF Error:', error);
-                        }}
+                        originWhitelist={['*']}
+                        scalesPageToFit={true}
+                        useWebKit={true}
+                        scrollEnabled={false}
                       />
 
                       {/* Floating Action Buttons - Overlay on PDF */}
@@ -1178,7 +1171,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray500,
   },
-  // PDF Preview styles for react-native-pdf-jsi
+  // PDF Preview styles
   pdfPreviewWrapper: {
     width: '100%',
     height: 208, // Reduced from 260 (20% reduction)

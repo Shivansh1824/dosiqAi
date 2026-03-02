@@ -24,7 +24,7 @@ export const compressImage = async (uri: string): Promise<string | null> => {
             return uri;
         }
 
-        // Get original file size
+        // Get original file size using New API (File)
         let originalSize = 0;
         try {
             const file = new File(uri);
@@ -45,7 +45,7 @@ export const compressImage = async (uri: string): Promise<string | null> => {
             }
         );
 
-        // Get compressed file size
+        // Get compressed file size using New API (File)
         let compressedSize = 0;
         try {
             const compressedFile = new File(manipulatedImage.uri);

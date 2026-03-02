@@ -15,6 +15,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   hasSeenOnboarding: boolean;
   isLoading: boolean;
+  isInitialized: boolean;
   user: User | null;
 }
 

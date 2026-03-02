@@ -35,7 +35,6 @@ import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
 
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';

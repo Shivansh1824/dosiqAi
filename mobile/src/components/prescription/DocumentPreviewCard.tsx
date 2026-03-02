@@ -2,7 +2,7 @@ import React, { Fragment } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
-import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
 import { Colors } from '../../constants';
 import { styles } from '../../screens/PrescriptionSummaryScreen.styles';
 import { DocumentPreviewLoading } from './DocumentPreviewLoading';
@@ -38,26 +38,15 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                 </Fragment>
             ) : isPdf && imageUri ? (
                 <Animated.View layout={LinearTransition.duration(300)}>
-                    {/* PDF Preview - First Page using react-native-pdf */}
+                    {/* PDF Preview - First Page using WebView */}
                     <View style={styles.pdfPreviewWrapper}>
-                        <Pdf
-                            source={{ uri: imageUri, cache: true }}
-                            page={1}
-                            scale={1.0}
-                            minScale={1.0}
-                            maxScale={1.0}
-                            spacing={0}
-                            fitPolicy={0}
-                            enablePaging={false}
-                            enableRTL={false}
-                            enableAnnotationRendering={false}
+                        <WebView
+                            source={{ uri: imageUri }}
                             style={styles.pdfPreview}
-                            onLoadComplete={(numberOfPages) => {
-                                console.log(`[DocumentPreviewCard] PDF Loaded: ${numberOfPages} pages`);
-                            }}
-                            onError={(error) => {
-                                console.error('[DocumentPreviewCard] PDF Error:', error);
-                            }}
+                            originWhitelist={['*']}
+                            scalesPageToFit={true}
+                            useWebKit={true}
+                            scrollEnabled={false}
                         />
 
                         {/* Floating Action Buttons - Modern Compact Pill */}

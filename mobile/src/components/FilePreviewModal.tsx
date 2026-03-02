@@ -17,7 +17,9 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
-import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
+import { PDFDocument } from 'pdf-lib';
+import { File as ExpoFile, Paths } from 'expo-file-system';
 import { Colors, Sizes, Typography } from '../constants';
 
 export interface FileItem {
@@ -42,14 +44,38 @@ interface FilePreviewModalProps {
 const { width, height } = Dimensions.get('window');
 const THUMBNAIL_SIZE = 56;
 
-/** Self-contained PDF item — React.memo + ref guard prevents infinite re-mount loops */
+/**
+ * Self-contained PDF item — Uses WebView for rendering and pdf-lib for page counting
+ * Fabric-compatible replacement for legacy PDF components.
+ */
 const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setPdfPageCounts }: {
     uri: string;
     itemIndex: number;
     setPdfPageCounts: React.Dispatch<React.SetStateAction<Record<number, number>>>;
 }) {
     const [loading, setLoading] = useState(true);
-    const hasLoaded = useRef(false); // Guard: only fire onLoadComplete once
+
+    useEffect(() => {
+        let isMounted = true;
+        const loadPdfMeta = async () => {
+            try {
+                // WebView doesn't give us page count, so we use pdf-lib
+                const file = new ExpoFile(uri);
+                const base64 = await file.base64();
+                const pdfDoc = await PDFDocument.load(base64);
+                const pageCount = pdfDoc.getPageCount();
+
+                if (isMounted) {
+                    setPdfPageCounts(prev => ({ ...prev, [itemIndex]: pageCount }));
+                }
+            } catch (error) {
+                console.error('[Preview] Error loading PDF metadata:', error);
+            }
+        };
+
+        loadPdfMeta();
+        return () => { isMounted = false; };
+    }, [uri, itemIndex, setPdfPageCounts]);
 
     return (
         <View style={pdfItemStyles.container}>
@@ -58,20 +84,13 @@ const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setP
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             )}
-            <Pdf
-                source={{ uri, cache: true }}
+            <WebView
+                source={{ uri }}
                 style={pdfItemStyles.pdf}
-                onLoadComplete={(numberOfPages) => {
-                    if (hasLoaded.current) return; // Already loaded — skip
-                    hasLoaded.current = true;
-                    setLoading(false);
-                    setPdfPageCounts(prev => ({ ...prev, [itemIndex]: numberOfPages }));
-                }}
-                onError={(error) => {
-                    console.error('[Preview] PDF Error:', error);
-                    setLoading(false);
-                }}
-                enablePaging={false}
+                onLoadEnd={() => setLoading(false)}
+                originWhitelist={['*']}
+                scalesPageToFit={true}
+                useWebKit={true}
             />
         </View>
     );

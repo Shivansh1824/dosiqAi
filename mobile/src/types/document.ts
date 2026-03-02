@@ -168,6 +168,7 @@ export interface DocumentAnalysisError {
 export interface DocumentsState {
   documents: Document[];
   isLoading: boolean;
+  isInitialized: boolean;
   error: string | null;
 
   // AI Analysis state

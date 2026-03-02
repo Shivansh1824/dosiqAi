@@ -20,6 +20,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   // Initial state
   documents: [],
   isLoading: false,
+  isInitialized: false,
   error: null,
 
   // AI Analysis state
@@ -59,9 +60,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    * @param silent - If true, don't show loading spinner (for background refresh)
    */
   fetchDocuments: async (userId: string, silent = false) => {
-    if (!userId) {
-      console.warn('[DocumentsStore] No user ID provided');
-      set({ documents: [], isLoading: false });
+    // PREVENT redundant fetches if already loading or already initialized (unless silent refresh)
+    if (!userId || (get().isLoading && !silent) || (get().isInitialized && !silent)) {
+      if (!userId) console.warn('[DocumentsStore] No user ID provided');
       return;
     }
 
@@ -96,7 +97,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       await saveToCache(CacheKeys.documents(userId), documentsWithColor);
 
       console.log('[DocumentsStore] Fetched', documentsWithColor.length, 'documents');
-      set({ documents: documentsWithColor, isLoading: false });
+      set({ documents: documentsWithColor, isLoading: false, isInitialized: true });
     } catch (error) {
       console.error('[DocumentsStore] Unexpected error:', error);
       set({
@@ -312,7 +313,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
    * Shows progress updates and handles the complete analysis flow
    */
   triggerAnalysis: async (documentId: string, localFilePath: string, customPrompt?: string, isReport?: boolean) => {
-    let progressInterval: NodeJS.Timeout | null = null;
+    let progressInterval: any = null;
     try {
       console.log('[DocumentsStore] Triggering analysis for:', documentId);
 

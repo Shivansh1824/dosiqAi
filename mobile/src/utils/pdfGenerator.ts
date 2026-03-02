@@ -1,6 +1,5 @@
-// @ts-ignore
-import RNImageToPdf from 'react-native-image-to-pdf';
-import { File, Paths } from 'expo-file-system';
+import { PDFDocument } from 'pdf-lib';
+import { File as ExpoFile, Paths } from 'expo-file-system';
 import { compressImage } from './imageCompression';
 
 export interface PdfSourceFile {
@@ -12,6 +11,7 @@ export interface PdfSourceFile {
 /**
  * Creates a single PDF document from an array of image URIs.
  * The images are compressed before being added to the PDF to optimize file size.
+ * Uses pdf-lib for New Architecture/Fabric compatibility.
  *
  * @param imageUris - Array of local image URIs
  * @param filename - Optional custom filename for the output PDF
@@ -26,60 +26,64 @@ export const createPdfFromImages = async (
       throw new Error('No images provided for PDF generation');
     }
 
-    console.log(`[pdfGenerator] Starting PDF generation for ${imageUris.length} images...`);
+    console.log(`[pdfGenerator] Starting PDF generation for ${imageUris.length} images using pdf-lib...`);
 
-    // 1. Compress all images first
-    const compressedImages: string[] = [];
+    // 1. Create a new PDF Document
+    const pdfDoc = await PDFDocument.create();
+
+    // 2. Process each image
     for (const uri of imageUris) {
       try {
-        console.log(`[pdfGenerator] Compressing image: ${uri}`);
+        console.log(`[pdfGenerator] Processing image: ${uri}`);
+
+        // Compress image first
         const compressedUri = await compressImage(uri);
-        if (compressedUri) {
-          // react-native-image-to-pdf requires paths without 'file://' prefix on some platforms/versions
-          // It's safer to strip it if present for image paths
-          const cleanPath = compressedUri.replace('file://', '');
-          compressedImages.push(cleanPath);
+        const imagePath = compressedUri || uri;
+
+        // Read file as base64 using New API
+        // Read file as base64 using New API (ExpoFile)
+        const base64Data = await new ExpoFile(imagePath).base64();
+
+        // Embed the image (supporting both JPG and PNG)
+        let embeddedImage;
+        const isPng = imagePath.toLowerCase().endsWith('.png');
+
+        if (isPng) {
+          embeddedImage = await pdfDoc.embedPng(base64Data);
         } else {
-          // Fallback to original if compression fails but returns null
-          const cleanPath = uri.replace('file://', '');
-          compressedImages.push(cleanPath);
+          embeddedImage = await pdfDoc.embedJpg(base64Data);
         }
+
+        // Add a page with the image dimensions (or fit to A4)
+        const dims = embeddedImage.scale(1);
+        const page = pdfDoc.addPage([dims.width, dims.height]);
+
+        page.drawImage(embeddedImage, {
+          x: 0,
+          y: 0,
+          width: dims.width,
+          height: dims.height,
+        });
+
       } catch (err) {
-        console.warn(`[pdfGenerator] Failed to compress image ${uri}, using original.`, err);
-        const cleanPath = uri.replace('file://', '');
-        compressedImages.push(cleanPath);
+        console.warn(`[pdfGenerator] Failed to process image ${uri}`, err);
+        // Continue with other images if one fails
       }
     }
 
-    // We rely on the library's default behavior for creating the temporary PDF
+    // 3. Save the PDF
+    const pdfBytes = await pdfDoc.saveAsBase64();
 
-    console.log(`[pdfGenerator] Combining ${compressedImages.length} compressed images into PDF...`);
+    // 4. Write to file system using New API (ExpoFile)
+    const timestamp = Date.now();
+    const cleanFilename = filename.replace('.pdf', '');
+    const newPdfFile = new ExpoFile(Paths.document, `${cleanFilename}_${timestamp}.pdf`);
 
-    // 3. Generate PDF
-    const options = {
-      imagePaths: compressedImages,
-      name: filename,
-      maxSize: { // Optional: A4 size approx max
-        width: 794,
-        height: 1123
-      },
-      quality: 0.8, // Optional: image quality in PDF
-    };
+    await newPdfFile.write(pdfBytes, { encoding: 'base64' });
 
-    const pdfDocument = await RNImageToPdf.createPDFbyImages(options);
+    console.log(`[pdfGenerator] PDF successfully created at: ${newPdfFile.uri}`);
 
-    console.log(`[pdfGenerator] PDF successfully created at: ${pdfDocument.filePath}`);
-
-    if (!pdfDocument.filePath) {
-      throw new Error('PDF generation returned empty path');
-    }
-
-    // Ensure the path has file:// prefix for React Native / Expo to handle correctly
-    const finalUri = pdfDocument.filePath.startsWith('file://')
-      ? pdfDocument.filePath
-      : `file://${pdfDocument.filePath}`;
-
-    return finalUri;
+    return newPdfFile.uri;
   } catch (error) {
     console.error('[pdfGenerator] Error creating PDF:', error);
     throw error;

@@ -20,6 +20,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   // Initial state
   medications: [],
   isLoading: false,
+  isInitialized: false,
   error: null,
 
   clearMedications: () => set({ medications: [], error: null }),
@@ -51,9 +52,9 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
    * @param silent - If true, don't show loading spinner (for background refresh)
    */
   fetchMedications: async (userId: string, silent = false) => {
-    if (!userId) {
-      console.warn('[MedicationsStore] No user ID provided');
-      set({ medications: [], isLoading: false });
+    // PREVENT redundant fetches
+    if (!userId || (get().isLoading && !silent) || (get().isInitialized && !silent)) {
+      if (!userId) console.warn('[MedicationsStore] No user ID provided');
       return;
     }
 
@@ -133,7 +134,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
       // Save to cache
       await saveToCache(CacheKeys.medications(userId), medications);
-      set({ medications, isLoading: false });
+      set({ medications, isLoading: false, isInitialized: true });
     } catch (error) {
       console.error('[MedicationsStore] Unexpected error:', error);
       set({
