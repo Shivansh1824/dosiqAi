@@ -47,7 +47,7 @@
     "expo-system-ui": "~55.0.9",
     "pdf-lib": "^1.17.1",
     "react": "19.2.0",
-    "react-dom": "^19.2.0",
+    "react-dom": "19.2.0",
     "react-native": "0.83.2",
     "react-native-calendars": "^1.1313.0",
     "react-native-gesture-handler": "~2.30.0",
