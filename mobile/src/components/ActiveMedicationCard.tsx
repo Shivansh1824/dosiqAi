@@ -4,9 +4,6 @@ import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-na
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
 import { Medication, getFrequencyText } from '../types/medication';
-import { MedicationIcon } from './medication/MedicationIcons';
-
-const ACCENT = '#1B4332';
 
 interface ActiveMedicationCardProps {
   medication: Medication;
@@ -16,6 +13,7 @@ export default function ActiveMedicationCard({ medication }: ActiveMedicationCar
   const [isExpanded, setIsExpanded] = useState(false);
   const animatedHeight = useSharedValue(0);
 
+  // Format date for display
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -25,11 +23,7 @@ export default function ActiveMedicationCard({ medication }: ActiveMedicationCar
     });
   };
 
-  const formatDateShort = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
+  // Format times for display
   const formatTimes = (times: string[]): string => {
     if (!times || times.length === 0) return 'Not specified';
     return times.join(', ');
@@ -37,113 +31,135 @@ export default function ActiveMedicationCard({ medication }: ActiveMedicationCar
 
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
-    animatedHeight.value = withTiming(isExpanded ? 0 : 1, { duration: 280 });
+    animatedHeight.value = withTiming(isExpanded ? 0 : 1, { duration: 300 });
   };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: animatedHeight.value,
-    maxHeight: animatedHeight.value * 400,
-    overflow: 'hidden',
-  }));
-
-  const endDisplay = medication.end_date
-    ? formatDateShort(medication.end_date)
-    : 'Ongoing';
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: animatedHeight.value,
+      maxHeight: animatedHeight.value * 500, // max height when expanded
+    };
+  });
 
   return (
     <View style={styles.container}>
-      {/* Active left accent bar */}
-      <View style={styles.accentBar} />
-
-      {/* Collapsed header — always visible */}
+      {/* Collapsed View - Always Visible */}
       <TouchableOpacity
         style={styles.header}
         onPress={toggleExpand}
         activeOpacity={0.7}
       >
-        {/* Icon */}
-        <View style={styles.iconWrapper}>
-          <MedicationIcon form={medication.form || 'default'} size={22} />
+        {/* Left: Medicine Icon */}
+        <View style={[styles.iconContainer, { backgroundColor: medication.color + '15' }]}>
+          <Feather
+            name="package"
+            size={24}
+            color={medication.color}
+          />
         </View>
 
-        {/* Center info */}
+        {/* Center: Medicine Info */}
         <View style={styles.headerInfo}>
-          <Text style={styles.name} numberOfLines={1}>{medication.name}</Text>
-          <Text style={styles.dosage} numberOfLines={1}>{medication.dosage}</Text>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaText}>{getFrequencyText(medication.frequency)}</Text>
-            {medication.time_of_day.length > 0 && (
-              <>
-                <View style={styles.metaDot} />
-                <Text style={styles.metaText}>
-                  {medication.time_of_day.slice(0, 2).join(', ')}
-                  {medication.time_of_day.length > 2 && ` +${medication.time_of_day.length - 2}`}
-                </Text>
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Right: active badge + chevron */}
-        <View style={styles.rightCol}>
+          {/* Active Badge */}
           <View style={styles.activeBadge}>
             <View style={styles.activeDot} />
             <Text style={styles.activeBadgeText}>Active</Text>
           </View>
-          <Feather
-            name={isExpanded ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={Colors.gray400}
-            style={{ marginTop: 6 }}
-          />
-        </View>
-      </TouchableOpacity>
 
-      {/* Expanded detail 2-column grid */}
-      {isExpanded && (
-        <Animated.View style={[styles.expandedContent, animatedStyle]}>
-          <View style={styles.divider} />
-          <View style={styles.detailGrid}>
-            {/* Row 1: Start | End */}
-            <View style={styles.detailCell}>
-              <Text style={styles.detailLabel}>START</Text>
-              <Text style={styles.detailValue}>{formatDate(medication.start_date)}</Text>
-            </View>
-            <View style={[styles.detailCell, styles.detailCellRight]}>
-              <Text style={styles.detailLabel}>END</Text>
-              <Text style={styles.detailValue}>{endDisplay}</Text>
-            </View>
+          <Text style={styles.name}>{medication.name}</Text>
+          <Text style={styles.dosage}>{medication.dosage}</Text>
 
-            {/* Row 2: Times | Source */}
-            <View style={styles.detailCell}>
-              <Text style={styles.detailLabel}>TIMES</Text>
-              <Text style={styles.detailValue}>{formatTimes(medication.time_of_day)}</Text>
-            </View>
-            {medication.source_document_title && (
-              <View style={[styles.detailCell, styles.detailCellRight]}>
-                <Text style={styles.detailLabel}>FROM</Text>
-                <Text style={styles.detailValue} numberOfLines={2}>
-                  {medication.source_document_title}
+          <View style={styles.frequencyRow}>
+            <Text style={styles.frequencyText}>
+              {getFrequencyText(medication.frequency)}
+            </Text>
+            {medication.time_of_day.length > 0 && (
+              <>
+                <Text style={styles.bullet}> • </Text>
+                <Text style={styles.timesText}>
+                  {medication.time_of_day.slice(0, 2).join(', ')}
+                  {medication.time_of_day.length > 2 && '...'}
                 </Text>
-              </View>
-            )}
-
-            {/* Row 3: Notes (full width if present) */}
-            {medication.notes && (
-              <View style={[styles.detailCell, styles.detailCellFull]}>
-                <Text style={styles.detailLabel}>NOTES</Text>
-                <Text style={styles.detailValue}>{medication.notes}</Text>
-              </View>
-            )}
-
-            {/* Row 4: Generic name (full width if present) */}
-            {medication.generic_name && (
-              <View style={[styles.detailCell, styles.detailCellFull]}>
-                <Text style={styles.detailLabel}>GENERIC NAME</Text>
-                <Text style={styles.detailValue}>{medication.generic_name}</Text>
-              </View>
+              </>
             )}
           </View>
+
+          {/* Document Provenance */}
+          {medication.source_document_title && (
+            <View style={styles.sourceChip}>
+              <Feather name="file-text" size={12} color={Colors.success} />
+              <Text style={styles.sourceText} numberOfLines={1}>
+                Verified from {medication.source_document_title}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Right: Expand Icon */}
+        <Feather
+          name={isExpanded ? "chevron-up" : "chevron-down"}
+          size={20}
+          color={Colors.gray400}
+          style={styles.expandIcon}
+        />
+      </TouchableOpacity>
+
+      {/* Expanded View - Details */}
+      {isExpanded && (
+        <Animated.View style={[styles.expandedContent, animatedStyle]}>
+          {/* Start Date */}
+          <View style={styles.detailRow}>
+            <View style={styles.readOnlyField}>
+              <Text style={styles.readOnlyLabel}>Start Date</Text>
+              <Text style={styles.readOnlyValue}>
+                {formatDate(medication.start_date)}
+              </Text>
+            </View>
+          </View>
+
+          {/* End Date */}
+          <View style={styles.detailRow}>
+            <View style={styles.readOnlyField}>
+              <Text style={styles.readOnlyLabel}>End Date</Text>
+              <Text style={styles.readOnlyValue}>
+                {medication.end_date ? formatDate(medication.end_date) : 'Ongoing'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Times */}
+          <View style={styles.detailRow}>
+            <View style={styles.readOnlyField}>
+              <Text style={styles.readOnlyLabel}>Times</Text>
+              <Text style={styles.readOnlyValue}>
+                {formatTimes(medication.time_of_day)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Notes */}
+          {medication.notes && (
+            <View style={styles.detailRow}>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyLabel}>Notes</Text>
+                <Text style={styles.readOnlyValue}>
+                  {medication.notes}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Generic Name */}
+          {medication.generic_name && (
+            <View style={styles.detailRow}>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyLabel}>Generic Name</Text>
+                <Text style={styles.readOnlyValue}>
+                  {medication.generic_name}
+                </Text>
+              </View>
+            </View>
+          )}
         </Animated.View>
       )}
     </View>
@@ -155,122 +171,125 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: 16,
     marginBottom: Sizes.md,
-    borderWidth: 0.5,
-    borderColor: '#E8E8E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.success,
     overflow: 'hidden',
-  },
-  accentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: ACCENT,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Sizes.md,
-    paddingLeft: Sizes.md + 3, // offset for accent bar
   },
-  iconWrapper: {
-    marginRight: 12,
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Sizes.md,
   },
   headerInfo: {
     flex: 1,
   },
-  name: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    letterSpacing: -0.3,
-    marginBottom: 2,
-  },
-  dosage: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 4,
-    fontWeight: '400',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaText: {
-    fontSize: 12,
-    color: Colors.textTertiary,
-    fontWeight: '500',
-  },
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: Colors.gray300,
-    marginHorizontal: 6,
-  },
-  rightCol: {
-    alignItems: 'center',
-    marginLeft: 8,
-  },
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#D1FAE5',
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.success + '15',
+    borderWidth: 1,
+    borderColor: Colors.success,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
+    marginBottom: 8,
   },
   activeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: ACCENT,
-    marginRight: 5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.success,
+    marginRight: 6,
   },
   activeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: ACCENT,
-    letterSpacing: 0.2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.success,
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.gray100,
-    marginHorizontal: Sizes.md,
+  name: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  dosage: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 6,
+  },
+  frequencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  frequencyText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  bullet: {
+    fontSize: 13,
+    color: Colors.gray300,
+  },
+  timesText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  sourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: Colors.success + '10',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  sourceText: {
+    fontSize: 12,
+    color: Colors.success,
+    fontWeight: '500',
+  },
+  expandIcon: {
+    marginLeft: Sizes.xs,
   },
   expandedContent: {
-    paddingBottom: Sizes.md,
-  },
-  detailGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: Sizes.md,
-    paddingTop: Sizes.md,
-    gap: 12,
+    paddingBottom: Sizes.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
   },
-  detailCell: {
-    flex: 1,
-    minWidth: '40%',
+  detailRow: {
+    marginBottom: Sizes.sm,
+    marginTop: Sizes.sm,
   },
-  detailCellRight: {
-    alignItems: 'flex-end',
+  readOnlyField: {
+    backgroundColor: Colors.gray100,
+    borderRadius: 8,
+    padding: Sizes.md,
   },
-  detailCellFull: {
-    flexBasis: '100%',
-    flex: undefined,
-    minWidth: '100%',
+  readOnlyLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 4,
   },
-  detailLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-    letterSpacing: 1,
-    marginBottom: 3,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
+  readOnlyValue: {
+    fontSize: 16,
     color: Colors.textPrimary,
-    lineHeight: 20,
   },
 });

@@ -110,7 +110,7 @@ export function MedicationRecordCard({
   const activeReminderTimes = medication.time_of_day || [];
   
   // Extract relation to meal
-  const relation = medication.food_relationship || medication.source_raw?.timing?.meal_relation;
+  const relation = medication.food_relationship || medication.source_raw?.timing?.relation_to_meal;
   const foodNote = relation && relation !== 'anytime' && relation !== 'any' ? getMealTimingLabel(relation) : '';
 
   // Create default notes for read-only display based on final confirmed times
@@ -122,13 +122,13 @@ export function MedicationRecordCard({
   }
 
   // Calculate generic/fallback confidence if not present on item
-  const displayConfidence = medication.source_raw?.confidence !== undefined
-    ? medication.source_raw.confidence
+  const displayConfidence = medication.source_raw?.assumed_enriched_data?.confidence !== undefined
+    ? medication.source_raw.assumed_enriched_data.confidence
     : confidenceScore;
 
   const renderAIAnalysisContent = () => {
     const hasAttributes = !!(
-      medication.source_raw?.instructions ||
+      medication.source_raw?.dosage_instruction ||
       medication.dosage ||
       medication.duration_days ||
       medication.strength ||
@@ -245,15 +245,18 @@ export function MedicationRecordCard({
       styles.card,
       {
         paddingBottom: 8,
+        marginBottom: 12,
+        marginHorizontal: 16,
+        // Match MedicationVerificationCard container styles perfectly
         backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: Colors.gray200,
-        shadowColor: "#000",
+        borderRadius: 20,
+        shadowColor: '#1a1a2e',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-        overflow: 'hidden', // Required for IconGlow clipping
+        shadowRadius: 14,
+        elevation: 3,
+        overflow: 'hidden',
+        borderWidth: 0, // Remove border
       }
     ]}>
       <IconGlow />
@@ -278,61 +281,7 @@ export function MedicationRecordCard({
         {/* AI Summary Static Labels / Badges */}
         <View style={styles.summaryContainer}>
           <View style={styles.aiButtonsRow}>
-            {/* 1. Purpose — highlighted */}
-            {medication.medicine_purpose && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
-              >
-                <View style={styles.aiButtonPurpose}>
-                  <View style={styles.aiButtonIcon}>
-                    <Feather name="activity" size={10} color="#6D28D9" />
-                  </View>
-                  <Text style={styles.aiButtonTextPurpose}>
-                    {medication.medicine_purpose}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* 2. Meal Relation — highlighted */}
-            {(medication.food_relationship || medication.source_raw?.timing?.meal_relation) && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                onPress={(e) => handleTooltipPress(e, 'Meal Relation')}
-              >
-                <View style={styles.aiButtonMeal}>
-                  <View style={styles.aiButtonIcon}>
-                    <Feather name="coffee" size={10} color="#B45309" />
-                  </View>
-                  <Text style={styles.aiButtonTextMeal}>
-                    {getMealTimingLabel(medication.food_relationship || medication.source_raw?.timing?.meal_relation!)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* 3. Note / Instructions — highlighted */}
-            {(medication.source_raw?.instructions || medication.dosage) && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                onPress={(e) => handleTooltipPress(e, 'Note')}
-              >
-                <View style={styles.aiButtonInstruction}>
-                  <View style={styles.aiButtonIcon}>
-                    <Feather name="file-text" size={10} color="#059669" />
-                  </View>
-                  <Text style={styles.aiButtonTextInstruction}>
-                    {medication.source_raw?.instructions || medication.dosage}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* 4. Strength */}
+            {/* 1. Strength */}
             {medication.strength && (
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -350,7 +299,25 @@ export function MedicationRecordCard({
               </TouchableOpacity>
             )}
 
-            {/* 5. Type */}
+            {/* 2. Purpose — highlighted */}
+            {medication.medicine_purpose && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={(e) => handleTooltipPress(e, 'Medication Purpose')}
+              >
+                <View style={styles.aiButtonPurpose}>
+                  <View style={styles.aiButtonIcon}>
+                    <Feather name="activity" size={10} color="#6D28D9" />
+                  </View>
+                  <Text style={styles.aiButtonTextPurpose}>
+                    {medication.medicine_purpose}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* 3. Type */}
             {medication.medicine_type && (
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -368,7 +335,25 @@ export function MedicationRecordCard({
               </TouchableOpacity>
             )}
 
-            {/* 6. Duration */}
+            {/* 4. Note */}
+            {(medication.source_raw?.dosage_instruction || medication.dosage) && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={(e) => handleTooltipPress(e, 'Note')}
+              >
+                <View style={styles.aiButton}>
+                  <View style={styles.aiButtonIcon}>
+                    <Feather name="file-text" size={10} color={Colors.gray600} />
+                  </View>
+                  <Text style={styles.aiButtonText}>
+                    {medication.source_raw?.dosage_instruction || medication.dosage}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* 5. Duration */}
             {medication.duration_days && (
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -381,6 +366,24 @@ export function MedicationRecordCard({
                   </View>
                   <Text style={styles.aiButtonText}>
                     {medication.duration_days} Days
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* 6. Meal Relation — highlighted */}
+            {(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal) && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={(e) => handleTooltipPress(e, 'Meal Relation')}
+              >
+                <View style={styles.aiButtonMeal}>
+                  <View style={styles.aiButtonIcon}>
+                    <Feather name="coffee" size={10} color="#B45309" />
+                  </View>
+                  <Text style={styles.aiButtonTextMeal}>
+                    {getMealTimingLabel(medication.food_relationship || medication.source_raw?.timing?.relation_to_meal!)}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -412,9 +415,9 @@ export function MedicationRecordCard({
               defaultNotes={reminderDefaultNotes}
               onToggleChange={() => {}}
               isVerified={false} // Force unverified styling to match perfectly visually
-              totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.times_per_day}
-              timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.pattern}
-              foodRelationship={medication.food_relationship || medication.source_raw?.timing?.meal_relation || undefined}
+              totalTimesPerDay={medication.total_times_per_day ?? medication.source_raw?.timing?.total_times_per_day}
+              timingDosage={medication.timing_dosage ?? medication.source_raw?.timing?.dosage}
+              foodRelationship={medication.food_relationship || medication.source_raw?.timing?.relation_to_meal || undefined}
               preferredTimes={{
                 morning: familyMember?.morning_dose_time || undefined,
                 afternoon: familyMember?.afternoon_dose_time || undefined,
@@ -607,24 +610,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Typography.fontFamily.medium,
     color: '#92400E', // amber-800
-    letterSpacing: 0,
-  },
-  // ── Highlighted chip: Instructions (emerald/green) ──
-  aiButtonInstruction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    backgroundColor: '#D1FAE5', // emerald-100
-    borderWidth: 1,
-    borderColor: '#6EE7B7', // emerald-300
-    gap: 6,
-  },
-  aiButtonTextInstruction: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: '#065F46', // emerald-800
     letterSpacing: 0,
   },
   // Modal Styles (copied from MedicationVerificationCard)

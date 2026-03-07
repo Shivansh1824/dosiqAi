@@ -159,7 +159,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         family_member_id: med.family_member_id,
         name: med.name,
         dosage_instruction: med.dosage,
-        reminder_times: med.time_of_day ? JSON.stringify(med.time_of_day) : "[]",
+        reminder_times: med.time_of_day,
         interval_days: med.interval_days || 1, // Default to daily if missing
         start_date: med.start_date,
         end_date: med.end_date,
@@ -174,8 +174,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         form: med.form,
         strength: med.strength,
       };
-
-      console.log(`[MedicationsStore] Creating schedule for ${med.name}:`, JSON.stringify(newSchedule));
 
       const data = await withRetry(async () => {
         const { data: result, error } = await from('medication_schedules')
@@ -217,7 +215,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         delete dbUpdates.dosage;
       }
       if (updates.time_of_day !== undefined) {
-        dbUpdates.reminder_times = JSON.stringify(updates.time_of_day);
+        dbUpdates.reminder_times = updates.time_of_day;
         delete dbUpdates.time_of_day;
       }
       // Note: mapping frequency back to interval_days is tricky here without more logic.
@@ -316,7 +314,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         dosage_instruction: parsedMed.dosage,
         timing_dosage: parsedMed.timing_dosage,
         times_per_day: parsedMed.total_times_per_day,
-        reminder_times: parsedMed.time_of_day ? JSON.stringify(parsedMed.time_of_day) : "[]",
+        reminder_times: parsedMed.time_of_day,
         food_relationship: parsedMed.food_relationship,
         interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
@@ -330,8 +328,6 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         source_document_id: documentId,
         ai_confidence: 0.95, // Default high confidence for confirmed items
       };
-
-      console.log(`[MedicationsStore] Creating AI Schedule for ${parsedMed.name}:`, JSON.stringify(newSchedule));
 
       const data = await withRetry(async () => {
         const { data: result, error } = await from('medication_schedules')
@@ -400,7 +396,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           dosage_instruction: parsedMed.dosage,
           timing_dosage: parsedMed.timing_dosage,
           times_per_day: parsedMed.total_times_per_day,
-          reminder_times: JSON.stringify(Array.isArray(parsedMed.time_of_day) ? parsedMed.time_of_day : []),
+          reminder_times: parsedMed.time_of_day,
           food_relationship: parsedMed.food_relationship,
           interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
@@ -416,20 +412,11 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         };
       });
 
-      console.log('[MedicationsStore] Attempting batch insert with:', JSON.stringify(newSchedules, null, 2));
-
-      console.log(`[MedicationsStore] Starting batch insert request... Number of schedules: ${newSchedules.length}`);
-
       await withRetry(async () => {
-        const { error, data } = await from('medication_schedules')
-          .insert(newSchedules)
-          .select();
+        const { error } = await from('medication_schedules')
+          .insert(newSchedules);
 
-        console.log(`[MedicationsStore] Batch AI schedules returned data:`, data ? data.length : 'none');
-        if (error) {
-          console.error('[MedicationsStore] Supabase insert error details:', JSON.stringify(error));
-          throw error;
-        }
+        if (error) throw error;
       }, 2, 1000, 'addMedicationsBatchFromAI');
 
       console.log('[MedicationsStore] Batch AI schedules added:', newSchedules.length);

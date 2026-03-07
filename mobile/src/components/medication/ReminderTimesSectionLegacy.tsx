@@ -9,7 +9,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { Colors, Typography } from '../../constants';
 import { getTimeOfDayCategory, normalizeTime } from '../../types/medicationSchedule';
 import { cleanMedicationName } from '../../utils/medicationParser';
-import { InfoModal, InfoSection } from '../InfoModal';
+import { InfoModal } from '../InfoModal';
 
 interface ReminderTimesSectionProps {
     reminderTimes: string[];
@@ -188,8 +188,7 @@ export function ReminderTimesSectionLegacy({
     // Info Modal State
     const [infoModalVisible, setInfoModalVisible] = useState(false);
     const [infoModalTitle, setInfoModalTitle] = useState('');
-    const [infoModalBody, setInfoModalBody] = useState<React.ReactNode | string>('');
-    const [infoModalContent, setInfoModalContent] = useState<InfoSection[] | undefined>(undefined);
+    const [infoModalBody, setInfoModalBody] = useState('');
 
     const cleanName = cleanMedicationName(medicineName);
 
@@ -518,7 +517,6 @@ export function ReminderTimesSectionLegacy({
     const handleInfoPress = (label: string, time: string) => {
         setInfoModalTitle(`About ${label}`);
         setInfoModalBody(`Your ${label} (${formatTimeDisplay(time)}) currently includes 2 medicines. This update adds ${cleanName} to this schedule.`);
-        setInfoModalContent(undefined);
         setInfoModalVisible(true);
     };
 
@@ -563,41 +561,22 @@ export function ReminderTimesSectionLegacy({
                             const times = originalTotalTimes ?? totalTimesPerDay;
                             const days = originalInterval ?? interval ?? 1;
 
-                            let content: InfoSection[] | undefined = undefined;
-                            let body: React.ReactNode | string = "Please verify and adjust the reminders below.";
+                            let explanation = "Please verify and adjust the reminders below.";
 
                             if (times) {
-                                const highlightStyle = { color: Colors.primary, fontWeight: '700' as const };
-                                
-                                let doseText = "";
                                 if (days === 1 && times === 1) {
-                                    doseText = "1 time everyday";
+                                    explanation = `dosiq AI identified that this dose is to be taken 1 time everyday. Please verify and adjust the schedule below.`;
                                 } else if (days === 1 && times > 1) {
-                                    doseText = `${times} times everyday`;
+                                    explanation = `dosiq AI identified that this dose is to be taken ${times} times everyday. Please verify and adjust the schedule below.`;
                                 } else if (days > 1 && times === 1) {
-                                    doseText = `1 time, every ${days} days`;
+                                    explanation = `dosiq AI identified that this dose is to be taken 1 time, every ${days} days. Please verify and adjust the schedule below.`;
                                 } else {
-                                    doseText = `${times} times a day, after every ${days} days`;
+                                    explanation = `dosiq AI identified that this dose is to be taken ${times} times a day, after every ${days} days. Please verify the schedule below.`;
                                 }
-
-                                content = [
-                                    {
-                                        label: "WHAT DID AI DISCOVER?",
-                                        icon: "cpu" as const,
-                                        text: <Text>dosiq AI identified that <Text style={highlightStyle}>{cleanName}</Text> is to be taken <Text style={highlightStyle}>{doseText}</Text>.</Text>
-                                    },
-                                    {
-                                        label: "YOUR REVIEW",
-                                        icon: "check-circle" as const,
-                                        text: "Review the schedule to ensure it's correct. You can easily adjust the dose timings if needed."
-                                    }
-                                ];
-                                body = ""; // Clear Legacy body
                             }
 
                             setInfoModalTitle("About Dose Schedule");
-                            setInfoModalBody(body);
-                            setInfoModalContent(content);
+                            setInfoModalBody(explanation);
                             setInfoModalVisible(true);
                         }}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -911,7 +890,6 @@ export function ReminderTimesSectionLegacy({
                 visible={infoModalVisible}
                 title={infoModalTitle}
                 body={infoModalBody}
-                content={infoModalContent}
                 onClose={() => setInfoModalVisible(false)}
             />
         </View >
@@ -995,10 +973,10 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     reminderTitle: {
-        fontSize: 12,
-        ...Typography.fontWeights.extrabold,
+        fontSize: 11,
+        ...Typography.fontWeights.bold,
         color: Colors.gray500,
-        letterSpacing: 1,
+        letterSpacing: 0.5,
     },
     explanatoryText: {
         fontSize: 12,

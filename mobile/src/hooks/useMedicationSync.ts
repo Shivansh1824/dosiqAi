@@ -51,18 +51,11 @@ export function useMedicationSync(selectedDate: Date) {
             const diffTime = startOfDay.getTime() - startDate.getTime();
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-            // Handle explicit interval logic first
-            // E.g. AddMedicationScreen or API might set frequency to 'once_daily' even when interval_days = 15
-            if (med.interval_days && med.interval_days > 1) {
-                return diffDays % med.interval_days === 0;
-            }
-
             switch (med.frequency) {
                 case 'once_daily':
                 case 'twice_daily':
                 case 'three_times_daily':
                 case 'four_times_daily':
-                case 'daily' as any:
                     // These are daily - if in range, they exist
                     return true;
                 
@@ -81,9 +74,8 @@ export function useMedicationSync(selectedDate: Date) {
                         (l) => l.medication_id === med.id && l.scheduled_date === selectedDateStr
                     );
 
-                case 'interval' as any:
                 default:
-                    // Interval Days logic - fallback if > 0 checking missed it
+                    // Interval Days logic (e.g. Every 2 days)
                     if (med.interval_days && med.interval_days > 0) {
                         return diffDays % med.interval_days === 0;
                     }

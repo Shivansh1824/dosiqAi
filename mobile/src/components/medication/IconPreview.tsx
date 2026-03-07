@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView,  } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
 import { MedicationIcon } from './MedicationIcons';
 import { Colors } from '../../constants';
 

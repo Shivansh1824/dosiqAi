@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Sizes, Typography } from '../src/constants';
 import {     } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,9 +19,6 @@ import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { useMedicationSync } from '../src/hooks/useMedicationSync';
-import { MedicationIcon } from '../src/components/medication/MedicationIcons';
-
-const ACCENT = '#1B4332';
 
 export default function MedicationsScreen() {
     const router = useRouter();
@@ -37,9 +35,11 @@ export default function MedicationsScreen() {
         markAsTaken
     } = useMedicationSync(selectedDate);
 
+    // Rescheduling state
     const [reschedulingMed, setReschedulingMed] = useState<MedicationWithStatus | null>(null);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
+    // Find the next upcoming dose
     const getNextDoseTime = () => {
         const now = new Date();
         const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -51,6 +51,7 @@ export default function MedicationsScreen() {
         const times = Object.keys(medicationsByTime).sort();
         for (const time of times) {
             if (time > currentTimeStr) {
+                // Check if there are any pending meds at this time
                 const hasPending = medicationsByTime[time].some(m => m.status === 'pending');
                 if (hasPending) return time;
             }
@@ -60,52 +61,94 @@ export default function MedicationsScreen() {
 
     const nextDoseTime = getNextDoseTime();
 
+    // Helper function to calculate medication occurrences based on frequency
     const calculateMedicationOccurrences = (
-        startDateStr: string,
+        startDateStr: string,    // Changed: now accepts string instead of Date
         endDateStr: string | null,
         frequency: string
     ): string[] => {
         const occurrences: string[] = [];
+
+        // Convert to local Date objects
         const currentDate = fromLocalDateString(startDateStr);
         const oneYearFromNow = new Date();
         oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
         const maxDate = endDateStr ? fromLocalDateString(endDateStr) : oneYearFromNow;
 
+        // Determine increment based on frequency
         let dayIncrement = 1;
         switch (frequency) {
-            case 'once_daily': case 'twice_daily': case 'three_times_daily': case 'four_times_daily':
-                dayIncrement = 1; break;
-            case 'weekly': dayIncrement = 7; break;
-            case 'monthly': dayIncrement = 30; break;
-            case 'as_needed': return [];
-            default: dayIncrement = 1;
+            case 'once_daily':
+            case 'twice_daily':
+            case 'three_times_daily':
+            case 'four_times_daily':
+                dayIncrement = 1; // Every day
+                break;
+            case 'weekly':
+                dayIncrement = 7; // Every 7 days
+                break;
+            case 'monthly':
+                dayIncrement = 30; // Approximate monthly (every 30 days)
+                break;
+            case 'as_needed':
+                // PRN medications don't show on calendar
+                return [];
+            default:
+                dayIncrement = 1;
         }
 
+        // Generate occurrence dates (using local date strings)
         while (currentDate <= maxDate) {
             occurrences.push(toLocalDateString(currentDate));
             currentDate.setDate(currentDate.getDate() + dayIncrement);
         }
+
         return occurrences;
     };
 
+    // Generate calendar events from medications (respects frequency)
     const getCalendarEvents = (): Record<string, CalendarEvent> => {
         const events: Record<string, CalendarEvent> = {};
+
         medications.forEach(med => {
-            const occurrenceDates = calculateMedicationOccurrences(med.start_date, med.end_date || null, med.frequency);
+            // Calculate actual occurrence dates based on frequency
+            // Pass date strings directly (no Date object conversion)
+            const occurrenceDates = calculateMedicationOccurrences(
+                med.start_date,      // Already a string like "2025-12-09"
+                med.end_date || null,
+                med.frequency
+            );
+
+            // Add events for each occurrence date
             occurrenceDates.forEach(dateStr => {
-                if (!events[dateStr]) events[dateStr] = { type: 'medication', count: 0 };
+                if (!events[dateStr]) {
+                    events[dateStr] = { type: 'medication', count: 0 };
+                }
                 events[dateStr].count += 1;
             });
         });
+
         return events;
     };
 
+    // Handle medication take action
     const handleTakeMedication = useCallback(async (medicationId: string, scheduledTime: string) => {
         if (!user?.id) return;
+
         try {
+            // Haptic feedback
             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
             const selectedDateStr = toLocalDateString(selectedDate);
+
+            // Mark as taken in database
             await markAsTaken(user.id, medicationId, selectedDateStr, scheduledTime);
+
+            // Attempt to cancel any pending notifications for this dose
+            // Heuristic: MedicationsScreen doesn't usually have the dose index easily available,
+            // but we can try common ID patterns or at least log the attempt.
+            // For now, we attempt to find the ID by finding the index in the medication's time_of_day array
             const med = medications.find(m => m.id === medicationId);
             if (med) {
                 const doseIndex = med.time_of_day.indexOf(scheduledTime);
@@ -115,17 +158,23 @@ export default function MedicationsScreen() {
                     await cancelReminder(`${baseId}_followup`);
                 }
             }
+
+            console.log('✅ Medication taken and notifications cleared:', medicationId, 'at', scheduledTime);
         } catch (error) {
             console.error('Failed to mark medication as taken:', error);
         }
     }, [user?.id, selectedDate, markAsTaken]);
 
+    // Handle medication skip action
     const handleSkipMedication = useCallback(async (medicationId: string, scheduledTime: string) => {
         if (!user?.id) return;
+
         try {
             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             const selectedDateStr = toLocalDateString(selectedDate);
             await useMedicationLogsStore.getState().markAsSkipped(user.id, medicationId, selectedDateStr, scheduledTime);
+            
+            // Cancel reminders
             const med = medications.find(m => m.id === medicationId);
             if (med) {
                 const doseIndex = med.time_of_day.indexOf(scheduledTime);
@@ -135,11 +184,13 @@ export default function MedicationsScreen() {
                     await cancelReminder(`${baseId}_followup`);
                 }
             }
+            console.log('⏭️ Medication skipped:', medicationId, 'at', scheduledTime);
         } catch (error) {
             console.error('Failed to mark medication as skipped:', error);
         }
     }, [user?.id, selectedDate, medications]);
 
+    // Handle rescheduling medication
     const handleReschedule = useCallback((medication: MedicationWithStatus) => {
         setReschedulingMed(medication);
         setShowTimePicker(true);
@@ -147,16 +198,29 @@ export default function MedicationsScreen() {
 
     const onTimeChange = async (event: any, selectedTime?: Date) => {
         setShowTimePicker(false);
+
         if (selectedTime && reschedulingMed && user?.id) {
-            const timeString = selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            const timeString = selectedTime.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+
             try {
+                // Update the medication's schedule in the store
                 const updatedTimes = reschedulingMed.times.map((t: string) =>
                     t === reschedulingMed.scheduled_time ? timeString : t
                 );
+
                 const updatedMed = await useMedicationsStore.getState().updateMedication(reschedulingMed.id, {
                     time_of_day: updatedTimes.sort()
                 });
-                if (updatedMed) await scheduleAllForMedication(updatedMed);
+
+                if (updatedMed) {
+                    await scheduleAllForMedication(updatedMed);
+                    console.log('✅ Rescheduled notifications for:', updatedMed.name);
+                }
+
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (error) {
                 console.error('Failed to reschedule medication:', error);
@@ -166,64 +230,74 @@ export default function MedicationsScreen() {
         setReschedulingMed(null);
     };
 
+    // Handle add medication
     const handleAddMedication = () => {
-        // @ts-ignore
+        // @ts-ignore - Dynamic navigation
         router.push('/addmedication');
     };
 
-    // Compute stats for header
-    const takenCount = Object.values(medicationsByTime)
-        .flat()
-        .filter(m => m.status === 'taken').length;
-    const totalCount = Object.values(medicationsByTime).flat().length;
+
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Crisp clean background */}
-            <View style={StyleSheet.absoluteFill} />
-
-            {/* ── Header ─────────────────────────────────── */}
+            <LinearGradient
+                colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+                style={StyleSheet.absoluteFill}
+            />
+            {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-                    <Feather name="chevron-left" size={26} color={Colors.textPrimary} />
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                    activeOpacity={0.7}
+                >
+                    <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
 
                 <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>Medications</Text>
                     <Text style={styles.headerSubtitle}>
-                        {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                        {selectedDate.toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric'
+                        })}
                     </Text>
                 </View>
 
-                <TouchableOpacity style={styles.addButton} onPress={handleAddMedication} activeOpacity={0.8}>
-                    <Feather name="plus" size={18} color="#FFFFFF" />
+                <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={handleAddMedication}
+                    activeOpacity={0.7}
+                >
+                    <Feather name="plus" size={24} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
 
-            {/* Progress bar if there are meds today */}
-            {totalCount > 0 && (
-                <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${(takenCount / totalCount) * 100}%` as any }]} />
-                </View>
-            )}
+            {/* Divider after Header */}
+            <View style={styles.divider} />
 
-            {/* ── Calendar Strip ─────────────────────────── */}
+            {/* Calendar Strip */}
             <CalendarStrip
                 selectedDate={selectedDate}
                 onDateSelect={setSelectedDate}
                 events={getCalendarEvents()}
             />
 
-            {/* Full calendar link */}
-            <TouchableOpacity style={styles.calendarLink} onPress={() => setShowCalendarModal(true)} activeOpacity={0.7}>
-                <Feather name="calendar" size={13} color={Colors.textTertiary} />
-                <Text style={styles.calendarLinkText}>Full Calendar</Text>
-                <Feather name="chevron-right" size={13} color={Colors.textTertiary} />
+            {/* Full Calendar Button */}
+            <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setShowCalendarModal(true)}
+                activeOpacity={0.7}
+            >
+                <Feather name="calendar" size={16} color={Colors.primary} />
+                <Text style={styles.calendarButtonText}>View Full Calendar</Text>
             </TouchableOpacity>
 
-            <View style={styles.sectionDivider} />
+            {/* Divider after Calendar Button */}
+            <View style={styles.divider} />
 
-            {/* ── Medications Timeline ────────────────────── */}
+            {/* Medications Timeline */}
             <ScrollView
                 style={styles.content}
                 contentContainerStyle={styles.scrollContent}
@@ -232,46 +306,36 @@ export default function MedicationsScreen() {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor={ACCENT}
+                        tintColor={Colors.primary}
                     />
                 }
             >
                 {Object.keys(medicationsByTime).length === 0 ? (
                     <View style={styles.emptyContainer}>
-                        <View style={styles.emptyIconBg}>
-                            <MedicationIcon form="default" size={32} />
-                        </View>
-                        <Text style={styles.emptyTitle}>All clear</Text>
+                        <Feather name="check-circle" size={64} color={Colors.success} />
+                        <Text style={styles.emptyTitle}>All caught up!</Text>
                         <Text style={styles.emptySubtitle}>No medications scheduled for this day.</Text>
-                        <TouchableOpacity style={styles.emptyCta} onPress={handleAddMedication} activeOpacity={0.8}>
-                            <Feather name="plus" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                            <Text style={styles.emptyCtaText}>Add Medication</Text>
-                        </TouchableOpacity>
                     </View>
                 ) : (
                     Object.entries(medicationsByTime).map(([time, meds]) => {
                         const isNextDose = time === nextDoseTime;
-                        let slotDoseIndex = 0;
+                        let slotDoseIndex = 0; // Reset for each time slot
                         return (
                             <View key={time} style={styles.timelineSlot}>
-                                {/* Time header */}
                                 <View style={styles.timeHeader}>
-                                    <View style={styles.timeLabelRow}>
-                                        <View style={[styles.timeAccentLine, isNextDose && styles.timeAccentLineNext]} />
-                                        <Text style={[styles.timeText, isNextDose && styles.timeTextNext]}>
-                                            {time}
-                                        </Text>
-                                    </View>
-
+                                    <Text style={[
+                                        styles.timeText,
+                                        isNextDose && styles.nextTimeText
+                                    ]}>{time}</Text>
+                                    
                                     {isNextDose && (
-                                        <View style={styles.upNextBadge}>
+                                        <View style={styles.nextLabelContainer}>
                                             <View style={styles.pulseDot} />
-                                            <Text style={styles.upNextText}>UP NEXT</Text>
+                                            <Text style={styles.nextLabelText}>Up Next</Text>
                                         </View>
                                     )}
                                 </View>
 
-                                {/* Medication cards */}
                                 <View style={styles.medicationsList}>
                                     {meds.map((med) => {
                                         slotDoseIndex++;
@@ -293,6 +357,8 @@ export default function MedicationsScreen() {
                 )}
             </ScrollView>
 
+
+
             {/* Calendar Modal */}
             <CalendarModal
                 visible={showCalendarModal}
@@ -303,7 +369,7 @@ export default function MedicationsScreen() {
                 filterType="medication"
             />
 
-            {/* Time Picker */}
+            {/* Time Picker for Rescheduling */}
             {showTimePicker && (
                 <DateTimePicker
                     value={(() => {
@@ -325,180 +391,142 @@ export default function MedicationsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAFAF9',
+        backgroundColor: Colors.white,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Sizes.lg,
-        paddingTop: Sizes.sm,
-        paddingBottom: Sizes.sm,
-        backgroundColor: '#FAFAF9',
+        paddingTop: Sizes.md, // Changed from paddingVertical to paddingTop only, since we add a divider
+        paddingBottom: Sizes.md,
+        backgroundColor: 'transparent',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: Colors.gray200,
+        width: '100%',
+        opacity: 0.8,
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 4,
+        marginRight: Sizes.sm,
     },
     headerContent: {
         flex: 1,
     },
     headerTitle: {
-        fontSize: 22,
-        fontWeight: '800',
+        ...Typography.styles.h2,
         color: Colors.textPrimary,
-        letterSpacing: -0.5,
-        marginBottom: 1,
-    },
-    headerSubtitle: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: Colors.textTertiary,
-        letterSpacing: 0.1,
-    },
-    addButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: ACCENT,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 8,
-    },
-    progressBar: {
-        height: 2,
-        backgroundColor: Colors.gray100,
-        marginHorizontal: Sizes.lg,
-        borderRadius: 2,
-        overflow: 'hidden',
         marginBottom: 2,
     },
-    progressFill: {
-        height: 2,
-        backgroundColor: ACCENT,
-        borderRadius: 2,
-    },
-    calendarLink: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        paddingHorizontal: Sizes.lg,
-        paddingVertical: 8,
-        alignSelf: 'flex-start',
-    },
-    calendarLinkText: {
-        fontSize: 12,
+    headerSubtitle: {
+        ...Typography.styles.bodySmall,
+        color: Colors.textSecondary,
         fontWeight: '600',
-        color: Colors.textTertiary,
     },
-    sectionDivider: {
-        height: 1,
-        backgroundColor: Colors.gray100,
-        marginHorizontal: Sizes.lg,
+    addButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.primary + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: Sizes.sm,
     },
     content: {
         flex: 1,
     },
     scrollContent: {
-        paddingHorizontal: Sizes.lg,
+        paddingHorizontal: Sizes.md,
         paddingTop: Sizes.md,
-        paddingBottom: Sizes.xl,
+        paddingBottom: Sizes.md, // Reduced from Sizes.xl
+    },
+    calendarButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        marginHorizontal: Sizes.lg,
+        marginTop: 10,
+        marginBottom: 12,
+        backgroundColor: Colors.primary + '10',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.primary + '20',
+    },
+    calendarButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.primary,
     },
     timelineSlot: {
-        marginBottom: 28,
+        marginBottom: 24,
     },
     timeHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 10,
-    },
-    timeLabelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    timeAccentLine: {
-        width: 3,
-        height: 20,
-        borderRadius: 2,
-        backgroundColor: Colors.gray200,
-    },
-    timeAccentLineNext: {
-        backgroundColor: ACCENT,
+        paddingHorizontal: 2,
     },
     timeText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.textSecondary,
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-    },
-    timeTextNext: {
-        color: ACCENT,
-    },
-    upNextBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: ACCENT,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 4,
-        gap: 6,
-    },
-    pulseDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#FFFFFF',
-        opacity: 0.9,
-    },
-    upNextText: {
-        fontSize: 10,
+        fontSize: 18,
         fontWeight: '800',
-        color: '#FFFFFF',
-        letterSpacing: 0.8,
+        color: Colors.textPrimary,
+        letterSpacing: -0.5,
+    },
+    nextTimeText: {
+        color: Colors.primary,
     },
     medicationsList: {
-        gap: 0,
+        gap: 12,
+        paddingBottom: 8,
+    },
+    nextLabelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.primary + '10',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 20,
+    },
+    pulseDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: Colors.primary,
+        marginRight: 8,
+    },
+    nextLabelText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: Colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     emptyContainer: {
-        paddingTop: 80,
+        flex: 1,
+        paddingTop: 60,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    emptyIconBg: {
-        marginBottom: 20,
-        opacity: 0.5,
-    },
     emptyTitle: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: '700',
         color: Colors.textPrimary,
-        marginBottom: 6,
+        marginTop: 20,
+        marginBottom: 8,
     },
     emptySubtitle: {
-        fontSize: 14,
+        fontSize: 16,
         color: Colors.textSecondary,
         textAlign: 'center',
         paddingHorizontal: 40,
-        marginBottom: 28,
-        lineHeight: 20,
-    },
-    emptyCta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: ACCENT,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    emptyCtaText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#FFFFFF',
     },
 });
