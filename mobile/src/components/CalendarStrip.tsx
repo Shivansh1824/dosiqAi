@@ -4,8 +4,11 @@ import { FlatList } from 'react-native-gesture-handler';
 import { Colors, Sizes } from '../constants';
 import { toLocalDateString } from '../utils/dateUtils';
 
-const ITEM_WIDTH = 60; // Total width per day (60 width, no gap)
-const RANGE = 365; // +/- 1 year for unrestricted scrolling
+const ITEM_WIDTH = 64; // Slightly wider for better tap targets
+const RANGE = 365;
+
+// 2026 dark-green accent
+const ACCENT = '#1B4332';
 
 interface CalendarEvent {
     type: 'medication' | 'appointment' | 'both';
@@ -15,23 +18,20 @@ interface CalendarEvent {
 interface CalendarStripProps {
     selectedDate: Date;
     onDateSelect: (date: Date) => void;
-    events?: Record<string, CalendarEvent>; // Format: { "2025-10-25": { type: 'medication', count: 2 } }
+    events?: Record<string, CalendarEvent>;
 }
 
 interface DayItemData {
-    id: string; 
+    id: string;
     date: Date;
     dayName: string;
     dayNumber: number;
     isToday: boolean;
 }
 
-/**
- * Memoized Day Component for maximum scroll performance
- */
-const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: { 
-    item: DayItemData; 
-    isSelected: boolean; 
+const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: {
+    item: DayItemData;
+    isSelected: boolean;
     hasEvent: boolean;
     onSelect: (date: Date) => void;
 }) => {
@@ -47,15 +47,14 @@ const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: {
             <Text style={[
                 styles.dayName,
                 isSelected && styles.dayNameSelected,
+                item.isToday && !isSelected && styles.dayNameToday,
             ]}>
-                {item.dayName}
+                {item.dayName.toUpperCase()}
             </Text>
             <View style={[
                 styles.dayNumberContainer,
                 isSelected && styles.dayNumberContainerSelected,
                 item.isToday && !isSelected && styles.dayNumberContainerToday,
-                hasEvent && !isSelected && { borderColor: Colors.primary, borderWidth: 2 },
-                hasEvent && isSelected && { borderColor: Colors.white, borderWidth: 2 },
             ]}>
                 <Text style={[
                     styles.dayNumber,
@@ -65,6 +64,16 @@ const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: {
                     {item.dayNumber}
                 </Text>
             </View>
+            {/* Event indicator dot */}
+            {hasEvent && !isSelected && (
+                <View style={styles.eventDot} />
+            )}
+            {hasEvent && isSelected && (
+                <View style={[styles.eventDot, styles.eventDotSelected]} />
+            )}
+            {!hasEvent && (
+                <View style={styles.eventDotSpacer} />
+            )}
         </TouchableOpacity>
     );
 });
@@ -72,7 +81,6 @@ const DayItem = React.memo(({ item, isSelected, hasEvent, onSelect }: {
 export default function CalendarStrip({ selectedDate, onDateSelect, events = {} }: CalendarStripProps) {
     const listRef = useRef<FlatList>(null);
 
-    // 1. Generate large timeline
     const days = useMemo(() => {
         const result: DayItemData[] = [];
         const today = new Date();
@@ -95,45 +103,42 @@ export default function CalendarStrip({ selectedDate, onDateSelect, events = {} 
 
     const todayIndex = RANGE;
 
-    // 2. Index Calculation
     const selectedDateIndex = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const sel = new Date(selectedDate);
         sel.setHours(0, 0, 0, 0);
-        
+
         const diffTime = sel.getTime() - today.getTime();
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-        
+
         const index = RANGE + diffDays;
         return (index >= 0 && index < days.length) ? index : todayIndex;
     }, [selectedDate, days.length]);
 
-    // 3. Scroll Sync
     useEffect(() => {
         if (listRef.current && selectedDateIndex !== -1) {
             const timer = setTimeout(() => {
                 listRef.current?.scrollToIndex({
                     index: selectedDateIndex,
                     animated: true,
-                    viewPosition: 0.5 
+                    viewPosition: 0.5
                 });
             }, 100);
             return () => clearTimeout(timer);
         }
     }, [selectedDateIndex]);
 
-    // 4. Optimized Render
     const renderItem = useCallback(({ item, index }: { item: DayItemData, index: number }) => {
         const isSelected = index === selectedDateIndex;
         const hasEvent = !!events[item.id];
-        
+
         return (
-            <DayItem 
-                item={item} 
-                isSelected={isSelected} 
+            <DayItem
+                item={item}
+                isSelected={isSelected}
                 hasEvent={hasEvent}
-                onSelect={onDateSelect} 
+                onSelect={onDateSelect}
             />
         );
     }, [selectedDateIndex, onDateSelect, events]);
@@ -161,9 +166,9 @@ export default function CalendarStrip({ selectedDate, onDateSelect, events = {} 
                 decelerationRate="fast"
                 snapToInterval={ITEM_WIDTH}
                 onScrollToIndexFailed={(info) => {
-                    listRef.current?.scrollToOffset({ 
-                        offset: info.averageItemLength * info.index, 
-                        animated: false 
+                    listRef.current?.scrollToOffset({
+                        offset: info.averageItemLength * info.index,
+                        animated: false
                     });
                     setTimeout(() => {
                         listRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0.5 });
@@ -177,56 +182,78 @@ export default function CalendarStrip({ selectedDate, onDateSelect, events = {} 
 const styles = StyleSheet.create({
     container: {
         backgroundColor: 'transparent',
-        paddingTop: 12,
-        paddingBottom: 12,    // Reduced from 16 to 12
-        // Removed border to blend seamlessly
+        paddingTop: 10,
+        paddingBottom: 8,
     },
     scrollContent: {
         paddingHorizontal: Sizes.lg,
     },
     dayItem: {
         alignItems: 'center',
-        paddingVertical: Sizes.sm,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
         borderRadius: 12,
-        width: 60,
+        width: ITEM_WIDTH,
     },
     dayItemSelected: {
-        backgroundColor: Colors.primary + '15',
+        backgroundColor: ACCENT + '12',
     },
     dayName: {
-        fontSize: 12,
-        color: Colors.textSecondary,
-        marginBottom: 6,
-        fontWeight: '500',
+        fontSize: 10,
+        color: Colors.textTertiary,
+        marginBottom: 5,
+        fontWeight: '600',
+        letterSpacing: 1.2,
     },
     dayNameSelected: {
-        color: Colors.primary,
-        fontWeight: '600',
+        color: ACCENT,
+        fontWeight: '700',
+    },
+    dayNameToday: {
+        color: Colors.textSecondary,
     },
     dayNumberContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'transparent',
     },
     dayNumberContainerSelected: {
-        backgroundColor: Colors.primary,
+        backgroundColor: ACCENT,
     },
     dayNumberContainerToday: {
         backgroundColor: Colors.gray100,
     },
     dayNumber: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '600',
         color: Colors.textPrimary,
     },
     dayNumberSelected: {
-        color: Colors.white,
+        color: '#FFFFFF',
+        fontWeight: '700',
     },
     dayNumberToday: {
-        color: Colors.primary,
+        color: ACCENT,
         fontWeight: '700',
+    },
+    eventDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: ACCENT,
+        marginTop: 4,
+        opacity: 0.7,
+    },
+    eventDotSelected: {
+        backgroundColor: ACCENT,
+        opacity: 0.5,
+    },
+    eventDotSpacer: {
+        width: 4,
+        height: 4,
+        marginTop: 4,
     },
 });
