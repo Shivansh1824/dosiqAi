@@ -36,6 +36,8 @@ export const NO_SOUND_TUNE: Tune = {
     type: 'none',
 };
 
+export const getNoSoundOption = () => NO_SOUND_TUNE;
+
 // iOS default sound option
 const IOS_DEFAULT_TUNE: Tune = {
     id: 'ios_default',
@@ -138,5 +140,15 @@ export function findTuneByFilename(filename: string, systemTunes: Tune[] = []): 
  */
 export function getDefaultTune(): Tune {
     return APP_TUNES[0]; // Default to 3s dosiqAi alert
+}
+
+export function getAppTunes(): Tune[] {
+    return APP_TUNES;
+}
+
+export async function getSystemTunes(): Promise<Tune[]> {
+    // This would normally use native modules to fetch system sounds
+    // For now, return empty or implement basic logic if needed
+    return [];
 }
 

@@ -297,7 +297,7 @@ export const TuneSelectionModal: React.FC<TuneSelectionModalProps> = ({
                         >
                             {/* App Tune Section */}
                             <SectionHeader title="App Tune" />
-                            {appTunes.map((tune) => (
+                            {appTunes.map((tune: any) => (
                                 <TuneItem 
                                     key={tune.id}
                                     tune={tune}

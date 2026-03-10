@@ -12,7 +12,7 @@ import {
   VictoryTheme,
   VictoryArea,
   VictoryScatter,
-  VictoryZoomVoronoiContainer,
+  VictoryVoronoiContainer,
   VictoryTooltip,
 } from 'victory-native';
 import { Colors } from '@/constants/Colors';
@@ -46,10 +46,10 @@ export const LabMetricChart: React.FC<LabMetricChartProps> = ({
   // Prepare chart data
   const chartData = useMemo(() => {
     return data.dataPoints.map((point) => ({
+      ...point, // Include all original data for tooltips
       x: point.x,
       y: point.y,
       label: point.label,
-      ...point, // Include all original data for tooltips
     }));
   }, [data.dataPoints]);
 
@@ -144,16 +144,11 @@ export const LabMetricChart: React.FC<LabMetricChartProps> = ({
         height={height}
         theme={VictoryTheme.material}
         padding={{ top: 20, bottom: 40, left: 50, right: 20 }}
-        domain={{ y: yDomain }}
+        domain={{ y: yDomain as [number, number] }}
         containerComponent={
           enableZoom || enableTooltips ? (
-            <VictoryZoomVoronoiContainer
-              zoomDimension="x"
-              zoomDomain={{ x: xDomain, y: yDomain }}
-              minimumZoom={{ x: 1, y: 1 }}
-              allowZoom={enableZoom}
-              allowPan={enableZoom}
-              labels={enableTooltips ? (({ datum }) => `${datum.value} ${datum.unit || ''}`) : undefined}
+            <VictoryVoronoiContainer
+              labels={enableTooltips ? (({ datum }: any) => `${datum.value} ${datum.unit || ''}`) : undefined}
               labelComponent={
                 enableTooltips ? (
                   <VictoryTooltip
@@ -182,7 +177,7 @@ export const LabMetricChart: React.FC<LabMetricChartProps> = ({
           showMultiZone ? (
             <MultiZoneReferenceRangeBand
               referenceRange={data.referenceRange}
-              chartDomain={{ x: xDomain, y: yDomain }}
+              chartDomain={{ x: xDomain as [Date, Date], y: yDomain as [number, number] }}
               colorBlindMode={colorBlindMode}
             />
           ) : (
@@ -202,7 +197,7 @@ export const LabMetricChart: React.FC<LabMetricChartProps> = ({
 
         {/* X-axis (dates) */}
         <VictoryAxis
-          tickFormat={(date) => {
+          tickFormat={(date: Date) => {
             const d = new Date(date);
             return `${d.getMonth() + 1}/${d.getDate()}`;
           }}
@@ -221,7 +216,7 @@ export const LabMetricChart: React.FC<LabMetricChartProps> = ({
         {/* Y-axis (values) */}
         <VictoryAxis
           dependentAxis
-          tickFormat={(value) => {
+          tickFormat={(value: number) => {
             // Format based on magnitude
             if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
             if (value % 1 === 0) return value.toString();

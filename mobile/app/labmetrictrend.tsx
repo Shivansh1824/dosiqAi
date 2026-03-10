@@ -28,21 +28,20 @@ import { STATUS_COLORS } from '../src/types/labReport';
 import { exportTimeSeriesAsCSV } from '../src/services/labAnalyticsService';
 
 import * as Sharing from 'expo-sharing';
-import { Paths, File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
-type LabMetricTrendNavigationProp = StackNavigationProp<RootStackParamList, 'LabMetricTrend'>;
-type LabMetricTrendRouteProp = RouteProp<RootStackParamList, 'LabMetricTrend'>;
-
+// Navigation types removed because Expo Router is used
 interface LabMetricTrendScreenProps {
-  navigation: LabMetricTrendNavigationProp;
-  route: LabMetricTrendRouteProp;
+  // navigation and route are managed by Expo Router hooks
 }
 
-export default function LabMetricTrendScreen({
-  navigation,
-  route,
-}: LabMetricTrendScreenProps) {
-  const { testResultId, familyMemberId, testCode, testName } = useLocalSearchParams();
+export default function LabMetricTrendScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const testResultId = params.testResultId as string;
+  const familyMemberId = params.familyMemberId as string;
+  const testCode = params.testCode as string;
+  const testName = (params.testName as string) || 'Metric Trend';
 
   const { getMetricTimeSeries, getAnnotationsForTestResult, addAnnotation, isLoading, error } =
     useLabReportsStore();
@@ -82,16 +81,19 @@ export default function LabMetricTrendScreen({
       // Generate CSV
       const csv = exportTimeSeriesAsCSV(timeSeriesData);
 
-      // Save to file using new expo-file-system API
-      const fileName = `${testName.replace(/\s+/g, '_')}_trend_${new Date().toISOString().split('T')[0]}.csv`;
-      const file = new File(Paths.document, fileName);
+      // Save to file using standard expo-file-system API
+      const safeTestName = typeof testName === 'string' ? testName : String(testName);
+      const fileName = `${safeTestName.replace(/\s+/g, '_')}_trend_${new Date().toISOString().split('T')[0]}.csv`;
+      // @ts-ignore
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
       // Write content to file
-      await file.write(csv);
+      // @ts-ignore
+      await FileSystem.writeAsStringAsync(fileUri, csv);
 
       // Share file
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(file.uri, {
+        await Sharing.shareAsync(fileUri, {
           mimeType: 'text/csv',
           dialogTitle: `Export ${testName} Data`,
         });

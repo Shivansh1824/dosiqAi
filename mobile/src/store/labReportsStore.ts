@@ -231,7 +231,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
 
       // Fetch test results for each lab report
       const labReportsWithResults: LabReportWithResults[] = await Promise.all(
-        (labReportsData || []).map(async (report) => {
+        (labReportsData || []).map(async (report: any) => {
           const { data: testResults, error: testResultsError } = await from('test_results')
             .select('*')
             .eq('lab_report_id', report.id)
@@ -522,7 +522,7 @@ export const useLabReportsStore = create<LabReportsState>((set, get) => ({
         testName: data[0].test_name,
         unit: data[0].unit,
         category: data[0].category,
-        dataPoints: data.map((result) => ({
+        dataPoints: data.map((result: any) => ({
           x: new Date(result.measured_at),
           y: result.result_numeric!,
           label: `${result.result_numeric} ${result.unit || ''}`,

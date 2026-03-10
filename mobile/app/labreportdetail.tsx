@@ -29,19 +29,10 @@ import ShareModal from '../src/components/ShareModal';
 import * as Sharing from 'expo-sharing';
 import { Alert, Share } from 'react-native';
 
-type LabReportDetailNavigationProp = StackNavigationProp<RootStackParamList, 'LabReportDetail'>;
-type LabReportDetailRouteProp = RouteProp<RootStackParamList, 'LabReportDetail'>;
-
-interface LabReportDetailScreenProps {
-  navigation: LabReportDetailNavigationProp;
-  route: LabReportDetailRouteProp;
-}
-
-export default function LabReportDetailScreen({
-  navigation,
-  route,
-}: LabReportDetailScreenProps) {
-  const { labReportId } = useLocalSearchParams();
+export default function LabReportDetailScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const labReportId = params.labReportId as string;
   const {
     loadSingleLabReport,
     getSummary,
@@ -318,11 +309,14 @@ export default function LabReportDetailScreen({
             ) : chartData ? (
               <TouchableOpacity
                 onPress={() => {
-                  router.navigate('/labmetrictrend', {
-                    testResultId: result.id,
-                    familyMemberId: labReport.family_member_id,
-                    testCode: result.test_code,
-                    testName: result.test_name,
+                  router.navigate({
+                    pathname: '/labmetrictrend',
+                    params: {
+                      testResultId: result.id,
+                      familyMemberId: labReport.family_member_id,
+                      testCode: result.test_code,
+                      testName: result.test_name,
+                    }
                   });
                 }}
                 activeOpacity={0.7}

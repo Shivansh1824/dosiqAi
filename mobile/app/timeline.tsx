@@ -505,13 +505,13 @@ export default function TimelineScreen() {
   const handleDocumentPress = (doc: Document) => {
     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
     if (docType.includes('report') || docType.includes('lab')) {
-      (navigation as any).navigate('ReportSummary', { document: doc, documentId: doc.id });
+      router.push({ pathname: '/reportsummary', params: { documentId: doc.id } });
     } else {
       const isVerified = medications.some((med: any) => med.source_document_id === doc.id);
       if (isVerified) {
-        (navigation as any).navigate('PrescriptionRecord', { document: doc, documentId: doc.id });
+        router.push({ pathname: '/prescriptionrecord', params: { documentId: doc.id } });
       } else {
-        (navigation as any).navigate('PrescriptionSummary', { document: doc, documentId: doc.id });
+        router.push({ pathname: '/prescriptionsummary', params: { documentId: doc.id } });
       }
     }
   };
@@ -519,9 +519,9 @@ export default function TimelineScreen() {
   const handleEdit = (doc: Document) => {
     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
     if (docType.includes('report') || docType.includes('lab')) {
-      (navigation as any).navigate('ReportSummary', { document: doc, documentId: doc.id });
+      router.push({ pathname: '/reportsummary', params: { documentId: doc.id } });
     } else {
-      (navigation as any).navigate('PrescriptionSummary', { document: doc, documentId: doc.id });
+      router.push({ pathname: '/prescriptionsummary', params: { documentId: doc.id } });
     }
   };
 

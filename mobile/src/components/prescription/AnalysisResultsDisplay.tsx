@@ -14,7 +14,6 @@ import {
 } from '../../types/medicalReport';
 import { InfoRow, MetricCard, ExpandableSection } from '../../components/medicalReport';
 import { GroupedTestsCard } from '../../components/prescription/GroupedTestsCard';
-import { RootStackParamList } from '../../../App';
 
 interface AnalysisResultsDisplayProps {
   result: DocumentAnalysisResult;
@@ -22,7 +21,7 @@ interface AnalysisResultsDisplayProps {
 }
 
 export const AnalysisResultsDisplay = ({ result, labReportId }: AnalysisResultsDisplayProps) => {
-  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<any>();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../src/constants';
-import {     } from '@react-navigation/native';
+
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMedicationsStore } from '../src/store/medicationsStore';
 import { useDocumentList } from '../src/hooks/useDocumentList';
@@ -74,12 +74,12 @@ export default function DocumentsScreen() {
                                     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
                                     
                                     if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
-                                        (navigation as any).navigate('ReportSummary', { document: doc, documentId: doc.id });
+                                        router.push({ pathname: '/reportsummary', params: { documentId: doc.id } });
                                     } else {
                                         const medications = useMedicationsStore.getState().medications;
                                         const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;
-                                        const screen = isAlreadyAdded ? 'PrescriptionRecord' : 'PrescriptionSummary';
-                                        (navigation as any).navigate(screen, { document: doc, documentId: doc.id });
+                                        const pathname = isAlreadyAdded ? '/prescriptionrecord' : '/prescriptionsummary';
+                                        router.push({ pathname: pathname as any, params: { documentId: doc.id } });
                                     }
                                 }}
                             >

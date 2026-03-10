@@ -84,7 +84,7 @@ export default function ScanDocumentScreen({ onBack }: ScanDocumentScreenProps) 
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const newFiles = result.assets.map(asset => ({
+        const newFiles = result.assets.map((asset: any) => ({
           uri: asset.uri,
           type: 'image' as const,
           name: asset.fileName || 'Selected Image',
