@@ -72,6 +72,7 @@ export interface MedicationsActions {
   addMedication: (med: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<Medication | null>;
   updateMedication: (id: string, updates: Partial<Medication>) => Promise<Medication | null>;
   deleteMedication: (id: string) => Promise<void>;
+  deleteAllMedications: (userId: string) => Promise<void>;
   clearMedications: () => void;
 
   // AI medication extraction methods

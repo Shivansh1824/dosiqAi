@@ -107,7 +107,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           global_frequency: frequency, // Avoid naming collision if needed, but 'frequency' is in interface
           frequency: frequency,
 
-          time_of_day: row.reminder_times || [],
+          time_of_day: (typeof row.reminder_times === 'string' ? JSON.parse(row.reminder_times) : row.reminder_times) || [],
           interval_days: row.interval_days,
           timing_dosage: row.timing_dosage,
           times_per_day: row.times_per_day,
@@ -159,7 +159,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         family_member_id: med.family_member_id,
         name: med.name,
         dosage_instruction: med.dosage,
-        reminder_times: med.time_of_day,
+        reminder_times: med.time_of_day?.length ? JSON.stringify(med.time_of_day) : null,
         interval_days: med.interval_days || 1, // Default to daily if missing
         start_date: med.start_date,
         end_date: med.end_date,
@@ -215,7 +215,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         delete dbUpdates.dosage;
       }
       if (updates.time_of_day !== undefined) {
-        dbUpdates.reminder_times = updates.time_of_day;
+        dbUpdates.reminder_times = updates.time_of_day?.length ? JSON.stringify(updates.time_of_day) : null;
         delete dbUpdates.time_of_day;
       }
       // Note: mapping frequency back to interval_days is tricky here without more logic.
@@ -275,6 +275,31 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   },
 
   /**
+   * Delete ALL medications for a user
+   */
+  deleteAllMedications: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await withRetry(async () => {
+        const { error } = await from('medication_schedules')
+          .delete()
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      }, 2, 1000, 'deleteAllMedications');
+
+      // Update local state by clearing all medications
+      set({ medications: [], isLoading: false });
+
+      // Update cache
+      saveToCache(CacheKeys.medications(userId), []);
+    } catch (error) {
+      set({ error: 'Failed to delete all medications', isLoading: false });
+      throw error;
+    }
+  },
+
+  /**
    * Add medication from AI extraction with source tracking
    * Specialized version of addMedication for AI-extracted medications
    */
@@ -314,7 +339,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         dosage_instruction: parsedMed.dosage,
         timing_dosage: parsedMed.timing_dosage,
         times_per_day: parsedMed.total_times_per_day,
-        reminder_times: parsedMed.time_of_day,
+        reminder_times: parsedMed.time_of_day?.length ? JSON.stringify(parsedMed.time_of_day) : null,
         food_relationship: parsedMed.food_relationship,
         interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
@@ -396,7 +421,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           dosage_instruction: parsedMed.dosage,
           timing_dosage: parsedMed.timing_dosage,
           times_per_day: parsedMed.total_times_per_day,
-          reminder_times: parsedMed.time_of_day,
+          reminder_times: parsedMed.time_of_day?.length ? JSON.stringify(parsedMed.time_of_day) : null,
           food_relationship: parsedMed.food_relationship,
           interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 

@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes } from '../src/constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Sizes, Typography } from '../src/constants';
 import { useRouter } from 'expo-router';
 import CalendarStrip from '../src/components/CalendarStrip';
 import MedicationCard from '../src/components/MedicationCard';
@@ -29,12 +30,14 @@ const formatTime12h = (timeStr: string): string => {
 export default function MedicationsScreen() {
     const router = useRouter();
     const { user } = useAuthStore();
+    const { deleteAllMedications } = useMedicationsStore();
     const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
     const [showCalendarModal, setShowCalendarModal] = useState(false);
 
     const { medications, medicationsByTime, refreshing, onRefresh, markAsTaken } =
         useMedicationSync(selectedDate);
+    const { clearAllLogsForUser } = useMedicationLogsStore();
 
     // Rescheduling state
     const [reschedulingMed, setReschedulingMed] = useState<MedicationWithStatus | null>(null);
@@ -162,57 +165,127 @@ export default function MedicationsScreen() {
         router.push('/addmedication');
     };
 
-    // ── Stats for header summary bar ────────────────────────────────────────
-    const allMeds = Object.values(medicationsByTime).flat();
-    const takenCount = allMeds.filter(m => m.status === 'taken').length;
-    const totalCount = allMeds.length;
+    const handleDeleteAll = () => {
+        if (!user?.id) return;
+        Alert.alert(
+            "Delete All Medications",
+            "Are you sure you want to delete all your medications? This action cannot be undone and will also clear all log history.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete All", 
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                            await deleteAllMedications(user.id);
+                            await clearAllLogsForUser(user.id); // Add this hook
+                            // Refresh local sync state immediately
+                            onRefresh();
+                        } catch (error) {
+                            console.error('Failed to delete all medications or logs:', error);
+                            Alert.alert("Error", "Could not delete medications. Please try again.");
+                        }
+                    } 
+                }
+            ]
+        );
+    };
+
+    // ── Adherence Stats ────────────────────────────────────────────────────
+    const allMedsForDay = Object.values(medicationsByTime).flat();
+    const totalCount = allMedsForDay.length;
+    const takenCount = allMedsForDay.filter(m => m.status === 'taken').length;
+    const progressPercent = totalCount > 0 ? (takenCount / totalCount) * 100 : 0;
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <LinearGradient
+                colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
+                style={StyleSheet.absoluteFill}
+            />
             {/* ── Header ── */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerIconBtn} activeOpacity={0.7}>
-                    <Feather name="arrow-left" size={22} color={Colors.textPrimary} />
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                    activeOpacity={0.7}
+                >
+                    <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
 
-                <View style={styles.headerCenter}>
+                <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>Medications</Text>
                     <Text style={styles.headerSubtitle}>
-                        {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                        {selectedDate.toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric'
+                        })}
                     </Text>
                 </View>
 
-                <TouchableOpacity style={styles.addBtn} onPress={handleAddMedication} activeOpacity={0.7}>
-                    <Feather name="plus" size={20} color={Colors.primary} />
+                <View style={styles.headerActions}>
+                    <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={handleDeleteAll}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name="trash-2" size={20} color={Colors.error} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={handleAddMedication}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name="plus" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+
+            {/* ── Calendar Selection Area ── */}
+            <View style={styles.calendarStripContainer}>
+                <CalendarStrip
+                    selectedDate={selectedDate}
+                    onDateSelect={setSelectedDate}
+                    events={getCalendarEvents()}
+                />
+
+                <TouchableOpacity style={styles.calendarBtn} onPress={() => setShowCalendarModal(true)} activeOpacity={0.75}>
+                    <Feather name="calendar" size={14} color={Colors.primary} />
+                    <Text style={styles.calendarBtnText}>View Full Calendar</Text>
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.hairline} />
-
-            {/* ── Progress bar (only when meds exist) ── */}
-            {totalCount > 0 && (
-                <View style={styles.progressRow}>
-                    <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${Math.round((takenCount / totalCount) * 100)}%` as any }]} />
+            {/* ── Segmented Edge-to-Edge Progress Indicator (Acts as Divider) ── */}
+            {totalCount > 0 ? (
+                <View style={styles.segmentedHeroContainer}>
+                    <View style={styles.segmentedHeroHeader}>
+                        <Text style={styles.segmentedHeroText}>
+                            {takenCount === totalCount ? 'All Caught Up!' : `${takenCount} of ${totalCount} doses taken`}
+                        </Text>
+                        {takenCount === totalCount && (
+                            <Feather name="check" size={14} color="#10B981" />
+                        )}
                     </View>
-                    <Text style={styles.progressLabel}>{takenCount}/{totalCount} taken</Text>
+                    <View style={styles.segmentedBarContainer}>
+                        {Array.from({ length: totalCount }).map((_, i) => (
+                            <View key={i} style={styles.segment}>
+                                <LinearGradient
+                                    colors={i < takenCount ? ['#10B981', '#34D399'] : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.06)']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={StyleSheet.absoluteFillObject}
+                                />
+                            </View>
+                        ))}
+                    </View>
                 </View>
+            ) : (
+                <View style={styles.hairline} />
             )}
-
-            {/* ── Calendar strip ── */}
-            <CalendarStrip
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-                events={getCalendarEvents()}
-            />
-
-            {/* ── Full calendar button ── */}
-            <TouchableOpacity style={styles.calendarBtn} onPress={() => setShowCalendarModal(true)} activeOpacity={0.75}>
-                <Feather name="calendar" size={14} color={Colors.primary} />
-                <Text style={styles.calendarBtnText}>View Full Calendar</Text>
-            </TouchableOpacity>
-
-            <View style={styles.hairline} />
 
             {/* ── Timeline content ── */}
             <ScrollView
@@ -224,7 +297,6 @@ export default function MedicationsScreen() {
                 }
             >
                 {Object.keys(medicationsByTime).length === 0 ? (
-                    /* ── Empty state ── */
                     <View style={styles.emptyState}>
                         <View style={styles.emptyIconWrap}>
                             <Feather name="check-circle" size={36} color={Colors.success} />
@@ -242,7 +314,6 @@ export default function MedicationsScreen() {
                         let slotIndex = 0;
                         return (
                             <View key={time} style={styles.timeSlot}>
-                                {/* Slot header */}
                                 <View style={styles.slotHeader}>
                                     <View style={styles.slotTimeWrap}>
                                         <View style={[styles.slotDot, isNext && styles.slotDotActive]} />
@@ -257,11 +328,7 @@ export default function MedicationsScreen() {
                                     )}
                                     <Text style={styles.slotCount}>{meds.length} med{meds.length !== 1 ? 's' : ''}</Text>
                                 </View>
-
-                                {/* Divider line */}
                                 <View style={styles.slotDivider} />
-
-                                {/* Cards */}
                                 <View style={styles.cardList}>
                                     {meds.map(med => {
                                         slotIndex++;
@@ -283,7 +350,6 @@ export default function MedicationsScreen() {
                 )}
             </ScrollView>
 
-            {/* ── Calendar modal ── */}
             <CalendarModal
                 visible={showCalendarModal}
                 selectedDate={selectedDate}
@@ -293,7 +359,6 @@ export default function MedicationsScreen() {
                 filterType="medication"
             />
 
-            {/* ── Time picker ── */}
             {showTimePicker && (
                 <DateTimePicker
                     value={(() => {
@@ -315,109 +380,127 @@ export default function MedicationsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: Colors.white,
     },
 
-    // ── Header ──────────────────────────────────────────────────────────────
+    // ── Header ──
     header: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Sizes.lg,
-        paddingTop: 10,
-        paddingBottom: 12,
-        backgroundColor: '#F8FAFC',
+        paddingTop: Sizes.md,
+        paddingBottom: Sizes.md,
+        backgroundColor: 'transparent',
     },
-    headerIconBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+    backButton: {
+        width: 44,
+        height: 44,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: Colors.white,
-        borderWidth: 1,
-        borderColor: Colors.gray100,
-        marginRight: 12,
+        marginRight: Sizes.sm,
     },
-    headerCenter: {
+    headerContent: {
         flex: 1,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        ...Typography.styles.h2,
         color: Colors.textPrimary,
-        letterSpacing: -0.4,
+        marginBottom: 2,
     },
     headerSubtitle: {
-        fontSize: 12,
-        fontWeight: '500',
+        ...Typography.styles.bodySmall,
         color: Colors.textSecondary,
-        marginTop: 1,
+        fontWeight: '600',
     },
-    addBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: Colors.primary + '12',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: Colors.primary + '20',
-    },
-
-    // ── Hairline divider ────────────────────────────────────────────────────
-    hairline: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: Colors.gray200,
-    },
-
-    // ── Progress bar ────────────────────────────────────────────────────────
-    progressRow: {
+    headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Sizes.lg,
-        paddingVertical: 10,
-        gap: 10,
-        backgroundColor: '#F8FAFC',
+        gap: 12,
     },
-    progressBar: {
-        flex: 1,
-        height: 4,
+    deleteButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.error + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    divider: {
+        height: 1,
         backgroundColor: Colors.gray200,
-        borderRadius: 4,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        height: '100%',
-        backgroundColor: Colors.success,
-        borderRadius: 4,
-    },
-    progressLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: Colors.textSecondary,
-        minWidth: 60,
-        textAlign: 'right',
+        width: '100%',
+        opacity: 0.8,
     },
 
-    // ── Calendar button ─────────────────────────────────────────────────────
+    // ── Calendar Strip Container ──
+    calendarStripContainer: {
+        backgroundColor: 'transparent',
+        paddingBottom: 2,
+    },
     calendarBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
         marginHorizontal: Sizes.lg,
-        marginTop: 10,
-        marginBottom: 12,
-        paddingVertical: 9,
+        marginTop: 2,
+        marginBottom: 8,
+        paddingVertical: 7,
         backgroundColor: Colors.primary + '0A',
-        borderRadius: 10,
+        borderRadius: 12,
         borderWidth: 1,
         borderColor: Colors.primary + '1A',
     },
     calendarBtnText: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
         color: Colors.primary,
+    },
+
+    // ── Segmented Progress Bar (Structural Divider) ──
+    segmentedHeroContainer: {
+        paddingBottom: 0,
+        paddingTop: 8,
+        width: '100%',
+    },
+    segmentedHeroHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+        paddingHorizontal: Sizes.lg, // Keep text padded
+    },
+    segmentedHeroText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        letterSpacing: -0.3,
+    },
+    segmentedBarContainer: {
+        flexDirection: 'row',
+        height: 6, // Sleeker 6px height
+        width: '100%',
+        gap: 1.5, // Tighter gap for cohesion
+    },
+    segment: {
+        flex: 1,
+        height: '100%',
+        overflow: 'hidden',
+    },
+
+    // ── Hairline divider ────────────────────────────────────────────────────
+    hairline: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: Colors.gray200,
     },
 
     // ── Scroll / content ────────────────────────────────────────────────────
@@ -488,10 +571,10 @@ const styles = StyleSheet.create({
         gap: 2,
     },
 
-    // ── Empty state ─────────────────────────────────────────────────────────
+    // ── Empty state ──
     emptyState: {
         alignItems: 'center',
-        paddingTop: 72,
+        paddingTop: 64,
         paddingBottom: 40,
     },
     emptyIconWrap: {
