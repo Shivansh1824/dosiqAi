@@ -29,6 +29,7 @@ import {
   generateNotificationId,
 } from './androidNotificationService';
 import { groupMedicinesByTime, generateClusterId } from './ClusteringService';
+import { fromLocalDateString, toLocalDateString } from '../utils/dateUtils';
 
 // iOS category ID for action buttons
 const MEDICATION_CATEGORY_ID = 'medication-actions';
@@ -73,13 +74,13 @@ function resolveIOSSoundName(notificationTune: string | undefined): string | und
   // Map App Tunes (MP3) -> iOS Native Resources (CAF)
   // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
   const mapping: Record<string, string> = {
-    'dosiqai_alert_3s.mp3': 'notification_3sec.caf',
-    'dosiqai_alert_6s.mp3': 'notification_6sec.caf',
-    'dosiqai_alert_12s.mp3': 'notification_12sec.caf',
+    'dosiqai_alert_3s.mp3': 'dosiqai_alert_3s.wav',
+    'dosiqai_alert_6s.mp3': 'dosiqai_alert_6s.wav',
+    'dosiqai_alert_12s.mp3': 'dosiqai_alert_12s.wav',
     // Legacy support for raw names
-    'notification_3sec': 'notification_3sec.caf',
-    'notification_6sec': 'notification_6sec.caf',
-    'notification_12sec': 'notification_12sec.caf',
+    'notification_3sec': 'dosiqai_alert_3s.wav',
+    'notification_6sec': 'dosiqai_alert_6s.wav',
+    'notification_12sec': 'dosiqai_alert_12s.wav',
   };
 
   if (mapping[notificationTune]) {
@@ -253,6 +254,11 @@ export async function scheduleIOSFollowUpsFromEvent(
             interruptionLevel: 'timeSensitive',
             ...(iosSound ? { sound: iosSound } : {}),
             threadId: primaryId,
+            foregroundPresentationOptions: {
+              banner: true,
+              sound: true,
+              badge: true,
+            },
           },
           android: {
             channelId: 'medication-notifications-default',
@@ -529,6 +535,11 @@ export async function scheduleMedicineReminder(
           interruptionLevel: 'timeSensitive',
           ...(iosSound ? { sound: iosSound } : {}),
           threadId: reminder.scheduleId, // Use threadId to group on iOS
+          foregroundPresentationOptions: {
+            banner: true,
+            sound: true,
+            badge: true,
+          },
         },
 
         // Android configuration (fallback when familyMemberId is missing)
@@ -595,6 +606,11 @@ export async function scheduleMedicineReminder(
               interruptionLevel: 'timeSensitive',
               ...(iosSound ? { sound: iosSound } : {}),
               threadId: reminder.scheduleId, // Group with primary notification
+              foregroundPresentationOptions: {
+                banner: true,
+                sound: true,
+                badge: true,
+              },
             },
             android: {
               channelId: 'medication-notifications-default',
@@ -648,14 +664,17 @@ export async function scheduleAllRemindersForMedication(
        
        // Check if started
        if (m.start_date) {
-         const startDate = new Date(m.start_date);
+         const startDate = fromLocalDateString(m.start_date);
+         if (m.id === medication.id) {
+            console.log(`[Notifications] 🧐 Checking Start Date for ${m.name}: ${m.start_date} -> ${startDate.toLocaleDateString()}`);
+         }
          // If start date is in future (greater than today), it's not active yet
          if (startDate > today) return false;
        }
 
        // Check if expired / ended
        if (m.end_date) {
-         const endDate = new Date(m.end_date);
+         const endDate = fromLocalDateString(m.end_date);
          endDate.setHours(0, 0, 0, 0);
          if (endDate < today) return false;
        }
@@ -915,6 +934,11 @@ export async function scheduleRepeatingReminder(
           interruptionLevel: 'timeSensitive',
           ...(iosSound ? { sound: iosSound } : {}),
           threadId: reminder.scheduleId,
+          foregroundPresentationOptions: {
+            banner: true,
+            sound: true,
+            badge: true,
+          },
         },
         android: {
           channelId: 'medication-notifications-default',
@@ -1015,6 +1039,11 @@ export async function scheduleRepeatingReminder(
               interruptionLevel: 'timeSensitive',
               sound: iosSound,
               threadId: reminder.scheduleId,
+              foregroundPresentationOptions: {
+                banner: true,
+                sound: true,
+                badge: true,
+              },
             },
             android: {
               channelId: 'medication-notifications-default',
@@ -1301,7 +1330,7 @@ export async function rescheduleAllNotificationsForMember(familyMemberId: string
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const endDate = med.end_date ? new Date(med.end_date) : null;
+      const endDate = med.end_date ? fromLocalDateString(med.end_date) : null;
       if (endDate) endDate.setHours(0, 0, 0, 0);
 
       const isActive = !endDate || endDate >= today;

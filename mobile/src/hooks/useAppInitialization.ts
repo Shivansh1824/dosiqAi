@@ -38,7 +38,13 @@ export const useAppInitialization = () => {
         await initialize();
         console.log('[DEBUG] [AppInit] Auth store initialized successfully');
 
-        // 2. Perform Data Reconciliation Audit (Truth Sync)
+        // 2. Initialize Notification Service (Permissions & iOS Categories)
+        console.log('[DEBUG] [AppInit] Initializing Notification Service...');
+        const { initializeNotifications } = require('../services/notificationService');
+        await initializeNotifications();
+        console.log('[DEBUG] [AppInit] Notification Service initialized');
+
+        // 3. Perform Data Reconciliation Audit (Truth Sync)
         const user = useAuthStore.getState().user;
         if (user?.id) {
           SyncService.performReconciliationAudit(user.id);

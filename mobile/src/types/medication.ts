@@ -57,6 +57,7 @@ export interface Medication {
   verified_by_user?: boolean;     // Implicit true for active schedule?
   ai_confidence?: number;
   food_relationship?: FoodRelationship;
+  timezone?: string; // User's local timezone when scheduled
 }
 
 export interface MedicationsState {

@@ -132,7 +132,6 @@ export function MedicationRecordCard({
       medication.dosage ||
       medication.duration_days ||
       medication.strength ||
-      medication.form ||
       medication.generic_name ||
       medication.food_relationship
     );
@@ -262,7 +261,7 @@ export function MedicationRecordCard({
       <IconGlow />
       <MedicationHeader
         name={medication.name}
-        form={medication.form || null}
+        form={null}
         confidence={medication.confidence}
         isEditing={false}
         editedName={medication.name}
