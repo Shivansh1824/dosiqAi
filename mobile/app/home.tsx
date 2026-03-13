@@ -596,7 +596,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.greetingSection}>
             <Text style={styles.greeting}>Hello,</Text>
-            <Text style={styles.userName}>{user?.name ? extractFirstName(user.name) : 'User'} 👋</Text>
+            <Text style={styles.userName}>{extractFirstName(activeMember?.name || user?.name || 'User')} 👋</Text>
           </View>
 
           <TouchableOpacity style={styles.notificationButton}>
