@@ -26,11 +26,10 @@ interface WheelPickerProps {
     loop?: boolean;
 }
 
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 export function WheelPicker({ items, value, onValueChange, width = 70, loop = true }: WheelPickerProps) {
     const scrollY = useSharedValue(0);
-    const flatListRef = useRef<FlatList>(null);
+    const scrollViewRef = useRef<Animated.ScrollView>(null);
     const [isInternalUpdate, setIsInternalUpdate] = useState(false);
     const lastValue = useRef(value);
     const lastHapticIndex = useSharedValue(-1);
@@ -59,10 +58,10 @@ export function WheelPicker({ items, value, onValueChange, width = 70, loop = tr
     // Initial scroll - immediate jump for a "simple and normal" feel
     useEffect(() => {
         const index = findInitialIndex();
-        // Minor delay to ensure FlatList is ready, but non-animated to avoid "dropping" look
+        // Minor delay to ensure ScrollView is ready, but non-animated to avoid "dropping" look
         const timer = setTimeout(() => {
-            flatListRef.current?.scrollToOffset({
-                offset: index * ITEM_HEIGHT,
+            scrollViewRef.current?.scrollTo({
+                y: index * ITEM_HEIGHT,
                 animated: false
             });
             scrollY.value = index * ITEM_HEIGHT;
@@ -79,8 +78,8 @@ export function WheelPicker({ items, value, onValueChange, width = 70, loop = tr
                 return;
             }
             const index = findInitialIndex();
-            flatListRef.current?.scrollToOffset({
-                offset: index * ITEM_HEIGHT,
+            scrollViewRef.current?.scrollTo({
+                y: index * ITEM_HEIGHT,
                 animated: true
             });
         }
@@ -114,8 +113,8 @@ export function WheelPicker({ items, value, onValueChange, width = 70, loop = tr
             const middleFactor = Math.floor(LOOP_FACTOR / 2);
             const middleIndex = actualIndex + (items.length * middleFactor);
             if (clampedIndex < items.length || clampedIndex >= items.length * (LOOP_FACTOR - 1)) {
-                flatListRef.current?.scrollToOffset({
-                    offset: middleIndex * ITEM_HEIGHT,
+                scrollViewRef.current?.scrollTo({
+                    y: middleIndex * ITEM_HEIGHT,
                     animated: false
                 });
                 scrollY.value = middleIndex * ITEM_HEIGHT;
@@ -123,43 +122,31 @@ export function WheelPicker({ items, value, onValueChange, width = 70, loop = tr
         }
     };
 
-    const renderItem = useCallback(({ item, index }: ListRenderItemInfo<string>) => {
-        return <PickerItem item={item} index={index} scrollY={scrollY} />;
-    }, []);
-
     return (
         <View style={[styles.container, { width: width as any, height: PICKER_HEIGHT }]}>
             {/* Horizontal selection lines like the screenshot */}
             <View style={styles.topLine} pointerEvents="none" />
             <View style={styles.bottomLine} pointerEvents="none" />
             
-            <AnimatedFlatList
-                ref={flatListRef as any}
-                data={extendedItems as any}
-                renderItem={renderItem as any}
-                keyExtractor={(_, index) => index.toString()}
+            <Animated.ScrollView
+                ref={scrollViewRef as any}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 snapToInterval={ITEM_HEIGHT}
                 snapToAlignment="start"
                 decelerationRate="fast"
-                getItemLayout={(_, index) => ({
-                    length: ITEM_HEIGHT,
-                    offset: ITEM_HEIGHT * index,
-                    index,
-                })}
                 contentContainerStyle={{
                     paddingVertical: (PICKER_HEIGHT - ITEM_HEIGHT) / 2
                 }}
                 onMomentumScrollEnd={handleScrollEnd}
                 onScrollEndDrag={handleScrollEnd}
-                removeClippedSubviews={Platform.OS === 'android'}
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={3}
                 nestedScrollEnabled={true}
-            />
+            >
+                {extendedItems.map((item, index) => (
+                    <PickerItem key={`${item}-${index}`} item={item} index={index} scrollY={scrollY} />
+                ))}
+            </Animated.ScrollView>
         </View>
     );
 }

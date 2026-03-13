@@ -115,6 +115,7 @@ async function handleNotificationEvent(type: EventType, detail: any) {
   // Strip _followup_N_YYYY-MM-DD, _followup, and _manual suffixes to get the true base ID
   const baseId = primaryId
     .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+    .replace(/-step\d+/g, '')
     .replace(/_manual/g, '');
 
   await logDebug('[NotificationHandler] Processing Action', { actionId, baseId, primaryId, isFollowUp: medicationData.isFollowUp });

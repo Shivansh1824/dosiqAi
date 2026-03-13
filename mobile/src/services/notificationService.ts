@@ -27,6 +27,7 @@ import {
   initializeAndroidNotifications,
   scheduleNotificationSequence as scheduleAndroidSequence,
   generateNotificationId,
+  cancelPendingSequence,
 } from './androidNotificationService';
 import { groupMedicinesByTime, generateClusterId } from './ClusteringService';
 import { fromLocalDateString, toLocalDateString } from '../utils/dateUtils';
@@ -379,7 +380,7 @@ export async function scheduleTimeSlotCluster(
     
     const reminderData: MedicineReminderData = {
       medicationId: 'cluster', // Virtual ID
-      medicationName: 'Multiple Medications', // Fallback
+      medicationName: medications.length === 1 ? medications[0].name : 'Multiple Medications', // Dynamic fallback
       dosage: '',
       scheduleId: clusterId,
       scheduledTime: scheduledTime,
@@ -460,7 +461,8 @@ export async function scheduleMedicineReminder(
           reminder.instructions,
           reminder.step || 1,
           reminder.activeMedicationIds,
-          reminder.activeMedications
+          reminder.activeMedications,
+          customBody
         );
         console.log('[Notifications] ✅ Android escalation sequence scheduled:', notificationId);
         await logDebug(`[NotificationService] Android sequence scheduled: ${notificationId}`);
@@ -523,6 +525,7 @@ export async function scheduleMedicineReminder(
           ...(reminder.activeMedications ? {
              activeMedications: JSON.stringify(reminder.activeMedications)
           } : {}),
+          customBody: bodyContent,
         },
 
         // iOS configuration
@@ -799,7 +802,7 @@ async function scheduleClusterForSingleDate(
     // Base Reminder Data
     const reminderData: MedicineReminderData = {
       medicationId: 'cluster', 
-      medicationName: 'Multiple Medications',
+      medicationName: medications.length === 1 ? medications[0].name : 'Multiple Medications',
       dosage: '',
       scheduleId: clusterId,
       scheduledTime: scheduledTime,
@@ -871,7 +874,8 @@ export async function scheduleRepeatingReminder(
         reminder.instructions,
         reminder.step || 1,
         reminder.activeMedicationIds,
-        reminder.activeMedications
+        reminder.activeMedications,
+        customBody
       );
       console.log('[Notifications] ✅ Android repeating sequence scheduled:', notificationId);
       await logDebug(`[NotificationService] Android repeating sequence scheduled: ${notificationId}`);
@@ -925,6 +929,7 @@ export async function scheduleRepeatingReminder(
           ...(reminder.activeMedications ? {
              activeMedications: JSON.stringify(reminder.activeMedications)
           } : {}),
+          customBody: bodyContent,
         },
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
@@ -942,7 +947,7 @@ export async function scheduleRepeatingReminder(
           importance: AndroidImportance.HIGH,
           pressAction: { id: 'default', launchActivity: 'default' },
           sound: 'default',
-          autoCancel: true,
+          autoCancel: false,
         },
       },
       primaryTrigger
@@ -1116,6 +1121,12 @@ export async function refillFollowUps(): Promise<void> {
 export async function cancelReminder(scheduleId: string): Promise<void> {
   try {
     await notifee.cancelNotification(scheduleId);
+    
+    // Android: Also cancel any potential escalation sequences
+    if (Platform.OS === 'android') {
+      await cancelPendingSequence(scheduleId);
+    }
+    
     console.log('[Notifications] Cancelled reminder:', scheduleId);
   } catch (error) {
     console.error('[Notifications] Cancel error:', error);

@@ -522,8 +522,14 @@ export default function MedicineAlarmScreen() {
     if (initialData.scheduleId) {
       const baseId = initialData.scheduleId
         .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+        .replace(/-step\d+/g, '')
         .replace(/_manual/g, '');
       console.log(`[MedicineAlarm] TAKEN - scheduleId: "${initialData.scheduleId}" → baseId: "${baseId}"`);
+      
+      // Force kill the current notification immediately
+      await notifee.cancelNotification(initialData.scheduleId);
+      
+      // Kill the entire sequence/cluster
       await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
@@ -561,7 +567,12 @@ export default function MedicineAlarmScreen() {
     if (initialData.scheduleId) {
       const baseId = initialData.scheduleId
         .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+        .replace(/-step\d+/g, '')
         .replace(/_manual/g, '');
+      
+      // Force kill current
+      await notifee.cancelNotification(initialData.scheduleId);
+      
       await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
@@ -578,11 +589,11 @@ export default function MedicineAlarmScreen() {
     Vibration.cancel();
 
     if (initialData.scheduleId) {
-      // Snooze logic needs a single ReminderData object. 
-      // We create a wrapper that represents the "Group"
       const baseId = initialData.scheduleId
         .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+        .replace(/-step\d+/g, '')
         .replace(/_manual/g, '');
+      
       const reminderData: MedicineReminderData = {
         medicationId: medicationList[0]?.id || '', // Leader ID
         medicationName: medicationList.length > 1 ? `${medicationList.length} Medications` : medicationList[0]?.name,
@@ -596,7 +607,11 @@ export default function MedicineAlarmScreen() {
           : undefined,
       };
 
+      // Force kill current
+      await notifee.cancelNotification(initialData.scheduleId);
+
       // Cancel entire pile before rescheduling
+      await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
       await snoozeReminder(baseId, reminderData, minutes);
     }
