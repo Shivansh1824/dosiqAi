@@ -61,7 +61,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         const user: User = {
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.name || session.user.full_name || session.user.email?.split('@')[0] || 'User',
+          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.full_name || session.user.email?.split('@')[0] || 'User',
           createdAt: session.user.created_at,
         };
 
@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         const user: User = {
           id: data.user.id,
           email: data.user.email || '',
-          name: data.user.user_metadata?.name || data.user.full_name || data.user.email?.split('@')[0] || 'User',
+          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.full_name || data.user.email?.split('@')[0] || 'User',
           createdAt: data.user.created_at,
         };
 
