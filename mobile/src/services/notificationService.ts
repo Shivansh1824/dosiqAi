@@ -149,12 +149,14 @@ async function getAndClearIOSFollowUpIds(scheduleId: string): Promise<string[]> 
  * Call this when user taps Taken, Skip, or Snooze.
  */
 export async function cancelIOSFollowUps(scheduleId: string): Promise<void> {
-  // 1. Get base schedule ID (remove any _followup suffixes)
-  const baseId = scheduleId.replace(/_followup_\d+(_\d{4}-\d{2}-\d{2})?$/, '');
+  // 1. Get base schedule ID (remove any _followup and _manual suffixes)
+  const baseId = scheduleId
+    .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+    .replace(/_manual/g, '');
 
-  // 2. Identify the 3-day window to scan (Yesterday, Today, Tomorrow)
-  // This allows for clearing "leaked" follow-ups even if the system clock drifts
-  // or the user acts on a notification across the midnight boundary.
+  console.log(`[ClusterKill] Starting for baseId: "${baseId}" (input: "${scheduleId}")`);
+
+  // 2. Scan 3-day window for dated follow-ups (format: baseId_followup_N_YYYY-MM-DD)
   const today = new Date();
   const datesToCheck = [
     new Date(today.getTime() - 24 * 60 * 60 * 1000), // Yesterday
@@ -162,32 +164,43 @@ export async function cancelIOSFollowUps(scheduleId: string): Promise<void> {
     new Date(today.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
   ];
 
-  const followUpSlotsToCheck = [1, 2, 3]; // Scan the max supported slots
+  const followUpSlotsToCheck = [1, 2, 3]; // Max supported slots
 
   for (const checkDate of datesToCheck) {
-    // Standardize Local Date String (YYYY-MM-DD)
     const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
 
     for (const i of followUpSlotsToCheck) {
-      const followUpId = `${baseId}_followup_${i}_${dateStr}`;
+      // Format A: WITH date suffix (from reconcileReminders)
+      const datedId = `${baseId}_followup_${i}_${dateStr}`;
       try {
-        // cancelNotification removes BOTH pending triggers and delivered alerts (Native: removePending & removeDelivered)
-        await notifee.cancelNotification(followUpId);
-      } catch (error) {
-        // Silent fail
-      }
+        await notifee.cancelNotification(datedId);
+        console.log(`[ClusterKill] Cancelled dated: ${datedId}`);
+      } catch (error) { /* Silent */ }
     }
   }
 
-  // 3. Clear the Primary ID from the Notification Tray (Native: removeDelivered)
-  // We use cancelDisplayedNotifications to hide the banner WITHOUT killing the infinite daily cycle.
-  try {
-    await notifee.cancelDisplayedNotifications([baseId]);
-  } catch (error) {
-    // Silent fail
+  // 3. Also cancel DATELESS follow-ups (format: baseId_followup_N) 
+  // These are created by scheduleMedicineReminder and scheduleIOSFollowUpsFromEvent
+  for (const i of followUpSlotsToCheck) {
+    const datelessId = `${baseId}_followup_${i}`;
+    try {
+      await notifee.cancelNotification(datelessId);
+      console.log(`[ClusterKill] Cancelled dateless: ${datelessId}`);
+    } catch (error) { /* Silent */ }
   }
 
-  await logDebug(`[NotificationService] Cluster Kill completed for: ${baseId}`);
+  // 4. Clear the Primary ID from the Notification Tray
+  try {
+    await notifee.cancelDisplayedNotifications([baseId]);
+    console.log(`[ClusterKill] Cleared displayed: ${baseId}`);
+  } catch (error) { /* Silent */ }
+
+  // 5. Also try to cancel a bare "_followup" suffix (legacy edge case)
+  try {
+    await notifee.cancelNotification(`${baseId}_followup`);
+  } catch (error) { /* Silent */ }
+
+  console.log(`[ClusterKill] ✅ Completed for: ${baseId}`);
 }
 
 /**

@@ -523,9 +523,11 @@ export default function MedicineAlarmScreen() {
       const baseId = initialData.scheduleId
         .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
         .replace(/_manual/g, '');
+      console.log(`[MedicineAlarm] TAKEN - scheduleId: "${initialData.scheduleId}" → baseId: "${baseId}"`);
       await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
+      console.log(`[MedicineAlarm] TAKEN - Cancellation complete`);
     }
 
     // User Feedback & Close
