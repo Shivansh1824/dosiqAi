@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
     Dimensions
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { Gesture, GestureDetector, PanGestureHandlerGestureEvent } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes } from '../constants';
@@ -23,7 +24,9 @@ import Animated, {
     runOnJS,
     interpolate,
     Extrapolate,
-    Easing
+    Easing,
+    withRepeat,
+    useAnimatedProps
 } from 'react-native-reanimated';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -54,6 +57,8 @@ const SectionHeader = ({ title }: { title: string }) => (
 );
 
 // Individual Tune Item Component
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 const TuneItem = ({ tune, isSelected, onPress, isPlaying, onPreview, showPreview = true }: { 
     tune: Tune; 
     isSelected: boolean; 
@@ -65,6 +70,7 @@ const TuneItem = ({ tune, isSelected, onPress, isPlaying, onPreview, showPreview
     // Animation shared values
     const scale = useSharedValue(1);
     const backgroundColorProgress = useSharedValue(isSelected ? 1 : 0);
+    const progress = useSharedValue(0);
 
     useEffect(() => {
         backgroundColorProgress.value = withTiming(isSelected ? 1 : 0, { duration: 300 });
@@ -74,11 +80,32 @@ const TuneItem = ({ tune, isSelected, onPress, isPlaying, onPreview, showPreview
         }
     }, [isSelected]);
 
+    useEffect(() => {
+        if (isPlaying) {
+            const timeMs = tune.durationMs || 3000;
+            progress.value = 0;
+            progress.value = withTiming(1, { 
+                duration: timeMs, 
+                easing: Easing.linear 
+            });
+        } else {
+            progress.value = withTiming(0, { duration: 300 });
+        }
+    }, [isPlaying]);
+
     const animatedStyle = useAnimatedStyle(() => {
         return {
             transform: [{ scale: scale.value }],
             backgroundColor: isSelected ? '#EFF6FF' : 'rgba(255,255,255,0.8)',
             borderColor: isSelected ? Colors.primary : 'rgba(255,255,255,0.8)',
+        };
+    });
+
+    const circleAnimatedProps = useAnimatedProps(() => {
+        const radius = 18;
+        const circumference = 2 * Math.PI * radius;
+        return {
+            strokeDashoffset: circumference * (1 - progress.value),
         };
     });
 
@@ -89,53 +116,66 @@ const TuneItem = ({ tune, isSelected, onPress, isPlaying, onPreview, showPreview
     };
 
     return (
-        <Animated.View style={[styles.verificationBar, animatedStyle, { marginBottom: 10, height: 60 }]}>
+        <Animated.View style={[styles.verificationBar, animatedStyle, { marginBottom: 10, height: 60, paddingHorizontal: 12 }]}>
             <TouchableOpacity 
-                style={StyleSheet.absoluteFill}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
                 onPress={onPress}
-                activeOpacity={0.9}
+                activeOpacity={0.7}
             >
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-                    <View style={{ 
-                        width: 40, height: 40, borderRadius: 20, 
-                        backgroundColor: isSelected ? Colors.primary : '#F1F5F9',
-                        justifyContent: 'center', alignItems: 'center',
-                    }}>
-                        <Feather 
-                            name={isSelected ? "check" : getIconName()} 
-                            size={20} 
-                            color={isSelected ? "white" : Colors.gray400} 
-                        />
-                    </View>
-                    
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.barLabel, { fontSize: 15 }]} numberOfLines={1}>{tune.name}</Text>
-                        <Text style={{ fontSize: 11, color: Colors.gray500 }}>Duration: {tune.duration}</Text>
-                    </View>
-
-                    {showPreview && tune.type !== 'none' && !(tune.type === 'system' && Platform.OS === 'ios') ? (
-                        <TouchableOpacity 
-                            style={{ 
-                                padding: 10,
-                                backgroundColor: isPlaying ? '#FEE2E2' : '#F1F5F9',
-                                borderRadius: 20
-                            }}
-                            onPress={(e) => {
-                                e.stopPropagation();
-                                onPreview();
-                            }}
-                        >
-                            <Feather 
-                                name={isPlaying ? "square" : "play"} 
-                                size={18} 
-                                color={isPlaying ? "#EF4444" : Colors.primary} 
-                            />
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={{ width: 38 }} />
-                    )}
+                <View style={{ 
+                    width: 40, height: 40, borderRadius: 20, 
+                    backgroundColor: isSelected ? Colors.primary : '#F1F5F9',
+                    justifyContent: 'center', alignItems: 'center',
+                }}>
+                    <Feather 
+                        name={isSelected ? "check" : getIconName()} 
+                        size={20} 
+                        color={isSelected ? "white" : Colors.gray400} 
+                    />
+                </View>
+                
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.barLabel, { fontSize: 15 }]} numberOfLines={1}>{tune.name}</Text>
+                    <Text style={{ fontSize: 11, color: Colors.gray500 }}>Duration: {tune.duration}</Text>
                 </View>
             </TouchableOpacity>
+
+            {showPreview && tune.type !== 'none' && !(tune.type === 'system' && Platform.OS === 'ios') ? (
+                <TouchableOpacity 
+                    style={{ 
+                        padding: 10,
+                        backgroundColor: isPlaying ? '#FEE2E2' : '#F1F5F9',
+                        borderRadius: 20,
+                        marginLeft: 8
+                    }}
+                    onPress={onPreview}
+                >
+                    {isPlaying && (
+                        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+                            <Svg width="40" height="40" style={{ transform: [{ rotate: '-90deg' }] }}>
+                                <AnimatedCircle
+                                    cx="20"
+                                    cy="20"
+                                    r="18"
+                                    stroke="#EF4444"
+                                    strokeWidth="2.5"
+                                    fill="none"
+                                    strokeDasharray={2 * Math.PI * 18}
+                                    animatedProps={circleAnimatedProps}
+                                    strokeLinecap="round"
+                                />
+                            </Svg>
+                        </View>
+                    )}
+                    <Feather 
+                        name={isPlaying ? "square" : "play"} 
+                        size={18} 
+                        color={isPlaying ? "#EF4444" : Colors.primary} 
+                    />
+                </TouchableOpacity>
+            ) : (
+                <View style={{ width: 38 }} />
+            )}
         </Animated.View>
     );
 };
@@ -210,6 +250,7 @@ export const TuneSelectionModal: React.FC<TuneSelectionModalProps> = ({
 
     // Handle closing to ensure sound stops
     const handleClose = async () => {
+        console.log('[TuneSelectionModal] handleClose called - stopping preview');
         await stopPreview();
         setPlayingId(null);
         translateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 }, () => {
@@ -241,6 +282,7 @@ export const TuneSelectionModal: React.FC<TuneSelectionModalProps> = ({
             }
 
             // Stop previous and start new
+            console.log('[TuneSelectionModal] playPreview: stopping previous sound');
             await stopPreview();
             setPlayingId(tune.id);
             
@@ -297,7 +339,7 @@ export const TuneSelectionModal: React.FC<TuneSelectionModalProps> = ({
                         >
                             {/* App Tune Section */}
                             <SectionHeader title="App Tune" />
-                            {appTunes.map((tune) => (
+                            {appTunes.map((tune: any) => (
                                 <TuneItem 
                                     key={tune.id}
                                     tune={tune}

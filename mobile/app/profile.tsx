@@ -28,10 +28,7 @@ export default function ProfileScreen() {
 
     const handleLogout = () => {
         logout();
-        router.reset({
-            index: 0,
-            routes: [{ name: 'Welcome' as never }],
-        });
+        router.replace('/');
     };
 
     const handleMenuPress = (label: string) => {

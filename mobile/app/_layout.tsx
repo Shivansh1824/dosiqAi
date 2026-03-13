@@ -8,7 +8,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
-import { setupBackgroundEventHandler } from '../src/services/notificationEventHandler';
+import { 
+    setupBackgroundEventHandler, 
+    setupForegroundEventHandler, 
+    setNavigationCallback 
+} from '../src/services/notificationEventHandler';
+import notifee from '@notifee/react-native';
 
 setupBackgroundEventHandler();
 
@@ -40,6 +45,43 @@ export default function RootLayout() {
     const { isAuthenticated, hasSeenOnboarding } = useAuthStore();
     const segments = useSegments();
     const router = useRouter();
+
+    // Notification routing setup
+    useEffect(() => {
+        if (!isAppReady || !fontsLoaded) return;
+
+        // 1. Set the callback so the background/foreground handlers can trigger navigation
+        setNavigationCallback((screen, params) => {
+            console.log(`[Navigation] Routing to ${screen} from notification`);
+            router.push({ pathname: screen as any, params });
+        });
+
+        // 2. Listen for notifications while app is in foreground
+        const unsubscribeForeground = setupForegroundEventHandler();
+
+        // 3. Check if app was opened from a dead state via notification tap
+        async function checkInitialNotification() {
+            const initialNotification = await notifee.getInitialNotification();
+            if (initialNotification) {
+                console.log('[App] Opened from killed state via notification tap:', initialNotification.notification.id);
+                const data = initialNotification.notification.data;
+                const actionId = initialNotification.pressAction?.id || 'default';
+                
+                // If it's a default tap (not a 'taken'/'skip' button tap handled in background)
+                if (data?.type === 'medication_reminder' && actionId === 'default') {
+                     router.push({ 
+                         pathname: '/medicinealarm', 
+                         params: data as any 
+                     });
+                }
+            }
+        }
+        checkInitialNotification();
+
+        return () => {
+             if (unsubscribeForeground) unsubscribeForeground();
+        };
+    }, [isAppReady, fontsLoaded, router]);
 
     // Authentication & Onboarding routing
     useEffect(() => {

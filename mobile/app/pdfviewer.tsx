@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Colors, Typography, Sizes } from '../src/constants';
 import * as Sharing from 'expo-sharing';
 
@@ -50,8 +50,9 @@ export default function PdfViewerScreen() {
 
         // For local files, check if it exists
         if (uri.startsWith('file://')) {
-          const file = new FileSystem.File(uri);
-          if (!file.exists) {
+          // @ts-ignore: getInfoAsync exists in legacy but isn't typed correctly
+          const info = await FileSystem.getInfoAsync(uri);
+          if (!info.exists) {
             throw new Error('PDF file not found');
           }
         }
@@ -153,7 +154,7 @@ export default function PdfViewerScreen() {
             scalesPageToFit={true}
             bounces={true}
             scrollEnabled={true}
-            onError={(syntheticEvent) => {
+            onError={(syntheticEvent: any) => {
               const { nativeEvent } = syntheticEvent;
               console.error('[WebView] Error loading PDF:', nativeEvent);
               setError('Failed to load PDF. Please try opening with system viewer.');

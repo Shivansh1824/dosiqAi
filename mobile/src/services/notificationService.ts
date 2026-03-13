@@ -27,8 +27,10 @@ import {
   initializeAndroidNotifications,
   scheduleNotificationSequence as scheduleAndroidSequence,
   generateNotificationId,
+  cancelPendingSequence,
 } from './androidNotificationService';
 import { groupMedicinesByTime, generateClusterId } from './ClusteringService';
+import { fromLocalDateString, toLocalDateString } from '../utils/dateUtils';
 
 // iOS category ID for action buttons
 const MEDICATION_CATEGORY_ID = 'medication-actions';
@@ -59,8 +61,8 @@ export function generateSharedBodyText(medicationNames: string[]): string {
  * Maps internal app tune defaults (MP3) to iOS native resources (CAF/WAV)
  */
 function resolveIOSSoundName(notificationTune: string | undefined): string | undefined {
-  if (!notificationTune || notificationTune.trim() === '') {
-    return undefined; // Silent
+  if (!notificationTune || notificationTune.trim() === '' || notificationTune === 'none') {
+    return undefined;
   }
 
   // System default
@@ -68,29 +70,13 @@ function resolveIOSSoundName(notificationTune: string | undefined): string | und
     return 'default';
   }
 
-  // Map App Tunes (MP3) -> iOS Native Resources (CAF)
-  // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
-  // Map App Tunes (MP3) -> iOS Native Resources (CAF)
-  // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
-  const mapping: Record<string, string> = {
-    'dosiqai_alert_3s.mp3': 'notification_3sec.caf',
-    'dosiqai_alert_6s.mp3': 'notification_6sec.caf',
-    'dosiqai_alert_12s.mp3': 'notification_12sec.caf',
-    // Legacy support for raw names
-    'notification_3sec': 'notification_3sec.caf',
-    'notification_6sec': 'notification_6sec.caf',
-    'notification_12sec': 'notification_12sec.caf',
-  };
+  // Simplified: Always use .wav for iOS app tunes
+  if (notificationTune.includes('3s')) return 'dosiqai_alert_3s.wav';
+  if (notificationTune.includes('6s')) return 'dosiqai_alert_6s.wav';
+  if (notificationTune.includes('12s')) return 'dosiqai_alert_12s.wav';
 
-  if (mapping[notificationTune]) {
-    return mapping[notificationTune];
-  }
-
-  // STRICT SAFEGUARD:
-  // If we receive an Android URI (e.g. "content://...") or any unknown filename,
-  // we MUST fallback to 'default' for iOS to prevent silence or errors.
-  // We do NOT try to guess extensions (wav/mp3) anymore.
-  console.log(`[NotificationService] Tune '${notificationTune}' not found in iOS mapping. Fallback to 'default'.`);
+  // Fallback
+  console.log(`[NotificationService] Tune '${notificationTune}' unresolved. Fallback to 'default'.`);
   return 'default';
 }
 
@@ -164,12 +150,14 @@ async function getAndClearIOSFollowUpIds(scheduleId: string): Promise<string[]> 
  * Call this when user taps Taken, Skip, or Snooze.
  */
 export async function cancelIOSFollowUps(scheduleId: string): Promise<void> {
-  // 1. Get base schedule ID (remove any _followup suffixes)
-  const baseId = scheduleId.replace(/_followup_\d+(_\d{4}-\d{2}-\d{2})?$/, '');
+  // 1. Get base schedule ID (remove any _followup and _manual suffixes)
+  const baseId = scheduleId
+    .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+    .replace(/_manual/g, '');
 
-  // 2. Identify the 3-day window to scan (Yesterday, Today, Tomorrow)
-  // This allows for clearing "leaked" follow-ups even if the system clock drifts
-  // or the user acts on a notification across the midnight boundary.
+  console.log(`[ClusterKill] Starting for baseId: "${baseId}" (input: "${scheduleId}")`);
+
+  // 2. Scan 3-day window for dated follow-ups (format: baseId_followup_N_YYYY-MM-DD)
   const today = new Date();
   const datesToCheck = [
     new Date(today.getTime() - 24 * 60 * 60 * 1000), // Yesterday
@@ -177,32 +165,43 @@ export async function cancelIOSFollowUps(scheduleId: string): Promise<void> {
     new Date(today.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
   ];
 
-  const followUpSlotsToCheck = [1, 2, 3]; // Scan the max supported slots
+  const followUpSlotsToCheck = [1, 2, 3]; // Max supported slots
 
   for (const checkDate of datesToCheck) {
-    // Standardize Local Date String (YYYY-MM-DD)
     const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
 
     for (const i of followUpSlotsToCheck) {
-      const followUpId = `${baseId}_followup_${i}_${dateStr}`;
+      // Format A: WITH date suffix (from reconcileReminders)
+      const datedId = `${baseId}_followup_${i}_${dateStr}`;
       try {
-        // cancelNotification removes BOTH pending triggers and delivered alerts (Native: removePending & removeDelivered)
-        await notifee.cancelNotification(followUpId);
-      } catch (error) {
-        // Silent fail
-      }
+        await notifee.cancelNotification(datedId);
+        console.log(`[ClusterKill] Cancelled dated: ${datedId}`);
+      } catch (error) { /* Silent */ }
     }
   }
 
-  // 3. Clear the Primary ID from the Notification Tray (Native: removeDelivered)
-  // We use cancelDisplayedNotifications to hide the banner WITHOUT killing the infinite daily cycle.
-  try {
-    await notifee.cancelDisplayedNotifications([baseId]);
-  } catch (error) {
-    // Silent fail
+  // 3. Also cancel DATELESS follow-ups (format: baseId_followup_N) 
+  // These are created by scheduleMedicineReminder and scheduleIOSFollowUpsFromEvent
+  for (const i of followUpSlotsToCheck) {
+    const datelessId = `${baseId}_followup_${i}`;
+    try {
+      await notifee.cancelNotification(datelessId);
+      console.log(`[ClusterKill] Cancelled dateless: ${datelessId}`);
+    } catch (error) { /* Silent */ }
   }
 
-  await logDebug(`[NotificationService] Cluster Kill completed for: ${baseId}`);
+  // 4. Clear the Primary ID from the Notification Tray
+  try {
+    await notifee.cancelDisplayedNotifications([baseId]);
+    console.log(`[ClusterKill] Cleared displayed: ${baseId}`);
+  } catch (error) { /* Silent */ }
+
+  // 5. Also try to cancel a bare "_followup" suffix (legacy edge case)
+  try {
+    await notifee.cancelNotification(`${baseId}_followup`);
+  } catch (error) { /* Silent */ }
+
+  console.log(`[ClusterKill] ✅ Completed for: ${baseId}`);
 }
 
 /**
@@ -253,6 +252,11 @@ export async function scheduleIOSFollowUpsFromEvent(
             interruptionLevel: 'timeSensitive',
             ...(iosSound ? { sound: iosSound } : {}),
             threadId: primaryId,
+            foregroundPresentationOptions: {
+              banner: true,
+              sound: true,
+              badge: true,
+            },
           },
           android: {
             channelId: 'medication-notifications-default',
@@ -376,7 +380,7 @@ export async function scheduleTimeSlotCluster(
     
     const reminderData: MedicineReminderData = {
       medicationId: 'cluster', // Virtual ID
-      medicationName: 'Multiple Medications', // Fallback
+      medicationName: medications.length === 1 ? medications[0].name : 'Multiple Medications', // Dynamic fallback
       dosage: '',
       scheduleId: clusterId,
       scheduledTime: scheduledTime,
@@ -457,7 +461,8 @@ export async function scheduleMedicineReminder(
           reminder.instructions,
           reminder.step || 1,
           reminder.activeMedicationIds,
-          reminder.activeMedications
+          reminder.activeMedications,
+          customBody
         );
         console.log('[Notifications] ✅ Android escalation sequence scheduled:', notificationId);
         await logDebug(`[NotificationService] Android sequence scheduled: ${notificationId}`);
@@ -520,6 +525,7 @@ export async function scheduleMedicineReminder(
           ...(reminder.activeMedications ? {
              activeMedications: JSON.stringify(reminder.activeMedications)
           } : {}),
+          customBody: bodyContent,
         },
 
         // iOS configuration
@@ -529,6 +535,11 @@ export async function scheduleMedicineReminder(
           interruptionLevel: 'timeSensitive',
           ...(iosSound ? { sound: iosSound } : {}),
           threadId: reminder.scheduleId, // Use threadId to group on iOS
+          foregroundPresentationOptions: {
+            banner: true,
+            sound: true,
+            badge: true,
+          },
         },
 
         // Android configuration (fallback when familyMemberId is missing)
@@ -595,6 +606,11 @@ export async function scheduleMedicineReminder(
               interruptionLevel: 'timeSensitive',
               ...(iosSound ? { sound: iosSound } : {}),
               threadId: reminder.scheduleId, // Group with primary notification
+              foregroundPresentationOptions: {
+                banner: true,
+                sound: true,
+                badge: true,
+              },
             },
             android: {
               channelId: 'medication-notifications-default',
@@ -648,14 +664,17 @@ export async function scheduleAllRemindersForMedication(
        
        // Check if started
        if (m.start_date) {
-         const startDate = new Date(m.start_date);
+         const startDate = fromLocalDateString(m.start_date);
+         if (m.id === medication.id) {
+            console.log(`[Notifications] 🧐 Checking Start Date for ${m.name}: ${m.start_date} -> ${startDate.toLocaleDateString()}`);
+         }
          // If start date is in future (greater than today), it's not active yet
          if (startDate > today) return false;
        }
 
        // Check if expired / ended
        if (m.end_date) {
-         const endDate = new Date(m.end_date);
+         const endDate = fromLocalDateString(m.end_date);
          endDate.setHours(0, 0, 0, 0);
          if (endDate < today) return false;
        }
@@ -783,7 +802,7 @@ async function scheduleClusterForSingleDate(
     // Base Reminder Data
     const reminderData: MedicineReminderData = {
       medicationId: 'cluster', 
-      medicationName: 'Multiple Medications',
+      medicationName: medications.length === 1 ? medications[0].name : 'Multiple Medications',
       dosage: '',
       scheduleId: clusterId,
       scheduledTime: scheduledTime,
@@ -855,7 +874,8 @@ export async function scheduleRepeatingReminder(
         reminder.instructions,
         reminder.step || 1,
         reminder.activeMedicationIds,
-        reminder.activeMedications
+        reminder.activeMedications,
+        customBody
       );
       console.log('[Notifications] ✅ Android repeating sequence scheduled:', notificationId);
       await logDebug(`[NotificationService] Android repeating sequence scheduled: ${notificationId}`);
@@ -909,19 +929,25 @@ export async function scheduleRepeatingReminder(
           ...(reminder.activeMedications ? {
              activeMedications: JSON.stringify(reminder.activeMedications)
           } : {}),
+          customBody: bodyContent,
         },
         ios: {
           categoryId: MEDICATION_CATEGORY_ID,
           interruptionLevel: 'timeSensitive',
           ...(iosSound ? { sound: iosSound } : {}),
           threadId: reminder.scheduleId,
+          foregroundPresentationOptions: {
+            banner: true,
+            sound: true,
+            badge: true,
+          },
         },
         android: {
           channelId: 'medication-notifications-default',
           importance: AndroidImportance.HIGH,
           pressAction: { id: 'default', launchActivity: 'default' },
           sound: 'default',
-          autoCancel: true,
+          autoCancel: false,
         },
       },
       primaryTrigger
@@ -1015,6 +1041,11 @@ export async function scheduleRepeatingReminder(
               interruptionLevel: 'timeSensitive',
               sound: iosSound,
               threadId: reminder.scheduleId,
+              foregroundPresentationOptions: {
+                banner: true,
+                sound: true,
+                badge: true,
+              },
             },
             android: {
               channelId: 'medication-notifications-default',
@@ -1090,6 +1121,12 @@ export async function refillFollowUps(): Promise<void> {
 export async function cancelReminder(scheduleId: string): Promise<void> {
   try {
     await notifee.cancelNotification(scheduleId);
+    
+    // Android: Also cancel any potential escalation sequences
+    if (Platform.OS === 'android') {
+      await cancelPendingSequence(scheduleId);
+    }
+    
     console.log('[Notifications] Cancelled reminder:', scheduleId);
   } catch (error) {
     console.error('[Notifications] Cancel error:', error);
@@ -1301,7 +1338,7 @@ export async function rescheduleAllNotificationsForMember(familyMemberId: string
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const endDate = med.end_date ? new Date(med.end_date) : null;
+      const endDate = med.end_date ? fromLocalDateString(med.end_date) : null;
       if (endDate) endDate.setHours(0, 0, 0, 0);
 
       const isActive = !endDate || endDate >= today;

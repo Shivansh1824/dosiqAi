@@ -27,6 +27,7 @@ interface MedicationLogsActions {
   markAsTaken: (userId: string, medicationId: string, dateStr: string, timeStr: string) => Promise<void>;
   markAsSkipped: (userId: string, medicationId: string, dateStr: string, timeStr: string) => Promise<void>;
   getLog: (medicationId: string, dateStr: string, timeStr: string) => MedicationLog | undefined;
+  clearAllLogsForUser: (userId: string) => Promise<void>;
 }
 
 export const useMedicationLogsStore = create<MedicationLogsState & MedicationLogsActions>((set, get) => ({
@@ -210,5 +211,23 @@ export const useMedicationLogsStore = create<MedicationLogsState & MedicationLog
         l.scheduled_date === dateStr &&
         l.scheduled_time === timeStr
     );
+  },
+
+  clearAllLogsForUser: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await from('medication_logs')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Clear local state
+      set({ logs: [], loadedRanges: [], isLoading: false });
+    } catch (error) {
+      console.error('[MedicationLogsStore] Clear all logs error:', error);
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
   }
 }));

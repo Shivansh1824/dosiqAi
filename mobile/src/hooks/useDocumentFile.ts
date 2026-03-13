@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router';
 
 export const useDocumentFile = (
     document: any | undefined,
-    navigation: any,
     titleText: string
 ) => {
     const router = useRouter();

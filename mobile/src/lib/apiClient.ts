@@ -47,7 +47,6 @@ async function _fetch(path: string, options: RequestInit = {}, retry = true): Pr
     ...(options.headers as Record<string, string> || {}),
   };
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
   // Auto-refresh on TOKEN_EXPIRED

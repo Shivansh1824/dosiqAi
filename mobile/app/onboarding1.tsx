@@ -18,7 +18,7 @@ import {
   useButtonPress,
 } from '../src/utils/animations';
 
-type Onboarding1ScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding1'>;
+
 
 export default function Onboarding1Screen() {
   const router = useRouter();

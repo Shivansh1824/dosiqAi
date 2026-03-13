@@ -57,6 +57,7 @@ export interface Medication {
   verified_by_user?: boolean;     // Implicit true for active schedule?
   ai_confidence?: number;
   food_relationship?: FoodRelationship;
+  timezone?: string; // User's local timezone when scheduled
 }
 
 export interface MedicationsState {
@@ -72,6 +73,7 @@ export interface MedicationsActions {
   addMedication: (med: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<Medication | null>;
   updateMedication: (id: string, updates: Partial<Medication>) => Promise<Medication | null>;
   deleteMedication: (id: string) => Promise<void>;
+  deleteAllMedications: (userId: string) => Promise<void>;
   clearMedications: () => void;
 
   // AI medication extraction methods

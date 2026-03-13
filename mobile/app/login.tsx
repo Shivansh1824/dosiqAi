@@ -20,7 +20,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { useFadeSlideUp, useFadeIn } from '../src/utils/animations';
 
 
-type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
+
 
 export default function LoginScreen() {
   const router = useRouter();
