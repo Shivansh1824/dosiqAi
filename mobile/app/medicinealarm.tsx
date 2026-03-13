@@ -73,20 +73,38 @@ interface MedicationItem {
   scheduleId?: string; // Derived base schedule ID
 }
 
-// Reusable Option Item Component for Snooze (Local Definition)
+// Helper to determine the theme based on color scheme
+const getTheme = (isDark: boolean) => ({
+  bg: isDark ? (['#0f1014', '#172554', '#0f1014'] as const) : (['#ffffff', '#eff6ff', '#ffffff'] as const),
+  bubble: isDark ? '#1e3a8a' : '#bfdbfe',
+  bubbleOpacity: isDark ? 0.5 : 0.6,
+  textPrimary: isDark ? '#ffffff' : '#000000',
+  textSecondary: isDark ? 'rgba(255,255,255,0.7)' : '#1f2937', 
+  textMuted: isDark ? 'rgba(255,255,255,0.5)' : '#374151', 
+  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+  checkboxBorder: isDark ? '#475569' : '#64748b',
+  checkboxCheck: '#2dd4bf',
+  btnSnoozeBg: isDark ? 'rgba(30, 41, 59, 0.4)' : '#e2e8f0',
+  btnSnoozeBorder: isDark ? 'rgba(148, 163, 184, 0.3)' : '#cbd5e1',
+  btnSnoozeText: isDark ? '#e2e8f0' : '#0f172a',
+  btnActionText: isDark ? '#ffffff' : '#000000', 
+  badgeText: isDark ? '#ffffff' : '#065f46', 
+  badgeBg: isDark ? 'rgba(45, 212, 191, 0.2)' : 'rgba(45, 212, 191, 0.3)',
+});
+
+// Reusable Option Item Component for Snooze (Moved outside to prevent re-creation)
 const SnoozeOptionItem = ({ option, isSelected, onPress }: {
   option: { count: number; label: string; desc: string };
   isSelected: boolean;
   onPress: () => void;
 }) => {
-  // Animation shared values
   const scale = useSharedValue(1);
   const backgroundColorProgress = useSharedValue(isSelected ? 1 : 0);
 
   useEffect(() => {
     backgroundColorProgress.value = withTiming(isSelected ? 1 : 0, { duration: 300 });
     if (isSelected) {
-      scale.value = withTiming(1.02, { duration: 150 }); // Slight bounce
+      scale.value = withTiming(1.02, { duration: 150 });
       setTimeout(() => { scale.value = withTiming(1, { duration: 150 }); }, 150);
     }
   }, [isSelected]);
@@ -109,13 +127,13 @@ const SnoozeOptionItem = ({ option, isSelected, onPress }: {
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
           <View style={{
             width: 44, height: 44, borderRadius: 22,
-            backgroundColor: isSelected ? Colors.primary : '#E0F2FE', // Light Blue
+            backgroundColor: isSelected ? Colors.primary : '#E0F2FE', 
             justifyContent: 'center', alignItems: 'center',
           }}>
             <MaterialCommunityIcons
               name={isSelected ? "check" : "clock-outline"}
               size={22}
-              color={isSelected ? "white" : '#0284C7'} // Blue-600
+              color={isSelected ? "white" : '#0284C7'} 
             />
           </View>
 
@@ -126,6 +144,78 @@ const SnoozeOptionItem = ({ option, isSelected, onPress }: {
         </View>
       </TouchableOpacity>
     </Animated.View>
+  );
+};
+
+// CHECKBOX COMPONENT (Moved outside)
+const GlowCheckbox = ({ checked, theme }: { checked: boolean, theme: any }) => (
+  <View style={[styles.glowCheckbox, { borderColor: theme.checkboxBorder }, checked && styles.glowCheckboxChecked]}>
+    {checked && <MaterialCommunityIcons name="check" size={16} color={theme.checkboxCheck} />}
+  </View>
+);
+
+// BACKGROUND COMPONENT (Moved outside)
+const ProfessionalBackground = ({ isDark, theme }: { isDark: boolean, theme: any }) => {
+  const floatAnim = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(floatAnim, { toValue: 1, duration: 8000, useNativeDriver: true }),
+        RNAnimated.timing(floatAnim, { toValue: 0, duration: 8000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -20]
+  });
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <LinearGradient
+        colors={theme.bg}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <RNAnimated.View
+        style={{
+          position: 'absolute',
+          top: -120,
+          left: -80,
+          width: 500,
+          height: 500,
+          borderRadius: 250,
+          backgroundColor: theme.bubble,
+          opacity: theme.bubbleOpacity,
+          transform: [{ translateY }]
+        }}
+      >
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      </RNAnimated.View>
+
+      <View
+        style={{
+          position: 'absolute',
+          bottom: -180,
+          right: -50,
+          width: 600,
+          height: 600,
+          borderRadius: 300,
+          backgroundColor: theme.bubble,
+          opacity: isDark ? 0.3 : 0.4
+        }}
+      />
+
+      <LinearGradient
+        colors={['transparent', isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.0)']}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+    </View>
   );
 };
 
@@ -176,36 +266,27 @@ export default function MedicineAlarmScreen() {
 
   const [displayTime, setDisplayTime] = useState(getInitialTime());
 
-  // 2. Parse Medications (Clustered vs Single)
-  const [medicationList, setMedicationList] = useState<MedicationItem[]>([]);
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
-
-  // Load medications logic
-  useEffect(() => {
-    const parseMedications = () => {
+  // 2. Parse Medications (Clustered vs Single) - Use useMemo to avoid re-render loops
+  const medicationList = React.useMemo<MedicationItem[]>(() => {
       const list: MedicationItem[] = [];
 
       // A. Check for Clustered Payload (Phase 3)
       if (initialData.activeMedicationIds || initialData.activeMedications) {
         try {
-          // Helper: Safe Parse with URL Decode fallback
           const safeParse = (jsonStr: string | undefined): any => {
             if (!jsonStr) return null;
             try {
               return JSON.parse(jsonStr);
             } catch (e) {
-              // Retry with URL Decode (fix for Android Intent data oddities)
-              console.log('[MedicineAlarm] JSON Parse failed, retrying with decodeURIComponent...');
               try {
                 return JSON.parse(decodeURIComponent(jsonStr));
               } catch (e2) {
                 console.error(`[MedicineAlarm] Critical Parse Error. Raw: ${jsonStr}`);
-                throw e2; // Bubble up to outer catch
+                return null;
               }
             }
           };
 
-          // Try to use rich objects first if available (for offline/test support)
           if (initialData.activeMedications) {
             const richMeds = safeParse(initialData.activeMedications);
             if (richMeds && Array.isArray(richMeds)) {
@@ -221,7 +302,6 @@ export default function MedicineAlarmScreen() {
             }
           }
 
-          // Fallback to IDs + Store Lookup if Rich Data is missing or dry
           if (list.length === 0 && initialData.activeMedicationIds) {
             const ids: string[] = safeParse(initialData.activeMedicationIds);
 
@@ -237,12 +317,9 @@ export default function MedicineAlarmScreen() {
                     scheduleId: initialData.scheduleId
                   });
                 } else {
-                  // Critical Fallback: If store is empty (fresh boot), show at least the "Unknown" placeholder
-                  // or try to fetch from DB? For now, Show ID/Placeholder.
-                  console.log(`[MedicineAlarm] Med ID ${id} not found in store (Store size: ${allMedications.length})`);
                   list.push({
                     id: id,
-                    name: 'Loading Medication...', // Better UX than "Unknown"
+                    name: 'Loading Medication...',
                     dosage: '',
                     scheduleId: initialData.scheduleId
                   });
@@ -278,13 +355,17 @@ export default function MedicineAlarmScreen() {
         });
       }
 
-      setMedicationList(list);
-      const allIds = new Set(list.map(m => m.id));
-      setCheckedIds(allIds);
-    };
+      return list;
+  }, [initialData.activeMedicationIds, initialData.activeMedications, initialData.medicationId, initialData.medicationName, allMedications, initialData.scheduleId, initialData.dosage, initialData.instructions]);
 
-    parseMedications();
-  }, [initialData, allMedications]);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+
+  // Initialize checks when list changes
+  useEffect(() => {
+    if (medicationList.length > 0) {
+        setCheckedIds(new Set(medicationList.map(m => m.id)));
+    }
+  }, [medicationList]);
 
   // --------------------------------------------------------------------------
   // UI & ANIMATION STATE
@@ -438,13 +519,12 @@ export default function MedicineAlarmScreen() {
       }
     }
 
-    // Cancel Notifications (Unified)
-    // We assume the scheduleId param belongs to the "cluster leader" or shared time slot
     if (initialData.scheduleId) {
-      const baseId = initialData.scheduleId.replace('_followup', '').replace('_manual', '');
+      const baseId = initialData.scheduleId
+        .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+        .replace(/_manual/g, '');
       await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
-      await cancelReminder(`${baseId}_manual`);
       await cancelReminder(`${baseId}_manual`);
     }
 
@@ -477,7 +557,9 @@ export default function MedicineAlarmScreen() {
     }
 
     if (initialData.scheduleId) {
-      const baseId = initialData.scheduleId.replace('_followup', '').replace('_manual', '');
+      const baseId = initialData.scheduleId
+        .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+        .replace(/_manual/g, '');
       await cancelReminder(baseId);
       await cancelIOSFollowUps(baseId);
       await cancelReminder(`${baseId}_manual`);
@@ -496,7 +578,9 @@ export default function MedicineAlarmScreen() {
     if (initialData.scheduleId) {
       // Snooze logic needs a single ReminderData object. 
       // We create a wrapper that represents the "Group"
-      const baseId = initialData.scheduleId.replace('_followup', '').replace('_manual', '');
+      const baseId = initialData.scheduleId
+        .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+        .replace(/_manual/g, '');
       const reminderData: MedicineReminderData = {
         medicationId: medicationList[0]?.id || '', // Leader ID
         medicationName: medicationList.length > 1 ? `${medicationList.length} Medications` : medicationList[0]?.name,
@@ -510,6 +594,8 @@ export default function MedicineAlarmScreen() {
           : undefined,
       };
 
+      // Cancel entire pile before rescheduling
+      await cancelIOSFollowUps(baseId);
       await snoozeReminder(baseId, reminderData, minutes);
     }
 
@@ -536,106 +622,12 @@ export default function MedicineAlarmScreen() {
 
   // 1. Theme Detection
   const colorScheme = useColorScheme();
-  const isDark = colorScheme !== 'light'; // Default to dark if undefined or dark
+  const isDark = colorScheme !== 'light'; 
 
   // Theme Colors
-  const theme = {
-    bg: isDark ? (['#0f1014', '#172554', '#0f1014'] as const) : (['#ffffff', '#eff6ff', '#ffffff'] as const),
-    bubble: isDark ? '#1e3a8a' : '#bfdbfe',
-    bubbleOpacity: isDark ? 0.5 : 0.6,
-    // Text: PURE BLACK for Light Mode as requested
-    textPrimary: isDark ? '#ffffff' : '#000000',
-    textSecondary: isDark ? 'rgba(255,255,255,0.7)' : '#1f2937', // Gray-800
-    textMuted: isDark ? 'rgba(255,255,255,0.5)' : '#374151', // Gray-700
-    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-    checkboxBorder: isDark ? '#475569' : '#64748b',
-    checkboxCheck: '#2dd4bf',
-    // Buttons: Dark Text for Light Mode
-    btnSnoozeBg: isDark ? 'rgba(30, 41, 59, 0.4)' : '#e2e8f0',
-    btnSnoozeBorder: isDark ? 'rgba(148, 163, 184, 0.3)' : '#cbd5e1',
-    btnSnoozeText: isDark ? '#e2e8f0' : '#0f172a',
-    // Action Buttons (Taken/Skip) Text
-    btnActionText: isDark ? '#ffffff' : '#000000', // White in Dark, Black in Light for contrast
-    // Badge
-    badgeText: isDark ? '#ffffff' : '#065f46', // Dark Green for Light Mode
-    badgeBg: isDark ? 'rgba(45, 212, 191, 0.2)' : 'rgba(45, 212, 191, 0.3)',
-  };
+  const theme = React.useMemo(() => getTheme(isDark), [isDark]);
 
-  const ProfessionalBackground = () => {
-    // Subtle breathing/floating animation for the "Nature Bubble"
-    const floatAnim = useRef(new RNAnimated.Value(0)).current;
-
-    useEffect(() => {
-      RNAnimated.loop(
-        RNAnimated.sequence([
-          RNAnimated.timing(floatAnim, { toValue: 1, duration: 8000, useNativeDriver: true }),
-          RNAnimated.timing(floatAnim, { toValue: 0, duration: 8000, useNativeDriver: true }),
-        ])
-      ).start();
-    }, []);
-
-    const translateY = floatAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, -20]
-    });
-
-    return (
-      <View style={StyleSheet.absoluteFill}>
-        {/* 1. Unified Rich Base (Brand Aligned) */}
-        <LinearGradient
-          colors={theme.bg}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* 2. Top-Left "Nature Bubble" */}
-        <RNAnimated.View
-          style={{
-            position: 'absolute',
-            top: -120,
-            left: -80,
-            width: 500,
-            height: 500,
-            borderRadius: 250,
-            backgroundColor: theme.bubble,
-            opacity: theme.bubbleOpacity,
-            transform: [{ translateY }]
-          }}
-        >
-          <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-        </RNAnimated.View>
-
-        {/* 3. Bottom-Right "Grounding Bubble" */}
-        <View
-          style={{
-            position: 'absolute',
-            bottom: -180,
-            right: -50,
-            width: 600,
-            height: 600,
-            borderRadius: 300,
-            backgroundColor: theme.bubble,
-            opacity: isDark ? 0.3 : 0.4
-          }}
-        />
-
-        {/* OVERLAY: Texture/Noise if needed (Optional) */}
-        <LinearGradient
-          colors={['transparent', isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.0)']}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      </View>
-    );
-  };
-
-  // CHECKBOX COMPONENT
-  const GlowCheckbox = ({ checked }: { checked: boolean }) => (
-    <View style={[styles.glowCheckbox, { borderColor: theme.checkboxBorder }, checked && styles.glowCheckboxChecked]}>
-      {checked && <MaterialCommunityIcons name="check" size={16} color={theme.checkboxCheck} />}
-    </View>
-  );
+    // Removal of ProfessionalBackground and GlowCheckbox from here as they are moved outside
 
   // --------------------------------------------------------------------------
   // RENDERING
@@ -647,7 +639,7 @@ export default function MedicineAlarmScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg[1] }]}>
       <StatusBar translucent barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <ProfessionalBackground />
+      <ProfessionalBackground isDark={isDark} theme={theme} />
 
       {/* Toast Notification Layer (Z-Index High) */}
       <ToastNotification
@@ -742,7 +734,7 @@ export default function MedicineAlarmScreen() {
                       </View>
                     </View>
 
-                    <GlowCheckbox checked={isChecked} />
+                    <GlowCheckbox checked={isChecked} theme={theme} />
                   </TouchableOpacity>
                 );
               })}

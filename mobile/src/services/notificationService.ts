@@ -60,8 +60,8 @@ export function generateSharedBodyText(medicationNames: string[]): string {
  * Maps internal app tune defaults (MP3) to iOS native resources (CAF/WAV)
  */
 function resolveIOSSoundName(notificationTune: string | undefined): string | undefined {
-  if (!notificationTune || notificationTune.trim() === '') {
-    return undefined; // Silent
+  if (!notificationTune || notificationTune.trim() === '' || notificationTune === 'none') {
+    return undefined;
   }
 
   // System default
@@ -69,29 +69,13 @@ function resolveIOSSoundName(notificationTune: string | undefined): string | und
     return 'default';
   }
 
-  // Map App Tunes (MP3) -> iOS Native Resources (CAF)
-  // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
-  // Map App Tunes (MP3) -> iOS Native Resources (CAF)
-  // These files MUST exist in the 'ios/Resources' folder or 'Build Phases -> Copy Bundle Resources'
-  const mapping: Record<string, string> = {
-    'dosiqai_alert_3s.mp3': 'dosiqai_alert_3s.wav',
-    'dosiqai_alert_6s.mp3': 'dosiqai_alert_6s.wav',
-    'dosiqai_alert_12s.mp3': 'dosiqai_alert_12s.wav',
-    // Legacy support for raw names
-    'notification_3sec': 'dosiqai_alert_3s.wav',
-    'notification_6sec': 'dosiqai_alert_6s.wav',
-    'notification_12sec': 'dosiqai_alert_12s.wav',
-  };
+  // Simplified: Always use .wav for iOS app tunes
+  if (notificationTune.includes('3s')) return 'dosiqai_alert_3s.wav';
+  if (notificationTune.includes('6s')) return 'dosiqai_alert_6s.wav';
+  if (notificationTune.includes('12s')) return 'dosiqai_alert_12s.wav';
 
-  if (mapping[notificationTune]) {
-    return mapping[notificationTune];
-  }
-
-  // STRICT SAFEGUARD:
-  // If we receive an Android URI (e.g. "content://...") or any unknown filename,
-  // we MUST fallback to 'default' for iOS to prevent silence or errors.
-  // We do NOT try to guess extensions (wav/mp3) anymore.
-  console.log(`[NotificationService] Tune '${notificationTune}' not found in iOS mapping. Fallback to 'default'.`);
+  // Fallback
+  console.log(`[NotificationService] Tune '${notificationTune}' unresolved. Fallback to 'default'.`);
   return 'default';
 }
 
