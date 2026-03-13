@@ -22,20 +22,16 @@ import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, Re
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { WebView } from 'react-native-webview';
-import * as FileSystem from 'expo-file-system';
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
-
-type PrescriptionRecordNavigationProp = StackNavigationProp<any, 'PrescriptionRecord'>;
 
 interface PrescriptionRecordScreenProps {
   onBack: () => void;
   document?: Document;
   documentId?: string;
-  navigation: PrescriptionRecordNavigationProp;
 }
 
-export default function PrescriptionRecordScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionRecordScreenProps) {
+export default function PrescriptionRecordScreen({ onBack, document: documentProp, documentId }: PrescriptionRecordScreenProps) {
   const router = useRouter();
   const params = useLocalSearchParams();
   const paramDocumentId = params.documentId as string;

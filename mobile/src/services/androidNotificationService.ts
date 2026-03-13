@@ -78,6 +78,7 @@ export interface NotificationSequenceData {
   snoozeDuration: number;
   scheduledTime: string; // ISO string
   notification_tune?: string;
+  customBody?: string;
   // Phase 3: Cluster Support
   activeMedicationIds?: string; // serialized JSON
   activeMedications?: string;   // serialized JSON
@@ -315,7 +316,8 @@ export async function scheduleNotificationSequence(
   startStep: number = 1,
   // Phase 3: Cluster Support
   activeMedicationIds?: string[], // raw array
-  activeMedications?: any[]       // raw rich objects
+  activeMedications?: any[],       // raw rich objects
+  customBody?: string
 ): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
 
@@ -366,6 +368,7 @@ export async function scheduleNotificationSequence(
         snoozeDuration,
         scheduledTime: triggerTime.toISOString(),
         notification_tune: notificationTune,
+        customBody: customBody,
         // Serialize for payload
         activeMedicationIds: activeMedicationIds ? JSON.stringify(activeMedicationIds) : undefined,
         activeMedications: activeMedications ? JSON.stringify(activeMedications) : undefined,
@@ -412,7 +415,7 @@ async function scheduleNormalNotification(
     {
       id: notificationId, // Same ID for all steps - replaces previous
       title: '💊 Medication Reminder',
-      body: `Time to take ${data.medicationName} ${data.dosage}`,
+      body: data.customBody || `Time to take ${data.medicationName} ${data.dosage}`,
       data: {
         medicationId: data.medicationId,
         medicationName: data.medicationName,
@@ -438,6 +441,9 @@ async function scheduleNormalNotification(
           id: 'default',
           launchActivity: 'default',
         },
+        // IMPORTANT: autoCancel: false ensures notification stays in dock when tapped, 
+        // allowing the Alarm Screen to handle the final dismissal logic.
+        autoCancel: false,
         actions: [
           {
             title: '✓ Taken',
@@ -452,7 +458,6 @@ async function scheduleNormalNotification(
             pressAction: { id: 'skip' },
           },
         ],
-        autoCancel: true,
         showTimestamp: true,
         timestamp: triggerTime.getTime(),
         sound: data.notification_tune || 'default', // Redundant for channels, but safe to keep
@@ -486,7 +491,7 @@ async function scheduleFullScreenNotification(
     {
       id: notificationId, // Same ID - replaces normal notification
       title: '💊 Medication Alarm',
-      body: `Time to take ${data.medicationName} ${data.dosage}`,
+      body: data.customBody || `Time to take ${data.medicationName} ${data.dosage}`,
       data: {
         medicationId: data.medicationId,
         medicationName: data.medicationName,
@@ -596,7 +601,8 @@ export async function handleAndroidSnooze(data: NotificationSequenceData): Promi
     instructions,
     step, 
     totalSteps,
-    snoozeDuration 
+    snoozeDuration,
+    customBody 
   } = data;
 
   // Cancel current sequence
@@ -621,7 +627,10 @@ export async function handleAndroidSnooze(data: NotificationSequenceData): Promi
     familyMemberId,
     snoozeTime,
     instructions,
-    nextStep // Continue from current step
+    nextStep, // Continue from current step
+    undefined, // activeMedicationIds (re-fetched in store if needed, but usually we carry over or just skip rich data on snooze)
+    undefined, // activeMedications
+    customBody
   );
 }
 

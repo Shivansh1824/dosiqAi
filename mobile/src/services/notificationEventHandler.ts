@@ -112,15 +112,23 @@ async function handleNotificationEvent(type: EventType, detail: any) {
   const actionId = pressAction?.id || 'default';
 
   const primaryId = notification?.id || medicationData.scheduleId;
-  const baseId = primaryId.replace('_followup', '');
+  // Strip _followup_N_YYYY-MM-DD, _followup, and _manual suffixes to get the true base ID
+  const baseId = primaryId
+    .replace(/_followup(_\d+(_\d{4}-\d{2}-\d{2})?)?/g, '')
+    .replace(/-step\d+/g, '')
+    .replace(/_manual/g, '');
 
-  await logDebug('[NotificationHandler] Processing Action', { actionId, baseId, isFollowUp: medicationData.isFollowUp });
+  await logDebug('[NotificationHandler] Processing Action', { actionId, baseId, primaryId, isFollowUp: medicationData.isFollowUp });
 
-  // Consolidate cancellation logic: 
+  // Consolidate cancellation logic: Cancel ENTIRE pile on any action button press
   if (actionId !== 'default') {
     await logDebug(`[NotificationHandler] Global cancel for: ${baseId}`);
     await cancelReminder(baseId);
-    await cancelReminder(`${baseId}_followup`);
+    await cancelReminder(`${baseId}_manual`);
+    // Kill all follow-ups in the pile (3-day window scan)
+    if (Platform.OS === 'ios') {
+      await cancelIOSFollowUps(baseId);
+    }
   }
 
   switch (actionId) {

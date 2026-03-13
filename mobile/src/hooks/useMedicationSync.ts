@@ -83,6 +83,12 @@ export function useMedicationSync(selectedDate: Date) {
             }
         });
 
+
+        console.log(`[Sync] Found ${activeMeds.length} active meds for ${selectedDateStr}`);
+        if (activeMeds.length > 0) {
+            console.log(`[Sync] Active names:`, activeMeds.map(m => m.name).join(', '));
+        }
+
         // Create scheduled entries
         activeMeds.forEach(med => {
             med.time_of_day.forEach(time => {

@@ -81,6 +81,13 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
       }, 2, 1000, 'fetchMedications');
 
       const medications: Medication[] = (data || []).map((row: any, index: number) => {
+        const rawStart = row.start_date;
+        const normalizedStart = row.start_date ? row.start_date.substring(0, 10) : row.start_date;
+        
+        if (index === 0) {
+          console.log(`[Store] 🗓️ Date Normalization: ${rawStart} -> ${normalizedStart}`);
+          console.log(`[Store] 🌍 Medication Timezone: ${row.timezone || 'Not set'}`);
+        }
         // Map interval_days + times_per_day to frequency enum
         let frequency: any = 'once_daily';
         if (row.interval_days === 0) frequency = 'as_needed';
@@ -107,13 +114,13 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           global_frequency: frequency, // Avoid naming collision if needed, but 'frequency' is in interface
           frequency: frequency,
 
-          time_of_day: row.reminder_times || [],
+          time_of_day: (typeof row.reminder_times === 'string' ? JSON.parse(row.reminder_times) : row.reminder_times) || [],
           interval_days: row.interval_days,
           timing_dosage: row.timing_dosage,
           times_per_day: row.times_per_day,
 
-          start_date: row.start_date,
-          end_date: row.end_date,
+          start_date: row.start_date ? row.start_date.substring(0, 10) : row.start_date,
+          end_date: row.end_date ? row.end_date.substring(0, 10) : row.end_date,
           duration_days: row.duration_days,
 
           notes: row.notes,
@@ -129,6 +136,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           verified_by_user: true, // If it's in this table, it's verified
           ai_confidence: row.ai_confidence,
           food_relationship: row.food_relationship as any,
+          timezone: row.timezone,
         };
       });
 
@@ -159,7 +167,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         family_member_id: med.family_member_id,
         name: med.name,
         dosage_instruction: med.dosage,
-        reminder_times: med.time_of_day,
+        reminder_times: med.time_of_day?.length ? JSON.stringify(med.time_of_day) : null,
         interval_days: med.interval_days || 1, // Default to daily if missing
         start_date: med.start_date,
         end_date: med.end_date,
@@ -173,7 +181,10 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         medicine_purpose: med.medicine_purpose,
         form: med.form,
         strength: med.strength,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
+      
+      console.log(`[Store] ➕ Adding Medication with Timezone: ${newSchedule.timezone}`);
 
       const data = await withRetry(async () => {
         const { data: result, error } = await from('medication_schedules')
@@ -215,7 +226,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         delete dbUpdates.dosage;
       }
       if (updates.time_of_day !== undefined) {
-        dbUpdates.reminder_times = updates.time_of_day;
+        dbUpdates.reminder_times = updates.time_of_day?.length ? JSON.stringify(updates.time_of_day) : null;
         delete dbUpdates.time_of_day;
       }
       // Note: mapping frequency back to interval_days is tricky here without more logic.
@@ -275,6 +286,31 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   },
 
   /**
+   * Delete ALL medications for a user
+   */
+  deleteAllMedications: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await withRetry(async () => {
+        const { error } = await from('medication_schedules')
+          .delete()
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      }, 2, 1000, 'deleteAllMedications');
+
+      // Update local state by clearing all medications
+      set({ medications: [], isLoading: false });
+
+      // Update cache
+      saveToCache(CacheKeys.medications(userId), []);
+    } catch (error) {
+      set({ error: 'Failed to delete all medications', isLoading: false });
+      throw error;
+    }
+  },
+
+  /**
    * Add medication from AI extraction with source tracking
    * Specialized version of addMedication for AI-extracted medications
    */
@@ -314,7 +350,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
         dosage_instruction: parsedMed.dosage,
         timing_dosage: parsedMed.timing_dosage,
         times_per_day: parsedMed.total_times_per_day,
-        reminder_times: parsedMed.time_of_day,
+        reminder_times: parsedMed.time_of_day?.length ? JSON.stringify(parsedMed.time_of_day) : null,
         food_relationship: parsedMed.food_relationship,
         interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
@@ -326,7 +362,8 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
 
         // Metadata
         source_document_id: documentId,
-        ai_confidence: 0.95, // Default high confidence for confirmed items
+        ai_confidence: 0.95,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
 
       const data = await withRetry(async () => {
@@ -396,7 +433,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           dosage_instruction: parsedMed.dosage,
           timing_dosage: parsedMed.timing_dosage,
           times_per_day: parsedMed.total_times_per_day,
-          reminder_times: parsedMed.time_of_day,
+          reminder_times: parsedMed.time_of_day?.length ? JSON.stringify(parsedMed.time_of_day) : null,
           food_relationship: parsedMed.food_relationship,
           interval_days: parsedMed.interval_days !== null ? parsedMed.interval_days : 1,
 
@@ -409,6 +446,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
           // Metadata
           source_document_id: documentId,
           ai_confidence: 0.95,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         };
       });
 

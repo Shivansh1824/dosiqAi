@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring, useSharedValue, withSequence } from 'react-native-reanimated';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants';
-import { MedicationWithStatus, getInstructionText } from '../types/medicationSchedule';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ICON_THEMES } from './medication/MedicationIcons';
+import { MedicationWithStatus } from '../types/medicationSchedule';
+
+import { MedicationIcon, ICON_THEMES } from './medication/MedicationIcons';
 import * as Haptics from 'expo-haptics';
 
 interface MedicationCardProps {
@@ -16,49 +16,55 @@ interface MedicationCardProps {
     onReschedule?: (medication: MedicationWithStatus) => void;
 }
 
+// Capitalize first letter
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Shorten food instruction to a compact pill label
+const getMealLabel = (med: MedicationWithStatus): string => {
+    const fr = med.food_relationship;
+    if (!fr || fr === 'anytime') return '';
+    const map: Record<string, string> = {
+        empty_stomach: 'Empty Stomach',
+        before_food: 'Before Food',
+        with_food: 'With Food',
+        after_food: 'After Food',
+    };
+    return map[fr] || '';
+};
+
 export default function MedicationCard({ medication, doseNumber, onTake, onSkip, onReschedule }: MedicationCardProps) {
     const isTaken = medication.status === 'taken';
     const isSkipped = medication.status === 'skipped';
+    const isMissed = medication.status === 'missed';
+    const isPending = medication.status === 'pending';
 
-    const cleanName = (name: string) => {
-        if (!name) return '';
-        // Aggressively remove instructions and extra details from the name
-        // e.g., "Ethoshine SOS for pain" -> "Ethoshine"
-        return name
-            .split(/\s(SOS|PRN|as\s+needed|for\s+|pc|ac|after\s+|before\s+|with\s+)/i)[0]
-            .replace(/[,\s.-]+$/, '')
-            .split('(')[0] // Remove strengths in parentheses if they are part of the name
-            .trim();
-    };
-    
-    const normalizedForm = medication.form?.toLowerCase() || 'tablet';
+    const normalizedForm = medication.form?.toLowerCase() || 'default';
     const theme = ICON_THEMES[normalizedForm] || ICON_THEMES.default;
 
-    // Animations
+    // --- Subtle scale spring on status change ---
     const scale = useSharedValue(1);
-    const opacity = useSharedValue(1);
-
     useEffect(() => {
         if (isTaken || isSkipped) {
-            scale.value = withSequence(
-                withSpring(1.05),
-                withSpring(1)
-            );
+            scale.value = withSequence(withSpring(1.03), withSpring(1));
         }
     }, [isTaken, isSkipped]);
+    const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        opacity: opacity.value,
-    }));
+    // --- Derive display values ---
+    const displayName = medication.name
+        ? medication.name.split(/\s(SOS|PRN|as\s+needed|for\s+)/i)[0].replace(/[,\s.-]+$/, '').split('(')[0].trim()
+        : '';
+    const dosage = medication.dosage || medication.strength || '';
+    const formLabel = medication.form ? capitalize(medication.form) : '';
+    const mealLabel = getMealLabel(medication);
 
+    // --- Handlers ---
     const handleTakePress = async () => {
         if (!isTaken) {
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onTake(medication.id, medication.scheduled_time);
         }
     };
-
     const handleSkipPress = async () => {
         if (!isSkipped) {
             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -66,196 +72,276 @@ export default function MedicationCard({ medication, doseNumber, onTake, onSkip,
         }
     };
 
-    const StatusContent = () => {
+    // --- Status / Action area ---
+    const StatusActions = () => {
         if (isTaken) {
             return (
-                <View style={styles.statusBadge}>
-                    <Feather name="check" size={12} color={Colors.success} style={{ marginRight: 4 }} />
-                    <Text style={styles.statusBadgeText}>Done</Text>
+                <View style={[styles.badge, styles.takenBadge]}>
+                    <Feather name="check-circle" size={13} color={Colors.success} style={{ marginRight: 4 }} />
+                    <Text style={[styles.badgeText, { color: Colors.success }]}>Done</Text>
                 </View>
             );
         }
         if (isSkipped) {
             return (
-                <View style={[styles.statusBadge, { backgroundColor: Colors.gray100 }]}>
-                    <Feather name="x" size={12} color={Colors.gray500} style={{ marginRight: 4 }} />
-                    <Text style={[styles.statusBadgeText, { color: Colors.gray500 }]}>Skipped</Text>
+                <View style={[styles.badge, styles.skippedBadge]}>
+                    <Feather name="slash" size={13} color={Colors.gray500} style={{ marginRight: 4 }} />
+                    <Text style={[styles.badgeText, { color: Colors.gray500 }]}>Skipped</Text>
                 </View>
             );
         }
+        if (isMissed) {
+            return (
+                <View style={[styles.badge, styles.missedBadge]}>
+                    <Feather name="alert-circle" size={13} color={Colors.error} style={{ marginRight: 4 }} />
+                    <Text style={[styles.badgeText, { color: Colors.error }]}>Missed</Text>
+                </View>
+            );
+        }
+        // Pending — show action buttons
         return (
             <View style={styles.actionsGroup}>
                 <TouchableOpacity
-                    style={[styles.actionButton, styles.skipButton]}
+                    style={[styles.actionBtn, styles.skipBtn]}
                     onPress={handleSkipPress}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                    <Feather name="clock" size={16} color={Colors.gray500} style={{ marginRight: 6 }} />
-                    <Text style={[styles.actionButtonText, { color: Colors.gray600 }]}>Skip</Text>
+                    <Text style={styles.skipBtnText}>Skip</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.actionButton, styles.takeButton]}
+                    style={[styles.actionBtn, styles.takeBtn]}
                     onPress={handleTakePress}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                    <MaterialCommunityIcons name="pill" size={18} color={Colors.white} style={{ marginRight: 6 }} />
-                    <Text style={[styles.actionButtonText, { color: Colors.white }]}>Take</Text>
+                    <MaterialCommunityIcons name="pill" size={15} color={Colors.white} style={{ marginRight: 5 }} />
+                    <Text style={styles.takeBtnText}>Take</Text>
                 </TouchableOpacity>
             </View>
         );
     };
 
+    const isDimmed = isTaken || isSkipped;
+
     return (
-        <Animated.View style={[styles.container, animatedStyle]}>
-            <LinearGradient
-                colors={isTaken || isSkipped ? ['#F8FAFC', '#F1F5F9'] : ['#FFFFFF', '#F8FAFC']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-            />
-            
-            <View style={styles.barGraphics}>
-                {doseNumber !== undefined && (
-                    <Text style={[
-                        styles.doseNumber,
-                        (isTaken || isSkipped) && styles.textMuted
-                    ]}>{doseNumber}.</Text>
-                )}
+        <Animated.View style={[styles.card, animatedStyle, isMissed && styles.cardMissed, isDimmed && styles.cardDimmed]}>
+            {/* Missed left-edge stripe */}
+            {isMissed && <View style={styles.missedStripe} />}
+
+            {/* Left: Icon */}
+            <View style={[styles.iconWrap, isDimmed && { opacity: 0.45 }]}>
+                <MedicationIcon form={normalizedForm} size={22} />
             </View>
 
-            <View style={styles.barContent}>
-                <View style={styles.mainInfo}>
-                    <Text style={[
-                        styles.name,
-                        (isTaken || isSkipped) && styles.textMuted
-                    ]} numberOfLines={1}>
-                        {cleanName(medication.name)}
-                    </Text>
+            {/* Center: Info */}
+            <View style={styles.info}>
+                <Text
+                    style={[styles.name, isDimmed && styles.dimmedText]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                >
+                    {displayName}
+                </Text>
+
+                <View style={styles.metaRow}>
+                    {dosage ? (
+                        <Text style={[styles.metaDosage, isDimmed && styles.dimmedSubtext]}>{dosage}</Text>
+                    ) : null}
+
+                    {formLabel ? (
+                        <View style={styles.formPill}>
+                            <Text style={styles.formPillText}>{formLabel}</Text>
+                        </View>
+                    ) : null}
                 </View>
 
-                <View style={styles.rightActions}>
-                    <StatusContent />
-                </View>
+                {mealLabel ? (
+                    <View style={styles.mealRow}>
+                        <Feather name="coffee" size={10} color={Colors.gray400} style={{ marginRight: 3 }} />
+                        <Text style={styles.mealText}>{mealLabel}</Text>
+                    </View>
+                ) : null}
             </View>
-            
-            {medication.status === 'missed' && <View style={styles.missedIndicator} />}
+
+            {/* Right: Actions / Status */}
+            <View style={styles.rightZone}>
+                <StatusActions />
+            </View>
         </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        height: 70, // More compact
-        borderRadius: 18,
-        overflow: 'hidden',
-        marginBottom: 10,
+    card: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.gray100,
+        paddingVertical: 12,
+        paddingLeft: 12,
+        paddingRight: 12,
+        marginBottom: 10,
+        minHeight: 80,
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
-                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.045,
+                shadowRadius: 8,
             },
-            android: {
-                elevation: 2,
-            },
+            android: { elevation: 2 },
         }),
     },
-    barGraphics: {
-        width: 52, // Professional spacing between number and name
-        height: '100%',
+    cardMissed: {
+        borderColor: Colors.errorLight,
+        backgroundColor: '#FFFBFB',
+    },
+    cardDimmed: {
+        backgroundColor: Colors.gray50,
+        borderColor: Colors.gray100,
+    },
+    missedStripe: {
+        position: 'absolute',
+        left: 0,
+        top: 8,
+        bottom: 8,
+        width: 3,
+        backgroundColor: Colors.error,
+        borderRadius: 4,
+    },
+
+    // Icon
+    iconWrap: {
+        marginRight: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingLeft: 6,
     },
-    barContent: {
+
+    // Info
+    info: {
         flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         paddingRight: 8,
     },
-    mainInfo: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    doseNumber: {
-        fontSize: 22,
-        fontWeight: '900',
-        color: Colors.gray300,
-        letterSpacing: -1,
-        marginTop: -1,
-    },
     name: {
-        fontSize: 19,
-        fontWeight: '900', // Even bolder for that 'perfect' look
+        fontSize: 15,
+        fontWeight: '700',
         color: Colors.textPrimary,
-        letterSpacing: -0.8, // Tighter for premium feel
-    },
-    dosage: {
-        fontSize: 15, // Slightly larger
-        fontWeight: '700', // Bolder to match name
-        color: Colors.gray500,
         letterSpacing: -0.3,
+        marginBottom: 3,
     },
-    textMuted: {
+    dimmedText: {
         color: Colors.gray400,
-        opacity: 0.6,
     },
-    rightActions: {
+    dimmedSubtext: {
+        color: Colors.gray300,
+    },
+    metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap',
+    },
+    metaDosage: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: Colors.textSecondary,
+        letterSpacing: 0.1,
+    },
+    formPill: {
+        backgroundColor: Colors.gray100,
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    formPillText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: Colors.gray600,
+        letterSpacing: 0.2,
+        textTransform: 'capitalize',
+    },
+    mealRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    mealText: {
+        fontSize: 10,
+        fontWeight: '500',
+        color: Colors.gray400,
+        letterSpacing: 0.1,
+    },
+
+    // Right actions / badge zone
+    rightZone: {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        flexShrink: 0,
     },
     actionsGroup: {
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 6,
     },
-    actionButton: {
-        height: 40,
+    actionBtn: {
+        height: 34,
         paddingHorizontal: 12,
-        borderRadius: 14,
+        borderRadius: 10,
         flexDirection: 'row',
-        justifyContent: 'center',
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    actionButtonText: {
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    skipButton: {
-        backgroundColor: Colors.gray100,
+    skipBtn: {
+        backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: Colors.gray200,
     },
-    takeButton: {
-        backgroundColor: Colors.primary,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        elevation: 4,
+    skipBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.gray600,
     },
-    statusBadge: {
+    takeBtn: {
+        backgroundColor: Colors.primary,
+        ...Platform.select({
+            ios: {
+                shadowColor: Colors.primary,
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.25,
+                shadowRadius: 6,
+            },
+            android: { elevation: 4 },
+        }),
+    },
+    takeBtnText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors.white,
+    },
+
+    // Status badges
+    badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.success + '15',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
     },
-    statusBadgeText: {
+    takenBadge: {
+        backgroundColor: Colors.successLight,
+    },
+    skippedBadge: {
+        backgroundColor: Colors.gray100,
+    },
+    missedBadge: {
+        backgroundColor: Colors.errorLight,
+    },
+    badgeText: {
         fontSize: 12,
         fontWeight: '700',
-        color: Colors.success,
-    },
-    missedIndicator: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 4,
-        backgroundColor: Colors.error,
     },
 });

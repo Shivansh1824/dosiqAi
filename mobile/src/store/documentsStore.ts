@@ -286,7 +286,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       // Get local document IDs
       const localDocuments = get().documents;
-      const remoteIds = new Set((remoteDocuments || []).map((doc) => doc.id));
+      const remoteIds = new Set((remoteDocuments || []).map((doc: any) => doc.id));
 
       // Find orphaned documents (exist locally but not remotely)
       const orphanedDocuments = localDocuments.filter((doc) => !remoteIds.has(doc.id));

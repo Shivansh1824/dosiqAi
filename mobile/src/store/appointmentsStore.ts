@@ -74,7 +74,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
       }
 
       // Add color based on type if not present
-      const appointmentsWithColor: Appointment[] = (data || []).map((apt) => ({
+      const appointmentsWithColor: Appointment[] = (data || []).map((apt: any) => ({
         ...apt,
         color: apt.color || getAppointmentColor(apt.appointment_type),
       }));

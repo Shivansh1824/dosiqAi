@@ -90,4 +90,55 @@ export const createPdfFromImages = async (
   }
 };
 
+/**
+ * Merges multiple images and PDF documents into a single PDF.
+ */
+export const mergeFilesToPdf = async (
+  files: PdfSourceFile[],
+  filename: string = 'merged_document.pdf'
+): Promise<string> => {
+  try {
+    const pdfDoc = await PDFDocument.create();
+
+    for (const file of files) {
+      if (file.type === 'image') {
+        const compressedUri = await compressImage(file.uri);
+        const imagePath = compressedUri || file.uri;
+        const base64Data = await new ExpoFile(imagePath).base64();
+        
+        let embeddedImage;
+        if (imagePath.toLowerCase().endsWith('.png')) {
+          embeddedImage = await pdfDoc.embedPng(base64Data);
+        } else {
+          embeddedImage = await pdfDoc.embedJpg(base64Data);
+        }
+        
+        const dims = embeddedImage.scale(1);
+        const page = pdfDoc.addPage([dims.width, dims.height]);
+        page.drawImage(embeddedImage, {
+          x: 0,
+          y: 0,
+          width: dims.width,
+          height: dims.height,
+        });
+      } else if (file.type === 'document' && file.name.toLowerCase().endsWith('.pdf')) {
+        const base64Data = await new ExpoFile(file.uri).base64();
+        const loadedPdf = await PDFDocument.load(base64Data);
+        const copiedPages = await pdfDoc.copyPages(loadedPdf, loadedPdf.getPageIndices());
+        copiedPages.forEach((page) => pdfDoc.addPage(page));
+      }
+    }
+
+    const pdfBytes = await pdfDoc.saveAsBase64();
+    const timestamp = Date.now();
+    const cleanFilename = filename.replace('.pdf', '');
+    const newPdfFile = new ExpoFile(Paths.document, `${cleanFilename}_${timestamp}.pdf`);
+    await newPdfFile.write(pdfBytes, { encoding: 'base64' });
+    return newPdfFile.uri;
+  } catch (error) {
+    console.error('[pdfGenerator] Error merging files to PDF:', error);
+    throw error;
+  }
+};
+
 

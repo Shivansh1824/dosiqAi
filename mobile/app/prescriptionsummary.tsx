@@ -35,8 +35,7 @@ import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
 
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
-import { File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../src/components/medication/DuplicateMedicationModal';
 import AddMedicationModal from '../src/components/medication/AddMedicationModal';
@@ -49,16 +48,13 @@ import { DocumentPreviewCard } from '../src/components/prescription/DocumentPrev
 import { useDocumentFile } from '../src/hooks/useDocumentFile';
 import { useDocumentMedications } from '../src/hooks/useDocumentMedications';
 
-type PrescriptionSummaryNavigationProp = StackNavigationProp<any, 'PrescriptionSummary'>;
-
 interface PrescriptionSummaryScreenProps {
   onBack: () => void;
   document?: Document;
   documentId?: string;
-  navigation: PrescriptionSummaryNavigationProp;
 }
 
-export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId, navigation }: PrescriptionSummaryScreenProps) {
+export default function PrescriptionSummaryScreen({ onBack, document: documentProp, documentId }: PrescriptionSummaryScreenProps) {
   const router = useRouter();
   const params = useLocalSearchParams();
   const paramDocumentId = params.documentId as string;
@@ -198,7 +194,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     setShowFullScreenImage,
     handleViewFullDocument,
     handleDownload,
-  } = useDocumentFile(document, navigation, displayTitle);
+  } = useDocumentFile(document, displayTitle);
 
   const {
     showShareModal,
