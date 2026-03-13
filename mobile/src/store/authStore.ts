@@ -36,7 +36,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    */
   initialize: async () => {
     // PREVENT redundant parallel calls during boot
-    if (get().isInitialized || get().isLoading) return;
+    if (get().isInitialized) return;
 
     try {
       console.log('[DEBUG] [AuthStore] initialize() called');
@@ -65,15 +65,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           createdAt: session.user.created_at,
         };
 
-        // Persist user data to AsyncStorage
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
-        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, session.access_token);
+        // Local state is enough as apiClient already persisted tokens/user
+        // during getSession() if it performed a refresh.
+        // If not, they are already there.
 
         set({
           isAuthenticated: true,
           hasSeenOnboarding,
           user,
           isLoading: false,
+          isInitialized: true,
         });
 
         console.log('[AuthStore] Initialized with valid VPS session:', user.email);
