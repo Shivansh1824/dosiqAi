@@ -46,6 +46,7 @@ export type AuthStore = AuthState & AuthActions;
 // AsyncStorage keys
 export const STORAGE_KEYS = {
   AUTH_TOKEN: '@dosiqai_auth_token',
+  REFRESH_TOKEN: '@dosiqai_refresh_token',
   HAS_SEEN_ONBOARDING: '@dosiqai_has_seen_onboarding',
   USER_DATA: '@dosiqai_user_data',
 } as const;

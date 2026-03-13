@@ -1,12 +1,14 @@
 // src/lib/apiClient.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../types/auth';
+import { Buffer } from 'buffer';
 
 const BASE_URL = 'https://api.dosiqai.com';
 
 const KEYS = {
-  ACCESS_TOKEN: 'vps_access_token',
-  REFRESH_TOKEN: 'vps_refresh_token',
-  USER_DATA: 'vps_user_data',
+  ACCESS_TOKEN: STORAGE_KEYS.AUTH_TOKEN,
+  REFRESH_TOKEN: STORAGE_KEYS.REFRESH_TOKEN,
+  USER_DATA: STORAGE_KEYS.USER_DATA,
 };
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
@@ -116,7 +118,7 @@ export const auth = {
     if (!accessToken) return { data: { session: null }, error: null };
     // Decode JWT to check expiry without a library
     try {
-      const payload = JSON.parse(atob(accessToken.split('.')[1]));
+      const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString('utf8'));
       if (payload.exp * 1000 < Date.now()) {
         // Try refresh
         if (!refreshToken) { await clearTokens(); return { data: { session: null }, error: null }; }
