@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Colors, Typography, Sizes } from '../src/constants';
 import * as Sharing from 'expo-sharing';
@@ -143,24 +143,23 @@ export default function PdfViewerScreen() {
 
       {/* PDF Viewer */}
       {!error && (
-        <View style={styles.pdfContainer}>
-          <WebView
-            source={{ uri: uri }}
-            style={styles.webview}
-            originWhitelist={['*']}
-            allowFileAccess={true}
-            allowFileAccessFromFileURLs={true}
-            allowingReadAccessToURL={uri}
-            scalesPageToFit={true}
-            bounces={true}
-            scrollEnabled={true}
-            onError={(syntheticEvent: any) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('[WebView] Error loading PDF:', nativeEvent);
-              setError('Failed to load PDF. Please try opening with system viewer.');
+        <View style={styles.pdfViewerWrapper}>
+          <Pdf
+            source={{ uri: uri, cache: true }}
+            style={styles.pdfViewer}
+            trustAllCerts={false}
+            onLoadComplete={(numberOfPages) => {
+              console.log(`[PdfViewer] PDF loaded successfully with ${numberOfPages} pages`);
+              setNumPages(numberOfPages);
+              setLoading(false);
             }}
-            onLoad={() => {
-              console.log('[WebView] PDF loaded successfully');
+            onPageChanged={(page) => {
+              setCurrentPage(page);
+            }}
+            onError={(err) => {
+              console.error('[PdfViewer] Error loading PDF:', err);
+              setError('Failed to load PDF. Please try opening with system viewer.');
+              setLoading(false);
             }}
           />
         </View>
@@ -246,12 +245,12 @@ const styles = StyleSheet.create({
     fontSize: Typography.body,
     fontWeight: Typography.semibold,
   },
-  pdfContainer: {
+  pdfViewerWrapper: {
     flex: 1,
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  webview: {
+  pdfViewer: {
     flex: 1,
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,

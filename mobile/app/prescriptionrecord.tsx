@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Colors, Typography } from '../src/constants';
 import { Document, DocumentAnalysisResult } from '../src/types/document';
@@ -21,7 +20,7 @@ import { PrescriptionRecordSummary, MedicationRecordCard, RecordMetadataCard, Re
 
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
-import { WebView } from 'react-native-webview';
+import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system/legacy';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
 
@@ -242,10 +241,12 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
 
   return (
     <View style={{ flex: 1 }}>
-      <LinearGradient
-        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
-        style={StyleSheet.absoluteFill}
-      />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundImage: 'linear-gradient(to bottom, #EFF6FF, #F1F5F9, #F1F5F9)' }
+          ]}
+        />
       <SafeAreaView style={styles.container} edges={['top']}>
 
         {/* Modern Header */}
@@ -290,13 +291,16 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
               </>
             ) : isPdf && imageUri ? (
               <View style={styles.pdfPreviewWrapper}>
-                <WebView
-                  source={{ uri: imageUri }}
+                <Pdf
+                  source={{ uri: imageUri, cache: true }}
                   style={styles.pdfPreview}
-                  originWhitelist={['*']}
-                  scalesPageToFit={true}
-                  useWebKit={true}
-                  scrollEnabled={false}
+                  trustAllCerts={false}
+                  onLoadComplete={(numberOfPages) => {
+                    console.log(`Number of pages: ${numberOfPages}`);
+                  }}
+                  onError={(error) => {
+                    console.log(error);
+                  }}
                 />
                 <View style={styles.floatingButtonContainer}>
                   <TouchableOpacity

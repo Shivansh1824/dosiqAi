@@ -2,7 +2,7 @@ import React, { Fragment } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import Pdf from 'react-native-pdf';
 import { Colors } from '../../constants';
 import { styles } from '../../screens/PrescriptionSummaryScreen.styles';
 import { DocumentPreviewLoading } from './DocumentPreviewLoading';
@@ -38,15 +38,24 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                 </Fragment>
             ) : isPdf && imageUri ? (
                 <Animated.View layout={LinearTransition.duration(300)}>
-                    {/* PDF Preview - First Page using WebView */}
+                    {/* Native PDF Preview */}
                     <View style={styles.pdfPreviewWrapper}>
-                        <WebView
-                            source={{ uri: imageUri }}
+                        <Pdf
+                            source={{ uri: imageUri, cache: true }}
                             style={styles.pdfPreview}
-                            originWhitelist={['*']}
-                            scalesPageToFit={true}
-                            useWebKit={true}
-                            scrollEnabled={false}
+                            trustAllCerts={false}
+                            onLoadComplete={(numberOfPages) => {
+                                console.log(`Number of pages: ${numberOfPages}`);
+                            }}
+                            onPageChanged={(page, numberOfPages) => {
+                                console.log(`Current page: ${page}`);
+                            }}
+                            onError={(error) => {
+                                console.log(error);
+                            }}
+                            onPressLink={(uri) => {
+                                console.log(`Link pressed: ${uri}`);
+                            }}
                         />
 
                         {/* Floating Action Buttons - Modern Compact Pill */}

@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -57,11 +56,11 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.container}>
       {/* Background with Gradient Mesh Effect */}
-      <LinearGradient
-        colors={['#FFFFFF', '#F0F9FF', '#E0F2FE']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundImage: 'linear-gradient(135deg, #FFFFFF, #F0F9FF, #E0F2FE)' }
+        ]}
       />
 
       {/* Decorative blurred circles for depth */}
@@ -124,15 +123,15 @@ export default function WelcomeScreen() {
                 onPress={handleGetStarted}
                 style={styles.primaryButton}
               >
-                <LinearGradient
-                  colors={[Colors.primary, '#0D9488']} // Example gradient
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.gradientButton}
+                <View
+                  style={[
+                    styles.gradientButton,
+                    { backgroundImage: `linear-gradient(to right, ${Colors.primary}, #0D9488)` }
+                  ]}
                 >
                   <Text style={styles.primaryButtonText}>Get Started</Text>
                   <Feather name="arrow-right" size={20} color="white" />
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             )}
 

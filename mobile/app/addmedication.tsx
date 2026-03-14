@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNotifications } from '../src/hooks/useNotifications';
 import * as Haptics from 'expo-haptics';
 import { Modal, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import DatePickerModal from '../src/components/DatePickerModal';
@@ -274,10 +273,12 @@ export default function AddMedicationScreen() {
         <View style={styles.container}>
             {/* Ambient Background - Standardized & Reversed */}
             <View style={StyleSheet.absoluteFillObject}>
-                <LinearGradient
-                    colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
-                    style={StyleSheet.absoluteFillObject}
-                />
+            <View
+                style={[
+                    StyleSheet.absoluteFillObject,
+                    { backgroundImage: 'linear-gradient(to bottom, #EFF6FF, #F8FAFC, #FFFFFF)' }
+                ]}
+            />
             </View>
 
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>

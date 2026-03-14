@@ -41,6 +41,8 @@ export default {
       "expo-router",
       "expo-font",
       "expo-asset",
+      "@config-plugins/react-native-pdf",
+      "@config-plugins/react-native-blob-util",
       [
         "expo-media-library",
         {
@@ -54,12 +56,16 @@ export default {
         {
           ios: {
             deploymentTarget: "18.6",
+            useHermesV1: true,
+            buildReactNativeFromSource: true,
             extraBuildSettings: {
               ENABLE_USER_SCRIPT_SANDBOXING: "NO"
             }
           },
           android: {
-            minSdkVersion: 24
+            minSdkVersion: 24,
+            useHermesV1: true,
+            buildReactNativeFromSource: true
           }
         }
       ]
@@ -79,6 +85,7 @@ export default {
     },
     experiments: {
       typedRoutes: true,
+      reactCompiler: true,
     }
   }
 };
