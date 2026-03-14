@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import Pdf from 'react-native-pdf';
 import { Colors, Typography } from '../../constants';
 import { DocumentPreviewLoading } from '../prescription';
 
@@ -36,16 +36,19 @@ export function DocumentPreviewCard({
         </>
       ) : isPdf && imageUri ? (
         <>
-          <View style={styles.pdfPreviewWrapper}>
-            <WebView
-              source={{ uri: imageUri }}
+          <View style={styles.pdfPreviewWrapper} pointerEvents="none">
+            <Pdf
+              source={{ uri: imageUri, cache: true }}
               style={styles.pdfPreview}
-              originWhitelist={['*']}
-              scalesPageToFit={true}
-              useWebKit={true}
-              scrollEnabled={false}
-              pointerEvents="none" // Prevent interaction in the card preview
+              trustAllCerts={false}
+              onLoadComplete={(numberOfPages) => {
+                console.log(`Number of pages: ${numberOfPages}`);
+              }}
+              onError={(error) => {
+                console.log(error);
+              }}
             />
+          </View>
 
             {/* Floating Action Buttons - Overlay on PDF */}
             <View style={styles.floatingButtonContainer}>
@@ -77,7 +80,6 @@ export function DocumentPreviewCard({
                   {downloading ? 'Saving...' : 'Save'}
                 </Text>
               </TouchableOpacity>
-            </View>
           </View>
         </>
       ) : imageUri ? (

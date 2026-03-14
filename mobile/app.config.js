@@ -41,6 +41,8 @@ export default {
       "expo-router",
       "expo-font",
       "expo-asset",
+      "@config-plugins/react-native-pdf",
+      "@config-plugins/react-native-blob-util",
       [
         "expo-media-library",
         {

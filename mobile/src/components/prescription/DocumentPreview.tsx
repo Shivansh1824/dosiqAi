@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import Pdf from 'react-native-pdf';
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants';
 import { DocumentPreviewLoading } from './DocumentPreviewLoading';
@@ -45,15 +45,19 @@ export function DocumentPreview({
             <View style={styles.container}>
                 <View style={styles.previewWrapper}>
                     {isPdf ? (
-                        <WebView
-                            source={{ uri: imageUri }}
-                            style={styles.previewContent}
-                            originWhitelist={['*']}
-                            scalesPageToFit={true}
-                            useWebKit={true}
-                            scrollEnabled={false}
-                            pointerEvents="none" // Prevent interaction in the inline preview
-                        />
+                        <View style={styles.previewContent} pointerEvents="none">
+                            <Pdf
+                                source={{ uri: imageUri, cache: true }}
+                                style={{ flex: 1 }}
+                                trustAllCerts={false}
+                                onLoadComplete={(numberOfPages) => {
+                                    console.log(`Number of pages: ${numberOfPages}`);
+                                }}
+                                onError={(error) => {
+                                    console.log(error);
+                                }}
+                            />
+                        </View>
                     ) : (
                         <Image
                             source={{ uri: imageUri }}

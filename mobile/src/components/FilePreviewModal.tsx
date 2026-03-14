@@ -17,9 +17,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
-import { PDFDocument } from 'pdf-lib';
-import { File as ExpoFile, Paths } from 'expo-file-system';
+import Pdf from 'react-native-pdf';
 import { Colors, Sizes, Typography } from '../constants';
 
 export interface FileItem {
@@ -45,7 +43,7 @@ const { width, height } = Dimensions.get('window');
 const THUMBNAIL_SIZE = 56;
 
 /**
- * Self-contained PDF item — Uses WebView for rendering and pdf-lib for page counting
+ * Self-contained PDF item — Uses react-native-pdf for native rendering
  * Fabric-compatible replacement for legacy PDF components.
  */
 const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setPdfPageCounts }: {
@@ -55,27 +53,7 @@ const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setP
 }) {
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        let isMounted = true;
-        const loadPdfMeta = async () => {
-            try {
-                // WebView doesn't give us page count, so we use pdf-lib
-                const file = new ExpoFile(uri);
-                const base64 = await file.base64();
-                const pdfDoc = await PDFDocument.load(base64);
-                const pageCount = pdfDoc.getPageCount();
-
-                if (isMounted) {
-                    setPdfPageCounts(prev => ({ ...prev, [itemIndex]: pageCount }));
-                }
-            } catch (error) {
-                console.error('[Preview] Error loading PDF metadata:', error);
-            }
-        };
-
-        loadPdfMeta();
-        return () => { isMounted = false; };
-    }, [uri, itemIndex, setPdfPageCounts]);
+    // Page removal/counting is now handled by Pdf component onLoadComplete
 
     return (
         <View style={pdfItemStyles.container}>
@@ -84,13 +62,18 @@ const PdfPreviewItem = React.memo(function PdfPreviewItem({ uri, itemIndex, setP
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             )}
-            <WebView
-                source={{ uri }}
+            <Pdf
+                source={{ uri, cache: true }}
                 style={pdfItemStyles.pdf}
-                onLoadEnd={() => setLoading(false)}
-                originWhitelist={['*']}
-                scalesPageToFit={true}
-                useWebKit={true}
+                onLoadComplete={(numberOfPages) => {
+                    setLoading(false);
+                    setPdfPageCounts(prev => ({ ...prev, [itemIndex]: numberOfPages }));
+                }}
+                onError={(error) => {
+                    console.log(error);
+                    setLoading(false);
+                }}
+                trustAllCerts={false}
             />
         </View>
     );
