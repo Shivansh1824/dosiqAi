@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../src/constants';
 
@@ -105,14 +104,14 @@ export default function Onboarding1Screen() {
       <View style={styles.content}>
         {/* Feature Icon with Gradient Container */}
         <Animated.View style={[styles.iconContainer, iconAnimation]}>
-          <LinearGradient
-            colors={[Colors.primary, Colors.primaryLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientIconContainer}
+          <View
+            style={[
+              styles.gradientIconContainer,
+              { backgroundImage: `linear-gradient(135deg, ${Colors.primary}, ${Colors.primaryLight})` }
+            ]}
           >
             <Feather name="folder" size={140} color={Colors.white} strokeWidth={1.5} />
-          </LinearGradient>
+          </View>
         </Animated.View>
 
         {/* Title */}

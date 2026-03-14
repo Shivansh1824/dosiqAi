@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Colors, Typography } from '../src/constants';
 import { Document, DocumentAnalysisResult } from '../src/types/document';
@@ -242,10 +241,12 @@ export default function PrescriptionRecordScreen({ onBack, document: documentPro
 
   return (
     <View style={{ flex: 1 }}>
-      <LinearGradient
-        colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
-        style={StyleSheet.absoluteFill}
-      />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundImage: 'linear-gradient(to bottom, #EFF6FF, #F1F5F9, #F1F5F9)' }
+          ]}
+        />
       <SafeAreaView style={styles.container} edges={['top']}>
 
         {/* Modern Header */}

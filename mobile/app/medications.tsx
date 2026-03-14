@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Sizes, Typography } from '../src/constants';
 import { useRouter } from 'expo-router';
 import CalendarStrip from '../src/components/CalendarStrip';
@@ -200,9 +199,11 @@ export default function MedicationsScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <LinearGradient
-                colors={['#EFF6FF', '#F8FAFC', '#FFFFFF']}
-                style={StyleSheet.absoluteFill}
+            <View
+                style={[
+                    StyleSheet.absoluteFill,
+                    { backgroundImage: 'linear-gradient(to bottom, #EFF6FF, #F8FAFC, #FFFFFF)' }
+                ]}
             />
             {/* ── Header ── */}
             <View style={styles.header}>
@@ -273,11 +274,13 @@ export default function MedicationsScreen() {
                     <View style={styles.segmentedBarContainer}>
                         {Array.from({ length: totalCount }).map((_, i) => (
                             <View key={i} style={styles.segment}>
-                                <LinearGradient
-                                    colors={i < takenCount ? ['#10B981', '#34D399'] : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.06)']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFillObject}
+                                <View
+                                    style={[
+                                        StyleSheet.absoluteFillObject,
+                                        i < takenCount 
+                                            ? { backgroundImage: 'linear-gradient(to right, #10B981, #34D399)' } 
+                                            : { backgroundColor: 'rgba(0,0,0,0.06)' }
+                                    ]}
                                 />
                             </View>
                         ))}

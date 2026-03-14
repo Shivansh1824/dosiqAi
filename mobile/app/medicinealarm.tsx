@@ -39,7 +39,6 @@ import Animated, {
 } from 'react-native-reanimated'; // Added
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import notifee from '@notifee/react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { cancelReminder, cancelIOSFollowUps, snoozeReminder, MedicineReminderData } from '../src/services/notificationService';
 import SponsoredSpace from '../src/components/notification/SponsoredSpace';
 import { useMedicationLogsStore } from '../src/store/medicationLogsStore';
@@ -174,11 +173,11 @@ const ProfessionalBackground = ({ isDark, theme }: { isDark: boolean, theme: any
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <LinearGradient
-        colors={theme.bg}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundImage: `linear-gradient(135deg, ${theme.bg[0]}, ${theme.bg[1]}, ${theme.bg[2]})` }
+        ]}
       />
 
       <RNAnimated.View
@@ -210,9 +209,11 @@ const ProfessionalBackground = ({ isDark, theme }: { isDark: boolean, theme: any
         }}
       />
 
-      <LinearGradient
-        colors={['transparent', isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.0)']}
-        style={StyleSheet.absoluteFill}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundImage: `linear-gradient(to bottom, transparent, ${isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.0)'})` }
+        ]}
         pointerEvents="none"
       />
     </View>

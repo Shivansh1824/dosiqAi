@@ -10,7 +10,6 @@ import Animated, {
   withSpring,
   useAnimatedScrollHandler
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDocumentsStore } from '../src/store/documentsStore';
 import { useMedicationsStore } from '../src/store/medicationsStore';
@@ -245,11 +244,11 @@ const TimelineItem = React.memo(({ doc, index, isLast, onPress, onEdit, onDelete
         accessibilityHint="Double tap to open document details"
       >
         <Animated.View style={[styles.card, animatedStyle]}>
-          <LinearGradient
-            colors={statusGradient as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundImage: `linear-gradient(135deg, ${statusGradient[0]}, ${statusGradient[1]})` }
+            ]}
           />
 
           <View style={styles.cardInner}>
@@ -584,11 +583,11 @@ export default function TimelineScreen() {
       {/* Background - Consistent with Medications Screen */}
       {/* Background - Fluid Depth (Aesthetic-Usability Effect) */}
       <View style={StyleSheet.absoluteFill}>
-        <LinearGradient
-            colors={['#F8FAFC', '#EFF6FF', '#FFFFFF']}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        <View
+            style={[
+                StyleSheet.absoluteFill,
+                { backgroundImage: 'linear-gradient(135deg, #F8FAFC, #EFF6FF, #FFFFFF)' }
+            ]}
         />
         {/* Organic shapes for depth */}
         <View style={[styles.blob, { backgroundColor: '#E0F2FE', top: -100, left: -60, opacity: 0.6 }]} />
