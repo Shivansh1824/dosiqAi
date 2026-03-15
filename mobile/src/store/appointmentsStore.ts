@@ -37,7 +37,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
   },
 
   /**
-   * Fetch appointments for a specific user from Supabase
+   * Fetch appointments for a specific user from the backend
    * @param userId - User ID
    * @param silent - If true, don't show loading spinner (for background refresh)
    */
@@ -94,7 +94,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
   },
 
   /**
-   * Add a new appointment to Supabase
+   * Add a new appointment to the backend
    */
   addAppointment: async (apt) => {
     set({ isLoading: true, error: null });
@@ -133,7 +133,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
   },
 
   /**
-   * Update an appointment in Supabase
+   * Update an appointment in the backend
    */
   updateAppointment: async (id: string, updates: Partial<Appointment>) => {
     set({ isLoading: true, error: null });
@@ -164,7 +164,7 @@ export const useAppointmentsStore = create<AppointmentsStore>((set, get) => ({
   },
 
   /**
-   * Delete an appointment from Supabase
+   * Delete an appointment from the backend
    */
   deleteAppointment: async (id: string) => {
     set({ isLoading: true, error: null });
