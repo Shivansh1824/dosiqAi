@@ -27,39 +27,11 @@ export const styles = StyleSheet.create({
         paddingVertical: 10,
         backgroundColor: 'transparent',
     },
-    headerTitleContainer: {
-        flex: 1,
-        alignItems: 'center',
-        paddingHorizontal: 8,
-    },
     headerTitle: {
         fontSize: 16,
         fontFamily: 'PlusJakartaSans-SemiBold',
         color: Colors.textPrimary,
         textAlign: 'center',
-    },
-    headerSubtitle: {
-        fontSize: 12,
-        fontFamily: 'PlusJakartaSans-Regular',
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 2,
-    },
-    headerButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.gray100,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerButtonRight: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.gray100,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     // Legacy alias used in error state
     backButton: {

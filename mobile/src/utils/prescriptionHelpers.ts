@@ -6,12 +6,7 @@
 import { MedicineInfo, MealRelation, MedicineForm, DocumentAnalysisResult } from '../types/document';
 import { Colors } from '../constants';
 
-/**
- * Helper to get summary from new or legacy structure
- */
-export const getSummary = (result?: DocumentAnalysisResult | null): string | undefined => {
-    return result?.summary ?? undefined;
-};
+
 
 /**
  * Get emoji icon for medicine form

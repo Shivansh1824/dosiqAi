@@ -11,7 +11,7 @@ import { useDocumentsStore } from '../src/store/documentsStore';
 import { useMedicationsStore } from '../src/store/medicationsStore';
 import { useAuthStore } from '../src/store/authStore';
 import { parseAIMedication, isAsNeededFrequency, parseDateOnly } from '../src/utils/medicationParser';
-import { getSummary } from '../src/utils/prescriptionHelpers';
+
 import { auth } from '../src/lib/apiClient';
 
 import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
@@ -141,13 +141,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   // Smart Header Logic
   const analysis = document?.ai_analysis_result;
 
-  const { titleText, subtitleText } = useMemo(() => {
-    if (!document) return { titleText: 'Medical Document', subtitleText: '' };
+  const { titleText } = useMemo(() => {
+    if (!document) return { titleText: 'Medical Document' };
 
     let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
       ? "dosiq Ai • Analyzing..."
       : (document.local_file_path?.split('/').pop() || 'Medical Document');
-    let subtitle = '';
+
 
     if (analysis) {
       if (analysis.document_type === 'prescription' && analysis.diagnosis?.condition) {
@@ -168,10 +168,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       const parts = [];
       if (analysis.patient?.name) parts.push(analysis.patient.name);
       if (analysis.visit_date) parts.push(analysis.visit_date);
-      subtitle = parts.join(' • ');
+
     }
 
-    return { titleText: title, subtitleText: subtitle };
+    return { titleText: title };
   }, [document?.ai_analysis_status, document?.local_file_path, analysis]);
 
   const displayTitle = titleText;
@@ -345,7 +345,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
               {/* Consolidated AI Summary, Medications & Action Bar */}
               {(() => {
-                const summary = document ? getSummary(document.ai_analysis_result) : undefined;
+                const summary = document?.ai_analysis_result?.summary;
 
                 return (
                   <Animated.View layout={LinearTransition.duration(300)} style={{ gap: 12 }}>
