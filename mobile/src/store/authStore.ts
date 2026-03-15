@@ -31,7 +31,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ isLoading: value }),
 
   /**
-   * Initialize store from AsyncStorage and Supabase session
+   * Initialize store from AsyncStorage and backend session
    * Call this on app start
    */
   initialize: async () => {
@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   /**
    * Login with email and password
-   * Uses Supabase if configured, otherwise demo mode
+   * Uses the backend if configured, otherwise demo mode
    */
   login: async (email: string, password: string) => {
     try {
@@ -168,7 +168,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   /**
    * Logout
-   * Signs out from Supabase if configured
+   * Signs out from the backend if configured
    */
   logout: async () => {
     try {
@@ -198,7 +198,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   /**
    * Login with Google OAuth
-   * Requires Supabase configuration and Google OAuth setup
+   * Requires backend configuration and Google OAuth setup
    */
   loginWithGoogle: async () => {
     try {
@@ -219,7 +219,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   /**
    * Login with Apple OAuth
-   * Requires Supabase configuration and Apple OAuth setup
+   * Requires backend configuration and Apple OAuth setup
    */
   loginWithApple: async () => {
     try {
@@ -236,7 +236,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   /**
    * Send OTP to phone number
-   * Requires Supabase configuration
+   * Requires backend configuration
    */
   sendPhoneOTP: async (phoneNumber: string) => {
     try {
@@ -257,7 +257,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   /**
    * Verify OTP and login
-   * Requires Supabase configuration
+   * Requires backend configuration
    */
   verifyPhoneOTP: async (phoneNumber: string, otp: string) => {
     try {

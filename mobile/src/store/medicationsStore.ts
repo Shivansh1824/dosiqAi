@@ -47,7 +47,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   },
 
   /**
-   * Fetch medications for a specific user from Supabase
+   * Fetch medications for a specific user from the backend
    * @param userId - User ID
    * @param silent - If true, don't show loading spinner (for background refresh)
    */
@@ -153,7 +153,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   },
 
   /**
-   * Add a new medication to Supabase
+   * Add a new medication to the backend
    */
   addMedication: async (med): Promise<Medication | null> => {
     set({ isLoading: true, error: null });
@@ -211,7 +211,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   },
 
   /**
-   * Update a medication in Supabase
+   * Update a medication in the backend
    */
   updateMedication: async (id: string, updates: Partial<Medication>): Promise<Medication | null> => {
     set({ isLoading: true, error: null });
@@ -257,7 +257,7 @@ export const useMedicationsStore = create<MedicationsStore>((set, get) => ({
   },
 
   /**
-   * Delete a medication from Supabase
+   * Delete a medication from the backend
    */
   deleteMedication: async (id: string) => {
     set({ isLoading: true, error: null });

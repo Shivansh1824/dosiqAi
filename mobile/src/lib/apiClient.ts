@@ -210,8 +210,8 @@ export async function checkUserExists(email: string): Promise<boolean> {
   return false;
 }
 
-// ─── DB query builder (replaces supabase.from()) ─────────────────────────────
-// Returns { data, error } in exact Supabase shape.
+// ─── DB query builder ────────────────────────────────────────────────────────
+// Returns { data, error } in standardized shape.
 export function from(table: string) {
   return new QueryBuilder(table);
 }
@@ -308,7 +308,7 @@ class QueryBuilder {
   }
 }
 
-// ─── Edge Functions (replaces supabase.functions.invoke) ─────────────────────
+// ─── Backend Functions ────────────────────────────────────────────────────────
 export const functions = {
   async invoke(name: string, options?: { body?: any; headers?: Record<string, string> }) {
     try {
@@ -326,7 +326,7 @@ export const functions = {
   },
 };
 
-// ─── RPC calls (replaces supabase.rpc()) ──────────────────────────────────────
+// ─── RPC calls ────────────────────────────────────────────────────────────────
 export const rpc = {
   async call(fnName: string, params: Record<string, any> = {}) {
     try {
@@ -343,6 +343,6 @@ export const rpc = {
   },
 };
 
-// ─── Convenience export matching supabase shape ───────────────────────────────
+// ─── Convenience export ───────────────────────────────────────────────────────
 export const api = { auth, from, functions, rpc };
 export default api;
