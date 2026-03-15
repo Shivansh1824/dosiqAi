@@ -122,6 +122,16 @@ export default function RootLayout() {
                                 <Stack.Screen name="index" />
                                 <Stack.Screen name="login" />
                                 <Stack.Screen name="onboarding1" />
+                                <Stack.Screen
+                                    name="prescription-summary"
+                                    options={{
+                                        headerShown: true,
+                                        headerTransparent: true,
+                                        headerBlurEffect: 'systemUltraThinMaterial',
+                                        headerBackButtonDisplayMode: 'minimal',
+                                        headerTitleAlign: 'center',
+                                    }}
+                                />
                                 {/* Other screens added here implicitly by file structure */}
                             </Stack>
                         </View>

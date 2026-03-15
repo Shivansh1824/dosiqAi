@@ -78,7 +78,7 @@ export default function DocumentsScreen() {
                                     } else {
                                         const medications = useMedicationsStore.getState().medications;
                                         const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;
-                                        const pathname = isAlreadyAdded ? '/prescriptionrecord' : '/prescriptionsummary';
+                                        const pathname = isAlreadyAdded ? '/prescriptionrecord' : '/prescription-summary';
                                         router.push({ pathname: pathname as any, params: { documentId: doc.id } });
                                     }
                                 }}
