@@ -3,7 +3,6 @@ import { from } from '../lib/apiClient';
 import { Document, DocumentsStore, getDocumentColor } from '../types/document';
 import { saveToCache, loadFromCache, CacheKeys } from '../services/cacheService';
 import { analyzeDocument, checkUploadLimit, incrementUploadCount, UploadLimitInfo } from '../services/documentAnalysisService';
-import { processLabReport } from '../services/labAnalyticsService';
 import { deleteFileFromR2, deleteUserFilesFromR2 } from '../services/storageService';
 
 /**
