@@ -326,6 +326,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 70 }]}
         showsVerticalScrollIndicator={false}
       >
+
           {!isReady ? (
             <View style={{ padding: 20, paddingTop: 40, alignItems: 'center', gap: 16 }}>
               <ActivityIndicator size="large" color={Colors.primary} />

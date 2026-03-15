@@ -6,7 +6,7 @@
 export { PrescriptionDetails } from './PrescriptionDetails';
 export { PrescriptionSummary } from './PrescriptionSummary';
 export { MedicationsSection } from './MedicationsSection';
-export { DocumentPreview } from './DocumentPreview';
+export { DocumentPreviewCard } from './DocumentPreviewCard';
 export { DocumentPreviewLoading } from './DocumentPreviewLoading';
 export { GroupedTestsCard } from './GroupedTestsCard';
 
