@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Platform, Modal } from 'react-native';
+import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -161,7 +163,12 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
             <View style={styles.header}>
                 <View style={styles.headerTitleRow}>
                     <View style={styles.iconBadge}>
-                        <Feather name="activity" size={16} color={Colors.primary} />
+                        <SymbolView
+                            name={{ ios: 'waveform.path.ecg', android: 'monitor_heart' }}
+                            size={16}
+                            tintColor={Colors.primary}
+                            fallback={<Feather name="activity" size={16} color={Colors.primary} />}
+                        />
                     </View>
                     <View>
                         <Text style={styles.cardTitle}>Lab Visit</Text>
@@ -174,7 +181,12 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                     <View style={styles.addBtnContainer}>
-                        <Feather name="plus" size={16} color={Colors.white} />
+                        <SymbolView
+                            name={{ ios: 'plus', android: 'add' }}
+                            size={16}
+                            tintColor={Colors.white}
+                            fallback={<Feather name="plus" size={16} color={Colors.white} />}
+                        />
                         <Text style={styles.addBtnText}>Reminder</Text>
                     </View>
                 </TouchableOpacity>
@@ -204,7 +216,12 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
                                     onPress={() => initiateDateChange(reminder.id)}
                                     activeOpacity={0.7}
                                 >
-                                    <Feather name="calendar" size={14} color={Colors.gray600} style={{ marginRight: 6 }} />
+                                    <SymbolView
+                                        name={{ ios: 'calendar', android: 'calendar_today' }}
+                                        size={14}
+                                        tintColor={Colors.gray600}
+                                        fallback={<Feather name="calendar" size={14} color={Colors.gray600} />}
+                                    />
                                     <Text style={styles.dateText}>{formatDateDisplay(reminder.date)}</Text>
                                 </TouchableOpacity>
 
@@ -240,10 +257,11 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
                                         style={styles.iconButton}
                                         activeOpacity={0.7}
                                     >
-                                        <MaterialCommunityIcons
-                                            name="clipboard-edit-outline"
+                                        <SymbolView
+                                            name={{ ios: 'square.and.pencil', android: 'edit' }}
                                             size={20}
-                                            color={hasNote ? '#F59E0B' : Colors.gray400}
+                                            tintColor={hasNote ? '#F59E0B' : Colors.gray400}
+                                            fallback={<MaterialCommunityIcons name="clipboard-edit-outline" size={20} color={hasNote ? '#F59E0B' : Colors.gray400} />}
                                         />
                                     </TouchableOpacity>
                                     {/* Delete Button */}
@@ -252,7 +270,12 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
                                         style={styles.iconButton}
                                         activeOpacity={0.7}
                                     >
-                                        <Feather name="trash-2" size={18} color={Colors.error} />
+                                        <SymbolView
+                                            name={{ ios: 'trash', android: 'delete' }}
+                                            size={18}
+                                            tintColor={Colors.error}
+                                            fallback={<Feather name="trash-2" size={18} color={Colors.error} />}
+                                        />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -261,7 +284,12 @@ export const GroupedTestsCard: React.FC<GroupedTestsCardProps> = ({
                             {isNoteExpanded && (
                                 <View style={styles.noteSection}>
                                     <View style={styles.noteInputContainer}>
-                                        <MaterialCommunityIcons name="comment-text-outline" size={16} color="#D97706" style={styles.noteInputIcon} />
+                                        <SymbolView
+                                            name={{ ios: 'bubble.left', android: 'chat_bubble' }}
+                                            size={16}
+                                            tintColor="#D97706"
+                                            fallback={<MaterialCommunityIcons name="comment-text-outline" size={16} color="#D97706" />}
+                                        />
                                         <TextInput
                                             style={styles.noteInput}
                                             value={reminder.note}

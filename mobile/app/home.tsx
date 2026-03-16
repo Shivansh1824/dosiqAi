@@ -49,7 +49,7 @@ export default function HomeScreen() {
         const meds = useMedicationsStore.getState().medications;
         const isAlreadyAdded = doc?.id ? meds.some((m: any) => m.source_document_id === doc.id) : false;
         if (isAlreadyAdded) router.push({ pathname: '/prescriptionrecord', params });
-        else router.push({ pathname: '/prescriptionsummary', params });
+        else router.push({ pathname: '/prescription-summary', params });
       }
     }
     else if (screen === 'documents') router.push('/documents');

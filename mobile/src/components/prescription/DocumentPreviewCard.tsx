@@ -1,7 +1,9 @@
 import React, { Fragment } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { Feather } from '@expo/vector-icons';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import Pdf from 'react-native-pdf';
 import { Colors } from '../../constants';
 import { styles } from '../../screens/PrescriptionSummaryScreen.styles';
@@ -29,7 +31,12 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
             {fileNotFound ? (
                 <Fragment>
                     <View style={styles.previewIconContainer}>
-                        <Feather name="alert-circle" size={64} color={Colors.error} />
+                        <SymbolView
+                            name={{ ios: 'exclamationmark.circle', android: 'error' }}
+                            size={64}
+                            tintColor={Colors.error}
+                            fallback={<Feather name="alert-circle" size={64} color={Colors.error} />}
+                        />
                     </View>
                     <Text style={styles.previewText}>File Not Found</Text>
                     <Text style={styles.errorText}>
@@ -66,7 +73,12 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                                     onPress={handleViewFullDocument}
                                     activeOpacity={0.7}
                                 >
-                                    <Feather name="eye" size={18} color={Colors.primary} />
+                                    <SymbolView
+                                        name={{ ios: 'eye', android: 'visibility' }}
+                                        size={18}
+                                        tintColor={Colors.primary}
+                                        fallback={<Feather name="eye" size={18} color={Colors.primary} />}
+                                    />
                                     <Text style={styles.pillActionText}>View</Text>
                                 </TouchableOpacity>
 
@@ -81,7 +93,12 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                                     {downloading ? (
                                         <ActivityIndicator size="small" color={Colors.primary} />
                                     ) : (
-                                        <Feather name="download" size={18} color={Colors.primary} />
+                                        <SymbolView
+                                            name={{ ios: 'square.and.arrow.down', android: 'download' }}
+                                            size={18}
+                                            tintColor={Colors.primary}
+                                            fallback={<Feather name="download" size={18} color={Colors.primary} />}
+                                        />
                                     )}
                                     <Text style={styles.pillActionText}>
                                         {downloading ? 'Saving' : 'Save'}
@@ -109,7 +126,12 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                                     onPress={handleViewFullDocument}
                                     activeOpacity={0.7}
                                 >
-                                    <Feather name="eye" size={18} color={Colors.primary} />
+                                    <SymbolView
+                                        name={{ ios: 'eye', android: 'visibility' }}
+                                        size={18}
+                                        tintColor={Colors.primary}
+                                        fallback={<Feather name="eye" size={18} color={Colors.primary} />}
+                                    />
                                     <Text style={styles.pillActionText}>View</Text>
                                 </TouchableOpacity>
 
@@ -124,7 +146,12 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                                     {downloading ? (
                                         <ActivityIndicator size="small" color={Colors.primary} />
                                     ) : (
-                                        <Feather name="download" size={18} color={Colors.primary} />
+                                        <SymbolView
+                                            name={{ ios: 'square.and.arrow.down', android: 'download' }}
+                                            size={18}
+                                            tintColor={Colors.primary}
+                                            fallback={<Feather name="download" size={18} color={Colors.primary} />}
+                                        />
                                     )}
                                     <Text style={styles.pillActionText}>
                                         {downloading ? 'Saving' : 'Save'}

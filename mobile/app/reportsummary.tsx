@@ -28,7 +28,7 @@ import { useNotifications } from '../src/hooks/useNotifications';
 import MedicationVerificationCard from '../src/components/MedicationVerificationCard';
 import { VerifiedMedicationsGroup } from '../src/components/prescription/VerifiedMedicationsGroup';
 import { AnalysisResultsDisplay } from '../src/components/prescription/AnalysisResultsDisplay';
-import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../src/components/prescription';
+import { PrescriptionSummary, MedicationsSection, DocumentPreviewLoading } from '../src/components/prescription';
 import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCard';
 import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
 

@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import Animated2, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming, withRepeat } from 'react-native-reanimated';
+import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated2, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming, withRepeat } from 'react-native-reanimated';
 import { Colors, Typography } from '../../constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Path } from 'react-native-svg';
@@ -173,10 +175,20 @@ export function PrescriptionSummary({
                 </View>
 
                 <View style={styles.chevronContainer}>
-                    <MaterialCommunityIcons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                    <SymbolView
+                        name={{
+                            ios: isExpanded ? 'chevron.up' : 'chevron.down',
+                            android: isExpanded ? 'expand_less' : 'expand_more'
+                        }}
                         size={24}
-                        color="#60A5FA"
+                        tintColor="#60A5FA"
+                        fallback={
+                            <MaterialCommunityIcons
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={24}
+                                color="#60A5FA"
+                            />
+                        }
                     />
                 </View>
             </TouchableOpacity>
@@ -196,7 +208,12 @@ export function PrescriptionSummary({
                     {followUp && (followUp.follow_up_date || followUp.follow_up_days) && (
                         <View style={styles.infoBlock}>
                             <View style={styles.infoIcon}>
-                                <MaterialCommunityIcons name="calendar-clock" size={18} color="#60A5FA" />
+                                <SymbolView
+                                    name={{ ios: 'calendar.badge.clock', android: 'event_upcoming' }}
+                                    size={18}
+                                    tintColor="#60A5FA"
+                                    fallback={<MaterialCommunityIcons name="calendar-clock" size={18} color="#60A5FA" />}
+                                />
                             </View>
                             <View style={styles.infoContent}>
                                 <Text style={styles.infoLabel}>Follow Up</Text>
@@ -252,17 +269,6 @@ const styles = StyleSheet.create({
     // bottomDivider removed (no longer needed for card design)
 
     // Shimmer
-    shimmerWrapper: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        width: 350,
-        zIndex: 10,
-    },
-    shimmerGradient: {
-        flex: 1,
-    },
-
     // Header
     aiSummaryHeader: {
         flexDirection: 'row',

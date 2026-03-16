@@ -1,27 +1,22 @@
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Image, Alert, ActivityIndicator, FlatList, Share, Platform, InteractionManager } from 'react-native';
-import Animated, { LinearTransition, useSharedValue, withTiming, withRepeat, useAnimatedStyle } from 'react-native-reanimated';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import React, { useState, useEffect, useMemo, Fragment } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Pressable, InteractionManager } from 'react-native';
+import { Image } from 'expo-image';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { StackNavigationProp } from '@react-navigation/stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Sizes, Typography } from '../src/constants';
-import { Document, DocumentAnalysisResult } from '../src/types/document';
-import { fileExists, getAbsolutePath, deleteLocalFile } from '../src/utils/fileStorage';
+import { Colors } from '../src/constants';
+import { Document } from '../src/types/document';
 import { useFamilyMembersStore } from '../src/store/familyMembersStore';
 import { useDocumentsStore } from '../src/store/documentsStore';
 import { useMedicationsStore } from '../src/store/medicationsStore';
 import { useAuthStore } from '../src/store/authStore';
-import { parseAIMedication, detectDuplicateMedication, isAsNeededFrequency, parseDateOnly } from '../src/utils/medicationParser';
-import { getSummary } from '../src/utils/prescriptionHelpers';
+import { parseAIMedication, isAsNeededFrequency, parseDateOnly } from '../src/utils/medicationParser';
+
 import { auth } from '../src/lib/apiClient';
 
-import { generateAndSharePDF, sharePDF, PDFGenerationResult } from '../src/services/pdfGenerationService';
 import { useAnalysisPDF } from '../src/hooks/useAnalysisPDF';
 import LoadingOverlay from '../src/components/LoadingOverlay';
 import ShareModal from '../src/components/ShareModal';
-import AnalysisLoading from '../src/components/AnalysisLoading';
 import DocumentOptionsModal from '../src/components/DocumentOptionsModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNotifications } from '../src/hooks/useNotifications';
@@ -29,13 +24,10 @@ import { useDocumentActions } from '../src/hooks/useDocumentActions';
 import MedicationVerificationCard from '../src/components/MedicationVerificationCard';
 import { VerifiedMedicationsGroup } from '../src/components/prescription/VerifiedMedicationsGroup';
 
-import { PrescriptionSummary, MedicationsSection, DocumentPreview, DocumentPreviewLoading } from '../src/components/prescription';
+import { PrescriptionSummary } from '../src/components/prescription';
 import { GroupedTestsCard } from '../src/components/prescription/GroupedTestsCard';
 import { AnimatedTooltip } from '../src/components/AnimatedTooltip';
 
-import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system/legacy';
 import FullScreenImageModal from '../src/components/FullScreenImageModal';
 import { DuplicateMedicationModal } from '../src/components/medication/DuplicateMedicationModal';
 import AddMedicationModal from '../src/components/medication/AddMedicationModal';
@@ -43,7 +35,6 @@ import { StatusBar } from 'expo-status-bar';
 
 import { styles } from '../src/screens/PrescriptionSummaryScreen.styles';
 import { IconGlow } from '../src/components/common/IconGlow';
-import { PrescriptionHeader } from '../src/components/prescription/PrescriptionHeader';
 import { DocumentPreviewCard } from '../src/components/prescription/DocumentPreviewCard';
 import { useDocumentFile } from '../src/hooks/useDocumentFile';
 import { useDocumentMedications } from '../src/hooks/useDocumentMedications';
@@ -150,13 +141,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   // Smart Header Logic
   const analysis = document?.ai_analysis_result;
 
-  const { titleText, subtitleText } = useMemo(() => {
-    if (!document) return { titleText: 'Medical Document', subtitleText: '' };
+  const { titleText } = useMemo(() => {
+    if (!document) return { titleText: 'Medical Document' };
 
     let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
       ? "dosiq Ai • Analyzing..."
       : (document.local_file_path?.split('/').pop() || 'Medical Document');
-    let subtitle = '';
+
 
     if (analysis) {
       if (analysis.document_type === 'prescription' && analysis.diagnosis?.condition) {
@@ -177,10 +168,10 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       const parts = [];
       if (analysis.patient?.name) parts.push(analysis.patient.name);
       if (analysis.visit_date) parts.push(analysis.visit_date);
-      subtitle = parts.join(' • ');
+
     }
 
-    return { titleText: title, subtitleText: subtitle };
+    return { titleText: title };
   }, [document?.ai_analysis_status, document?.local_file_path, analysis]);
 
   const displayTitle = titleText;
@@ -249,10 +240,9 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   if (!initialDocument || !document) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Header - Fixed Verification Banner if already added */}
         {isAlreadyAdded && (
           <View style={styles.verifiedHeaderBanner}>
-            <Feather name="check-circle" size={16} color={Colors.white} />
+            <Image source="sf:checkmark.circle.fill" style={{ width: 16, height: 16 }} tintColor={Colors.white} />
             <Text style={styles.verifiedHeaderText}>
               Prescription Verified & Added to Tracker
             </Text>
@@ -260,19 +250,19 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         )}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+            <Image source="sf:arrow.left" style={{ width: 24, height: 24 }} tintColor={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Document Error</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={48} color={Colors.error} />
+          <Image source="sf:exclamationmark.circle.fill" style={{ width: 48, height: 48 }} tintColor={Colors.error} />
           <Text style={styles.errorTitle}>Document Not Found</Text>
           <Text style={styles.errorMessage}>
             The document you're trying to view could not be loaded. Please go back and try again.
           </Text>
           <TouchableOpacity style={styles.errorButton} onPress={handleBack} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={20} color={Colors.white} />
+            <Image source="sf:arrow.left" style={{ width: 20, height: 20 }} tintColor={Colors.white} />
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -304,22 +294,39 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         colors={['#EFF6FF', '#F1F5F9', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
       />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Modern Header */}
-        <PrescriptionHeader
-          onBack={handleBack}
-          titleText={titleText}
-          subtitleText={subtitleText}
-          onShare={handleShare}
-          onOptionsPress={() => setShowOptionsModal(true)}
-        />
+      {/* Native Stack header — title & actions injected here, back button provided by navigator */}
+      <Stack.Screen
+        options={{
+          title: titleText,
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <Pressable onPress={handleShare} hitSlop={10}>
+                <Image
+                  source="sf:square.and.arrow.up"
+                  style={{ width: 22, height: 22 }}
+                  tintColor={Colors.primary}
+                />
+              </Pressable>
+              <Pressable onPress={() => setShowOptionsModal(true)} hitSlop={10}>
+                <Image
+                  source="sf:ellipsis"
+                  style={{ width: 22, height: 22 }}
+                  tintColor={Colors.textPrimary}
+                />
+              </Pressable>
+            </View>
+          ),
+        }}
+      />
 
-        {/* Scrollable Content */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 70 }]}
-          showsVerticalScrollIndicator={false}
-        >
+      {/* Scrollable Content — contentInsetAdjustmentBehavior handles safe area under native header */}
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 70 }]}
+        showsVerticalScrollIndicator={false}
+      >
+
           {!isReady ? (
             <View style={{ padding: 20, paddingTop: 40, alignItems: 'center', gap: 16 }}>
               <ActivityIndicator size="large" color={Colors.primary} />
@@ -339,7 +346,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
               {/* Consolidated AI Summary, Medications & Action Bar */}
               {(() => {
-                const summary = document ? getSummary(document.ai_analysis_result) : undefined;
+                const summary = document?.ai_analysis_result?.summary;
 
                 return (
                   <Animated.View layout={LinearTransition.duration(300)} style={{ gap: 12 }}>
@@ -495,7 +502,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                   onPress={() => setShowAddMedicationModal(true)}
                                   activeOpacity={0.7}
                                 >
-                                  <Feather name="plus" size={16} color={Colors.textSecondary} />
+                                  <Image source="sf:plus" style={{ width: 16, height: 16 }} tintColor={Colors.textSecondary} />
                                   <Text style={styles.addManuallyButtonText}>Add missing medication</Text>
                                 </TouchableOpacity>
                               </View>
@@ -587,7 +594,11 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                     <ActivityIndicator color={Colors.white} size="small" />
                                   ) : (
                                     <Fragment>
-                                      <Feather name={isAlreadyAdded ? "eye" : "check-circle"} size={18} color={Colors.white} />
+                                      <Image
+                                        source={isAlreadyAdded ? 'sf:eye' : 'sf:checkmark.circle'}
+                                        style={{ width: 18, height: 18 }}
+                                        tintColor={Colors.white}
+                                      />
                                       <Text style={styles.verifyAllButtonText}>
                                         {isAlreadyAdded
                                           ? "View in Tracker"
@@ -632,8 +643,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
 
         </ScrollView>
 
-        {/* Share Modal */}
-        <ShareModal
+      {/* Share Modal */}
+      <ShareModal
           visible={showShareModal}
           onClose={() => setShowShareModal(false)}
           documentType={documentType}
@@ -641,51 +652,48 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
           onShareAnalysis={handleShareAnalysis}
         />
 
-        <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing your health analysis..." />
+      <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing your health analysis..." />
 
-        {/* Document Options Modal */}
-        <DocumentOptionsModal
-          visible={showOptionsModal}
-          onClose={() => setShowOptionsModal(false)}
-          onDelete={confirmDelete}
+      {/* Document Options Modal */}
+      <DocumentOptionsModal
+        visible={showOptionsModal}
+        onClose={() => setShowOptionsModal(false)}
+        onDelete={confirmDelete}
+      />
+
+      {/* Full Screen Image Modal */}
+      {imageUri && (
+        <FullScreenImageModal
+          visible={showFullScreenImage}
+          imageUri={imageUri}
+          onClose={() => setShowFullScreenImage(false)}
         />
+      )}
 
-        {/* Full Screen Image Modal */}
-        {
-          imageUri && (
-            <FullScreenImageModal
-              visible={showFullScreenImage}
-              imageUri={imageUri}
-              onClose={() => setShowFullScreenImage(false)}
-            />
-          )
-        }
+      {/* Floating Tooltip specifically for dismissed medications */}
+      <AnimatedTooltip
+        visible={tooltipVisible}
+        content={tooltipContent}
+        targetPosition={tooltipPosition}
+        onClose={() => setTooltipVisible(false)}
+      />
 
-        {/* Floating Tooltip specifically for dismissed medications */}
-        <AnimatedTooltip
-          visible={tooltipVisible}
-          content={tooltipContent}
-          targetPosition={tooltipPosition}
-          onClose={() => setTooltipVisible(false)}
-        />
+      {/* Duplicate Medication Modal */}
+      <DuplicateMedicationModal
+        visible={duplicateModalVisible}
+        onClose={handleCancelDuplicate}
+        newMedication={pendingDuplicateData?.newMed || null}
+        existingMedication={pendingDuplicateData?.existingMed || null}
+        onReplace={() => handleResolveDuplicate('replace')}
+        onAddBoth={() => handleResolveDuplicate('add')}
+      />
 
-        {/* Duplicate Medication Modal */}
-        <DuplicateMedicationModal
-          visible={duplicateModalVisible}
-          onClose={handleCancelDuplicate}
-          newMedication={pendingDuplicateData?.newMed || null}
-          existingMedication={pendingDuplicateData?.existingMed || null}
-          onReplace={() => handleResolveDuplicate('replace')}
-          onAddBoth={() => handleResolveDuplicate('add')}
-        />
-
-        {/* Add Medication Modal */}
-        <AddMedicationModal
-          visible={showAddMedicationModal}
-          onClose={() => setShowAddMedicationModal(false)}
-          onAdd={handleAddManualMedication}
-        />
-      </SafeAreaView>
+      {/* Add Medication Modal */}
+      <AddMedicationModal
+        visible={showAddMedicationModal}
+        onClose={() => setShowAddMedicationModal(false)}
+        onAdd={handleAddManualMedication}
+      />
     </View>
   );
 }

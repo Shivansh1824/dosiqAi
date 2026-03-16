@@ -1,7 +1,6 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Colors } from '../constants';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
     // ─── Layout ──────────────────────────────────────────────────────────────────
@@ -28,39 +27,11 @@ export const styles = StyleSheet.create({
         paddingVertical: 10,
         backgroundColor: 'transparent',
     },
-    headerTitleContainer: {
-        flex: 1,
-        alignItems: 'center',
-        paddingHorizontal: 8,
-    },
     headerTitle: {
         fontSize: 16,
         fontFamily: 'PlusJakartaSans-SemiBold',
         color: Colors.textPrimary,
         textAlign: 'center',
-    },
-    headerSubtitle: {
-        fontSize: 12,
-        fontFamily: 'PlusJakartaSans-Regular',
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 2,
-    },
-    headerButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.gray100,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerButtonRight: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.gray100,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     // Legacy alias used in error state
     backButton: {
@@ -126,11 +97,7 @@ export const styles = StyleSheet.create({
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: Colors.border,
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
     },
     previewIconContainer: {
         alignItems: 'center',
@@ -190,11 +157,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 4,
         paddingVertical: 4,
         gap: 2,
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-        elevation: 4,
+        boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
         borderWidth: 1,
         borderColor: Colors.border,
     },
@@ -238,11 +201,7 @@ export const styles = StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         borderColor: Colors.border,
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 2,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
         overflow: 'hidden',
     },
     medicationsHeaderRow: {
@@ -328,11 +287,7 @@ export const styles = StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         borderColor: Colors.border,
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 2,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
     },
     cardHeader: {
         flexDirection: 'row',

@@ -510,7 +510,7 @@ export default function TimelineScreen() {
       if (isVerified) {
         router.push({ pathname: '/prescriptionrecord', params: { documentId: doc.id } });
       } else {
-        router.push({ pathname: '/prescriptionsummary', params: { documentId: doc.id } });
+        router.push({ pathname: '/prescription-summary', params: { documentId: doc.id } });
       }
     }
   };
@@ -520,7 +520,7 @@ export default function TimelineScreen() {
     if (docType.includes('report') || docType.includes('lab')) {
       router.push({ pathname: '/reportsummary', params: { documentId: doc.id } });
     } else {
-      router.push({ pathname: '/prescriptionsummary', params: { documentId: doc.id } });
+      router.push({ pathname: '/prescription-summary', params: { documentId: doc.id } });
     }
   };
 
