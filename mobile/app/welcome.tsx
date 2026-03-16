@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,7 +11,8 @@ import { Colors, Sizes, Typography } from '../src/constants';
 import { useAuthStore } from '../src/store/authStore';
 
 
-const { width, height } = Dimensions.get('window');
+
+
 
 const FeatureCard = ({ icon, sfIcon, title, description, index }: { icon: keyof typeof Feather.glyphMap, sfIcon: string, title: string, description: string, index: number }) => (
   <Animated.View
@@ -177,25 +178,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Sizes.lg,
     paddingTop: Sizes.xl,
     paddingBottom: Sizes.xxl,
-  },
-  decorativeCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-    opacity: 0.6,
-  },
-  circle1: {
-    width: width * 0.8,
-    height: width * 0.8,
-    backgroundColor: '#CCFBF1', // Light teal
-    top: -width * 0.2,
-    right: -width * 0.2,
-  },
-  circle2: {
-    width: width * 0.6,
-    height: width * 0.6,
-    backgroundColor: '#E0E7FF', // Light indigo
-    bottom: -width * 0.1,
-    left: -width * 0.2,
   },
   headerSection: {
     alignItems: 'flex-start',
