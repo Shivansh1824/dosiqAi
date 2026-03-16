@@ -126,7 +126,7 @@ export default function RootLayout() {
                                     name="prescription-summary"
                                     options={{
                                         headerShown: true,
-                                        headerTransparent: process.env.EXPO_OS === 'ios',
+                                        headerTransparent: true,
                                         headerBlurEffect: 'systemUltraThinMaterial',
                                         headerBackButtonDisplayMode: 'minimal',
                                         headerTitleAlign: 'center',

@@ -1,9 +1,10 @@
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import React, { useState, useEffect, useMemo, Fragment } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Pressable, InteractionManager } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Pressable, InteractionManager, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { LinearTransition } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import { Colors } from '../src/constants';
 import { Document } from '../src/types/document';
 import { useFamilyMembersStore } from '../src/store/familyMembersStore';
@@ -50,6 +51,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const params = useLocalSearchParams();
   const paramDocumentId = params.documentId as string;
 
+  const insets = useSafeAreaInsets();
   const { familyMembers } = useFamilyMembersStore();
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
 
@@ -137,7 +139,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     return (document && familyMembers.find(m => m.id === document.family_member_id)) || undefined;
   }, [document?.family_member_id, familyMembers]);
 
-  // Get display title - prefer AI-generated filename from analysis result, fallback to document title
   // Smart Header Logic
   const analysis = document?.ai_analysis_result;
 
@@ -187,7 +188,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const displayTitle = headerTitleData.title;
 
   const HeaderTitle = () => (
-    <View style={{ gap: 2 }}>
+    <View style={{ gap: 2, alignItems: 'center' }}>
       <Text 
         numberOfLines={1} 
         style={{ 
@@ -211,6 +212,51 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
         </Text>
       ) : null}
     </View>
+  );
+
+  const HeaderLeft = () => (
+    <TouchableOpacity 
+      onPress={handleBack} 
+      activeOpacity={0.7}
+      style={{ 
+        width: 36, 
+        height: 36, 
+        borderRadius: 18, 
+        backgroundColor: Colors.white, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        marginLeft: process.env.EXPO_OS === 'android' ? 4 : 0,
+        ...Platform.select({
+          ios: {
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)"
+          },
+          android: {
+            elevation: 4,
+            // Ensure no clipping for the shadow
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+          }
+        })
+      }}
+    >
+      <Feather name="chevron-left" size={24} color={Colors.textPrimary} />
+    </TouchableOpacity>
+  );
+
+  const HeaderIcon = ({ iosName, androidName, onPress, color }: { iosName: string, androidName: any, onPress: () => void, color: string }) => (
+    <TouchableOpacity onPress={onPress} hitSlop={10} activeOpacity={0.7}>
+      {process.env.EXPO_OS === 'ios' ? (
+        <Image 
+          source={`sf:${iosName}`} 
+          style={{ width: 22, height: 22 }} 
+          tintColor={color} 
+        />
+      ) : (
+        <Feather name={androidName} size={22} color={color} />
+      )}
+    </TouchableOpacity>
   );
 
   const {
@@ -335,25 +381,27 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       <Stack.Screen
         options={{
           headerTitle: () => <HeaderTitle />,
-          headerTitleAlign: 'left',
+          headerTitleAlign: 'center',
+          headerLeft: () => <HeaderLeft />,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <Pressable onPress={handleShare} hitSlop={10}>
-                <Image
-                  source="sf:square.and.arrow.up"
-                  style={{ width: 22, height: 22 }}
-                  tintColor={Colors.primary}
-                />
-              </Pressable>
-              <Pressable onPress={() => setShowOptionsModal(true)} hitSlop={10}>
-                <Image
-                  source="sf:ellipsis"
-                  style={{ width: 22, height: 22 }}
-                  tintColor={Colors.textPrimary}
-                />
-              </Pressable>
+              <HeaderIcon 
+                iosName="square.and.arrow.up" 
+                androidName="share-2" 
+                onPress={handleShare} 
+                color={Colors.primary} 
+              />
+              <HeaderIcon 
+                iosName="ellipsis" 
+                androidName="more-vertical" 
+                onPress={() => setShowOptionsModal(true)} 
+                color={Colors.textPrimary} 
+              />
             </View>
           ),
+          headerBackground: () => process.env.EXPO_OS === 'android' ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255, 255, 255, 0.85)' }]} />
+          ) : undefined
         }}
       />
 
@@ -361,7 +409,13 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 70 }]}
+        contentContainerStyle={[
+          styles.scrollContent, 
+          { 
+            paddingBottom: 70,
+            paddingTop: process.env.EXPO_OS === 'android' ? insets.top + (process.env.EXPO_OS === 'android' ? 64 : 0) : 12 
+          }
+        ]}
         showsVerticalScrollIndicator={false}
       >
 
