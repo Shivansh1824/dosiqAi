@@ -141,40 +141,77 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   // Smart Header Logic
   const analysis = document?.ai_analysis_result;
 
-  const { titleText } = useMemo(() => {
-    if (!document) return { titleText: 'Medical Document' };
+  const { headerTitleData } = useMemo(() => {
+    if (!document) return { headerTitleData: { title: 'Medical Document' } };
 
-    let title = (document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending')
-      ? "dosiq Ai • Analyzing..."
-      : (document.local_file_path?.split('/').pop() || 'Medical Document');
-
-
-    if (analysis) {
-      if (analysis.document_type === 'prescription' && analysis.diagnosis?.condition) {
-        title = `${analysis.diagnosis?.condition} Prescription`;
-      } else if (analysis.document_type) {
-        if (analysis.document_type.toLowerCase() === 'invalid') {
-          title = 'Unrecognized Document';
-        } else {
-          title = analysis.document_type
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-        }
-      } else if (analysis.file_name) {
-        title = analysis.file_name;
-      }
-
-      const parts = [];
-      if (analysis.patient?.name) parts.push(analysis.patient.name);
-      if (analysis.visit_date) parts.push(analysis.visit_date);
-
+    const isAnalyzing = document.ai_analysis_status === 'processing' || document.ai_analysis_status === 'pending';
+    
+    if (isAnalyzing) {
+      return { 
+        headerTitleData: { 
+          title: "dosiq Ai", 
+          subtitle: "Analyzing..." 
+        } 
+      };
     }
 
-    return { titleText: title };
+    let title = analysis?.patient?.name || (document.local_file_path?.split('/').pop() || 'Medical Document');
+    let subtitle = '';
+
+    if (analysis) {
+      const condition = analysis.diagnosis?.condition;
+      const date = analysis.visit_date;
+      const docType = analysis.document_type ? analysis.document_type
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ') : '';
+
+      if (condition && date) {
+        subtitle = `${condition} • ${date}`;
+      } else if (condition) {
+        subtitle = condition;
+      } else if (date) {
+        subtitle = date;
+      } else if (docType && !analysis.patient?.name) {
+        // If no patient name, use Doc Type as title and filename as subtitle
+        title = docType;
+        subtitle = document.local_file_path?.split('/').pop() || '';
+      } else {
+        subtitle = docType || 'Medical Record';
+      }
+    }
+
+    return { headerTitleData: { title, subtitle } };
   }, [document?.ai_analysis_status, document?.local_file_path, analysis]);
 
-  const displayTitle = titleText;
+  const displayTitle = headerTitleData.title;
+
+  const HeaderTitle = () => (
+    <View style={{ gap: 2 }}>
+      <Text 
+        numberOfLines={1} 
+        style={{ 
+          fontSize: 16, 
+          fontFamily: 'PlusJakartaSans-Bold', 
+          color: Colors.textPrimary 
+        }}
+      >
+        {headerTitleData.title}
+      </Text>
+      {headerTitleData.subtitle ? (
+        <Text 
+          numberOfLines={1} 
+          style={{ 
+            fontSize: 12, 
+            fontFamily: 'PlusJakartaSans-Medium', 
+            color: Colors.textSecondary 
+          }}
+        >
+          {headerTitleData.subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
 
   const {
     imageUri,
@@ -297,7 +334,8 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
       {/* Native Stack header — title & actions injected here, back button provided by navigator */}
       <Stack.Screen
         options={{
-          title: titleText,
+          headerTitle: () => <HeaderTitle />,
+          headerTitleAlign: 'left',
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <Pressable onPress={handleShare} hitSlop={10}>
