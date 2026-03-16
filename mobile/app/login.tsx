@@ -8,9 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
-import {     } from '@react-navigation/native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated from 'react-native-reanimated';

@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import Logo from '../src/components/Logo';
@@ -10,15 +11,20 @@ import { Colors, Sizes, Typography } from '../src/constants';
 import { useAuthStore } from '../src/store/authStore';
 
 
-const { width, height } = Dimensions.get('window');
 
-const FeatureCard = ({ icon, title, description, index }: { icon: keyof typeof Feather.glyphMap, title: string, description: string, index: number }) => (
+
+
+const FeatureCard = ({ icon, sfIcon, title, description, index }: { icon: keyof typeof Feather.glyphMap, sfIcon: string, title: string, description: string, index: number }) => (
   <Animated.View
     entering={FadeInDown.delay(300 + (index * 100)).springify()}
     style={styles.featureCard}
   >
     <View style={styles.iconCircle}>
-      <Feather name={icon} size={24} color={Colors.primary} />
+      {process.env.EXPO_OS === 'ios' ? (
+        <Image source={`sf:${sfIcon}`} style={{ width: 24, height: 24 }} contentFit="contain" tintColor={Colors.primary} />
+      ) : (
+        <Feather name={icon} size={24} color={Colors.primary} />
+      )}
     </View>
     <View style={styles.featureTextContent}>
       <Text style={styles.featureTitle}>{title}</Text>
@@ -55,23 +61,20 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background with Gradient Mesh Effect */}
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundImage: 'linear-gradient(135deg, #FFFFFF, #F0F9FF, #E0F2FE)' }
-        ]}
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={['#FFFFFF', '#F0F9FF', '#E0F2FE']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       />
-
-      {/* Decorative blurred circles for depth */}
-      <View style={[styles.decorativeCircle, styles.circle1]} />
-      <View style={[styles.decorativeCircle, styles.circle2]} />
-      <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="automatic"
         >
           {/* Header Section */}
           <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.headerSection}>
@@ -93,18 +96,21 @@ export default function WelcomeScreen() {
             <View style={styles.featuresSection}>
               <FeatureCard
                 icon="camera"
+                sfIcon="camera"
                 title="Scan Prescriptions"
                 description="Instantly digitize your meds with a photo."
                 index={0}
               />
               <FeatureCard
                 icon="bell"
+                sfIcon="bell"
                 title="Smart Reminders"
                 description="Never miss a dose with timely alerts."
                 index={1}
               />
               <FeatureCard
                 icon="activity"
+                sfIcon="waveform.path.ecg"
                 title="Track Progress"
                 description="Monitor your health journey over time."
                 index={2}
@@ -123,15 +129,24 @@ export default function WelcomeScreen() {
                 onPress={handleGetStarted}
                 style={styles.primaryButton}
               >
-                <View
-                  style={[
-                    styles.gradientButton,
-                    { backgroundImage: `linear-gradient(to right, ${Colors.primary}, #0D9488)` }
-                  ]}
+                <LinearGradient
+                  colors={[Colors.primary, '#0D9488']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientButton}
                 >
                   <Text style={styles.primaryButtonText}>Get Started</Text>
-                  <Feather name="arrow-right" size={20} color="white" />
-                </View>
+                  {process.env.EXPO_OS === 'ios' ? (
+                    <Image
+                      source="sf:arrow.right"
+                      style={{ width: 20, height: 20 }}
+                      contentFit="contain"
+                      tintColor="white"
+                    />
+                  ) : (
+                    <Feather name="arrow-right" size={20} color="white" />
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             )}
 
@@ -164,25 +179,6 @@ const styles = StyleSheet.create({
     paddingTop: Sizes.xl,
     paddingBottom: Sizes.xxl,
   },
-  decorativeCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-    opacity: 0.6,
-  },
-  circle1: {
-    width: width * 0.8,
-    height: width * 0.8,
-    backgroundColor: '#CCFBF1', // Light teal
-    top: -width * 0.2,
-    right: -width * 0.2,
-  },
-  circle2: {
-    width: width * 0.6,
-    height: width * 0.6,
-    backgroundColor: '#E0E7FF', // Light indigo
-    bottom: -width * 0.1,
-    left: -width * 0.2,
-  },
   headerSection: {
     alignItems: 'flex-start',
     marginBottom: Sizes.xxl,
@@ -191,13 +187,7 @@ const styles = StyleSheet.create({
   },
   logoWrapper: {
     marginBottom: Sizes.lg,
-    marginLeft: -Sizes.sm, // Slight negative margin to offset logo's internal padding if any
-    // Add shadow to logo for depth
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
+    marginLeft: -Sizes.sm,
   },
   headline: {
     fontSize: 32,
@@ -263,11 +253,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: '100%',
     borderRadius: 16,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    boxShadow: "0 8px 16px rgba(59, 130, 246, 0.25)",
   },
   gradientButton: {
     paddingVertical: 18,
