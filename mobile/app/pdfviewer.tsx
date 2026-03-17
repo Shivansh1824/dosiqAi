@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -30,6 +30,12 @@ export default function PdfViewerScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [loadAttempts, setLoadAttempts] = useState(0);
+
+  const [scale, setScale] = useState(1.0);
+  const currentScaleRef = useRef(1.0);
+
+  // Memoize source to prevent re-renders on scale changes
+  const source = useMemo(() => ({ uri, cache: true }), [uri]);
 
   // Validate URI on mount
   useEffect(() => {
@@ -79,6 +85,18 @@ export default function PdfViewerScreen() {
     setError(null);
     setLoadAttempts(prev => prev + 1);
   }, [loadAttempts]);
+
+  const handleZoomIn = () => {
+    const nextScale = Math.min(currentScaleRef.current + 0.5, 3.0);
+    currentScaleRef.current = nextScale;
+    setScale(nextScale);
+  };
+
+  const handleZoomOut = () => {
+    const nextScale = Math.max(currentScaleRef.current - 0.5, 1.0);
+    currentScaleRef.current = nextScale;
+    setScale(nextScale);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -145,9 +163,18 @@ export default function PdfViewerScreen() {
       {!error && (
         <View style={styles.pdfViewerWrapper}>
           <Pdf
-            source={{ uri: uri, cache: true }}
+            source={source}
             style={styles.pdfViewer}
             trustAllCerts={false}
+            scale={scale}
+            minScale={1.0}
+            maxScale={3.0}
+            spacing={10}
+            enableDoubleTapZoom={true}
+            onScaleChanged={(newScale) => {
+              // Update ref silently to track pinch position without triggering re-render
+              currentScaleRef.current = newScale;
+            }}
             onLoadComplete={(numberOfPages) => {
               console.log(`[PdfViewer] PDF loaded successfully with ${numberOfPages} pages`);
               setNumPages(numberOfPages);
@@ -162,6 +189,27 @@ export default function PdfViewerScreen() {
               setLoading(false);
             }}
           />
+        </View>
+      )}
+
+      {/* Zoom Controls */}
+      {!loading && !error && (
+        <View style={styles.zoomControls}>
+          <TouchableOpacity 
+              style={styles.zoomButton} 
+              onPress={handleZoomIn}
+              activeOpacity={0.7}
+          >
+            <Feather name="plus" size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <View style={styles.zoomDivider} />
+          <TouchableOpacity 
+              style={styles.zoomButton} 
+              onPress={handleZoomOut}
+              activeOpacity={0.7}
+          >
+            <Feather name="minus" size={24} color={Colors.white} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -269,5 +317,25 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.bodySmall,
     fontWeight: Typography.medium,
+  },
+  zoomControls: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 110 : 90,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  zoomButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 8,
   },
 });
