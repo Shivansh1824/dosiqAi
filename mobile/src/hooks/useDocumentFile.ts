@@ -61,7 +61,7 @@ export const useDocumentFile = (
         checkAndSyncFile();
     }, [document?.local_file_path, document?.cloud_file_key]);
 
-    // Handle view full document
+    // Open the full-screen viewer based on file type
     const handleViewFullDocument = () => {
         if (!imageUri) {
             Alert.alert('Error', 'Document file not found');
@@ -69,6 +69,7 @@ export const useDocumentFile = (
         }
 
         if (isPdf) {
+            // PDFs use a dedicated full-screen route
             router.push({
                 pathname: '/pdfviewer',
                 params: {
@@ -77,6 +78,7 @@ export const useDocumentFile = (
                 }
             });
         } else {
+            // Images use the modal within the same screen
             setShowFullScreenImage(true);
         }
     };

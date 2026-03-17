@@ -176,7 +176,6 @@ export default function PdfViewerScreen() {
               currentScaleRef.current = newScale;
             }}
             onLoadComplete={(numberOfPages) => {
-              console.log(`[PdfViewer] PDF loaded successfully with ${numberOfPages} pages`);
               setNumPages(numberOfPages);
               setLoading(false);
             }}
@@ -184,7 +183,6 @@ export default function PdfViewerScreen() {
               setCurrentPage(page);
             }}
             onError={(err) => {
-              console.error('[PdfViewer] Error loading PDF:', err);
               setError('Failed to load PDF. Please try opening with system viewer.');
               setLoading(false);
             }}
