@@ -15,7 +15,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
   runOnJS,
 } from 'react-native-reanimated';
 
@@ -121,6 +120,24 @@ export default function FullScreenImageModal({
     onClose();
   };
 
+  const handleZoomIn = () => {
+    const nextScale = Math.min(scale.value + 0.5, 5);
+    scale.value = withSpring(nextScale);
+    savedScale.value = nextScale;
+  };
+
+  const handleZoomOut = () => {
+    const nextScale = Math.max(scale.value - 0.5, 1);
+    scale.value = withSpring(nextScale);
+    savedScale.value = nextScale;
+    if (nextScale === 1) {
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -153,6 +170,25 @@ export default function FullScreenImageModal({
               resizeMode="contain"
             />
           </GestureDetector>
+
+          {/* Zoom Controls */}
+          <View style={styles.zoomControls}>
+            <TouchableOpacity 
+                style={styles.zoomButton} 
+                onPress={handleZoomIn}
+                activeOpacity={0.7}
+            >
+              <Feather name="plus" size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <View style={styles.zoomDivider} />
+            <TouchableOpacity 
+                style={styles.zoomButton} 
+                onPress={handleZoomOut}
+                activeOpacity={0.7}
+            >
+              <Feather name="minus" size={24} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
 
           {/* Hint Text */}
           <View style={styles.hintContainer}>
@@ -207,5 +243,25 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 13,
     fontWeight: '500',
+  },
+  zoomControls: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 110 : 90,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  zoomButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 8,
   },
 });

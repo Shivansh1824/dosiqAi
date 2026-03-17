@@ -51,6 +51,7 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                             source={{ uri: imageUri, cache: true }}
                             style={styles.pdfPreview}
                             trustAllCerts={false}
+                            fitPolicy={0} // Fit width
                             onLoadComplete={(numberOfPages) => {
                                 console.log(`Number of pages: ${numberOfPages}`);
                             }}
@@ -114,7 +115,7 @@ export const DocumentPreviewCard: React.FC<DocumentPreviewCardProps> = ({
                         <Image
                             source={{ uri: imageUri || undefined }}
                             style={styles.heroImage}
-                            resizeMode="cover"
+                            contentFit="cover"
                         />
                         <View style={styles.heroOverlay} />
 

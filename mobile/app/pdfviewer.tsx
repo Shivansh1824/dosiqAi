@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -18,6 +18,7 @@ import { Colors, Typography, Sizes } from '../src/constants';
 import * as Sharing from 'expo-sharing';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const ZOOM_THROTTLE_MS = 400;
 
 export default function PdfViewerScreen() {
   const router = useRouter();
@@ -31,11 +32,19 @@ export default function PdfViewerScreen() {
   const [numPages, setNumPages] = useState(0);
   const [loadAttempts, setLoadAttempts] = useState(0);
 
+  const [scale, setScale] = useState(1.0);
+  // Track scale in a ref so throttled handlers always read the latest value
+  const scaleRef = useRef(1.0);
+  // Timestamp of last zoom action — used to throttle rapid button presses
+  const lastZoomTime = useRef(0);
+
+  // Memoize source to prevent re-renders on scale changes
+  const source = useMemo(() => ({ uri, cache: true }), [uri]);
+
   // Validate URI on mount
   useEffect(() => {
     const validateFile = async () => {
-      console.log('[PdfViewer] Validating URI:', uri);
-      console.log('[PdfViewer] Title:', title);
+
 
       if (!uri.startsWith('file://') && !uri.startsWith('http://') && !uri.startsWith('https://')) {
         console.error('[PdfViewer] Invalid URI format:', uri);
@@ -57,7 +66,7 @@ export default function PdfViewerScreen() {
           }
         }
 
-        console.log('[PdfViewer] File validated successfully');
+
         setLoading(false);
       } catch (err: any) {
         console.error('[PdfViewer] Error validating file:', err);
@@ -74,11 +83,30 @@ export default function PdfViewerScreen() {
   }, [router]);
 
   const handleRetry = useCallback(() => {
-    console.log('[PdfViewer] Retrying PDF load, attempt:', loadAttempts + 1);
+
     setLoading(true);
     setError(null);
     setLoadAttempts(prev => prev + 1);
   }, [loadAttempts]);
+
+
+  const handleZoomIn = useCallback(() => {
+    const now = Date.now();
+    if (now - lastZoomTime.current < ZOOM_THROTTLE_MS) return;
+    lastZoomTime.current = now;
+    const nextScale = Math.min(scaleRef.current + 0.5, 3.0);
+    scaleRef.current = nextScale;
+    setScale(nextScale);
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    const now = Date.now();
+    if (now - lastZoomTime.current < ZOOM_THROTTLE_MS) return;
+    lastZoomTime.current = now;
+    const nextScale = Math.max(scaleRef.current - 0.5, 1.0);
+    scaleRef.current = nextScale;
+    setScale(nextScale);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -145,11 +173,19 @@ export default function PdfViewerScreen() {
       {!error && (
         <View style={styles.pdfViewerWrapper}>
           <Pdf
-            source={{ uri: uri, cache: true }}
+            source={source}
             style={styles.pdfViewer}
             trustAllCerts={false}
+            scale={scale}
+            minScale={1.0}
+            maxScale={3.0}
+            spacing={10}
+            enableDoubleTapZoom={true}
+            onScaleChanged={(newScale) => {
+              // Keep ref in sync when user pinch-zooms natively (no state update to avoid re-render)
+              scaleRef.current = newScale;
+            }}
             onLoadComplete={(numberOfPages) => {
-              console.log(`[PdfViewer] PDF loaded successfully with ${numberOfPages} pages`);
               setNumPages(numberOfPages);
               setLoading(false);
             }}
@@ -157,11 +193,31 @@ export default function PdfViewerScreen() {
               setCurrentPage(page);
             }}
             onError={(err) => {
-              console.error('[PdfViewer] Error loading PDF:', err);
               setError('Failed to load PDF. Please try opening with system viewer.');
               setLoading(false);
             }}
           />
+        </View>
+      )}
+
+      {/* Zoom Controls */}
+      {!loading && !error && (
+        <View style={styles.zoomControls}>
+          <TouchableOpacity 
+              style={styles.zoomButton} 
+              onPress={handleZoomIn}
+              activeOpacity={0.7}
+          >
+            <Feather name="plus" size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <View style={styles.zoomDivider} />
+          <TouchableOpacity 
+              style={styles.zoomButton} 
+              onPress={handleZoomOut}
+              activeOpacity={0.7}
+          >
+            <Feather name="minus" size={24} color={Colors.white} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -269,5 +325,25 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.bodySmall,
     fontWeight: Typography.medium,
+  },
+  zoomControls: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 110 : 90,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  zoomButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 8,
   },
 });
