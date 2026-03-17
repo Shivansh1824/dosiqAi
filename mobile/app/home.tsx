@@ -38,13 +38,12 @@ export default function HomeScreen() {
   const onNavigate = (screen: string, params?: any) => {
     if (screen === 'scan') router.push('/scandocument');
     else if (screen === 'PrescriptionRecord') router.push({ pathname: '/prescriptionrecord', params });
-    else if (screen === 'ReportSummary') router.push({ pathname: '/reportsummary', params });
     else if (screen === 'document') {
       const doc = params?.document;
       const docType = doc?.ai_analysis_result?.document_type?.toLowerCase() || doc?.type?.toLowerCase();
 
       if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
-        router.push({ pathname: '/reportsummary', params });
+        Alert.alert('Coming Soon', 'A new modular lab report screen is under development.');
       } else {
         const meds = useMedicationsStore.getState().medications;
         const isAlreadyAdded = doc?.id ? meds.some((m: any) => m.source_document_id === doc.id) : false;
