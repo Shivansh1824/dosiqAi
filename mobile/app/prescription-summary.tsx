@@ -55,7 +55,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
   const { familyMembers } = useFamilyMembersStore();
   const { documents, analysisProgress, retryAnalysis, deleteDocument } = useDocumentsStore();
 
-  console.log('🐞 [DIAGNOSTICS] PrescriptionSummaryScreen Params:', { documentIdProp: documentId, paramDocumentId, hasDocumentProp: !!documentProp, documentsInStore: documents.length });
 
   const handleBack = onBack || (() => { router.back(); });
 
@@ -67,7 +66,6 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
     if (effectiveDocumentId) {
       foundDoc = documents.find(d => d.id === effectiveDocumentId);
     }
-    console.log('🐞 [DIAGNOSTICS] Resolved initialDocument:', { effectiveDocumentId, foundDocExists: !!foundDoc });
     return foundDoc;
   }, [documentProp, documentId, paramDocumentId, documents]);
 
