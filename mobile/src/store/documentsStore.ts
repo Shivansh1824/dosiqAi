@@ -75,7 +75,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       console.log(`[DocumentsStore] Fetching documents for user: ${userId} (silent: ${silent})`);
 
       const { data, error } = await from('documents')
-        .select('*, lab_reports(report_date)')
+        .select('*')
         .eq('user_id', userId)
         .order('ai_analyzed_at', { ascending: false });
 
@@ -88,7 +88,6 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       // Calculate color for each document based on type (not stored in database)
       const documentsWithColor: Document[] = (data || []).map((doc: any) => ({
         ...doc,
-        report_date: doc.lab_reports?.[0]?.report_date || null, // Flatten joined data
         color: getDocumentColor(doc.type), // Always calculate from type (database optimization)
       }));
 
@@ -570,24 +569,6 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       // 3. Delete from Database - Order matters for Foreign Keys
-      // Delete test_results first (child of lab_reports)
-      const { error: testResultsError } = await from('test_results')
-        .delete()
-        .eq('user_id', userId);
-
-      if (testResultsError) {
-        console.error('[DocumentsStore] Error deleting test_results:', testResultsError);
-        // Continue to try deleting other data
-      }
-
-      // Delete lab_reports (child of documents)
-      const { error: labReportsError } = await from('lab_reports')
-        .delete()
-        .eq('user_id', userId);
-
-      if (labReportsError) {
-        console.error('[DocumentsStore] Error deleting lab_reports:', labReportsError);
-      }
 
       // Delete documents (parent)
       const { error: deleteError } = await from('documents')

@@ -74,7 +74,7 @@ export default function DocumentsScreen() {
                                     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
                                     
                                     if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
-                                        router.push({ pathname: '/reportsummary', params: { documentId: doc.id } });
+                                        router.push({ pathname: '/lab-report/[id]' as any, params: { id: doc.id } });
                                     } else {
                                         const medications = useMedicationsStore.getState().medications;
                                         const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;

@@ -59,20 +59,6 @@ export interface RecommendedTest {
   reason?: string;
 }
 
-// Lab metric structure
-export interface LabMetric {
-  metric_name: string;
-  value: string;
-  unit?: string;
-  reference_range?: string;
-  status?: 'normal' | 'low' | 'high' | 'borderline' | 'critical' | 'abnormal';
-}
-
-// Grouped lab metrics
-export interface GroupedMetrics {
-  group_name: string;
-  metrics: LabMetric[];
-}
 
 // AI Analysis result structure matching the prompt output
 export interface DocumentAnalysisResult {
