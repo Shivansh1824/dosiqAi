@@ -4,8 +4,15 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
+import { Image } from 'expo-image';
 
 import { useLabReport, TestResult } from '../../src/hooks/useLabReport';
+import { useDocumentFile } from '../../src/hooks/useDocumentFile';
+import { useDocumentActions } from '../../src/hooks/useDocumentActions';
+import { useAnalysisPDF } from '../../src/hooks/useAnalysisPDF';
+import LoadingOverlay from '../../src/components/LoadingOverlay';
+import ShareModal from '../../src/components/ShareModal';
+import DocumentOptionsModal from '../../src/components/DocumentOptionsModal';
 import { Colors, Sizes, Typography } from '../../src/constants';
 import { StatusBar } from 'expo-status-bar';
 
@@ -42,6 +49,20 @@ export default function LabReportScreen() {
     t.test_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const HeaderIcon = ({ iosName, androidName, onPress, color }: { iosName: string, androidName: any, onPress: () => void, color: string }) => (
+    <TouchableOpacity onPress={onPress} hitSlop={10} activeOpacity={0.7}>
+      {process.env.EXPO_OS === 'ios' ? (
+        <Image 
+          source={`sf:${iosName}`} 
+          style={{ width: 22, height: 22 }} 
+          tintColor={color} 
+        />
+      ) : (
+        <Feather name={androidName} size={22} color={color} />
+      )}
+    </TouchableOpacity>
+  );
+
   const HeaderLeft = () => (
     <TouchableOpacity 
       onPress={handleBack} 
@@ -51,6 +72,32 @@ export default function LabReportScreen() {
       <Feather name="chevron-left" size={24} color={Colors.textPrimary} />
     </TouchableOpacity>
   );
+
+  const displayTitle = document?.ai_analysis_result?.patient?.name || (document?.local_file_path?.split('/').pop() || 'Medical Document');
+
+  const {
+    imageUri
+  } = useDocumentFile(document, displayTitle);
+
+  const {
+    showShareModal,
+    setShowShareModal,
+    showOptionsModal,
+    setShowOptionsModal,
+    isDeleting,
+    confirmDelete,
+    handleShare,
+    handleShareDocument,
+  } = useDocumentActions(document, imageUri, handleBack);
+
+  const documentType = document?.ai_analysis_result?.document_type?.toLowerCase() === 'prescription' ? 'prescription' : 'report';
+
+  const { isGenerating: isGeneratingAnalysis, generateAndShare: handleShareAnalysis } = useAnalysisPDF({
+    analysis: document?.ai_analysis_result,
+    documentType,
+    imageUri,
+    displayTitle
+  });
 
   if (isLoading) {
     return (
@@ -96,11 +143,31 @@ export default function LabReportScreen() {
       <StatusBar style="dark" />
       <Stack.Screen
         options={{
+          headerShown: true,
           headerTransparent: true,
-          headerShadowVisible: false,
+          headerBlurEffect: 'systemUltraThinMaterial',
           headerTitle: () => <HeaderTitle />,
           headerTitleAlign: 'center',
-          headerLeft: () => <HeaderLeft />
+          headerLeft: () => <HeaderLeft />,
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <HeaderIcon 
+                iosName="square.and.arrow.up" 
+                androidName="share-2" 
+                onPress={handleShare} 
+                color={Colors.primary} 
+              />
+              <HeaderIcon 
+                iosName="ellipsis" 
+                androidName="more-vertical" 
+                onPress={() => setShowOptionsModal(true)} 
+                color={Colors.textPrimary} 
+              />
+            </View>
+          ),
+          headerBackground: () => process.env.EXPO_OS === 'android' ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255, 255, 255, 0.85)' }]} />
+          ) : undefined
         }}
       />
 
@@ -202,6 +269,24 @@ export default function LabReportScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Share Modal */}
+      <ShareModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        documentType={documentType}
+        onShareDocument={handleShareDocument}
+        onShareAnalysis={handleShareAnalysis}
+      />
+
+      <LoadingOverlay visible={isGeneratingAnalysis} message="Preparing your health analysis..." />
+
+      {/* Document Options Modal */}
+      <DocumentOptionsModal
+        visible={showOptionsModal}
+        onClose={() => setShowOptionsModal(false)}
+        onDelete={confirmDelete}
+      />
     </View>
   );
 }
