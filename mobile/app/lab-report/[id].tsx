@@ -338,9 +338,9 @@ const RangeVisualization = ({ test }: { test: TestResult }) => {
       </View>
       
       <View style={styles.rangeLabelsContainer}>
-        <Text style={styles.rangeLabelText}>{Math.round(visualMin)}</Text>
+        <Text style={styles.rangeLabelText}>{isNaN(visualMin) ? 0 : Math.round(visualMin)}</Text>
         <Text style={styles.rangeNormalLabelText}>Normal ( {min} - {max} )</Text>
-        <Text style={styles.rangeLabelText}>{Math.round(visualMax)}+</Text>
+        <Text style={styles.rangeLabelText}>{isNaN(visualMax) ? 0 : Math.round(visualMax)}+</Text>
       </View>
     </View>
   );
@@ -352,7 +352,7 @@ const BiomarkerCard = ({ test, expanded, onToggle, pastValues }: { test: TestRes
   
   const bgColor = isHigh ? Colors.errorLight : (isLow ? Colors.warningLight : Colors.gray50);
   const borderColor = isHigh ? Colors.errorLight : (isLow ? Colors.warningLight : Colors.gray100);
-  const iconColor = isHigh ? Colors.error : (isLow ? Colors.warning : Colors.gray500);
+  const iconColor = isHigh ? Colors.gray900 : (isLow ? Colors.gray900 : Colors.gray500);
   const textColor = isHigh ? Colors.errorDark : (isLow ? Colors.warningDark : Colors.textPrimary);
   const message = isHigh ? "Elevated risk levels detected" : (isLow ? "Insufficient levels detected" : "Levels need review");
   // Simple insight generation based on status
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   biomarkerUnitText: {
     fontFamily: 'PlusJakartaSans-Medium',
     fontSize: Typography.small,
-    color: Colors.textSecondary,
+    color: Colors.gray600,
     marginLeft: 4,
   },
   
@@ -679,12 +679,12 @@ const styles = StyleSheet.create({
   rangeLabelText: {
     fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 10,
-    color: Colors.textTertiary,
+    color: Colors.gray600,
   },
   rangeNormalLabelText: {
     fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 10,
-    color: Colors.textPrimary,
+    color: Colors.gray700,
   },
   
   // Card Expanded Content
