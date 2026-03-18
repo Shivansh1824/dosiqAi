@@ -74,10 +74,7 @@ export default function DocumentsScreen() {
                                     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
                                     
                                     if (docType === 'lab_report' || docType === 'report' || docType === 'lab report') {
-                                        // TODO: Implement new modular lab report screen
-                                        import('react-native').then(({ Alert }) => {
-                                            Alert.alert('Coming Soon', 'A new modular lab report screen is under development.');
-                                        });
+                                        router.push({ pathname: '/lab-report/[id]' as any, params: { id: doc.id } });
                                     } else {
                                         const medications = useMedicationsStore.getState().medications;
                                         const isAlreadyAdded = doc?.id ? medications.some((med: any) => med.source_document_id === doc.id) : false;

@@ -504,9 +504,7 @@ export default function TimelineScreen() {
   const handleDocumentPress = (doc: Document) => {
     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
     if (docType.includes('report') || docType.includes('lab')) {
-      import('react-native').then(({ Alert }) => {
-        Alert.alert('Coming Soon', 'A new modular lab report screen is under development.');
-      });
+      router.push({ pathname: '/lab-report/[id]' as any, params: { id: doc.id } });
     } else {
       const isVerified = medications.some((med: any) => med.source_document_id === doc.id);
       if (isVerified) {
@@ -520,9 +518,7 @@ export default function TimelineScreen() {
   const handleEdit = (doc: Document) => {
     const docType = doc.ai_analysis_result?.document_type?.toLowerCase() || doc.type.toLowerCase();
     if (docType.includes('report') || docType.includes('lab')) {
-      import('react-native').then(({ Alert }) => {
-        Alert.alert('Coming Soon', 'A new modular lab report screen is under development.');
-      });
+      router.push({ pathname: '/lab-report/[id]' as any, params: { id: doc.id } });
     } else {
       router.push({ pathname: '/prescription-summary', params: { documentId: doc.id } });
     }
