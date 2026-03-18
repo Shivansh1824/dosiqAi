@@ -60,3 +60,4 @@ ENV/
 # Temporary files
 *.tmp
 .cache/
+temp/
