@@ -129,9 +129,11 @@ export default function LabReportScreen() {
   }
 
   const patientName = document?.patient_name || 'Patient Report';
-  const reportDate = document?.ai_analysis_result?.visit_date 
-    ? new Date(document.ai_analysis_result.visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : document?.ai_analyzed_at ? new Date(document.ai_analyzed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown Date';
+  const reportDate = document?.visit_date
+    ? new Date(document.visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : document?.ai_analysis_result?.visit_date 
+      ? new Date(document.ai_analysis_result.visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : document?.ai_analyzed_at ? new Date(document.ai_analyzed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown Date';
 
   const HeaderTitle = () => (
     <View style={{ gap: 2, alignItems: 'center' }}>
