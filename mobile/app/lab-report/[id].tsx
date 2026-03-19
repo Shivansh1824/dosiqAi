@@ -185,7 +185,7 @@ export default function LabReportScreen() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Platform.OS === 'android' ? insets.top + Sizes.xl : Sizes.xxxl }
+          { paddingTop: Platform.OS === 'android' ? insets.top + Sizes.xl : Sizes.md }
         ]}
         showsVerticalScrollIndicator={false}
       >
