@@ -15,6 +15,8 @@ import ShareModal from '../../src/components/ShareModal';
 import DocumentOptionsModal from '../../src/components/DocumentOptionsModal';
 import { Colors, Sizes, Typography } from '../../src/constants';
 import { StatusBar } from 'expo-status-bar';
+import { DocumentPreviewCard } from '../../src/components/prescription/DocumentPreviewCard';
+import FullScreenImageModal from '../../src/components/FullScreenImageModal';
 
 export default function LabReportScreen() {
   const router = useRouter();
@@ -76,7 +78,14 @@ export default function LabReportScreen() {
   const displayTitle = document?.ai_analysis_result?.patient?.name || (document?.local_file_path?.split('/').pop() || 'Medical Document');
 
   const {
-    imageUri
+    imageUri,
+    fileNotFound,
+    downloading,
+    isPdf,
+    showFullScreenImage,
+    setShowFullScreenImage,
+    handleViewFullDocument,
+    handleDownload,
   } = useDocumentFile(document, displayTitle);
 
   const {
@@ -180,6 +189,16 @@ export default function LabReportScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Document Preview Card */}
+        <DocumentPreviewCard
+          fileNotFound={fileNotFound}
+          isPdf={!!isPdf}
+          imageUri={imageUri}
+          handleViewFullDocument={handleViewFullDocument}
+          handleDownload={handleDownload}
+          downloading={downloading}
+        />
+
         <Animated.View layout={LinearTransition.duration(300)} style={styles.headerSection}>
           {reportData.actionRequired.length > 0 && (
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: Sizes.sm }}>
@@ -287,6 +306,15 @@ export default function LabReportScreen() {
         onClose={() => setShowOptionsModal(false)}
         onDelete={confirmDelete}
       />
+
+      {/* Full Screen Image Modal */}
+      {imageUri && (
+        <FullScreenImageModal
+          visible={showFullScreenImage}
+          imageUri={imageUri}
+          onClose={() => setShowFullScreenImage(false)}
+        />
+      )}
     </View>
   );
 }
