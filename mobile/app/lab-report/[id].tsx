@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
+import { VictoryArea, VictoryChart, VictoryTheme, VictoryAxis } from 'victory-native';
 
 import { useLabReport, TestResult } from '../../src/hooks/useLabReport';
 import { useDocumentFile } from '../../src/hooks/useDocumentFile';
@@ -245,26 +246,12 @@ export default function LabReportScreen() {
           <>
             {/* Action Required Section */}
         {filteredActionRequired.length > 0 && (
-          <Animated.View layout={LinearTransition.duration(300)} style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>ACTION REQUIRED</Text>
-              <View style={styles.highPriorityBadge}>
-                <Text style={styles.highPriorityText}>High Priority</Text>
-              </View>
-            </View>
-            
-            <View style={{ gap: Sizes.md }}>
-              {filteredActionRequired.map((test, index) => (
-                <BiomarkerCard 
-                  key={test.id} 
-                  test={test} 
-                  expanded={expandedCards.has(test.id)}
-                  onToggle={() => toggleExpand(test.id)}
-                  pastValues={test.biomarker_id ? pastValues[test.biomarker_id] : []}
-                />
-              ))}
-            </View>
-          </Animated.View>
+          <ActionRequiredSection 
+            tests={filteredActionRequired}
+            expandedCards={expandedCards}
+            onToggleExpand={toggleExpand}
+            pastValues={pastValues}
+          />
         )}
 
         {/* Optimal Results Section */}
@@ -323,123 +310,148 @@ export default function LabReportScreen() {
 
 // Subcomponents
 
-const RangeVisualization = ({ test }: { test: TestResult }) => {
-  const min = test.ref_min ?? 0;
-  const max = test.ref_max ?? 100;
-  const val = parseFloat(test.value || '0');
-  
-  // Calculate bounds for visualization
-  const rangeSpan = Math.abs(max - min);
-  const visualMin = Math.max(0, min - (rangeSpan * 0.5));
-  const visualMax = max + (rangeSpan * 0.5);
-  const visualSpan = visualMax - visualMin;
-  
-  // Percentages for the layout
-  const normalStartPct = Math.max(0, ((min - visualMin) / visualSpan) * 100);
-  const normalWidthPct = Math.min(100 - normalStartPct, ((max - min) / visualSpan) * 100);
-  
-  const isHigh = val > max;
-  const isLow = val < min;
-  
-  // Pin val to 0-100%
-  let markerPct = ((val - visualMin) / visualSpan) * 100;
-  if (markerPct < 0) markerPct = 0;
-  if (markerPct > 100) markerPct = 100;
+const ActionRequiredTrend = ({ data, color }: { data: any[], color: string }) => {
+  if (!data || data.length < 2) return null;
 
-  let highlightColor: string = Colors.success;
-  let highlightBgColor: string = Colors.successLight;
-  if (isHigh) {
-    highlightColor = Colors.error;
-    highlightBgColor = Colors.errorLight;
-  } else if (isLow) {
-    highlightColor = Colors.warning;
-    highlightBgColor = Colors.warningLight;
-  }
+  // Prepare data for Victory: sort by date and map to { x, y }
+  const chartData = data
+    .map(d => ({
+      x: new Date(d.report_date).getTime(),
+      y: parseFloat(d.value)
+    }))
+    .sort((a, b) => a.x - b.x);
 
   return (
-    <View style={{ marginVertical: Sizes.sm }}>
-      <View style={styles.rangeBarTrack}>
-        <View style={[styles.rangeSegment, { left: 0, width: `${normalStartPct}%`, backgroundColor: isLow ? Colors.warning : Colors.gray300 }]} />
-        <View style={[styles.rangeSegment, { left: `${normalStartPct}%`, width: `${normalWidthPct}%`, backgroundColor: Colors.success }]} />
-        <View style={[styles.rangeSegment, { left: `${normalStartPct + normalWidthPct}%`, width: `${100 - (normalStartPct + normalWidthPct)}%`, backgroundColor: isHigh ? Colors.error : Colors.gray300 }]} />
-        
-        {/* Marker */}
-        <View style={[styles.rangeMarker, { left: `${markerPct}%` }]} />
-      </View>
-      
-      <View style={styles.rangeLabelsContainer}>
-        <Text style={styles.rangeLabelText}>{isNaN(visualMin) ? 0 : Math.round(visualMin)}</Text>
-        <Text style={styles.rangeNormalLabelText}>Normal ( {min} - {max} )</Text>
-        <Text style={styles.rangeLabelText}>{isNaN(visualMax) ? 0 : Math.round(visualMax)}+</Text>
-      </View>
+    <View style={styles.trendContainer}>
+      <VictoryChart
+        height={80}
+        padding={{ top: 10, bottom: 20, left: 0, right: 0 }}
+        width={300}
+      >
+        <VictoryAxis style={{ axis: { stroke: "none" }, tickLabels: { fill: "none" } }} />
+        <VictoryArea
+          data={chartData}
+          interpolation="monotoneX"
+          style={{
+            data: {
+              fill: color,
+              fillOpacity: 0.1,
+              stroke: color,
+              strokeWidth: 2
+            }
+          }}
+        />
+      </VictoryChart>
     </View>
   );
 };
 
-const BiomarkerCard = ({ test, expanded, onToggle, pastValues }: { test: TestResult, expanded: boolean, onToggle: () => void, pastValues?: TestResult[] }) => {
+const ActionRequiredItem = ({ 
+  test, 
+  expanded, 
+  onToggle, 
+  pastTests 
+}: { 
+  test: TestResult, 
+  expanded: boolean, 
+  onToggle: () => void, 
+  pastTests?: TestResult[] 
+}) => {
   const isHigh = test.status?.toUpperCase() === 'HIGH';
   const isLow = test.status?.toUpperCase() === 'LOW';
+  const isInsufficient = test.status?.toUpperCase() === 'INSUFFICIENT' || (!isHigh && !isLow);
   
-  const bgColor = isHigh ? Colors.errorLight : (isLow ? Colors.warningLight : Colors.gray50);
-  const borderColor = isHigh ? Colors.errorLight : (isLow ? Colors.warningLight : Colors.gray100);
-  const iconColor = isHigh ? Colors.gray900 : (isLow ? Colors.gray900 : Colors.gray500);
-  const textColor = isHigh ? Colors.errorDark : (isLow ? Colors.warningDark : Colors.textPrimary);
-  const message = isHigh ? "Elevated risk levels detected" : (isLow ? "Insufficient levels detected" : "Levels need review");
-  // Simple insight generation based on status
-  let description = "Your levels are outside the optimal range. Please consult your physician.";
-  if (isHigh) {
-    description = `Your ${test.test_name} level is higher than the recommended range of ${test.ref_max}. High levels may be linked to specific health risks.`;
-  } else if (isLow) {
-    description = `Your ${test.test_name} level is lower than the recommended range of ${test.ref_min}. Low levels can impact overall well-being.`;
-  }
+  const statusColor = (isHigh || isLow) ? Colors.error : Colors.warning;
+  const statusLabel = test.status?.toUpperCase() || 'REVIEW';
+
+  const allData = pastTests ? [test, ...pastTests] : [test];
 
   return (
-    <Animated.View layout={LinearTransition.duration(200)} style={[styles.biomarkerCard, { backgroundColor: bgColor, borderColor }]}>
-      <TouchableOpacity activeOpacity={0.8} onPress={onToggle} style={{ padding: Sizes.md }}>
-        <View style={styles.biomarkerHeader}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Sizes.xs }}>
-              <Text style={styles.biomarkerTitleText}>{test.test_name}</Text>
-              <Feather name={expanded ? "chevron-up" : "chevron-down"} size={18} color={Colors.gray400} />
-            </View>
-            <Text style={[styles.biomarkerSubtitleText, { color: iconColor }]}>{message}</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-              <Text style={styles.biomarkerValueText}>{test.value}</Text>
-              {test.unit && <Text style={styles.biomarkerUnitText}>{test.unit}</Text>}
-            </View>
+    <View style={styles.actionItemContainer}>
+      <TouchableOpacity 
+        activeOpacity={0.7} 
+        onPress={onToggle}
+        style={styles.actionItemHeader}
+      >
+        <View style={styles.actionItemLeft}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <View>
+            <Text style={styles.actionItemName}>{test.test_name}</Text>
+            {(test.ref_min !== null || test.ref_max !== null) && (
+              <Text style={styles.actionItemRef}>
+                Ref: {test.ref_min !== null ? (test.ref_max !== null ? `${test.ref_min} - ${test.ref_max}` : `> ${test.ref_min}`) : `< ${test.ref_max}`} {test.unit}
+              </Text>
+            )}
           </View>
         </View>
-
-        <RangeVisualization test={test} />
-
-        {expanded && (
-          <Animated.View entering={FadeIn} exiting={FadeOut}>
-            <View style={[styles.insightBox, { borderColor: borderColor }]}>
-              <Text style={styles.insightText}>{description}</Text>
-            </View>
-            
-            {pastValues && pastValues.length > 0 && (
-              <View style={[styles.pastValuesContainer, { borderTopColor: borderColor }]}>
-                <Text style={styles.pastValuesTitle}>PAST VALUES</Text>
-                <View style={{ gap: Sizes.sm }}>
-                  {pastValues.slice(0, 3).map((pastTest) => (
-                    <View key={pastTest.id} style={styles.pastValueRow}>
-                      <Text style={styles.pastValueDateText}>
-                        {new Date(pastTest.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
-                      </Text>
-                      <Text style={styles.pastValueNumText}>
-                        {pastTest.value} {pastTest.unit}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-          </Animated.View>
-        )}
+        <View style={styles.actionItemRight}>
+          <View style={{ alignItems: 'flex-end', marginRight: Sizes.sm }}>
+            <Text style={[styles.actionItemValue, { color: statusColor }]}>{test.value}</Text>
+            <Text style={[styles.actionItemStatus, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
+          <Feather name={expanded ? "chevron-up" : "chevron-down"} size={20} color={Colors.gray400} />
+        </View>
       </TouchableOpacity>
+
+      {expanded && (
+        <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.actionItemExpanded}>
+          {pastTests && pastTests.length > 0 && (
+            <View style={styles.expandedContentRow}>
+              <View style={styles.pastValuesList}>
+                {pastTests.slice(0, 2).map((past, idx) => (
+                  <View key={past.id} style={styles.pastValueItem}>
+                    <Text style={styles.pastValueDate}>
+                      {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                    </Text>
+                    <Text style={styles.pastValueText}>{past.value} {past.unit}</Text>
+                  </View>
+                ))}
+              </View>
+              <ActionRequiredTrend data={allData} color={statusColor} />
+            </View>
+          )}
+          {!pastTests?.length && (
+            <Text style={styles.noPastDataText}>No previous data available for trend</Text>
+          )}
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
+const ActionRequiredSection = ({ 
+  tests, 
+  expandedCards, 
+  onToggleExpand, 
+  pastValues 
+}: { 
+  tests: TestResult[], 
+  expandedCards: Set<string>, 
+  onToggleExpand: (id: string) => void,
+  pastValues: Record<string, TestResult[]>
+}) => {
+  return (
+    <Animated.View layout={LinearTransition.duration(300)} style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Action Required</Text>
+        <View style={styles.highPriorityBadge}>
+          <Text style={styles.highPriorityText}>{tests.length} PRIORITY</Text>
+        </View>
+      </View>
+      
+      <View style={styles.actionRequiredCard}>
+        {tests.map((test, index) => (
+          <View key={test.id}>
+            <ActionRequiredItem 
+              test={test} 
+              expanded={expandedCards.has(test.id)}
+              onToggle={() => onToggleExpand(test.id)}
+              pastTests={test.biomarker_id ? pastValues[test.biomarker_id] : []}
+            />
+            {index < tests.length - 1 && <View style={styles.divider} />}
+          </View>
+        ))}
+      </View>
     </Animated.View>
   );
 };
@@ -638,125 +650,112 @@ const styles = StyleSheet.create({
     fontSize: Typography.tiny,
     color: Colors.successDark,
   },
-  
-  // Biomarker Card
-  biomarkerCard: {
+
+  // Action Required
+  actionRequiredCard: {
+    backgroundColor: Colors.white,
     borderRadius: Sizes.radiusLg,
     borderWidth: 1,
+    borderColor: Colors.borderLight,
+    paddingHorizontal: Sizes.md,
     ...Platform.select({
-      ios: { boxShadow: "0 2px 6px rgba(0, 0, 0, 0.04)" },
-      android: { elevation: 2 }
+      ios: { boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)" },
+      android: { elevation: 3 }
     })
   },
-  biomarkerHeader: {
+  divider: {
+    height: 1,
+    backgroundColor: Colors.gray100,
+  },
+  actionItemContainer: {
+    backgroundColor: Colors.white,
+  },
+  actionItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Sizes.sm,
+    alignItems: 'center',
+    paddingVertical: Sizes.md,
   },
-  biomarkerTitleText: {
+  actionItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: Sizes.sm,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  actionItemName: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: Typography.bodyLarge,
+    fontSize: Typography.body,
     color: Colors.textPrimary,
   },
-  biomarkerSubtitleText: {
+  actionItemRef: {
     fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: Typography.small,
+    fontSize: 12,
+    color: Colors.textTertiary,
     marginTop: 2,
   },
-  biomarkerValueText: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: Typography.h3,
-    color: Colors.gray900,
-  },
-  biomarkerUnitText: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: Typography.small,
-    color: Colors.gray600,
-    marginLeft: 4,
-  },
-  
-  // Range Bar
-  rangeBarTrack: {
-    height: 8,
-    backgroundColor: Colors.gray200,
-    borderRadius: Sizes.radiusFull,
+  actionItemRight: {
     flexDirection: 'row',
-    position: 'relative',
-    overflow: 'hidden',
-    marginTop: Sizes.xs,
-  },
-  rangeSegment: {
-    position: 'absolute',
-    height: '100%',
-  },
-  rangeMarker: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: Colors.gray900,
-    zIndex: 10,
-    marginLeft: -2,
-    borderRadius: 2,
-  },
-  rangeLabelsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
   },
-  rangeLabelText: {
-    fontFamily: 'PlusJakartaSans-Medium',
+  actionItemValue: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: Typography.h4,
+  },
+  actionItemStatus: {
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 10,
-    color: Colors.gray600,
+    marginTop: -2,
   },
-  rangeNormalLabelText: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 10,
-    color: Colors.gray700,
+  actionItemExpanded: {
+    paddingBottom: Sizes.md,
   },
-  
-  // Card Expanded Content
-  insightBox: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    padding: Sizes.md,
+  expandedContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.bgSecondary,
     borderRadius: Sizes.radiusMd,
-    borderWidth: 1,
-    marginTop: Sizes.md,
+    padding: Sizes.md,
   },
-  insightText: {
-    fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: Typography.small,
-    color: Colors.gray600,
-    lineHeight: 18,
+  pastValuesList: {
+    flex: 1,
+    gap: Sizes.xs,
   },
-  pastValuesContainer: {
-    marginTop: Sizes.md,
-    borderTopWidth: 1,
-    paddingTop: Sizes.md,
-  },
-  pastValuesTitle: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 10,
-    color: Colors.gray500,
-    letterSpacing: 1,
-    marginBottom: Sizes.sm,
-  },
-  pastValueRow: {
+  pastValueItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingRight: Sizes.md,
   },
-  pastValueDateText: {
+  pastValueDate: {
     fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: Typography.small,
+    fontSize: 11,
     color: Colors.textSecondary,
   },
-  pastValueNumText: {
+  pastValueText: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: Typography.small,
+    fontSize: 11,
     color: Colors.textPrimary,
+  },
+  trendContainer: {
+    width: 150,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  noPastDataText: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    padding: Sizes.sm,
   },
   
   // Optimal Results
@@ -775,6 +774,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: Sizes.md,
   },
   optimalDot: {
     width: 8,
@@ -784,28 +784,24 @@ const styles = StyleSheet.create({
   },
   optimalTitleText: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: Typography.bodySmall,
+    fontSize: Typography.body,
     color: Colors.textPrimary,
   },
   optimalRangeText: {
     fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 10,
+    fontSize: 12,
     color: Colors.textTertiary,
     marginTop: 2,
   },
   optimalValueText: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: Typography.bodySmall,
+    fontSize: Typography.body,
     color: Colors.textPrimary,
   },
   optimalStatusText: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 10,
-    color: Colors.textTertiary,
+    fontSize: 11,
+    color: Colors.success,
+    marginTop: -2,
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginVertical: Sizes.md,
-  }
 });
