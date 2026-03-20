@@ -203,15 +203,6 @@ export default function LabReportScreen() {
         />
 
         <Animated.View layout={LinearTransition.duration(300)} style={styles.headerSection}>
-          {reportData.actionRequired.length > 0 && (
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: Sizes.sm }}>
-              <View style={styles.attentionBadge}>
-                <View style={styles.attentionBadgeDot} />
-                <Text style={styles.attentionBadgeText}>{reportData.actionRequired.length} items need attention</Text>
-              </View>
-            </View>
-          )}
-
           {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Feather name="search" size={16} color={Colors.gray400} style={styles.searchIcon} />
@@ -550,26 +541,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.bodySmall,
     color: Colors.textSecondary,
     marginTop: 2,
-  },
-  attentionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.errorLight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Sizes.radiusFull,
-    gap: 6,
-  },
-  attentionBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.error,
-  },
-  attentionBadgeText: {
-    fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: Typography.small,
-    color: Colors.errorDark,
   },
   
   emptyStateContainer: {
