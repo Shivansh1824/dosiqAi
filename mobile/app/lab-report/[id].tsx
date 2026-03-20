@@ -258,7 +258,11 @@ export default function LabReportScreen() {
             <View style={styles.optimalResultsCard}>
               {filteredOptimalResults.map((test, index) => (
                 <View key={test.id}>
-                  <OptimalResultRow test={test} />
+                  <OptimalResultRow 
+                    test={test} 
+                    expanded={expandedCards.has(test.id)}
+                    onToggle={() => toggleExpand(test.id)}
+                  />
                   {index < filteredOptimalResults.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
@@ -386,8 +390,18 @@ const ActionRequiredItem = ({
 
       {expanded && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.actionItemExpanded}>
+          {test.biomarker?.test_results && (
+            <View style={styles.biomarkerInfoContainer}>
+              <View style={styles.biomarkerInfoHeader}>
+                <Feather name="info" size={14} color={Colors.primary} />
+                <Text style={styles.biomarkerInfoTitle}>What this test means</Text>
+              </View>
+              <Text style={styles.biomarkerDescription}>{test.biomarker.test_results}</Text>
+            </View>
+          )}
+
           {pastTests && pastTests.length > 0 && (
-            <View style={styles.expandedContentRow}>
+            <View style={[styles.expandedContentRow, { marginTop: test.biomarker?.test_results ? Sizes.md : 0 }]}>
               <View style={styles.pastValuesList}>
                 {pastTests.slice(0, 2).map((past, idx) => (
                   <View key={past.id} style={styles.pastValueItem}>
@@ -401,8 +415,8 @@ const ActionRequiredItem = ({
               <ActionRequiredTrend data={allData} color={statusColor} />
             </View>
           )}
-          {!pastTests?.length && (
-            <Text style={styles.noPastDataText}>No previous data available for trend</Text>
+          {!pastTests?.length && !test.biomarker?.test_results && (
+            <Text style={styles.noPastDataText}>No previous data or analysis available for trend</Text>
           )}
         </Animated.View>
       )}
@@ -447,24 +461,47 @@ const ActionRequiredSection = ({
   );
 };
 
-const OptimalResultRow = ({ test }: { test: TestResult }) => {
+const OptimalResultRow = ({ test, expanded, onToggle }: { test: TestResult, expanded: boolean, onToggle: () => void }) => {
+  const hasInfo = !!test.biomarker?.test_results;
+
   return (
-    <View style={styles.optimalRow}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Sizes.sm }}>
-        <View style={styles.optimalDot} />
-        <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={styles.optimalTitleText}>{test.test_name}</Text>
+    <View style={styles.optimalRowContainer}>
+      <TouchableOpacity 
+        activeOpacity={hasInfo ? 0.7 : 1} 
+        onPress={hasInfo ? onToggle : undefined}
+        style={styles.optimalRowHeader}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Sizes.sm, flex: 1 }}>
+          <View style={styles.optimalDot} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.optimalTitleText}>{test.test_name}</Text>
+              {hasInfo && (
+                <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
+              )}
+            </View>
+            {(test.ref_min !== null || test.ref_max !== null) && (
+              <Text style={styles.optimalRangeText}>Range: {test.ref_min} - {test.ref_max} {test.unit}</Text>
+            )}
           </View>
-          {(test.ref_min !== null || test.ref_max !== null) && (
-            <Text style={styles.optimalRangeText}>Range: {test.ref_min} - {test.ref_max} {test.unit}</Text>
-          )}
         </View>
-      </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={styles.optimalValueText}>{test.value}</Text>
-        <Text style={styles.optimalStatusText}>NORMAL</Text>
-      </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.optimalValueText}>{test.value}</Text>
+          <Text style={styles.optimalStatusText}>NORMAL</Text>
+        </View>
+      </TouchableOpacity>
+
+      {expanded && hasInfo && (
+        <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.optimalExpandedContent}>
+          <View style={styles.biomarkerInfoContainer}>
+            <View style={styles.biomarkerInfoHeader}>
+              <Feather name="info" size={14} color={Colors.primary} />
+              <Text style={styles.biomarkerInfoTitle}>What this test means</Text>
+            </View>
+            <Text style={styles.biomarkerDescription}>{test.biomarker?.test_results}</Text>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 };
@@ -735,17 +772,23 @@ const styles = StyleSheet.create({
     borderRadius: Sizes.radiusLg,
     borderWidth: 1,
     borderColor: Colors.borderLight,
-    padding: Sizes.md,
+    paddingHorizontal: Sizes.md, // Changed from padding to paddingHorizontal for full-width rows
     ...Platform.select({
       ios: { boxShadow: "0 2px 6px rgba(0, 0, 0, 0.04)" },
       android: { elevation: 2 }
     })
   },
-  optimalRow: {
+  optimalRowContainer: {
+    backgroundColor: Colors.white,
+  },
+  optimalRowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: Sizes.md,
+  },
+  optimalExpandedContent: {
+    paddingBottom: Sizes.md,
   },
   optimalDot: {
     width: 8,
@@ -774,5 +817,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.success,
     marginTop: -2,
+  },
+
+  // Biomarker Info
+  biomarkerInfoContainer: {
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: Sizes.radiusMd,
+    padding: Sizes.md,
+    gap: Sizes.xs,
+  },
+  biomarkerInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  biomarkerInfoTitle: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 12,
+    color: Colors.primary,
+  },
+  biomarkerDescription: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
   },
 });

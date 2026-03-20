@@ -16,6 +16,9 @@ export interface TestResult {
   ref_type: string | null;
   status: string | null; // e.g., 'NORMAL', 'HIGH', 'LOW'
   biomarker_id: string | null;
+  biomarker?: {
+    test_results: string | null;
+  } | null;
 }
 
 export type GroupedTestResults = {
@@ -50,7 +53,37 @@ export function useLabReport(documentId?: string) {
 
       if (resultsError) throw new Error(resultsError.message);
 
-      const results: TestResult[] = resultsData || [];
+      const resultsDataArray = resultsData || [];
+      
+      let results: TestResult[] = resultsDataArray.map((r: any) => ({
+        ...r,
+        biomarker: null
+      }));
+
+      // Fetch biomarker info separately since join might not be supported
+      const currentBiomarkerIds = results
+        .map(r => r.biomarker_id)
+        .filter((id): id is string => !!id);
+
+      if (currentBiomarkerIds.length > 0) {
+        const { data: biomarkerData, error: biomarkerError } = await api.from('biomarkers_mastertable')
+          .select('biomarker_id, description, interpretation_normal')
+          .in('biomarker_id', Array.from(new Set(currentBiomarkerIds)));
+
+        if (!biomarkerError && biomarkerData) {
+          const biomarkerMap: Record<string, { test_results: string | null }> = {};
+          biomarkerData.forEach((b: any) => {
+            biomarkerMap[b.biomarker_id] = { 
+              test_results: b.description || b.interpretation_normal 
+            };
+          });
+
+          results = results.map(r => ({
+            ...r,
+            biomarker: r.biomarker_id ? biomarkerMap[r.biomarker_id] : null
+          }));
+        }
+      }
       
       const actionRequired = results.filter(r => r.status && r.status.toUpperCase() !== 'NORMAL');
       const optimalResults = results.filter(r => !r.status || r.status.toUpperCase() === 'NORMAL');
