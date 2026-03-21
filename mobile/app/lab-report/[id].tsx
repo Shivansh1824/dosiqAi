@@ -361,17 +361,24 @@ const ActionRequiredItem = ({
 
   const allData = pastTests ? [test, ...pastTests] : [test];
 
+  const isBiomarker = !!test.biomarker_id;
+
   return (
     <View style={styles.actionItemContainer}>
       <TouchableOpacity 
-        activeOpacity={0.7} 
-        onPress={onToggle}
+        activeOpacity={isBiomarker ? 0.7 : 1} 
+        onPress={isBiomarker ? onToggle : undefined}
         style={styles.actionItemHeader}
       >
         <View style={styles.actionItemLeft}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <View>
-            <Text style={styles.actionItemName}>{test.test_name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.actionItemName}>{test.test_name}</Text>
+              {isBiomarker && (
+                <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
+              )}
+            </View>
             {(test.ref_min !== null || test.ref_max !== null) && (
               <Text style={styles.actionItemRef}>
                 Ref: {test.ref_min !== null ? (test.ref_max !== null ? `${test.ref_min} - ${test.ref_max}` : `> ${test.ref_min}`) : `< ${test.ref_max}`} {test.unit}
@@ -384,7 +391,6 @@ const ActionRequiredItem = ({
             <Text style={[styles.actionItemValue, { color: statusColor }]}>{test.value}</Text>
             <Text style={[styles.actionItemStatus, { color: statusColor }]}>{statusLabel}</Text>
           </View>
-          <Feather name={expanded ? "chevron-up" : "chevron-down"} size={20} color={Colors.gray400} />
         </View>
       </TouchableOpacity>
 
