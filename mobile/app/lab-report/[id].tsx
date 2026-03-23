@@ -14,6 +14,7 @@ import LoadingOverlay from '../../src/components/LoadingOverlay';
 import ShareModal from '../../src/components/ShareModal';
 import DocumentOptionsModal from '../../src/components/DocumentOptionsModal';
 import { Colors, Sizes, Typography } from '../../src/constants';
+import { BiomarkerTrendChart } from '../../src/components';
 import { StatusBar } from 'expo-status-bar';
 import { DocumentPreviewCard } from '../../src/components/prescription/DocumentPreviewCard';
 import FullScreenImageModal from '../../src/components/FullScreenImageModal';
@@ -365,16 +366,19 @@ const ActionRequiredItem = ({
           )}
 
           {pastTests && pastTests.length > 0 && (
-            <View style={[styles.pastValuesList, { marginTop: test.biomarker?.test_results ? Sizes.md : 0 }]}>
-              {pastTests.slice(0, 2).map((past) => (
-                <View key={past.id} style={styles.pastValueItem}>
-                  <Text style={styles.pastValueDate}>
-                    {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
-                  </Text>
-                  <Text style={styles.pastValueText}>{past.value} {past.unit}</Text>
-                </View>
-              ))}
-            </View>
+            <>
+              <BiomarkerTrendChart currentTest={test} pastTests={pastTests} />
+              <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
+                {pastTests.slice(0, 5).map((past) => (
+                  <View key={past.id} style={styles.pastValueItem}>
+                    <Text style={styles.pastValueDate}>
+                      {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                    </Text>
+                    <Text style={styles.pastValueText}>{past.value} {past.unit}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
           )}
           {!pastTests?.length && !test.biomarker?.test_results && (
             <Text style={styles.noPastDataText}>No previous data or analysis available for trend</Text>
