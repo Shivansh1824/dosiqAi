@@ -398,10 +398,6 @@ const ActionRequiredItem = ({
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.actionItemExpanded}>
           {test.biomarker?.test_results && (
             <View style={styles.biomarkerInfoContainer}>
-              <View style={styles.biomarkerInfoHeader}>
-                <Feather name="info" size={14} color={Colors.primary} />
-                <Text style={styles.biomarkerInfoTitle}>What this test means</Text>
-              </View>
               <Text style={styles.biomarkerDescription}>{test.biomarker.test_results}</Text>
             </View>
           )}
@@ -500,10 +496,6 @@ const OptimalResultRow = ({ test, expanded, onToggle }: { test: TestResult, expa
       {expanded && hasInfo && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.optimalExpandedContent}>
           <View style={styles.biomarkerInfoContainer}>
-            <View style={styles.biomarkerInfoHeader}>
-              <Feather name="info" size={14} color={Colors.primary} />
-              <Text style={styles.biomarkerInfoTitle}>What this test means</Text>
-            </View>
             <Text style={styles.biomarkerDescription}>{test.biomarker?.test_results}</Text>
           </View>
         </Animated.View>
@@ -830,17 +822,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgSecondary,
     borderRadius: Sizes.radiusMd,
     padding: Sizes.md,
-    gap: Sizes.xs,
-  },
-  biomarkerInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  biomarkerInfoTitle: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 12,
-    color: Colors.primary,
   },
   biomarkerDescription: {
     fontFamily: 'PlusJakartaSans-Medium',
