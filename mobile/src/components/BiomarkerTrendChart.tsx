@@ -40,6 +40,10 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
   const chartWidth = SCREEN_WIDTH - (Sizes.lg * 4); // Adjusted for card padding
   const chartHeight = 120;
 
+  // Parse reference values as numbers
+  const refMin = currentTest.ref_min !== null ? parseFloat(String(currentTest.ref_min)) : null;
+  const refMax = currentTest.ref_max !== null ? parseFloat(String(currentTest.ref_max)) : null;
+
   return (
     <View style={styles.container}>
       <Svg style={{ height: 0, width: 0 }}>
@@ -85,6 +89,38 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
             tickLabels: { fill: "transparent" }
           }}
         />
+
+        {/* Reference Lines */}
+        {refMin !== null && !isNaN(refMin) && (
+          <VictoryLine
+            data={[
+              { x: allDataPoints[0].x, y: refMin },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMin }
+            ]}
+            style={{
+              data: { 
+                stroke: Colors.gray300, 
+                strokeWidth: 1, 
+                strokeDasharray: "4, 4" 
+              }
+            } as any}
+          />
+        )}
+        {refMax !== null && !isNaN(refMax) && (
+          <VictoryLine
+            data={[
+              { x: allDataPoints[0].x, y: refMax },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMax }
+            ]}
+            style={{
+              data: { 
+                stroke: Colors.gray300, 
+                strokeWidth: 1, 
+                strokeDasharray: "4, 4" 
+              }
+            } as any}
+          />
+        )}
 
         {/* Gradient Area */}
         <VictoryArea
