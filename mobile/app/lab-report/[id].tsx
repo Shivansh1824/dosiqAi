@@ -28,6 +28,24 @@ export default function LabReportScreen() {
   const { document, reportData, pastValues, isLoading, error } = useLabReport(documentId);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
+
+  React.useEffect(() => {
+    if (!isLoading && !hasAutoExpanded && (reportData.actionRequired.length > 0 || reportData.optimalResults.length > 0)) {
+      const firstActionBiomarker = reportData.actionRequired.find(t => t.biomarker_id);
+      const firstOptimalBiomarker = reportData.optimalResults.find(t => t.biomarker_id);
+      
+      if (firstActionBiomarker || firstOptimalBiomarker) {
+        setExpandedCards(prev => {
+          const next = new Set(prev);
+          if (firstActionBiomarker) next.add(firstActionBiomarker.id);
+          if (firstOptimalBiomarker) next.add(firstOptimalBiomarker.id);
+          return next;
+        });
+        setHasAutoExpanded(true);
+      }
+    }
+  }, [isLoading, reportData, hasAutoExpanded]);
 
   const handleBack = () => router.back();
 
@@ -43,14 +61,22 @@ export default function LabReportScreen() {
     });
   };
 
-  // Filter functionality
-  const filteredActionRequired = reportData.actionRequired.filter(t => 
-    t.test_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter and Sort functionality
+  const filteredActionRequired = reportData.actionRequired
+    .filter(t => t.test_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (a.biomarker_id && !b.biomarker_id) return -1;
+      if (!a.biomarker_id && b.biomarker_id) return 1;
+      return 0;
+    });
   
-  const filteredOptimalResults = reportData.optimalResults.filter(t => 
-    t.test_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredOptimalResults = reportData.optimalResults
+    .filter(t => t.test_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (a.biomarker_id && !b.biomarker_id) return -1;
+      if (!a.biomarker_id && b.biomarker_id) return 1;
+      return 0;
+    });
 
   const HeaderIcon = ({ iosName, androidName, onPress, color }: { iosName: string, androidName: any, onPress: () => void, color: string }) => (
     <TouchableOpacity onPress={onPress} hitSlop={10} activeOpacity={0.7}>
