@@ -67,21 +67,39 @@ export function useLabReport(documentId?: string) {
 
       if (currentBiomarkerIds.length > 0) {
         const { data: biomarkerData, error: biomarkerError } = await api.from('biomarkers_mastertable')
-          .select('biomarker_id, description, interpretation_normal')
+          .select('biomarker_id, description, interpretation_normal, interpretation_low, interpretation_high, interpretation_borderline, interpretation_critical, interpretation_abnormal')
           .in('biomarker_id', Array.from(new Set(currentBiomarkerIds)));
 
         if (!biomarkerError && biomarkerData) {
-          const biomarkerMap: Record<string, { test_results: string | null }> = {};
+          const biomarkerMap: Record<string, any> = {};
           biomarkerData.forEach((b: any) => {
-            biomarkerMap[b.biomarker_id] = { 
-              test_results: b.description || b.interpretation_normal 
-            };
+            biomarkerMap[b.biomarker_id] = b;
           });
 
-          results = results.map(r => ({
-            ...r,
-            biomarker: r.biomarker_id ? biomarkerMap[r.biomarker_id] : null
-          }));
+          results = results.map(r => {
+            const biomarker = r.biomarker_id ? biomarkerMap[r.biomarker_id] : null;
+            if (!biomarker) return { ...r, biomarker: null };
+
+            const status = r.status?.toLowerCase() || 'normal';
+            // Use the status to pick the right interpretation column
+            const interpretationKey = `interpretation_${status}`;
+            const interpretation = biomarker[interpretationKey];
+
+            let finalDescription = biomarker.description || '';
+            if (interpretation && interpretation.trim()) {
+              if (finalDescription) {
+                finalDescription += '\n\n';
+              }
+              finalDescription += interpretation;
+            }
+
+            return {
+              ...r,
+              biomarker: {
+                test_results: finalDescription || null
+              }
+            };
+          });
         }
       }
       
