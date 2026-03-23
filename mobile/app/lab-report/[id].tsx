@@ -380,9 +380,9 @@ const ActionRequiredSection = ({
   return (
     <Animated.View layout={LinearTransition.duration(300)} style={styles.sectionContainer}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Action Required</Text>
+        <Text style={styles.sectionTitle}>ACTION REQUIRED</Text>
         <View style={styles.highPriorityBadge}>
-          <Text style={styles.highPriorityText}>{tests.length} PRIORITY</Text>
+          <Text style={styles.highPriorityText}>{tests.length} Priority</Text>
         </View>
       </View>
       
@@ -645,6 +645,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
     color: Colors.gray400,
     letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   highPriorityBadge: {
     backgroundColor: Colors.errorLight,
