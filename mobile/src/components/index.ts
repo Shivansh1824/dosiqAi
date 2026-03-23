@@ -11,3 +11,4 @@ export { ValueProposition } from './ValueProposition';
 export { Divider } from './Divider';
 export { PhoneLoginModal } from './PhoneLoginModal';
 export { FollowUpRemindersSection } from './FollowUpRemindersSection';
+export { default as BiomarkerTrendChart } from './BiomarkerTrendChart';
