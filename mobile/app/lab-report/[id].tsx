@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { VictoryArea, VictoryChart, VictoryTheme, VictoryAxis } from 'victory-native';
 
 import { useLabReport, TestResult } from '../../src/hooks/useLabReport';
 import { useDocumentFile } from '../../src/hooks/useDocumentFile';
@@ -305,41 +304,6 @@ export default function LabReportScreen() {
 
 // Subcomponents
 
-const ActionRequiredTrend = ({ data, color }: { data: any[], color: string }) => {
-  if (!data || data.length < 2) return null;
-
-  // Prepare data for Victory: sort by date and map to { x, y }
-  const chartData = data
-    .map(d => ({
-      x: new Date(d.report_date).getTime(),
-      y: parseFloat(d.value)
-    }))
-    .sort((a, b) => a.x - b.x);
-
-  return (
-    <View style={styles.trendContainer}>
-      <VictoryChart
-        height={80}
-        padding={{ top: 10, bottom: 20, left: 0, right: 0 }}
-        width={300}
-      >
-        <VictoryAxis style={{ axis: { stroke: "none" }, tickLabels: { fill: "none" } }} />
-        <VictoryArea
-          data={chartData}
-          interpolation="monotoneX"
-          style={{
-            data: {
-              fill: color,
-              fillOpacity: 0.1,
-              stroke: color,
-              strokeWidth: 2
-            }
-          }}
-        />
-      </VictoryChart>
-    </View>
-  );
-};
 
 const ActionRequiredItem = ({ 
   test, 
@@ -358,8 +322,6 @@ const ActionRequiredItem = ({
   
   const statusColor = (isHigh || isLow) ? Colors.error : Colors.warning;
   const statusLabel = test.status?.toUpperCase() || 'REVIEW';
-
-  const allData = pastTests ? [test, ...pastTests] : [test];
 
   const isBiomarker = !!test.biomarker_id;
 
@@ -403,18 +365,15 @@ const ActionRequiredItem = ({
           )}
 
           {pastTests && pastTests.length > 0 && (
-            <View style={[styles.expandedContentRow, { marginTop: test.biomarker?.test_results ? Sizes.md : 0 }]}>
-              <View style={styles.pastValuesList}>
-                {pastTests.slice(0, 2).map((past, idx) => (
-                  <View key={past.id} style={styles.pastValueItem}>
-                    <Text style={styles.pastValueDate}>
-                      {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
-                    </Text>
-                    <Text style={styles.pastValueText}>{past.value} {past.unit}</Text>
-                  </View>
-                ))}
-              </View>
-              <ActionRequiredTrend data={allData} color={statusColor} />
+            <View style={[styles.pastValuesList, { marginTop: test.biomarker?.test_results ? Sizes.md : 0 }]}>
+              {pastTests.slice(0, 2).map((past) => (
+                <View key={past.id} style={styles.pastValueItem}>
+                  <Text style={styles.pastValueDate}>
+                    {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                  </Text>
+                  <Text style={styles.pastValueText}>{past.value} {past.unit}</Text>
+                </View>
+              ))}
             </View>
           )}
           {!pastTests?.length && !test.biomarker?.test_results && (
@@ -720,41 +679,30 @@ const styles = StyleSheet.create({
   actionItemExpanded: {
     paddingBottom: Sizes.md,
   },
-  expandedContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pastValuesList: {
+    gap: Sizes.xs,
     backgroundColor: Colors.bgSecondary,
     borderRadius: Sizes.radiusMd,
     padding: Sizes.md,
-  },
-  pastValuesList: {
-    flex: 1,
-    gap: Sizes.xs,
   },
   pastValueItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingRight: Sizes.md,
+    width: '100%',
   },
   pastValueDate: {
     fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 11,
     color: Colors.textSecondary,
+    flex: 1,
   },
   pastValueText: {
     fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 11,
     color: Colors.textPrimary,
   },
-  trendContainer: {
-    width: 150,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
+
   noPastDataText: {
     fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 12,
