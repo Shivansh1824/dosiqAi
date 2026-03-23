@@ -365,18 +365,51 @@ const ActionRequiredItem = ({
             </View>
           )}
 
-          {pastTests && pastTests.length > 0 && (
+          {(pastTests && pastTests.length > 0) ? (
             <>
               <BiomarkerTrendChart currentTest={test} pastTests={pastTests} />
               <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
-                {pastTests.slice(0, 5).map((past) => (
-                  <View key={past.id} style={styles.pastValueItem}>
-                    <Text style={styles.pastValueDate}>
-                      {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                {[test, ...pastTests]
+                  .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
+                  .slice(0, 6)
+                  .map((past) => {
+                    const isCurrent = past.id === test.id;
+                    return (
+                      <View 
+                        key={past.id} 
+                        style={[
+                          styles.pastValueItem, 
+                          isCurrent && styles.currentPastValueItem
+                        ]}
+                      >
+                        <View style={styles.pastValueLeft}>
+                          {isCurrent && <View style={styles.currentIndicator} />}
+                          <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]}>
+                            {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                          </Text>
+                        </View>
+                        <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]}>
+                          {past.value} {past.unit}
+                        </Text>
+                      </View>
+                    );
+                  })}
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.pastValuesList}>
+                <View style={[styles.pastValueItem, styles.currentPastValueItem]}>
+                  <View style={styles.pastValueLeft}>
+                    <View style={styles.currentIndicator} />
+                    <Text style={[styles.pastValueDate, styles.currentPastValueText]}>
+                      {new Date(test.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
                     </Text>
-                    <Text style={styles.pastValueText}>{past.value} {past.unit}</Text>
                   </View>
-                ))}
+                  <Text style={[styles.pastValueText, styles.currentPastValueText]}>
+                    {test.value} {test.unit}
+                  </Text>
+                </View>
               </View>
             </>
           )}
@@ -714,6 +747,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     padding: Sizes.sm,
+  },
+  currentPastValueItem: {
+    backgroundColor: Colors.white,
+    borderRadius: Sizes.radiusSm,
+    paddingHorizontal: Sizes.md,
+    paddingVertical: 2,
+    marginHorizontal: -Sizes.md,
+  },
+  pastValueLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  currentIndicator: {
+    width: 3,
+    height: 14,
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+    position: 'absolute',
+    left: -12,
+  },
+  currentPastValueText: {
+    color: Colors.primary,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   
   // Optimal Results
