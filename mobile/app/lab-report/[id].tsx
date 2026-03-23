@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -94,7 +94,6 @@ export default function LabReportScreen() {
     setShowShareModal,
     showOptionsModal,
     setShowOptionsModal,
-    isDeleting,
     confirmDelete,
     handleShare,
     handleShareDocument,
@@ -136,16 +135,6 @@ export default function LabReportScreen() {
       ? new Date(document.ai_analysis_result.visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : document?.ai_analyzed_at ? new Date(document.ai_analyzed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown Date';
 
-  const HeaderTitle = () => (
-    <View style={{ gap: 2, alignItems: 'center' }}>
-      <Text numberOfLines={1} style={{ fontSize: 16, fontFamily: 'PlusJakartaSans-Bold', color: Colors.textPrimary }}>
-        {patientName}
-      </Text>
-      <Text numberOfLines={1} style={{ fontSize: 12, fontFamily: 'PlusJakartaSans-Medium', color: Colors.textSecondary }}>
-        {reportDate}
-      </Text>
-    </View>
-  );
 
   const isAnalyzing = document?.ai_analysis_status === 'processing' || document?.ai_analysis_status === 'pending';
   const isEmpty = reportData.actionRequired.length === 0 && reportData.optimalResults.length === 0;
@@ -158,7 +147,7 @@ export default function LabReportScreen() {
           headerShown: true,
           headerTransparent: true,
           headerBlurEffect: 'systemUltraThinMaterial',
-          headerTitle: () => <HeaderTitle />,
+          headerTitle: () => <HeaderTitle patientName={patientName} reportDate={reportDate} />,
           headerTitleAlign: 'center',
           headerLeft: () => <HeaderLeft />,
           headerRight: () => (
@@ -305,6 +294,17 @@ export default function LabReportScreen() {
 }
 
 // Subcomponents
+
+const HeaderTitle = ({ patientName, reportDate }: { patientName: string, reportDate: string }) => (
+  <View style={{ gap: 2, alignItems: 'center' }}>
+    <Text numberOfLines={1} style={{ fontSize: 16, fontFamily: 'PlusJakartaSans-Bold', color: Colors.textPrimary }}>
+      {patientName}
+    </Text>
+    <Text numberOfLines={1} style={{ fontSize: 12, fontFamily: 'PlusJakartaSans-Medium', color: Colors.textSecondary }}>
+      {reportDate}
+    </Text>
+  </View>
+);
 
 
 const ActionRequiredItem = ({ 
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
     borderRadius: Sizes.radiusLg,
     borderWidth: 1,
     borderColor: Colors.borderLight,
-    paddingHorizontal: Sizes.md, // Changed from padding to paddingHorizontal for full-width rows
+    paddingHorizontal: Sizes.md,
     ...Platform.select({
       ios: { boxShadow: "0 2px 6px rgba(0, 0, 0, 0.04)" },
       android: { elevation: 2 }

@@ -53,9 +53,7 @@ export function useLabReport(documentId?: string) {
 
       if (resultsError) throw new Error(resultsError.message);
 
-      const resultsDataArray = resultsData || [];
-      
-      let results: TestResult[] = resultsDataArray.map((r: any) => ({
+      let results: TestResult[] = (resultsData || []).map((r: any) => ({
         ...r,
         biomarker: null
       }));
