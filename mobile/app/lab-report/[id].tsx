@@ -262,6 +262,7 @@ export default function LabReportScreen() {
                     test={test} 
                     expanded={expandedCards.has(test.id)}
                     onToggle={() => toggleExpand(test.id)}
+                    pastTests={test.biomarker_id ? pastValues[test.biomarker_id] : []}
                   />
                   {index < filteredOptimalResults.length - 1 && <View style={styles.divider} />}
                 </View>
@@ -319,7 +320,6 @@ const ActionRequiredItem = ({
 }) => {
   const isHigh = test.status?.toUpperCase() === 'HIGH';
   const isLow = test.status?.toUpperCase() === 'LOW';
-  const isInsufficient = test.status?.toUpperCase() === 'INSUFFICIENT' || (!isHigh && !isLow);
   
   const statusColor = (isHigh || isLow) ? Colors.error : Colors.warning;
   const statusLabel = test.status?.toUpperCase() || 'REVIEW';
@@ -359,63 +359,7 @@ const ActionRequiredItem = ({
 
       {expanded && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.actionItemExpanded}>
-          {test.biomarker?.test_results && (
-            <View style={styles.biomarkerInfoContainer}>
-              <Text style={styles.biomarkerDescription}>{test.biomarker.test_results}</Text>
-            </View>
-          )}
-
-          {(pastTests && pastTests.length > 0) ? (
-            <>
-              <BiomarkerTrendChart currentTest={test} pastTests={pastTests} />
-              <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
-                {[test, ...pastTests]
-                  .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
-                  .slice(0, 6)
-                  .map((past) => {
-                    const isCurrent = past.id === test.id;
-                    return (
-                      <View 
-                        key={past.id} 
-                        style={[
-                          styles.pastValueItem, 
-                          isCurrent && styles.currentPastValueItem
-                        ]}
-                      >
-                        <View style={styles.pastValueLeft}>
-                          {isCurrent && <View style={styles.currentIndicator} />}
-                          <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]}>
-                            {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
-                          </Text>
-                        </View>
-                        <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]}>
-                          {past.value} {past.unit}
-                        </Text>
-                      </View>
-                    );
-                  })}
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.pastValuesList}>
-                <View style={[styles.pastValueItem, styles.currentPastValueItem]}>
-                  <View style={styles.pastValueLeft}>
-                    <View style={styles.currentIndicator} />
-                    <Text style={[styles.pastValueDate, styles.currentPastValueText]}>
-                      {new Date(test.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
-                    </Text>
-                  </View>
-                  <Text style={[styles.pastValueText, styles.currentPastValueText]}>
-                    {test.value} {test.unit}
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
-          {!pastTests?.length && !test.biomarker?.test_results && (
-            <Text style={styles.noPastDataText}>No previous data or analysis available for trend</Text>
-          )}
+          <BiomarkerExpandedContent test={test} pastTests={pastTests} />
         </Animated.View>
       )}
     </View>
@@ -459,14 +403,24 @@ const ActionRequiredSection = ({
   );
 };
 
-const OptimalResultRow = ({ test, expanded, onToggle }: { test: TestResult, expanded: boolean, onToggle: () => void }) => {
-  const hasInfo = !!test.biomarker?.test_results;
+const OptimalResultRow = ({ 
+  test, 
+  expanded, 
+  onToggle, 
+  pastTests 
+}: { 
+  test: TestResult, 
+  expanded: boolean, 
+  onToggle: () => void,
+  pastTests?: TestResult[]
+}) => {
+  const isBiomarker = !!test.biomarker_id;
 
   return (
     <View style={styles.optimalRowContainer}>
       <TouchableOpacity 
-        activeOpacity={hasInfo ? 0.7 : 1} 
-        onPress={hasInfo ? onToggle : undefined}
+        activeOpacity={isBiomarker ? 0.7 : 1} 
+        onPress={isBiomarker ? onToggle : undefined}
         style={styles.optimalRowHeader}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: Sizes.sm, flex: 1 }}>
@@ -474,7 +428,7 @@ const OptimalResultRow = ({ test, expanded, onToggle }: { test: TestResult, expa
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={styles.optimalTitleText}>{test.test_name}</Text>
-              {hasInfo && (
+              {isBiomarker && (
                 <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
               )}
             </View>
@@ -489,14 +443,76 @@ const OptimalResultRow = ({ test, expanded, onToggle }: { test: TestResult, expa
         </View>
       </TouchableOpacity>
 
-      {expanded && hasInfo && (
+      {expanded && isBiomarker && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.optimalExpandedContent}>
-          <View style={styles.biomarkerInfoContainer}>
-            <Text style={styles.biomarkerDescription}>{test.biomarker?.test_results}</Text>
-          </View>
+          <BiomarkerExpandedContent test={test} pastTests={pastTests} />
         </Animated.View>
       )}
     </View>
+  );
+};
+
+const BiomarkerExpandedContent = ({ test, pastTests }: { test: TestResult, pastTests?: TestResult[] }) => {
+  return (
+    <>
+      {test.biomarker?.test_results && (
+        <View style={styles.biomarkerInfoContainer}>
+          <Text style={styles.biomarkerDescription}>{test.biomarker.test_results}</Text>
+        </View>
+      )}
+
+      {(pastTests && pastTests.length > 0) ? (
+        <>
+          <BiomarkerTrendChart currentTest={test} pastTests={pastTests} />
+          <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
+            {[test, ...pastTests]
+              .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
+              .slice(0, 6)
+              .map((past) => {
+                const isCurrent = past.id === test.id;
+                return (
+                  <View 
+                    key={past.id} 
+                    style={[
+                      styles.pastValueItem, 
+                      isCurrent && styles.currentPastValueItem
+                    ]}
+                  >
+                    <View style={styles.pastValueLeft}>
+                      {isCurrent && <View style={styles.currentIndicator} />}
+                      <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]}>
+                        {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                      </Text>
+                    </View>
+                    <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]}>
+                      {past.value} {past.unit}
+                    </Text>
+                  </View>
+                );
+              })}
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={styles.pastValuesList}>
+            <View style={[styles.pastValueItem, styles.currentPastValueItem]}>
+              <View style={styles.pastValueLeft}>
+                <View style={styles.currentIndicator} />
+                <Text style={[styles.pastValueDate, styles.currentPastValueText]}>
+                  {new Date(test.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                </Text>
+              </View>
+              <Text style={[styles.pastValueText, styles.currentPastValueText]}>
+                {test.value} {test.unit}
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
+      {!pastTests?.length && !test.biomarker?.test_results && (
+        <Text style={styles.noPastDataText}>No previous data or analysis available for trend</Text>
+      )}
+    </>
   );
 };
 

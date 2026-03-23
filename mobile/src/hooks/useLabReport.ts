@@ -109,7 +109,7 @@ export function useLabReport(documentId?: string) {
       setReportData({ actionRequired, optimalResults });
 
       // Fetch past values for tests with biomarker_id
-      const biomarkerIds = actionRequired
+      const biomarkerIds = results
         .map(r => r.biomarker_id)
         .filter((id): id is string => !!id);
 
