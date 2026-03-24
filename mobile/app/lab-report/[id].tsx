@@ -27,6 +27,7 @@ export default function LabReportScreen() {
 
   const { document, reportData, pastValues, isLoading, error } = useLabReport(documentId);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
 
@@ -63,7 +64,11 @@ export default function LabReportScreen() {
 
   // Filter and Sort functionality
   const filteredActionRequired = reportData.actionRequired
-    .filter(t => t.test_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(t => {
+      const matchesSearch = t.test_name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'All' || t.biomarker?.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    })
     .sort((a, b) => {
       if (a.biomarker_id && !b.biomarker_id) return -1;
       if (!a.biomarker_id && b.biomarker_id) return 1;
@@ -71,12 +76,41 @@ export default function LabReportScreen() {
     });
   
   const filteredOptimalResults = reportData.optimalResults
-    .filter(t => t.test_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(t => {
+      const matchesSearch = t.test_name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'All' || t.biomarker?.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    })
     .sort((a, b) => {
       if (a.biomarker_id && !b.biomarker_id) return -1;
       if (!a.biomarker_id && b.biomarker_id) return 1;
       return 0;
     });
+
+  // Extract unique categories
+  const categoryCounts = React.useMemo(() => {
+    const allTests = [...reportData.actionRequired, ...reportData.optimalResults];
+    const counts: Record<string, number> = { All: allTests.length };
+    
+    allTests.forEach(t => {
+      if (t.biomarker?.category) {
+        counts[t.biomarker.category] = (counts[t.biomarker.category] || 0) + 1;
+      }
+    });
+
+    const categoriesList = ['All', ...Object.keys(counts).filter(c => c !== 'All').sort()];
+    return { categoriesList, counts };
+  }, [reportData]);
+
+  const { categoriesList, counts: countsMap } = categoryCounts;
+
+  const formatCategoryName = (category: string) => {
+    if (category === 'All') return 'All';
+    return category
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   const HeaderIcon = ({ iosName, androidName, onPress, color }: { iosName: string, androidName: any, onPress: () => void, color: string }) => (
     <TouchableOpacity onPress={onPress} hitSlop={10} activeOpacity={0.7}>
@@ -234,6 +268,34 @@ export default function LabReportScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Category Filter */}
+          {categoriesList.length > 2 && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {categoriesList.map((category) => (
+                <TouchableOpacity
+                  key={category}
+                  onPress={() => setSelectedCategory(category)}
+                  style={[
+                    styles.categoryChip,
+                    selectedCategory === category && styles.categoryChipActive
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.categoryText,
+                    selectedCategory === category && styles.categoryTextActive
+                  ]}>
+                    {formatCategoryName(category)} ({countsMap[category]})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </Animated.View>
 
         {isAnalyzing ? (
@@ -655,6 +717,33 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Regular',
     fontSize: Typography.bodySmall,
     color: Colors.textPrimary,
+  },
+  
+  // Categories
+  categoriesContainer: {
+    paddingBottom: Sizes.xs,
+    gap: Sizes.sm,
+  },
+  categoryChip: {
+    paddingHorizontal: Sizes.md,
+    paddingVertical: 8,
+    borderRadius: Sizes.radiusFull,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  categoryChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  categoryText: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  categoryTextActive: {
+    color: Colors.white,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   
   // Sections
