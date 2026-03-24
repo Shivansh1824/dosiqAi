@@ -615,7 +615,7 @@ const DietarySuggestionsBlock = ({ biomarker, testName }: { biomarker: TestResul
             onPress={() => setActiveDiet('veg')}
             activeOpacity={0.8}
           >
-            <Text style={[dietStyles.segmentLabel, activeDiet === 'veg' && dietStyles.segmentLabelActive]}>🥗 Plant-Based</Text>
+            <Text style={[dietStyles.segmentLabel, activeDiet === 'veg' && dietStyles.segmentLabelActive]}>🥦 Plant-Based</Text>
           </TouchableOpacity>
         </View>
       )}
