@@ -62,30 +62,21 @@ export default function LabReportScreen() {
     });
   };
 
-  // Filter and Sort functionality
-  const filteredActionRequired = reportData.actionRequired
-    .filter(t => {
-      const matchesSearch = t.test_name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'All' || t.biomarker?.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      if (a.biomarker_id && !b.biomarker_id) return -1;
-      if (!a.biomarker_id && b.biomarker_id) return 1;
-      return 0;
-    });
-  
-  const filteredOptimalResults = reportData.optimalResults
-    .filter(t => {
-      const matchesSearch = t.test_name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'All' || t.biomarker?.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      if (a.biomarker_id && !b.biomarker_id) return -1;
-      if (!a.biomarker_id && b.biomarker_id) return 1;
-      return 0;
-    });
+  const filterAndSort = (tests: TestResult[]) =>
+    tests
+      .filter(t => {
+        const matchesSearch = t.test_name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === 'All' || t.biomarker?.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (a.biomarker_id && !b.biomarker_id) return -1;
+        if (!a.biomarker_id && b.biomarker_id) return 1;
+        return 0;
+      });
+
+  const filteredActionRequired = filterAndSort(reportData.actionRequired);
+  const filteredOptimalResults = filterAndSort(reportData.optimalResults);
 
   // Extract unique categories
   const categoryCounts = React.useMemo(() => {
@@ -430,11 +421,7 @@ const ActionRequiredItem = ({
                 <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
               )}
             </View>
-            {(test.ref_min !== null || test.ref_max !== null) && (
-              <Text style={styles.actionItemRef}>
-                Ref: {test.ref_min !== null ? (test.ref_max !== null ? `${test.ref_min} - ${test.ref_max}` : `> ${test.ref_min}`) : `< ${test.ref_max}`} {test.unit}
-              </Text>
-            )}
+            <RefRangeText refMin={test.ref_min} refMax={test.ref_max} unit={test.unit} style={styles.actionItemRef} />
           </View>
         </View>
         <View style={styles.actionItemRight}>
@@ -520,9 +507,7 @@ const OptimalResultRow = ({
                 <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
               )}
             </View>
-            {(test.ref_min !== null || test.ref_max !== null) && (
-              <Text style={styles.optimalRangeText}>Range: {test.ref_min} - {test.ref_max} {test.unit}</Text>
-            )}
+            <RefRangeText refMin={test.ref_min} refMax={test.ref_max} unit={test.unit} style={styles.optimalRangeText} />
           </View>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
@@ -597,12 +582,196 @@ const BiomarkerExpandedContent = ({ test, pastTests }: { test: TestResult, pastT
           </View>
         </>
       )}
-      {!pastTests?.length && !test.biomarker?.test_results && (
-        <Text style={styles.noPastDataText}>No previous data or analysis available for trend</Text>
-      )}
+
+      <DietarySuggestionsBlock biomarker={test.biomarker} />
     </>
   );
 };
+
+const RefRangeText = ({ refMin, refMax, unit, style }: { refMin: number | null; refMax: number | null; unit: string | null; style: any }) => {
+  if (refMin === null && refMax === null) return null;
+  const range = refMin !== null
+    ? (refMax !== null ? `${refMin} - ${refMax}` : `> ${refMin}`)
+    : `< ${refMax}`;
+  return <Text style={style}>Ref: {range} {unit}</Text>;
+};
+
+type DietType = 'nonveg' | 'veg';
+
+const DietarySuggestionsBlock = ({ biomarker }: { biomarker: TestResult['biomarker'] }) => {
+  const [activeDiet, setActiveDiet] = useState<DietType>('nonveg');
+
+  if (!biomarker) return null;
+
+  const hasNonVeg = !!(biomarker.good_to_eat_nonveg || biomarker.bad_to_eat_nonveg);
+  const hasVeg = !!(biomarker.good_to_eat_veg || biomarker.bad_to_eat_veg);
+
+  if (!hasNonVeg && !hasVeg) return null;
+
+  const goodText = activeDiet === 'nonveg' ? biomarker.good_to_eat_nonveg : biomarker.good_to_eat_veg;
+  const badText  = activeDiet === 'nonveg' ? biomarker.bad_to_eat_nonveg  : biomarker.bad_to_eat_veg;
+
+  return (
+    <View style={dietStyles.container}>
+      {/* Header */}
+      <View style={dietStyles.header}>
+        <View style={dietStyles.headerLeft}>
+          <Text style={dietStyles.leafIcon}>🌿</Text>
+          <View>
+            <Text style={dietStyles.title}>Eat Smart</Text>
+            <Text style={dietStyles.subtitle}>Foods that help — and foods to watch out for</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Toggle */}
+      <View style={dietStyles.toggle}>
+        {hasNonVeg && (
+          <TouchableOpacity
+            style={[dietStyles.togglePill, activeDiet === 'nonveg' && dietStyles.togglePillActive]}
+            onPress={() => setActiveDiet('nonveg')}
+            activeOpacity={0.75}
+          >
+            <Text style={[dietStyles.toggleLabel, activeDiet === 'nonveg' && dietStyles.toggleLabelActive]}>🥩 Non-Veg</Text>
+          </TouchableOpacity>
+        )}
+        {hasVeg && (
+          <TouchableOpacity
+            style={[dietStyles.togglePill, activeDiet === 'veg' && dietStyles.togglePillActive]}
+            onPress={() => setActiveDiet('veg')}
+            activeOpacity={0.75}
+          >
+            <Text style={[dietStyles.toggleLabel, activeDiet === 'veg' && dietStyles.toggleLabelActive]}>🥦 Veg</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Cards */}
+      <Animated.View key={activeDiet} entering={FadeIn.duration(200)}>
+        {goodText ? (
+          <View style={dietStyles.card}>
+            <View style={dietStyles.cardIconRow}>
+              <View style={[dietStyles.cardIconBadge, { backgroundColor: Colors.successLight }]}>
+                <Text style={dietStyles.cardEmoji}>✅</Text>
+              </View>
+              <Text style={[dietStyles.cardTitle, { color: Colors.successDark }]}>Include More</Text>
+            </View>
+            <Text style={dietStyles.cardText}>{goodText}</Text>
+          </View>
+        ) : null}
+
+        {badText ? (
+          <View style={[dietStyles.card, { marginTop: Sizes.sm }]}>
+            <View style={dietStyles.cardIconRow}>
+              <View style={[dietStyles.cardIconBadge, { backgroundColor: Colors.errorLight }]}>
+                <Text style={dietStyles.cardEmoji}>⚠️</Text>
+              </View>
+              <Text style={[dietStyles.cardTitle, { color: Colors.errorDark }]}>Limit / Avoid</Text>
+            </View>
+            <Text style={dietStyles.cardText}>{badText}</Text>
+          </View>
+        ) : null}
+      </Animated.View>
+    </View>
+  );
+};
+
+const dietStyles = StyleSheet.create({
+  container: {
+    marginTop: Sizes.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    paddingTop: Sizes.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Sizes.md,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.sm,
+  },
+  leafIcon: {
+    fontSize: 22,
+  },
+  title: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: Typography.body,
+    color: Colors.textPrimary,
+  },
+  subtitle: {
+    fontFamily: 'PlusJakartaSans-Regular',
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
+  toggle: {
+    flexDirection: 'row',
+    gap: Sizes.xs,
+    marginBottom: Sizes.md,
+    backgroundColor: Colors.gray100,
+    borderRadius: Sizes.radiusFull,
+    padding: 3,
+    alignSelf: 'flex-start',
+  },
+  togglePill: {
+    paddingHorizontal: Sizes.md,
+    paddingVertical: 6,
+    borderRadius: Sizes.radiusFull,
+  },
+  togglePillActive: {
+    backgroundColor: Colors.white,
+    ...Platform.select({
+      ios: { boxShadow: '0 1px 4px rgba(0,0,0,0.10)' },
+      android: { elevation: 2 },
+    }),
+  },
+  toggleLabel: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 13,
+    color: Colors.textTertiary,
+  },
+  toggleLabelActive: {
+    color: Colors.textPrimary,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  card: {
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: Sizes.radiusMd,
+    padding: Sizes.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  cardIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Sizes.sm,
+    marginBottom: 6,
+  },
+  cardIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardEmoji: {
+    fontSize: 14,
+  },
+  cardTitle: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 13,
+  },
+  cardText: {
+    fontFamily: 'PlusJakartaSans-Regular',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+});
 
 const styles = StyleSheet.create({
   mainContainer: {
@@ -872,14 +1041,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
 
-  noPastDataText: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 12,
-    color: Colors.textTertiary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    padding: Sizes.sm,
-  },
   currentPastValueItem: {
     backgroundColor: Colors.white,
     borderRadius: Sizes.radiusSm,
