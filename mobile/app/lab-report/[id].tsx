@@ -326,11 +326,12 @@ export default function LabReportScreen() {
             <View style={styles.optimalResultsCard}>
               {filteredOptimalResults.map((test, index) => (
                 <View key={test.id}>
-                  <OptimalResultRow 
+                  <ResultRow 
                     test={test} 
                     expanded={expandedCards.has(test.id)}
                     onToggle={() => toggleExpand(test.id)}
                     pastTests={test.biomarker_id ? pastValues[test.biomarker_id] : []}
+                    type="optimal"
                   />
                   {index < filteredOptimalResults.length - 1 && <View style={styles.divider} />}
                 </View>
@@ -385,55 +386,64 @@ const HeaderTitle = ({ patientName, reportDate }: { patientName: string, reportD
   </View>
 );
 
-
-const ActionRequiredItem = ({ 
+const ResultRow = ({ 
   test, 
   expanded, 
   onToggle, 
-  pastTests 
+  pastTests,
+  type
 }: { 
   test: TestResult, 
   expanded: boolean, 
   onToggle: () => void, 
-  pastTests?: TestResult[] 
+  pastTests?: TestResult[],
+  type: 'action' | 'optimal'
 }) => {
+  const isAction = type === 'action';
   const isHigh = test.status?.toUpperCase() === 'HIGH';
   const isLow = test.status?.toUpperCase() === 'LOW';
   
-  const statusColor = (isHigh || isLow) ? Colors.error : Colors.warning;
-  const statusLabel = test.status?.toUpperCase() || 'REVIEW';
+  const statusColor = isAction ? ((isHigh || isLow) ? Colors.error : Colors.warning) : Colors.success;
+  const statusLabel = isAction ? (test.status?.toUpperCase() || 'REVIEW') : 'NORMAL';
 
   const isBiomarker = !!test.biomarker_id;
 
   return (
-    <View style={styles.actionItemContainer}>
+    <View style={isAction ? styles.actionItemContainer : styles.optimalRowContainer}>
       <TouchableOpacity 
         activeOpacity={isBiomarker ? 0.7 : 1} 
         onPress={isBiomarker ? onToggle : undefined}
-        style={styles.actionItemHeader}
+        style={isAction ? styles.actionItemHeader : styles.optimalRowHeader}
       >
-        <View style={styles.actionItemLeft}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: isAction ? 12 : Sizes.sm, flex: 1 }}>
+          <View style={isAction ? [styles.statusDot, { backgroundColor: statusColor }] : styles.optimalDot} />
+          <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={styles.actionItemName}>{test.test_name}</Text>
+              <Text style={isAction ? styles.actionItemName : styles.optimalTitleText}>{test.test_name}</Text>
               {isBiomarker && (
                 <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
               )}
             </View>
-            <RefRangeText refMin={test.ref_min} refMax={test.ref_max} unit={test.unit} style={styles.actionItemRef} />
+            <RefRangeText 
+              refMin={test.ref_min} 
+              refMax={test.ref_max} 
+              unit={test.unit} 
+              style={isAction ? styles.actionItemRef : styles.optimalRangeText} 
+            />
           </View>
         </View>
-        <View style={styles.actionItemRight}>
-          <View style={{ alignItems: 'flex-end', marginRight: Sizes.sm }}>
-            <Text style={[styles.actionItemValue, { color: statusColor }]}>{test.value}</Text>
-            <Text style={[styles.actionItemStatus, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
+        <View style={{ alignItems: 'flex-end', marginRight: isAction ? Sizes.sm : 0 }}>
+          <Text style={isAction ? [styles.actionItemValue, { color: statusColor }] : styles.optimalValueText}>{test.value}</Text>
+          <Text style={isAction ? [styles.actionItemStatus, { color: statusColor }] : styles.optimalStatusText}>{statusLabel}</Text>
         </View>
       </TouchableOpacity>
 
-      {expanded && (
-        <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.actionItemExpanded}>
+      {expanded && isBiomarker && (
+        <Animated.View 
+          entering={FadeIn} 
+          exiting={FadeOut} 
+          style={isAction ? styles.actionItemExpanded : styles.optimalExpandedContent}
+        >
           <BiomarkerExpandedContent test={test} pastTests={pastTests} />
         </Animated.View>
       )}
@@ -464,11 +474,12 @@ const ActionRequiredSection = ({
       <View style={styles.actionRequiredCard}>
         {tests.map((test, index) => (
           <View key={test.id}>
-            <ActionRequiredItem 
+            <ResultRow 
               test={test} 
               expanded={expandedCards.has(test.id)}
               onToggle={() => onToggleExpand(test.id)}
               pastTests={test.biomarker_id ? pastValues[test.biomarker_id] : []}
+              type="action"
             />
             {index < tests.length - 1 && <View style={styles.divider} />}
           </View>
@@ -478,48 +489,27 @@ const ActionRequiredSection = ({
   );
 };
 
-const OptimalResultRow = ({ 
-  test, 
-  expanded, 
-  onToggle, 
-  pastTests 
-}: { 
-  test: TestResult, 
-  expanded: boolean, 
-  onToggle: () => void,
-  pastTests?: TestResult[]
-}) => {
-  const isBiomarker = !!test.biomarker_id;
+
+
+const CollapsibleText = ({ text, style, numberOfLines = 2 }: { text: string; style: any; numberOfLines?: number }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [needsTruncation, setNeedsTruncation] = useState(false);
 
   return (
-    <View style={styles.optimalRowContainer}>
-      <TouchableOpacity 
-        activeOpacity={isBiomarker ? 0.7 : 1} 
-        onPress={isBiomarker ? onToggle : undefined}
-        style={styles.optimalRowHeader}
+    <View>
+      <Text
+        style={style}
+        numberOfLines={expanded ? undefined : numberOfLines}
+        onTextLayout={(e) => {
+          if (!expanded) setNeedsTruncation(e.nativeEvent.lines.length >= numberOfLines);
+        }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Sizes.sm, flex: 1 }}>
-          <View style={styles.optimalDot} />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={styles.optimalTitleText}>{test.test_name}</Text>
-              {isBiomarker && (
-                <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
-              )}
-            </View>
-            <RefRangeText refMin={test.ref_min} refMax={test.ref_max} unit={test.unit} style={styles.optimalRangeText} />
-          </View>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.optimalValueText}>{test.value}</Text>
-          <Text style={styles.optimalStatusText}>NORMAL</Text>
-        </View>
-      </TouchableOpacity>
-
-      {expanded && isBiomarker && (
-        <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.optimalExpandedContent}>
-          <BiomarkerExpandedContent test={test} pastTests={pastTests} />
-        </Animated.View>
+        {text}
+      </Text>
+      {(needsTruncation || expanded) && (
+        <TouchableOpacity onPress={() => setExpanded(p => !p)} hitSlop={8} activeOpacity={0.6}>
+          <Text style={styles.readMoreText}>{expanded ? 'Show less' : 'Read more'}</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -530,60 +520,41 @@ const BiomarkerExpandedContent = ({ test, pastTests }: { test: TestResult, pastT
     <>
       {test.biomarker?.test_results && (
         <View style={styles.biomarkerInfoContainer}>
-          <Text style={styles.biomarkerDescription}>{test.biomarker.test_results}</Text>
+          <CollapsibleText text={test.biomarker.test_results} style={styles.biomarkerDescription} />
         </View>
       )}
 
-      {(pastTests && pastTests.length > 0) ? (
-        <>
-          <BiomarkerTrendChart currentTest={test} pastTests={pastTests} />
-          <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
-            {[test, ...pastTests]
-              .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
-              .slice(0, 6)
-              .map((past) => {
-                const isCurrent = past.id === test.id;
-                return (
-                  <View 
-                    key={past.id} 
-                    style={[
-                      styles.pastValueItem, 
-                      isCurrent && styles.currentPastValueItem
-                    ]}
-                  >
-                    <View style={styles.pastValueLeft}>
-                      {isCurrent && <View style={styles.currentIndicator} />}
-                      <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]}>
-                        {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
-                      </Text>
-                    </View>
-                    <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]}>
-                      {past.value} {past.unit}
-                    </Text>
-                  </View>
-                );
-              })}
-          </View>
-        </>
-      ) : (
-        <>
-          <View style={styles.pastValuesList}>
-            <View style={[styles.pastValueItem, styles.currentPastValueItem]}>
-              <View style={styles.pastValueLeft}>
-                <View style={styles.currentIndicator} />
-                <Text style={[styles.pastValueDate, styles.currentPastValueText]}>
-                  {new Date(test.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+      <BiomarkerTrendChart currentTest={test} pastTests={pastTests || []} />
+      
+      <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
+        {[test, ...(pastTests || [])]
+          .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
+          .slice(0, 6)
+          .map((past) => {
+            const isCurrent = past.id === test.id;
+            return (
+              <View 
+                key={past.id} 
+                style={[
+                  styles.pastValueItem, 
+                  isCurrent && styles.currentPastValueItem
+                ]}
+              >
+                <View style={styles.pastValueLeft}>
+                  {isCurrent && <View style={styles.currentIndicator} />}
+                  <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]}>
+                    {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
+                  </Text>
+                </View>
+                <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]}>
+                  {past.value} {past.unit}
                 </Text>
               </View>
-              <Text style={[styles.pastValueText, styles.currentPastValueText]}>
-                {test.value} {test.unit}
-              </Text>
-            </View>
-          </View>
-        </>
-      )}
+            );
+          })}
+      </View>
 
-      <DietarySuggestionsBlock biomarker={test.biomarker} />
+      <DietarySuggestionsBlock biomarker={test.biomarker} testName={test.test_name} />
     </>
   );
 };
@@ -598,15 +569,14 @@ const RefRangeText = ({ refMin, refMax, unit, style }: { refMin: number | null; 
 
 type DietType = 'nonveg' | 'veg';
 
-const DietarySuggestionsBlock = ({ biomarker }: { biomarker: TestResult['biomarker'] }) => {
-  const [activeDiet, setActiveDiet] = useState<DietType>('nonveg');
+const DietarySuggestionsBlock = ({ biomarker, testName }: { biomarker: TestResult['biomarker'], testName: string }) => {
+  const hasNonVeg = !!(biomarker?.good_to_eat_nonveg || biomarker?.bad_to_eat_nonveg);
+  const hasVeg = !!(biomarker?.good_to_eat_veg || biomarker?.bad_to_eat_veg);
 
-  if (!biomarker) return null;
+  // Default to non-veg if available, otherwise veg
+  const [activeDiet, setActiveDiet] = useState<DietType>(hasNonVeg ? 'nonveg' : 'veg');
 
-  const hasNonVeg = !!(biomarker.good_to_eat_nonveg || biomarker.bad_to_eat_nonveg);
-  const hasVeg = !!(biomarker.good_to_eat_veg || biomarker.bad_to_eat_veg);
-
-  if (!hasNonVeg && !hasVeg) return null;
+  if (!biomarker || (!hasNonVeg && !hasVeg)) return null;
 
   const goodText = activeDiet === 'nonveg' ? biomarker.good_to_eat_nonveg : biomarker.good_to_eat_veg;
   const badText  = activeDiet === 'nonveg' ? biomarker.bad_to_eat_nonveg  : biomarker.bad_to_eat_veg;
@@ -616,61 +586,63 @@ const DietarySuggestionsBlock = ({ biomarker }: { biomarker: TestResult['biomark
       {/* Header */}
       <View style={dietStyles.header}>
         <View style={dietStyles.headerLeft}>
-          <Text style={dietStyles.leafIcon}>🌿</Text>
+          <View style={dietStyles.iconCircle}>
+            <Image 
+              source="sf:leaf.fill" 
+              style={{ width: 14, height: 14 }} 
+              tintColor={Colors.primary} 
+            />
+          </View>
           <View>
-            <Text style={dietStyles.title}>Eat Smart</Text>
-            <Text style={dietStyles.subtitle}>Foods that help — and foods to watch out for</Text>
+            <Text style={dietStyles.title}>Dietary Insights</Text>
+            <Text style={dietStyles.subtitle}>Based on your {testName} result</Text>
           </View>
         </View>
       </View>
 
-      {/* Toggle */}
-      <View style={dietStyles.toggle}>
-        {hasNonVeg && (
+      {/* Segmented Control */}
+      {hasNonVeg && hasVeg && (
+        <View style={dietStyles.segmentedBackground}>
           <TouchableOpacity
-            style={[dietStyles.togglePill, activeDiet === 'nonveg' && dietStyles.togglePillActive]}
+            style={[dietStyles.segment, activeDiet === 'nonveg' && dietStyles.segmentActive]}
             onPress={() => setActiveDiet('nonveg')}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
           >
-            <Text style={[dietStyles.toggleLabel, activeDiet === 'nonveg' && dietStyles.toggleLabelActive]}>🥩 Non-Veg</Text>
+            <Text style={[dietStyles.segmentLabel, activeDiet === 'nonveg' && dietStyles.segmentLabelActive]}>Meat & Dairy</Text>
           </TouchableOpacity>
-        )}
-        {hasVeg && (
           <TouchableOpacity
-            style={[dietStyles.togglePill, activeDiet === 'veg' && dietStyles.togglePillActive]}
+            style={[dietStyles.segment, activeDiet === 'veg' && dietStyles.segmentActive]}
             onPress={() => setActiveDiet('veg')}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
           >
-            <Text style={[dietStyles.toggleLabel, activeDiet === 'veg' && dietStyles.toggleLabelActive]}>🥦 Veg</Text>
+            <Text style={[dietStyles.segmentLabel, activeDiet === 'veg' && dietStyles.segmentLabelActive]}>Plant-Based</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Cards */}
-      <Animated.View key={activeDiet} entering={FadeIn.duration(200)}>
-        {goodText ? (
-          <View style={dietStyles.card}>
-            <View style={dietStyles.cardIconRow}>
-              <View style={[dietStyles.cardIconBadge, { backgroundColor: Colors.successLight }]}>
-                <Text style={dietStyles.cardEmoji}>✅</Text>
+      <Animated.View key={activeDiet} entering={FadeIn.duration(300)}>
+        <View style={dietStyles.cardsContainer}>
+          {goodText ? (
+            <View style={[dietStyles.card, { borderColor: Colors.successLight + '40', backgroundColor: Colors.successLight + '10' }]}>
+              <View style={dietStyles.cardHeader}>
+                <Image source="sf:checkmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.success} />
+                <Text style={[dietStyles.cardTitle, { color: Colors.successDark }]}>Include More</Text>
               </View>
-              <Text style={[dietStyles.cardTitle, { color: Colors.successDark }]}>Include More</Text>
+              <Text style={dietStyles.cardText}>{goodText}</Text>
             </View>
-            <Text style={dietStyles.cardText}>{goodText}</Text>
-          </View>
-        ) : null}
+          ) : null}
 
-        {badText ? (
-          <View style={[dietStyles.card, { marginTop: Sizes.sm }]}>
-            <View style={dietStyles.cardIconRow}>
-              <View style={[dietStyles.cardIconBadge, { backgroundColor: Colors.errorLight }]}>
-                <Text style={dietStyles.cardEmoji}>⚠️</Text>
+          {badText ? (
+            <View style={[dietStyles.card, { borderColor: Colors.errorLight + '40', backgroundColor: Colors.errorLight + '10', marginTop: Sizes.sm }]}>
+              <View style={dietStyles.cardHeader}>
+                <Image source="sf:exclamationmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.error} />
+                <Text style={[dietStyles.cardTitle, { color: Colors.errorDark }]}>Limit / Avoid</Text>
               </View>
-              <Text style={[dietStyles.cardTitle, { color: Colors.errorDark }]}>Limit / Avoid</Text>
+              <Text style={dietStyles.cardText}>{badText}</Text>
             </View>
-            <Text style={dietStyles.cardText}>{badText}</Text>
-          </View>
-        ) : null}
+          ) : null}
+        </View>
       </Animated.View>
     </View>
   );
@@ -679,94 +651,97 @@ const DietarySuggestionsBlock = ({ biomarker }: { biomarker: TestResult['biomark
 const dietStyles = StyleSheet.create({
   container: {
     marginTop: Sizes.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingTop: Sizes.md,
+    backgroundColor: Colors.white,
+    borderRadius: Sizes.radiusMd,
+    padding: Sizes.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Platform.select({
+      ios: { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' },
+      android: { elevation: 1 },
+    }),
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: Sizes.md,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Sizes.sm,
+    gap: 12,
   },
-  leafIcon: {
-    fontSize: 22,
-  },
-  title: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: Typography.body,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 11,
-    color: Colors.textTertiary,
-    marginTop: 1,
-  },
-  toggle: {
-    flexDirection: 'row',
-    gap: Sizes.xs,
-    marginBottom: Sizes.md,
-    backgroundColor: Colors.gray100,
-    borderRadius: Sizes.radiusFull,
-    padding: 3,
-    alignSelf: 'flex-start',
-  },
-  togglePill: {
-    paddingHorizontal: Sizes.md,
-    paddingVertical: 6,
-    borderRadius: Sizes.radiusFull,
-  },
-  togglePillActive: {
-    backgroundColor: Colors.white,
-    ...Platform.select({
-      ios: { boxShadow: '0 1px 4px rgba(0,0,0,0.10)' },
-      android: { elevation: 2 },
-    }),
-  },
-  toggleLabel: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 13,
-    color: Colors.textTertiary,
-  },
-  toggleLabelActive: {
-    color: Colors.textPrimary,
-    fontFamily: 'PlusJakartaSans-Bold',
-  },
-  card: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Sizes.radiusMd,
-    padding: Sizes.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  cardIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Sizes.sm,
-    marginBottom: 6,
-  },
-  cardIconBadge: {
+  iconCircle: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: 14,
+    backgroundColor: Colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardEmoji: {
+  title: {
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 14,
+    color: Colors.textPrimary,
+  },
+  subtitle: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 11,
+    color: Colors.textTertiary,
+  },
+  segmentedBackground: {
+    flexDirection: 'row',
+    backgroundColor: Colors.gray100,
+    borderRadius: 8,
+    padding: 2,
+    marginBottom: Sizes.md,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  segmentActive: {
+    backgroundColor: Colors.white,
+    ...Platform.select({
+      ios: { boxShadow: '0 1px 2px rgba(0,0,0,0.1)' },
+      android: { elevation: 2 },
+    }),
+  },
+  segmentLabel: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  segmentLabelActive: {
+    color: Colors.textPrimary,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  cardsContainer: {
+    gap: 0,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  cardIcon: {
+    width: 14,
+    height: 14,
   },
   cardTitle: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 13,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cardText: {
-    fontFamily: 'PlusJakartaSans-Regular',
+    fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 12,
     color: Colors.textSecondary,
     lineHeight: 18,
@@ -829,22 +804,6 @@ const styles = StyleSheet.create({
   // Header section
   headerSection: {
     gap: Sizes.md,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  patientNameText: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: Typography.h3,
-    color: Colors.textPrimary,
-  },
-  reportDateText: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: Typography.bodySmall,
-    color: Colors.textSecondary,
-    marginTop: 2,
   },
   
   emptyStateContainer: {
@@ -979,12 +938,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Sizes.md,
   },
-  actionItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: Sizes.sm,
-  },
   statusDot: {
     width: 10,
     height: 10,
@@ -1000,10 +953,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textTertiary,
     marginTop: 2,
-  },
-  actionItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   actionItemValue: {
     fontFamily: 'PlusJakartaSans-Bold',
@@ -1131,5 +1080,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     lineHeight: 18,
+  },
+  readMoreText: {
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    fontSize: 12,
+    color: Colors.primary,
+    marginTop: 3,
   },
 });
