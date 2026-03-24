@@ -18,6 +18,7 @@ export interface TestResult {
   biomarker_id: string | null;
   biomarker?: {
     test_results: string | null;
+    category: string | null;
   } | null;
 }
 
@@ -65,7 +66,7 @@ export function useLabReport(documentId?: string) {
 
       if (currentBiomarkerIds.length > 0) {
         const { data: biomarkerData, error: biomarkerError } = await api.from('biomarkers_mastertable')
-          .select('biomarker_id, description, interpretation_normal, interpretation_low, interpretation_high, interpretation_borderline, interpretation_critical, interpretation_abnormal')
+          .select('biomarker_id, category, description, interpretation_normal, interpretation_low, interpretation_high, interpretation_borderline, interpretation_critical, interpretation_abnormal')
           .in('biomarker_id', Array.from(new Set(currentBiomarkerIds)));
 
         if (!biomarkerError && biomarkerData) {
@@ -94,7 +95,8 @@ export function useLabReport(documentId?: string) {
             return {
               ...r,
               biomarker: {
-                test_results: finalDescription || null
+                test_results: finalDescription || null,
+                category: biomarker.category || null
               }
             };
           });
