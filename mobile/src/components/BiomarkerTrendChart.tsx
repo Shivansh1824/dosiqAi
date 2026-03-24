@@ -6,7 +6,8 @@ import {
   VictoryArea, 
   VictoryScatter, 
   VictoryAxis, 
-  VictoryContainer 
+  VictoryContainer,
+  VictoryLabel 
 } from 'victory-native';
 import { Svg, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors, Sizes } from '../constants';
@@ -38,18 +39,34 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
 
   // Chart dimensions
   const chartWidth = SCREEN_WIDTH - (Sizes.lg * 4); // Adjusted for card padding
-  const chartHeight = 120;
+  const chartHeight = 140; // Slightly increased height for better visibility
 
   // Parse reference values as numbers
   const refMin = currentTest.ref_min !== null ? parseFloat(String(currentTest.ref_min)) : null;
   const refMax = currentTest.ref_max !== null ? parseFloat(String(currentTest.ref_max)) : null;
+
+  // Calculate Y-axis domain for better scaling
+  const values = allDataPoints.map(p => p.y);
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  
+  const boundaries = [dataMin, dataMax];
+  if (refMin !== null) boundaries.push(refMin);
+  if (refMax !== null) boundaries.push(refMax);
+  
+  const absoluteMin = Math.min(...boundaries);
+  const absoluteMax = Math.max(...boundaries);
+  
+  const yRange = absoluteMax - absoluteMin;
+  const padding = yRange * 0.25 || (absoluteMax === 0 ? 1 : Math.abs(absoluteMax) * 0.2);
+  const domainY: [number, number] = [absoluteMin - padding, absoluteMax + padding];
 
   return (
     <View style={styles.container}>
       <Svg style={{ height: 0, width: 0 }}>
         <Defs>
           <LinearGradient id="gradientFill" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={Colors.primary} stopOpacity="0.3" />
+            <Stop offset="0%" stopColor={Colors.primary} stopOpacity="0.2" />
             <Stop offset="100%" stopColor={Colors.primary} stopOpacity="0.01" />
           </LinearGradient>
         </Defs>
@@ -58,9 +75,10 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
       <VictoryChart
         width={chartWidth}
         height={chartHeight}
-        padding={{ top: 20, bottom: 30, left: 10, right: 10 }}
+        padding={{ top: 20, bottom: 35, left: 10, right: 35 }} // Increased right padding for labels
         containerComponent={<VictoryContainer disableContainerEvents />}
         scale={{ x: "time" }}
+        domain={{ y: domainY }}
       >
         {/* X Axis - Minimalist */}
         <VictoryAxis
@@ -75,7 +93,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
               fill: Colors.textTertiary, 
               fontSize: 10, 
               fontFamily: 'PlusJakartaSans-Medium',
-              padding: 5
+              padding: 8
             }
           }}
         />
@@ -90,7 +108,23 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           }}
         />
 
-        {/* Reference Lines */}
+        {/* Shaded Normal Range Area */}
+        {refMin !== null && refMax !== null && !isNaN(refMin) && !isNaN(refMax) && (
+          <VictoryArea
+            data={[
+              { x: allDataPoints[0].x, y: refMax, y0: refMin },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMax, y0: refMin }
+            ]}
+            style={{
+              data: { 
+                fill: Colors.successLight, 
+                fillOpacity: 0.35
+              }
+            }}
+          />
+        )}
+
+        {/* Reference Lines boundaries */}
         {refMin !== null && !isNaN(refMin) && (
           <VictoryLine
             data={[
@@ -99,9 +133,10 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
             ]}
             style={{
               data: { 
-                stroke: Colors.gray300, 
+                stroke: Colors.successDark, 
                 strokeWidth: 1, 
-                strokeDasharray: "4, 4" 
+                strokeDasharray: "4, 4",
+                strokeOpacity: 0.3
               }
             } as any}
           />
@@ -114,15 +149,46 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
             ]}
             style={{
               data: { 
-                stroke: Colors.gray300, 
+                stroke: Colors.successDark, 
                 strokeWidth: 1, 
-                strokeDasharray: "4, 4" 
+                strokeDasharray: "4, 4",
+                strokeOpacity: 0.3
               }
             } as any}
           />
         )}
 
-        {/* Gradient Area */}
+        {/* Reference Labels */}
+        {refMin !== null && !isNaN(refMin) && (
+          <VictoryLabel
+            text={refMin}
+            datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMin }}
+            textAnchor="start"
+            dx={8}
+            style={{ 
+              fill: Colors.successDark, 
+              fontSize: 9, 
+              fontFamily: 'PlusJakartaSans-Bold',
+              opacity: 0.8
+            }}
+          />
+        )}
+        {refMax !== null && !isNaN(refMax) && (
+          <VictoryLabel
+            text={refMax}
+            datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMax }}
+            textAnchor="start"
+            dx={8}
+            style={{ 
+              fill: Colors.successDark, 
+              fontSize: 9, 
+              fontFamily: 'PlusJakartaSans-Bold',
+              opacity: 0.8
+            }}
+          />
+        )}
+
+        {/* Gradient Area under trend line */}
         <VictoryArea
           data={allDataPoints}
           interpolation="monotoneX"
@@ -136,19 +202,20 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           data={allDataPoints}
           interpolation="monotoneX"
           style={{
-            data: { stroke: Colors.primary, strokeWidth: 3 }
+            data: { stroke: Colors.primary, strokeWidth: 2.0 }
           }}
         />
 
         {/* Data Points */}
         <VictoryScatter
           data={allDataPoints}
-          size={4}
+          size={5}
           style={{
             data: {
               fill: ({ datum }) => {
-                if (datum.status?.toUpperCase() === 'NORMAL') return Colors.success;
-                if (datum.status?.toUpperCase() === 'HIGH' || datum.status?.toUpperCase() === 'LOW') return Colors.error;
+                const status = datum.status?.toUpperCase();
+                if (status === 'NORMAL') return Colors.success;
+                if (status === 'HIGH' || status === 'LOW') return Colors.error;
                 return Colors.warning;
               },
               stroke: Colors.white,
