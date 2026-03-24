@@ -554,7 +554,11 @@ const BiomarkerExpandedContent = ({ test, pastTests }: { test: TestResult, pastT
           })}
       </View>
 
-      <DietarySuggestionsBlock biomarker={test.biomarker} testName={test.test_name} />
+      <DietarySuggestionsBlock 
+        biomarker={test.biomarker} 
+        testName={test.test_name} 
+        isOptimal={test.status?.toUpperCase() === 'NORMAL' || !test.status}
+      />
     </>
   );
 };
@@ -569,17 +573,23 @@ const RefRangeText = ({ refMin, refMax, unit, style }: { refMin: number | null; 
 
 type DietType = 'nonveg' | 'veg';
 
-const DietarySuggestionsBlock = ({ biomarker, testName }: { biomarker: TestResult['biomarker'], testName: string }) => {
+const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: { biomarker: TestResult['biomarker'], testName: string, isOptimal: boolean }) => {
   const hasNonVeg = !!(biomarker?.good_to_eat_nonveg || biomarker?.bad_to_eat_nonveg);
   const hasVeg = !!(biomarker?.good_to_eat_veg || biomarker?.bad_to_eat_veg);
 
-  // Default to non-veg if available, otherwise veg
-  const [activeDiet, setActiveDiet] = useState<DietType>(hasNonVeg ? 'nonveg' : 'veg');
+  // Default to null so no tab is pre-selected for any result status
+  const [activeDiet, setActiveDiet] = useState<DietType | null>(null);
 
   if (!biomarker || (!hasNonVeg && !hasVeg)) return null;
 
-  const goodText = activeDiet === 'nonveg' ? biomarker.good_to_eat_nonveg : biomarker.good_to_eat_veg;
-  const badText  = activeDiet === 'nonveg' ? biomarker.bad_to_eat_nonveg  : biomarker.bad_to_eat_veg;
+  const goodText = activeDiet === 'nonveg' ? biomarker.good_to_eat_nonveg : (activeDiet === 'veg' ? biomarker.good_to_eat_veg : null);
+  const badText  = activeDiet === 'nonveg' ? biomarker.bad_to_eat_nonveg  : (activeDiet === 'veg' ? biomarker.bad_to_eat_veg  : null);
+
+  const goodTitle = isOptimal ? 'Supportive Foods' : 'Include More';
+  const badTitle  = isOptimal ? 'Items to Moderate' : 'Limit / Avoid';
+  const subtitle  = isOptimal 
+    ? `Your ${testName} result is in the optimal range. To maintain these healthy levels, you may focus on these habits:`
+    : `Based on your ${testName} result`;
 
   return (
     <View style={dietStyles.container}>
@@ -593,9 +603,9 @@ const DietarySuggestionsBlock = ({ biomarker, testName }: { biomarker: TestResul
               tintColor={Colors.primary} 
             />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={dietStyles.title}>Dietary Insights</Text>
-            <Text style={dietStyles.subtitle}>Based on your {testName} result</Text>
+            <Text style={dietStyles.subtitle}>{subtitle}</Text>
           </View>
         </View>
       </View>
@@ -620,30 +630,32 @@ const DietarySuggestionsBlock = ({ biomarker, testName }: { biomarker: TestResul
         </View>
       )}
 
-      {/* Cards */}
-      <Animated.View key={activeDiet} entering={FadeIn.duration(300)}>
-        <View style={dietStyles.cardsContainer}>
-          {goodText ? (
-            <View style={[dietStyles.card, { borderColor: Colors.successLight + '40', backgroundColor: Colors.successLight + '10' }]}>
-              <View style={dietStyles.cardHeader}>
-                <Image source="sf:checkmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.success} />
-                <Text style={[dietStyles.cardTitle, { color: Colors.successDark }]}>Include More</Text>
+      {/* Cards - Only show if a diet type is selected */}
+      {activeDiet && (
+        <Animated.View key={activeDiet} entering={FadeIn.duration(300)}>
+          <View style={dietStyles.cardsContainer}>
+            {goodText ? (
+              <View style={[dietStyles.card, { borderColor: Colors.successLight + '40', backgroundColor: Colors.successLight + '10' }]}>
+                <View style={dietStyles.cardHeader}>
+                  <Image source="sf:checkmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.success} />
+                  <Text style={[dietStyles.cardTitle, { color: Colors.successDark }]}>{goodTitle}</Text>
+                </View>
+                <Text style={dietStyles.cardText}>{goodText}</Text>
               </View>
-              <Text style={dietStyles.cardText}>{goodText}</Text>
-            </View>
-          ) : null}
+            ) : null}
 
-          {badText ? (
-            <View style={[dietStyles.card, { borderColor: Colors.errorLight + '40', backgroundColor: Colors.errorLight + '10', marginTop: Sizes.sm }]}>
-              <View style={dietStyles.cardHeader}>
-                <Image source="sf:exclamationmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.error} />
-                <Text style={[dietStyles.cardTitle, { color: Colors.errorDark }]}>Limit / Avoid</Text>
+            {badText ? (
+              <View style={[dietStyles.card, { borderColor: Colors.errorLight + '40', backgroundColor: Colors.errorLight + '10', marginTop: Sizes.sm }]}>
+                <View style={dietStyles.cardHeader}>
+                  <Image source="sf:exclamationmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.error} />
+                  <Text style={[dietStyles.cardTitle, { color: Colors.errorDark }]}>{badTitle}</Text>
+                </View>
+                <Text style={dietStyles.cardText}>{badText}</Text>
               </View>
-              <Text style={dietStyles.cardText}>{badText}</Text>
-            </View>
-          ) : null}
-        </View>
-      </Animated.View>
+            ) : null}
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 };
