@@ -608,14 +608,14 @@ const DietarySuggestionsBlock = ({ biomarker, testName }: { biomarker: TestResul
             onPress={() => setActiveDiet('nonveg')}
             activeOpacity={0.8}
           >
-            <Text style={[dietStyles.segmentLabel, activeDiet === 'nonveg' && dietStyles.segmentLabelActive]}>Meat & Dairy</Text>
+            <Text style={[dietStyles.segmentLabel, activeDiet === 'nonveg' && dietStyles.segmentLabelActive]}>🥩 Meat & Dairy</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[dietStyles.segment, activeDiet === 'veg' && dietStyles.segmentActive]}
             onPress={() => setActiveDiet('veg')}
             activeOpacity={0.8}
           >
-            <Text style={[dietStyles.segmentLabel, activeDiet === 'veg' && dietStyles.segmentLabelActive]}>Plant-Based</Text>
+            <Text style={[dietStyles.segmentLabel, activeDiet === 'veg' && dietStyles.segmentLabelActive]}>🥗 Plant-Based</Text>
           </TouchableOpacity>
         </View>
       )}
