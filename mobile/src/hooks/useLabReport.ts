@@ -19,6 +19,10 @@ export interface TestResult {
   biomarker?: {
     test_results: string | null;
     category: string | null;
+    good_to_eat_veg: string | null;
+    bad_to_eat_veg: string | null;
+    good_to_eat_nonveg: string | null;
+    bad_to_eat_nonveg: string | null;
   } | null;
 }
 
@@ -66,7 +70,7 @@ export function useLabReport(documentId?: string) {
 
       if (currentBiomarkerIds.length > 0) {
         const { data: biomarkerData, error: biomarkerError } = await api.from('biomarkers_mastertable')
-          .select('biomarker_id, category, description, interpretation_normal, interpretation_low, interpretation_high, interpretation_borderline, interpretation_critical, interpretation_abnormal')
+          .select('biomarker_id, category, description, interpretation_normal, interpretation_low, interpretation_high, interpretation_borderline, interpretation_critical, interpretation_abnormal, good_to_eat_veg, bad_to_eat_veg, good_to_eat_nonveg, bad_to_eat_nonveg')
           .in('biomarker_id', Array.from(new Set(currentBiomarkerIds)));
 
         if (!biomarkerError && biomarkerData) {
@@ -96,7 +100,11 @@ export function useLabReport(documentId?: string) {
               ...r,
               biomarker: {
                 test_results: finalDescription || null,
-                category: biomarker.category || null
+                category: biomarker.category || null,
+                good_to_eat_veg: biomarker.good_to_eat_veg || null,
+                bad_to_eat_veg: biomarker.bad_to_eat_veg || null,
+                good_to_eat_nonveg: biomarker.good_to_eat_nonveg || null,
+                bad_to_eat_nonveg: biomarker.bad_to_eat_nonveg || null,
               }
             };
           });
@@ -114,8 +122,6 @@ export function useLabReport(documentId?: string) {
         .filter((id): id is string => !!id);
 
       if (biomarkerIds.length > 0) {
-        // We need to fetch past values for these biomarkers
-        // In Supabase, we can use the `.in()` filter
         const { data: pastData, error: pastError } = await api.from('test_results')
           .select('*')
           .in('biomarker_id', biomarkerIds)
