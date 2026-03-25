@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -24,8 +23,6 @@ export default function LabReportScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const documentId = params.id as string;
-  const insets = useSafeAreaInsets();
-
   const { document, reportData, pastValues, isLoading, error } = useLabReport(documentId);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -206,48 +203,47 @@ export default function LabReportScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTransparent: true,
-          headerBlurEffect: 'systemUltraThinMaterial',
           headerTitle: () => <HeaderTitle patientName={patientName} reportDate={reportDate} />,
           headerTitleAlign: 'center',
           headerLeft: () => <HeaderLeft />,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <HeaderIcon 
-                iosName="square.and.arrow.up" 
-                androidName="share-2" 
-                onPress={handleShare} 
-                color={Colors.primary} 
+              <HeaderIcon
+                iosName="square.and.arrow.up"
+                androidName="share-2"
+                onPress={handleShare}
+                color={Colors.primary}
               />
-              <HeaderIcon 
-                iosName="ellipsis" 
-                androidName="more-vertical" 
-                onPress={() => setShowOptionsModal(true)} 
-                color={Colors.textPrimary} 
+              <HeaderIcon
+                iosName="ellipsis"
+                androidName="more-vertical"
+                onPress={() => setShowOptionsModal(true)}
+                color={Colors.textPrimary}
               />
             </View>
           ),
-          headerBackground: () => process.env.EXPO_OS === 'android' ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255, 255, 255, 0.85)' }]} />
-          ) : undefined,
-          ...(process.env.EXPO_OS === 'ios' && {
+          // iOS: transparent header with system blur
+          ...(process.env.EXPO_OS === 'ios' ? {
+            headerTransparent: true,
+            headerBlurEffect: 'systemUltraThinMaterial',
             headerSearchBarOptions: {
               placeholder: 'Search tests (e.g. Glucose)',
               onChangeText: ({ nativeEvent }: { nativeEvent: { text: string } }) => setSearchQuery(nativeEvent.text),
               onCancelButtonPress: () => setSearchQuery(''),
               hideWhenScrolling: false,
             },
+          } : {
+            // Android: solid white header — no transparency or blur (avoids layout jump)
+            headerStyle: { backgroundColor: Colors.white },
+            headerShadowVisible: false,
           }),
         }}
       />
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: process.env.EXPO_OS === 'android' ? insets.top + Sizes.xl : Sizes.md }
-        ]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Document Preview Card */}

@@ -183,7 +183,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           data={allDataPoints}
           interpolation="monotoneX"
           style={{
-            data: { fill: Colors.primary, fillOpacity: 0.08 }
+            data: { fill: 'rgba(59, 130, 246, 0.08)' }
           }}
         />
 
