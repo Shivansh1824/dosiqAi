@@ -1,8 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../src/constants';
+import { Platform, View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMedicationsStore } from '../src/store/medicationsStore';
@@ -10,6 +9,7 @@ import { useDocumentList } from '../src/hooks/useDocumentList';
 
 export default function DocumentsScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { documents, isLoading, refreshing, onRefresh } = useDocumentList();
 
     // Format date for display
@@ -19,8 +19,8 @@ export default function DocumentsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
+        <View style={styles.container}>
+            <View style={[styles.header, Platform.OS === 'android' && { paddingTop: insets.top, height: 60 + insets.top }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
@@ -101,7 +101,7 @@ export default function DocumentsScreen() {
                     })
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 

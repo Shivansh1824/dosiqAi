@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -28,6 +29,7 @@ export default function LabReportScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
+  const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
     if (!isLoading && !hasAutoExpanded && (reportData.actionRequired.length > 0 || reportData.optimalResults.length > 0)) {
@@ -233,8 +235,12 @@ export default function LabReportScreen() {
               hideWhenScrolling: false,
             },
           } : {
-            // Android: solid white header — no transparency or blur (avoids layout jump)
-            headerStyle: { backgroundColor: Colors.white },
+            // Android: transparent header with white background overlay — matches prescription-summary
+            // approach so the header correctly respects the translucent status bar
+            headerTransparent: true,
+            headerBackground: () => (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.white }]} />
+            ),
             headerShadowVisible: false,
           }),
         }}
@@ -243,7 +249,10 @@ export default function LabReportScreen() {
       <ScrollView
         style={styles.scrollView}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          process.env.EXPO_OS !== 'ios' && { paddingTop: insets.top + 64 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Document Preview Card */}
