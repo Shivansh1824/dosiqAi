@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -120,12 +120,16 @@ export default function LabReportScreen() {
   );
 
   const HeaderLeft = () => (
-    <TouchableOpacity 
-      onPress={handleBack} 
+    <TouchableOpacity
+      onPress={handleBack}
       activeOpacity={0.7}
       style={styles.backButtonContainer}
     >
-      <Feather name="chevron-left" size={24} color={Colors.textPrimary} />
+      {process.env.EXPO_OS === 'ios' ? (
+        <Image source="sf:chevron.left" style={{ width: 22, height: 22 }} tintColor={Colors.textPrimary} />
+      ) : (
+        <Feather name="chevron-left" size={24} color={Colors.textPrimary} />
+      )}
     </TouchableOpacity>
   );
 
@@ -175,8 +179,12 @@ export default function LabReportScreen() {
     return (
       <View style={styles.centerContainer}>
         <Stack.Screen options={{ headerTitle: 'Error', headerLeft: () => <HeaderLeft /> }} />
+        {process.env.EXPO_OS === 'ios' ? (
+        <Image source="sf:exclamationmark.circle" style={{ width: 48, height: 48 }} tintColor={Colors.error} />
+      ) : (
         <Feather name="alert-circle" size={48} color={Colors.error} />
-        <Text style={styles.errorText}>{error || 'Failed to load report'}</Text>
+      )}
+        <Text style={styles.errorText} selectable>{error || 'Failed to load report'}</Text>
       </View>
     );
   }
@@ -221,7 +229,15 @@ export default function LabReportScreen() {
           ),
           headerBackground: () => process.env.EXPO_OS === 'android' ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255, 255, 255, 0.85)' }]} />
-          ) : undefined
+          ) : undefined,
+          ...(process.env.EXPO_OS === 'ios' && {
+            headerSearchBarOptions: {
+              placeholder: 'Search tests (e.g. Glucose)',
+              onChangeText: ({ nativeEvent }: { nativeEvent: { text: string } }) => setSearchQuery(nativeEvent.text),
+              onCancelButtonPress: () => setSearchQuery(''),
+              hideWhenScrolling: false,
+            },
+          }),
         }}
       />
 
@@ -230,7 +246,7 @@ export default function LabReportScreen() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Platform.OS === 'android' ? insets.top + Sizes.xl : Sizes.md }
+          { paddingTop: process.env.EXPO_OS === 'android' ? insets.top + Sizes.xl : Sizes.md }
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -245,22 +261,24 @@ export default function LabReportScreen() {
         />
 
         <Animated.View layout={LinearTransition.duration(300)} style={styles.headerSection}>
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <Feather name="search" size={16} color={Colors.gray400} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search specific tests (e.g. Glucose)"
-              placeholderTextColor={Colors.gray400}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
-                <Feather name="x-circle" size={16} color={Colors.gray400} />
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Search Bar — Android only; iOS uses native headerSearchBarOptions */}
+          {process.env.EXPO_OS !== 'ios' && (
+            <View style={styles.searchContainer}>
+              <Feather name="search" size={16} color={Colors.gray400} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search specific tests (e.g. Glucose)"
+                placeholderTextColor={Colors.gray400}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
+                  <Feather name="x-circle" size={16} color={Colors.gray400} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {/* Category Filter */}
           {categoriesList.length > 2 && (
@@ -299,7 +317,11 @@ export default function LabReportScreen() {
           </View>
         ) : isEmpty ? (
           <View style={styles.emptyStateContainer}>
-            <Feather name="file-minus" size={48} color={Colors.gray400} />
+            {process.env.EXPO_OS === 'ios' ? (
+              <Image source="sf:doc.text.minus" style={{ width: 48, height: 48 }} tintColor={Colors.gray400} />
+            ) : (
+              <Feather name="file-minus" size={48} color={Colors.gray400} />
+            )}
             <Text style={styles.emptyStateTitle}>No Test Results</Text>
             <Text style={styles.emptyStateDesc}>We couldn't detect any structured lab test results in this report.</Text>
           </View>
@@ -421,9 +443,13 @@ const ResultRow = ({
           <View style={isAction ? [styles.statusDot, { backgroundColor: statusColor }] : styles.optimalDot} />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={isAction ? styles.actionItemName : styles.optimalTitleText}>{test.test_name}</Text>
+              <Text style={isAction ? styles.actionItemName : styles.optimalTitleText} selectable>{test.test_name}</Text>
               {isBiomarker && (
-                <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
+                process.env.EXPO_OS === 'ios' ? (
+                  <Image source={expanded ? 'sf:chevron.up' : 'sf:chevron.down'} style={{ width: 14, height: 14 }} tintColor={Colors.gray400} />
+                ) : (
+                  <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.gray400} />
+                )
               )}
             </View>
             <RefRangeText 
@@ -435,7 +461,7 @@ const ResultRow = ({
           </View>
         </View>
         <View style={{ alignItems: 'flex-end', marginRight: isAction ? Sizes.sm : 0 }}>
-          <Text style={isAction ? [styles.actionItemValue, { color: statusColor }] : styles.optimalValueText}>{test.value}</Text>
+          <Text style={isAction ? [styles.actionItemValue, { color: statusColor }] : styles.optimalValueText} selectable>{test.value}</Text>
           <Text style={isAction ? [styles.actionItemStatus, { color: statusColor }] : styles.optimalStatusText}>{statusLabel}</Text>
         </View>
       </TouchableOpacity>
@@ -544,11 +570,11 @@ const BiomarkerExpandedContent = ({ test, pastTests }: { test: TestResult, pastT
               >
                 <View style={styles.pastValueLeft}>
                   {isCurrent && <View style={styles.currentIndicator} />}
-                  <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]}>
+                  <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]} selectable>
                     {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric'})}
                   </Text>
                 </View>
-                <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]}>
+                <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]} selectable>
                   {past.value} {past.unit}
                 </Text>
               </View>
@@ -570,7 +596,7 @@ const RefRangeText = ({ refMin, refMax, unit, style }: { refMin: number | null; 
   const range = refMin !== null
     ? (refMax !== null ? `${refMin} - ${refMax}` : `> ${refMin}`)
     : `< ${refMax}`;
-  return <Text style={style}>Ref: {range} {unit}</Text>;
+  return <Text style={style} selectable>Ref: {range} {unit}</Text>;
 };
 
 type DietType = 'nonveg' | 'veg';
@@ -667,13 +693,11 @@ const dietStyles = StyleSheet.create({
     marginTop: Sizes.md,
     backgroundColor: Colors.white,
     borderRadius: Sizes.radiusMd,
+    borderCurve: 'continuous',
     padding: Sizes.md,
     borderWidth: 1,
     borderColor: Colors.borderLight,
-    ...Platform.select({
-      ios: { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' },
-      android: { elevation: 1 },
-    }),
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
   },
   header: {
     marginBottom: Sizes.md,
@@ -705,6 +729,7 @@ const dietStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Colors.gray100,
     borderRadius: 8,
+    borderCurve: 'continuous',
     padding: 2,
     marginBottom: Sizes.md,
   },
@@ -713,13 +738,11 @@ const dietStyles = StyleSheet.create({
     paddingVertical: 6,
     alignItems: 'center',
     borderRadius: 6,
+    borderCurve: 'continuous',
   },
   segmentActive: {
     backgroundColor: Colors.white,
-    ...Platform.select({
-      ios: { boxShadow: '0 1px 2px rgba(0,0,0,0.1)' },
-      android: { elevation: 2 },
-    }),
+    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
   },
   segmentLabel: {
     fontFamily: 'PlusJakartaSans-Medium',
@@ -736,6 +759,7 @@ const dietStyles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderRadius: 8,
+    borderCurve: 'continuous',
     padding: 12,
   },
   cardHeader: {
@@ -793,18 +817,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center',
     marginLeft: process.env.EXPO_OS === 'android' ? 4 : 0,
-    ...Platform.select({
-      ios: {
-        boxShadow: "0 2px 8px rgba(0,0,0,0.12)"
-      },
-      android: {
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      }
-    })
+    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
   },
   scrollView: {
     flex: 1,
@@ -847,6 +860,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.gray100,
     borderRadius: Sizes.radiusLg,
+    borderCurve: 'continuous',
     paddingHorizontal: Sizes.md,
     height: 48,
   },
@@ -909,6 +923,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Sizes.radiusSm,
+    borderCurve: 'continuous',
   },
   highPriorityText: {
     fontFamily: 'PlusJakartaSans-Medium',
@@ -920,6 +935,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Sizes.radiusSm,
+    borderCurve: 'continuous',
   },
   optimalBadgeText: {
     fontFamily: 'PlusJakartaSans-Medium',
@@ -931,13 +947,11 @@ const styles = StyleSheet.create({
   actionRequiredCard: {
     backgroundColor: Colors.white,
     borderRadius: Sizes.radiusLg,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: Colors.borderLight,
     paddingHorizontal: Sizes.md,
-    ...Platform.select({
-      ios: { boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)" },
-      android: { elevation: 3 }
-    })
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
   },
   divider: {
     height: 1,
@@ -984,6 +998,7 @@ const styles = StyleSheet.create({
     gap: Sizes.xs,
     backgroundColor: Colors.bgSecondary,
     borderRadius: Sizes.radiusMd,
+    borderCurve: 'continuous',
     padding: Sizes.md,
   },
   pastValueItem: {
@@ -1007,6 +1022,7 @@ const styles = StyleSheet.create({
   currentPastValueItem: {
     backgroundColor: Colors.white,
     borderRadius: Sizes.radiusSm,
+    borderCurve: 'continuous',
     paddingHorizontal: Sizes.md,
     paddingVertical: 2,
     marginHorizontal: -Sizes.md,
@@ -1034,13 +1050,11 @@ const styles = StyleSheet.create({
   optimalResultsCard: {
     backgroundColor: Colors.white,
     borderRadius: Sizes.radiusLg,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: Colors.borderLight,
     paddingHorizontal: Sizes.md,
-    ...Platform.select({
-      ios: { boxShadow: "0 2px 6px rgba(0, 0, 0, 0.04)" },
-      android: { elevation: 2 }
-    })
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
   },
   optimalRowContainer: {
     backgroundColor: Colors.white,
@@ -1087,6 +1101,7 @@ const styles = StyleSheet.create({
   biomarkerInfoContainer: {
     backgroundColor: Colors.bgSecondary,
     borderRadius: Sizes.radiusMd,
+    borderCurve: 'continuous',
     padding: Sizes.md,
   },
   biomarkerDescription: {
