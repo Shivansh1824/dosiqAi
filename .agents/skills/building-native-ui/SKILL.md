@@ -82,7 +82,15 @@ See `./references/route-structure.md` for detailed route conventions.
 - Never use legacy expo-permissions
 - `expo-audio` not `expo-av`
 - `expo-video` not `expo-av`
-- `expo-image` with `source="sf:name"` for SF Symbols, not `expo-symbols` or `@expo/vector-icons`
+- `expo-image` with `source="sf:name"` for SF Symbols on iOS — **SF Symbols are iOS-only**; always guard with `process.env.EXPO_OS === 'ios'` and provide a `@expo/vector-icons` Feather fallback for Android:
+  ```tsx
+  {process.env.EXPO_OS === 'ios' ? (
+    <Image source="sf:magnifyingglass" style={{ width: 20, height: 20 }} tintColor={color} />
+  ) : (
+    <Feather name="search" size={20} color={color} />
+  )}
+  ```
+- Do not use bare `sf:` sources without a platform guard — on Android `expo-image` silently renders nothing for `sf:` URIs
 - `react-native-safe-area-context` not react-native SafeAreaView
 - `process.env.EXPO_OS` not `Platform.OS`
 - `React.use` not `React.useContext`
@@ -139,6 +147,23 @@ Use CSS `boxShadow` style prop. NEVER use legacy React Native shadow or elevatio
 ```
 
 'inset' shadows are supported.
+
+## SVG / Charts (Android Gotcha)
+
+**Never reference SVG `<Defs>` / `<LinearGradient>` across separate `<Svg>` elements.** Each `<Svg>` is an isolated context on Android — `url(#id)` references to a gradient defined in a different `<Svg>` resolve to nothing and Android falls back to solid black fill. On iOS the renderer happens to share the ID space on the same screen, hiding the bug.
+
+Wrong — cross-SVG `url()` reference (black fill on Android):
+```tsx
+<Svg style={{ height: 0, width: 0 }}>
+  <Defs><LinearGradient id="grad" .../></Defs>
+</Svg>
+<VictoryArea style={{ data: { fill: 'url(#grad)' } }} />
+```
+
+Correct — use a plain semi-transparent color instead:
+```tsx
+<VictoryArea style={{ data: { fill: Colors.primary, fillOpacity: 0.08 } }} />
+```
 
 # Navigation
 

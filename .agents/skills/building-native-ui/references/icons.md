@@ -1,32 +1,37 @@
 # Icons (SF Symbols)
 
-Use SF Symbols for native feel. Never use FontAwesome or Ionicons.
+Use SF Symbols for a native iOS feel. **SF Symbols are iOS-only** — always provide an Android fallback using `@expo/vector-icons` (Feather). Never use FontAwesome or Ionicons.
 
-## Basic Usage
+## Cross-Platform Pattern (Required)
+
+Use `expo-image` with `source="sf:name"` on iOS and `Feather` from `@expo/vector-icons` on Android:
 
 ```tsx
-import { SymbolView } from "expo-symbols";
-import { PlatformColor } from "react-native";
+import { Image } from 'expo-image';
+import { Feather } from '@expo/vector-icons';
 
-<SymbolView
-  tintColor={PlatformColor("label")}
-  resizeMode="scaleAspectFit"
-  name="square.and.arrow.down"
-  style={{ width: 16, height: 16 }}
-/>;
+{process.env.EXPO_OS === 'ios' ? (
+  <Image
+    source="sf:magnifyingglass"
+    style={{ width: 20, height: 20 }}
+    tintColor={color}
+  />
+) : (
+  <Feather name="search" size={20} color={color} />
+)}
 ```
 
-## Props
+> **Never** use bare `sf:` sources without a platform guard — on Android `expo-image` silently renders nothing for `sf:` URIs.
+
+## iOS-only Usage (when Android rendering the icon doesn't matter)
 
 ```tsx
-<SymbolView
-  name="star.fill"                    // SF Symbol name (required)
-  tintColor={PlatformColor("label")}  // Icon color
-  size={24}                           // Shorthand for width/height
-  resizeMode="scaleAspectFit"         // How to scale
-  weight="regular"                    // thin | ultraLight | light | regular | medium | semibold | bold | heavy | black
-  scale="medium"                      // small | medium | large
-  style={{ width: 16, height: 16 }}   // Standard style props
+import { Image } from 'expo-image';
+
+<Image
+  source="sf:square.and.arrow.down"
+  style={{ width: 16, height: 16 }}
+  tintColor={color}
 />
 ```
 
@@ -206,7 +211,7 @@ Some symbols support multiple colors:
 
 ## Best Practices
 
-- Always use SF Symbols over vector icon libraries
+- Always use SF Symbols on iOS — wrap in `process.env.EXPO_OS === 'ios'` with a Feather fallback for Android
 - Match symbol weight to nearby text weight
 - Use `.fill` variants for selected/active states
 - Use PlatformColor for tint to support dark mode

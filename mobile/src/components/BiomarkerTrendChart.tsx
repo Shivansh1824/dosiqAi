@@ -1,15 +1,14 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { 
-  VictoryChart, 
-  VictoryLine, 
-  VictoryArea, 
-  VictoryScatter, 
-  VictoryAxis, 
+import {
+  VictoryChart,
+  VictoryLine,
+  VictoryArea,
+  VictoryScatter,
+  VictoryAxis,
   VictoryContainer,
-  VictoryLabel 
+  VictoryLabel
 } from 'victory-native';
-import { Svg, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors, Sizes } from '../constants';
 import { TestResult } from '../hooks/useLabReport';
 
@@ -63,15 +62,6 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
 
   return (
     <View style={styles.container}>
-      <Svg style={{ height: 0, width: 0 }}>
-        <Defs>
-          <LinearGradient id="gradientFill" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={Colors.primary} stopOpacity="0.2" />
-            <Stop offset="100%" stopColor={Colors.primary} stopOpacity="0.01" />
-          </LinearGradient>
-        </Defs>
-      </Svg>
-
       <VictoryChart
         width={chartWidth}
         height={chartHeight}
@@ -188,12 +178,12 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           />
         )}
 
-        {/* Gradient Area under trend line */}
+        {/* Area fill under trend line */}
         <VictoryArea
           data={allDataPoints}
           interpolation="monotoneX"
           style={{
-            data: { fill: "url(#gradientFill)" }
+            data: { fill: Colors.primary, fillOpacity: 0.08 }
           }}
         />
 

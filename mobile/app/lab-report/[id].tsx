@@ -625,11 +625,11 @@ const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: { biomarker
       <View style={dietStyles.header}>
         <View style={dietStyles.headerLeft}>
           <View style={dietStyles.iconCircle}>
-            <Image 
-              source="sf:leaf.fill" 
-              style={{ width: 14, height: 14 }} 
-              tintColor={Colors.primary} 
-            />
+            {process.env.EXPO_OS === 'ios' ? (
+              <Image source="sf:leaf.fill" style={{ width: 14, height: 14 }} tintColor={Colors.primary} />
+            ) : (
+              <Feather name="activity" size={14} color={Colors.primary} />
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={dietStyles.title}>Dietary Insights</Text>
@@ -665,7 +665,11 @@ const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: { biomarker
             {goodText ? (
               <View style={[dietStyles.card, { borderColor: Colors.successLight + '40', backgroundColor: Colors.successLight + '10' }]}>
                 <View style={dietStyles.cardHeader}>
-                  <Image source="sf:checkmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.success} />
+                  {process.env.EXPO_OS === 'ios' ? (
+                    <Image source="sf:checkmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.success} />
+                  ) : (
+                    <Feather name="check-circle" size={14} color={Colors.success} />
+                  )}
                   <Text style={[dietStyles.cardTitle, { color: Colors.successDark }]}>{goodTitle}</Text>
                 </View>
                 <Text style={dietStyles.cardText}>{goodText}</Text>
@@ -675,7 +679,11 @@ const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: { biomarker
             {badText ? (
               <View style={[dietStyles.card, { borderColor: Colors.errorLight + '40', backgroundColor: Colors.errorLight + '10', marginTop: Sizes.sm }]}>
                 <View style={dietStyles.cardHeader}>
-                  <Image source="sf:exclamationmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.error} />
+                  {process.env.EXPO_OS === 'ios' ? (
+                    <Image source="sf:exclamationmark.circle.fill" style={dietStyles.cardIcon} tintColor={Colors.error} />
+                  ) : (
+                    <Feather name="alert-circle" size={14} color={Colors.error} />
+                  )}
                   <Text style={[dietStyles.cardTitle, { color: Colors.errorDark }]}>{badTitle}</Text>
                 </View>
                 <Text style={dietStyles.cardText}>{badText}</Text>
