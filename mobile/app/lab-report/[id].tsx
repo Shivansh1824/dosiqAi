@@ -577,8 +577,8 @@ const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: { biomarker
   const hasNonVeg = !!(biomarker?.good_to_eat_nonveg || biomarker?.bad_to_eat_nonveg);
   const hasVeg = !!(biomarker?.good_to_eat_veg || biomarker?.bad_to_eat_veg);
 
-  // Default to null so no tab is pre-selected for any result status
-  const [activeDiet, setActiveDiet] = useState<DietType | null>(null);
+  // Default to 'veg' so plant-based is pre-selected on page load
+  const [activeDiet, setActiveDiet] = useState<DietType | null>('veg');
 
   if (!biomarker || (!hasNonVeg && !hasVeg)) return null;
 
@@ -614,18 +614,18 @@ const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: { biomarker
       {hasNonVeg && hasVeg && (
         <View style={dietStyles.segmentedBackground}>
           <TouchableOpacity
-            style={[dietStyles.segment, activeDiet === 'nonveg' && dietStyles.segmentActive]}
-            onPress={() => setActiveDiet('nonveg')}
-            activeOpacity={0.8}
-          >
-            <Text style={[dietStyles.segmentLabel, activeDiet === 'nonveg' && dietStyles.segmentLabelActive]}>🥩 Meat & Dairy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[dietStyles.segment, activeDiet === 'veg' && dietStyles.segmentActive]}
             onPress={() => setActiveDiet('veg')}
             activeOpacity={0.8}
           >
             <Text style={[dietStyles.segmentLabel, activeDiet === 'veg' && dietStyles.segmentLabelActive]}>🥦 Plant-Based</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[dietStyles.segment, activeDiet === 'nonveg' && dietStyles.segmentActive]}
+            onPress={() => setActiveDiet('nonveg')}
+            activeOpacity={0.8}
+          >
+            <Text style={[dietStyles.segmentLabel, activeDiet === 'nonveg' && dietStyles.segmentLabelActive]}>🥩 Meat & Dairy</Text>
           </TouchableOpacity>
         </View>
       )}
