@@ -18,6 +18,7 @@ import { BiomarkerTrendChart } from '../../src/components';
 import { StatusBar } from 'expo-status-bar';
 import { DocumentPreviewCard } from '../../src/components/prescription/DocumentPreviewCard';
 import FullScreenImageModal from '../../src/components/FullScreenImageModal';
+import { normalizeBiomarkerName } from '../../src/utils/stringUtils';
 
 export default function LabReportScreen() {
   const router = useRouter();
@@ -65,7 +66,8 @@ export default function LabReportScreen() {
   const filterAndSort = (tests: TestResult[]) =>
     tests
       .filter(t => {
-        const matchesSearch = t.test_name.toLowerCase().includes(searchQuery.toLowerCase());
+        const normalizedSearch = normalizeBiomarkerName(searchQuery);
+        const matchesSearch = !normalizedSearch || normalizeBiomarkerName(t.test_name).includes(normalizedSearch);
         const matchesCategory = selectedCategory === 'All' || t.biomarker?.category === selectedCategory;
         return matchesSearch && matchesCategory;
       })
