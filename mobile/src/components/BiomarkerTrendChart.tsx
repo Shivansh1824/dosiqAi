@@ -9,6 +9,7 @@ import {
   VictoryContainer,
   VictoryLabel
 } from 'victory-native';
+import { Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors, Sizes } from '../constants';
 import { TestResult } from '../hooks/useLabReport';
 
@@ -37,8 +38,8 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
   if (allDataPoints.length < 1) return null;
 
   // Chart dimensions
-  const chartWidth = SCREEN_WIDTH - (Sizes.lg * 4); // Adjusted for card padding
-  const chartHeight = 140; // Slightly increased height for better visibility
+  const chartWidth = SCREEN_WIDTH - (Sizes.md * 2); // Full width of the parent card
+  const chartHeight = 150; // Slightly increased height for better visibility
 
   // Parse reference values as numbers
   const refMin = currentTest.ref_min !== null ? parseFloat(String(currentTest.ref_min)) : null;
@@ -65,7 +66,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
       <VictoryChart
         width={chartWidth}
         height={chartHeight}
-        padding={{ top: 20, bottom: 35, left: 10, right: 35 }} // Increased right padding for labels
+        padding={{ top: 15, bottom: 35, left: 15, right: 35 }} // Adjusted for edge-to-edge
         containerComponent={<VictoryContainer disableContainerEvents />}
         scale={{ x: "time" }}
         domain={{ y: domainY }}
@@ -220,19 +221,39 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
 
 
 
+        <Defs>
+          <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor={Colors.primary} stopOpacity={0.25} />
+            <Stop offset="100%" stopColor={Colors.primary} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+
+        {/* Shaded Area under the line */}
+        <VictoryArea
+          data={allDataPoints}
+          interpolation="monotoneX"
+          style={{
+            data: { fill: "url(#chartGradient)" }
+          }}
+        />
+
         {/* Trend Line */}
         <VictoryLine
           data={allDataPoints}
           interpolation="monotoneX"
           style={{
-            data: { stroke: Colors.primary, strokeWidth: 2.0 }
+            data: { 
+              stroke: Colors.primary, 
+              strokeWidth: 3.5,
+              strokeLinecap: 'round'
+            }
           }}
         />
 
         {/* Data Points */}
         <VictoryScatter
           data={allDataPoints}
-          size={5}
+          size={5.5}
           style={{
             data: {
               fill: ({ datum }) => {
@@ -242,7 +263,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
                 return Colors.warning;
               },
               stroke: Colors.white,
-              strokeWidth: 2
+              strokeWidth: 2.5
             }
           }}
         />
@@ -253,11 +274,9 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: Sizes.sm,
+    marginVertical: Sizes.xs,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Sizes.radiusMd,
-    overflow: 'hidden',
+    width: '100%',
   },
 });

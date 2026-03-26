@@ -557,7 +557,9 @@ const BiomarkerExpandedContent = ({ test, pastTests }: { test: TestResult, pastT
         </View>
       )}
 
-      <BiomarkerTrendChart currentTest={test} pastTests={pastTests || []} />
+      <View style={{ marginHorizontal: -Sizes.md }}>
+        <BiomarkerTrendChart currentTest={test} pastTests={pastTests || []} />
+      </View>
       
       <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
         {[test, ...(pastTests || [])]
