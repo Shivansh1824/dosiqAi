@@ -99,11 +99,19 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
         />
 
         {/* Shaded Normal Range Area */}
-        {refMin !== null && refMax !== null && !isNaN(refMin) && !isNaN(refMax) && (
+        {(refMin !== null || refMax !== null) && (
           <VictoryArea
             data={[
-              { x: allDataPoints[0].x, y: refMax, y0: refMin },
-              { x: allDataPoints[allDataPoints.length - 1].x, y: refMax, y0: refMin }
+              { 
+                x: allDataPoints[0].x, 
+                y: (refMax !== null && !isNaN(refMax)) ? refMax : domainY[1], 
+                y0: (refMin !== null && !isNaN(refMin)) ? refMin : ((refMax !== null && !isNaN(refMax)) ? 0 : domainY[0]) 
+              },
+              { 
+                x: allDataPoints[allDataPoints.length - 1].x, 
+                y: (refMax !== null && !isNaN(refMax)) ? refMax : domainY[1], 
+                y0: (refMin !== null && !isNaN(refMin)) ? refMin : ((refMax !== null && !isNaN(refMax)) ? 0 : domainY[0])
+              }
             ]}
             style={{
               data: { 
