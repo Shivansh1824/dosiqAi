@@ -98,7 +98,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           }}
         />
 
-        {/* Shaded Normal Range Area */}
+        {/* Shaded Normal Range Area (Green) */}
         {(refMin !== null || refMax !== null) && (
           <VictoryArea
             data={[
@@ -116,6 +116,38 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
             style={{
               data: { 
                 fill: Colors.successLight, 
+                fillOpacity: 0.35
+              }
+            }}
+          />
+        )}
+
+        {/* Shaded Danger Area - Above Max (Red) */}
+        {refMax !== null && !isNaN(refMax) && (
+          <VictoryArea
+            data={[
+              { x: allDataPoints[0].x, y: domainY[1], y0: refMax },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: domainY[1], y0: refMax }
+            ]}
+            style={{
+              data: { 
+                fill: Colors.errorLight, 
+                fillOpacity: 0.35
+              }
+            }}
+          />
+        )}
+
+        {/* Shaded Danger Area - Below Min (Red) */}
+        {refMin !== null && !isNaN(refMin) && (
+          <VictoryArea
+            data={[
+              { x: allDataPoints[0].x, y: refMin, y0: domainY[0] },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMin, y0: domainY[0] }
+            ]}
+            style={{
+              data: { 
+                fill: Colors.errorLight, 
                 fillOpacity: 0.35
               }
             }}
@@ -186,14 +218,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           />
         )}
 
-        {/* Area fill under trend line */}
-        <VictoryArea
-          data={allDataPoints}
-          interpolation="monotoneX"
-          style={{
-            data: { fill: 'rgba(59, 130, 246, 0.08)' }
-          }}
-        />
+
 
         {/* Trend Line */}
         <VictoryLine
