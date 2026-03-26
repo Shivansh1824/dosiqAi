@@ -16,7 +16,9 @@
 import notifee, {
   AndroidImportance,
   AndroidCategory,
+  AndroidNotificationSetting,
   AndroidVisibility,
+  AuthorizationStatus,
   TimestampTrigger,
   TriggerType,
   TriggerNotification,
@@ -244,11 +246,16 @@ export async function requestAndroidPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
 
   try {
-    // Check and request exact alarm permission (Android 12+)
-    const alarmPermission = await notifee.getNotificationSettings();
-    
-    if (alarmPermission.android.alarm !== 1) {
-      // Guide user to enable exact alarms in settings
+    const settings = await notifee.getNotificationSettings();
+
+    // Check POST_NOTIFICATIONS authorization (Android 13+)
+    if (settings.authorizationStatus < AuthorizationStatus.AUTHORIZED) {
+      console.warn('[AndroidNotification] POST_NOTIFICATIONS not granted');
+      return false;
+    }
+
+    // Check SCHEDULE_EXACT_ALARMS (Android 12+)
+    if (settings.android.alarm !== AndroidNotificationSetting.ENABLED) {
       await notifee.openAlarmPermissionSettings();
     }
 

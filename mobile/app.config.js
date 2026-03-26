@@ -68,7 +68,7 @@ export default {
             }
           },
           android: {
-            minSdkVersion: 24,
+            minSdkVersion: 33,
             useHermesV1: true,
             buildReactNativeFromSource: true
           }
