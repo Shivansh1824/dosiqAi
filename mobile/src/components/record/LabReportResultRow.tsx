@@ -1,8 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Colors, Sizes, Typography } from '@/constants';
 import { TestResult } from '@/hooks/useLabReport';
@@ -15,9 +23,10 @@ interface LabReportResultRowProps {
   onToggle: () => void;
   pastTests?: TestResult[];
   type: 'action' | 'optimal';
+  hintAnimation?: boolean;
 }
 
-export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type }: LabReportResultRowProps) => {
+export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type, hintAnimation }: LabReportResultRowProps) => {
   const isAction = type === 'action';
   const isHigh = test.status?.toUpperCase() === 'HIGH';
   const isLow = test.status?.toUpperCase() === 'LOW';
@@ -27,8 +36,39 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type }
 
   const isBiomarker = !!test.biomarker_id;
 
-  const chevronRotation = useAnimatedStyle(() => ({
-    transform: [{ rotate: withTiming(expanded ? '180deg' : '0deg', { duration: 250 }) }],
+  const expandProgress = useSharedValue(expanded ? 1 : 0);
+  const hintProgress = useSharedValue(0);
+  const chipScale = useSharedValue(1);
+
+  useEffect(() => {
+    expandProgress.value = withTiming(expanded ? 1 : 0, { duration: 250 });
+  }, [expanded]);
+
+  useEffect(() => {
+    if (hintAnimation && isBiomarker) {
+      // Chevron briefly rotates down then back, hinting it can expand
+      hintProgress.value = withDelay(700,
+        withSequence(
+          withTiming(1, { duration: 220 }),
+          withTiming(0, { duration: 220 }),
+        )
+      );
+      // Chip pulses slightly after chevron hint
+      chipScale.value = withDelay(1000,
+        withSequence(
+          withTiming(1.1, { duration: 160 }),
+          withTiming(1, { duration: 160 }),
+        )
+      );
+    }
+  }, []);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${expandProgress.value * 180 + hintProgress.value * 35}deg` }],
+  }));
+
+  const chipStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: chipScale.value }],
   }));
 
   const handleToggle = () => {
@@ -54,7 +94,7 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type }
               style={isAction ? styles.actionItemRef : styles.optimalRangeText}
             />
             {isBiomarker && !expanded && (
-              <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.detailsChip}>
+              <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={[styles.detailsChip, chipStyle]}>
                 {process.env.EXPO_OS === 'ios' ? (
                   <Image source="sf:chart.xyaxis.line" style={{ width: 11, height: 11 }} tintColor={Colors.primary} />
                 ) : (
@@ -71,7 +111,7 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type }
             <Text style={isAction ? [styles.actionItemStatus, { color: statusColor }] : styles.optimalStatusText}>{statusLabel}</Text>
           </View>
           {isBiomarker && (
-            <Animated.View style={chevronRotation}>
+            <Animated.View style={chevronStyle}>
               {process.env.EXPO_OS === 'ios' ? (
                 <Image source="sf:chevron.down" style={{ width: 16, height: 16 }} tintColor={Colors.primary} />
               ) : (

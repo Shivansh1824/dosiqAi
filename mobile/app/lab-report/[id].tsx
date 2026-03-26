@@ -291,6 +291,7 @@ export default function LabReportScreen() {
                         onToggle={() => toggleExpand(test.id)}
                         pastTests={test.biomarker_id ? pastValues[test.biomarker_id] : []}
                         type="optimal"
+                        hintAnimation={index === 0}
                       />
                       {index < filteredOptimalResults.length - 1 && <ResultRowDivider />}
                     </View>

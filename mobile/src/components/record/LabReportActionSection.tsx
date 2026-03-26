@@ -31,6 +31,7 @@ export const LabReportActionSection = ({ tests, expandedCards, onToggleExpand, p
               onToggle={() => onToggleExpand(test.id)}
               pastTests={test.biomarker_id ? pastValues[test.biomarker_id] : []}
               type="action"
+              hintAnimation={index === 0}
             />
             {index < tests.length - 1 && <ResultRowDivider />}
           </View>
