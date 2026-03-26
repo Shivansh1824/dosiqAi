@@ -344,7 +344,7 @@ export default function LabReportScreen() {
 
         {/* Optimal Results Section */}
         {filteredOptimalResults.length > 0 && (
-          <Animated.View layout={LinearTransition.duration(300)} style={[styles.sectionContainer, { marginTop: Sizes.xl }]}>
+          <Animated.View layout={LinearTransition.duration(300)} style={[styles.sectionContainer, { marginTop: Sizes.md }]}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>OPTIMAL RESULTS</Text>
               <View style={styles.optimalBadge}>
@@ -836,9 +836,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Sizes.lg,
+    paddingHorizontal: Sizes.md,
     paddingBottom: Sizes.xxxl * 2,
-    gap: Sizes.xl,
+    gap: Sizes.md,
   },
   
   // Header section
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Sizes.xxxl,
-    paddingHorizontal: Sizes.xl,
+    paddingHorizontal: Sizes.md,
     gap: Sizes.md,
   },
   emptyStateTitle: {
