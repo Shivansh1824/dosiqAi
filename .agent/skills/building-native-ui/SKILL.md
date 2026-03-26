@@ -140,13 +140,33 @@ Follow Apple Human Interface Guidelines.
 
 ## Shadows
 
-Use CSS `boxShadow` style prop. NEVER use legacy React Native shadow or elevation styles.
+Use CSS `boxShadow` style prop for most cases as it provides consistent, web-spec-compliant styling across platforms. 
 
 ```tsx
 <View style={{ boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" }} />
 ```
 
-'inset' shadows are supported.
+**Android Circular Shapes:**
+On Android, `boxShadow` may sometimes render as a square for circular containers (e.g., buttons where `borderRadius` is 50% of the size). In such cases, use `Platform.select` to provide `elevation` as an override for Android:
+
+```tsx
+<View style={{
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: 'white',
+  ...Platform.select({
+    ios: {
+      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+    },
+    android: {
+      elevation: 4,
+    },
+  }),
+}} />
+```
+
+'inset' shadows are also supported via `boxShadow`.
 
 ## SVG / Charts (Android Gotcha)
 
