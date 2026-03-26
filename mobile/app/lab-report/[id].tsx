@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -830,7 +830,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center',
     marginLeft: process.env.EXPO_OS === 'android' ? 4 : 0,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+    ...Platform.select({
+      ios: {
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+      },
+      android: {
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
   },
   scrollView: {
     flex: 1,
