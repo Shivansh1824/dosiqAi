@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Colors, Sizes, Typography } from '@/constants';
 import { TestResult } from '@/hooks/useLabReport';
 import { BiomarkerExpandedContent } from './BiomarkerExpandedContent';
@@ -26,37 +27,58 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type }
 
   const isBiomarker = !!test.biomarker_id;
 
+  const chevronRotation = useAnimatedStyle(() => ({
+    transform: [{ rotate: withTiming(expanded ? '180deg' : '0deg', { duration: 250 }) }],
+  }));
+
+  const handleToggle = () => {
+    if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+    onToggle();
+  };
+
   return (
     <View style={isAction ? styles.actionItemContainer : styles.optimalRowContainer}>
       <TouchableOpacity
         activeOpacity={isBiomarker ? 0.7 : 1}
-        onPress={isBiomarker ? onToggle : undefined}
+        onPress={isBiomarker ? handleToggle : undefined}
         style={isAction ? styles.actionItemHeader : styles.optimalRowHeader}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: isAction ? 12 : Sizes.sm, flex: 1 }}>
           <View style={isAction ? [styles.statusDot, { backgroundColor: statusColor }] : styles.optimalDot} />
           <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={isAction ? styles.actionItemName : styles.optimalTitleText} selectable>{test.test_name}</Text>
-              {isBiomarker && (
-                process.env.EXPO_OS === 'ios' ? (
-                  <Image source={expanded ? 'sf:chevron.up' : 'sf:chevron.down'} style={{ width: 14, height: 14 }} tintColor={Colors.gray400} />
-                ) : (
-                  <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.gray400} />
-                )
-              )}
-            </View>
+            <Text style={isAction ? styles.actionItemName : styles.optimalTitleText} selectable>{test.test_name}</Text>
             <RefRangeText
               refMin={test.ref_min}
               refMax={test.ref_max}
               unit={test.unit}
               style={isAction ? styles.actionItemRef : styles.optimalRangeText}
             />
+            {isBiomarker && !expanded && (
+              <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.detailsChip}>
+                {process.env.EXPO_OS === 'ios' ? (
+                  <Image source="sf:chart.xyaxis.line" style={{ width: 11, height: 11 }} tintColor={Colors.primary} />
+                ) : (
+                  <Feather name="trending-up" size={11} color={Colors.primary} />
+                )}
+                <Text style={styles.detailsChipText}>Trend & Details</Text>
+              </Animated.View>
+            )}
           </View>
         </View>
-        <View style={{ alignItems: 'flex-end', marginRight: isAction ? Sizes.sm : 0 }}>
-          <Text style={isAction ? [styles.actionItemValue, { color: statusColor }] : styles.optimalValueText} selectable>{test.value}</Text>
-          <Text style={isAction ? [styles.actionItemStatus, { color: statusColor }] : styles.optimalStatusText}>{statusLabel}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Sizes.sm }}>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={isAction ? [styles.actionItemValue, { color: statusColor }] : styles.optimalValueText} selectable>{test.value}</Text>
+            <Text style={isAction ? [styles.actionItemStatus, { color: statusColor }] : styles.optimalStatusText}>{statusLabel}</Text>
+          </View>
+          {isBiomarker && (
+            <Animated.View style={chevronRotation}>
+              {process.env.EXPO_OS === 'ios' ? (
+                <Image source="sf:chevron.down" style={{ width: 16, height: 16 }} tintColor={Colors.primary} />
+              ) : (
+                <Feather name="chevron-down" size={16} color={Colors.primary} />
+              )}
+            </Animated.View>
+          )}
         </View>
       </TouchableOpacity>
 
@@ -160,5 +182,21 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: Colors.gray100,
+  },
+  detailsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 5,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  detailsChipText: {
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    fontSize: 11,
+    color: Colors.primary,
   },
 });
