@@ -77,11 +77,11 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type, 
   };
 
   return (
-    <View style={isAction ? styles.actionItemContainer : styles.optimalRowContainer}>
+    <View style={styles.rowContainer}>
       <TouchableOpacity
         activeOpacity={isBiomarker ? 0.7 : 1}
         onPress={isBiomarker ? handleToggle : undefined}
-        style={isAction ? styles.actionItemHeader : styles.optimalRowHeader}
+        style={styles.rowHeader}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: isAction ? 12 : Sizes.sm, flex: 1 }}>
           <View style={isAction ? [styles.statusDot, { backgroundColor: statusColor }] : styles.optimalDot} />
@@ -91,7 +91,7 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type, 
               refMin={test.ref_min}
               refMax={test.ref_max}
               unit={test.unit}
-              style={isAction ? styles.actionItemRef : styles.optimalRangeText}
+              style={styles.refRangeText}
             />
             {isBiomarker && !expanded && (
               <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={[styles.detailsChip, chipStyle]}>
@@ -126,7 +126,7 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type, 
         <Animated.View
           entering={FadeIn}
           exiting={FadeOut}
-          style={isAction ? styles.actionItemExpanded : styles.optimalExpandedContent}
+          style={styles.expandedContent}
         >
           <BiomarkerExpandedContent test={test} pastTests={pastTests} />
         </Animated.View>
@@ -138,16 +138,27 @@ export const LabReportResultRow = ({ test, expanded, onToggle, pastTests, type, 
 export const ResultRowDivider = () => <View style={styles.divider} />;
 
 const styles = StyleSheet.create({
-  // Action item
-  actionItemContainer: {
+  // Shared row
+  rowContainer: {
     backgroundColor: Colors.white,
   },
-  actionItemHeader: {
+  rowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: Sizes.md,
   },
+  expandedContent: {
+    paddingBottom: Sizes.md,
+  },
+  refRangeText: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 12,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+
+  // Action item
   statusDot: {
     width: 10,
     height: 10,
@@ -158,12 +169,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.body,
     color: Colors.textPrimary,
   },
-  actionItemRef: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 12,
-    color: Colors.textTertiary,
-    marginTop: 2,
-  },
   actionItemValue: {
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: Typography.h4,
@@ -173,23 +178,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: -2,
   },
-  actionItemExpanded: {
-    paddingBottom: Sizes.md,
-  },
 
   // Optimal item
-  optimalRowContainer: {
-    backgroundColor: Colors.white,
-  },
-  optimalRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Sizes.md,
-  },
-  optimalExpandedContent: {
-    paddingBottom: Sizes.md,
-  },
   optimalDot: {
     width: 8,
     height: 8,
@@ -200,12 +190,6 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: Typography.body,
     color: Colors.textPrimary,
-  },
-  optimalRangeText: {
-    fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 12,
-    color: Colors.textTertiary,
-    marginTop: 2,
   },
   optimalValueText: {
     fontFamily: 'PlusJakartaSans-Bold',
