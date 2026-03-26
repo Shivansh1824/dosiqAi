@@ -134,6 +134,22 @@ Keep it concise — no jargon, no lengthy explanations. Just the core insight.
 
 ---
 
+## Platform Targets
+
+### Android
+- **minSdkVersion: 33 (Android 13)** — intentional decision for a paid app; ~70% active device coverage is acceptable
+- **targetSdkVersion: 35 (Android 15)** — required by Google Play for all new/updated apps
+- Do NOT add `Build.VERSION.SDK_INT` version guards for APIs below 33 — assume Android 13+ everywhere
+- Do NOT use `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, or `requestLegacyExternalStorage` — these are legacy and removed from the project
+- Media access uses granular permissions: `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`
+- Notification permission (`POST_NOTIFICATIONS`) must be requested at runtime via `notifee.requestPermission()`
+- Exact alarm permission (`SCHEDULE_EXACT_ALARMS`) is checked in `src/services/androidNotificationService.ts`
+
+### iOS
+- **Deployment target: 18.6**
+
+---
+
 ## Key Conventions
 
 - **Document colors** are computed on-the-fly by array index (cycling through 7 colors defined in the store) — never stored in the database.
