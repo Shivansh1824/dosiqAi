@@ -16,3 +16,11 @@ export const normalizeBiomarkerName = (str: string): string => {
     .replace(/\s+/g, ' ')
     .trim();
 };
+
+export const formatCategoryName = (category: string): string => {
+  if (category === 'All') return 'All';
+  return category
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};

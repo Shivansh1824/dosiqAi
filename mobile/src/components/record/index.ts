@@ -9,3 +9,8 @@ export { RecordGroupedTestsCard } from './RecordGroupedTestsCard';
 export { RecordDocumentPreviewLoading } from './RecordDocumentPreviewLoading';
 export { MedicationRecordCard } from './MedicationRecordCard';
 export { PrescriptionRecordSummary } from './PrescriptionRecordSummary';
+export { RefRangeText } from './RefRangeText';
+export { DietarySuggestionsBlock } from './DietarySuggestionsBlock';
+export { BiomarkerExpandedContent } from './BiomarkerExpandedContent';
+export { LabReportResultRow, ResultRowDivider } from './LabReportResultRow';
+export { LabReportActionSection } from './LabReportActionSection';
