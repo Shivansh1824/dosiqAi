@@ -23,24 +23,6 @@ export function useLabReportScreen(documentId: string) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading && !hasAutoExpanded && (reportData.actionRequired.length > 0 || reportData.optimalResults.length > 0)) {
-      const firstActionBiomarker = reportData.actionRequired.find(t => t.biomarker_id);
-      const firstOptimalBiomarker = reportData.optimalResults.find(t => t.biomarker_id);
-
-      if (firstActionBiomarker || firstOptimalBiomarker) {
-        setExpandedCards(prev => {
-          const next = new Set(prev);
-          if (firstActionBiomarker) next.add(firstActionBiomarker.id);
-          if (firstOptimalBiomarker) next.add(firstOptimalBiomarker.id);
-          return next;
-        });
-        setHasAutoExpanded(true);
-      }
-    }
-  }, [isLoading, reportData, hasAutoExpanded]);
 
   const toggleExpand = useCallback((testId: string) => {
     setExpandedCards(prev => {
