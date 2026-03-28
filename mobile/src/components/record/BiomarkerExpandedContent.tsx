@@ -12,6 +12,12 @@ interface BiomarkerExpandedContentProps {
 }
 
 export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedContentProps) => {
+  const displayResults = React.useMemo(() => {
+    return [test, ...(pastTests || [])]
+      .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
+      .slice(0, 6);
+  }, [test, pastTests]);
+
   return (
     <>
       {test.biomarker?.test_results && (
@@ -31,28 +37,25 @@ export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedC
         Past {test.test_name} results:
       </Text>
       <View style={styles.pastValuesList}>
-        {[test, ...(pastTests || [])]
-          .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
-          .slice(0, 6)
-          .map((past) => {
-            const isCurrent = past.id === test.id;
-            return (
-              <View
-                key={past.id}
-                style={[styles.pastValueItem, isCurrent && styles.currentPastValueItem]}
-              >
-                <View style={styles.pastValueLeft}>
-                  {isCurrent && <View style={styles.currentIndicator} />}
-                  <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]} selectable>
-                    {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
-                  </Text>
-                </View>
-                <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]} selectable>
-                  {past.value} {past.unit}
+        {displayResults.map((past) => {
+          const isCurrent = past.id === test.id;
+          return (
+            <View
+              key={past.id}
+              style={[styles.pastValueItem, isCurrent && styles.currentPastValueItem]}
+            >
+              <View style={styles.pastValueLeft}>
+                {isCurrent && <View style={styles.currentIndicator} />}
+                <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]} selectable>
+                  {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
                 </Text>
               </View>
-            );
-          })}
+              <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]} selectable>
+                {past.value} {past.unit}
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
       <DietarySuggestionsBlock

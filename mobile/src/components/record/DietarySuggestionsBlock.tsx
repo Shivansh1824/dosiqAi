@@ -22,8 +22,8 @@ export const DietarySuggestionsBlock = ({ biomarker, testName, isOptimal }: Diet
 
   if (!biomarker || (!hasNonVeg && !hasVeg)) return null;
 
-  const goodText = activeDiet === 'nonveg' ? biomarker.good_to_eat_nonveg : (activeDiet === 'veg' ? biomarker.good_to_eat_veg : null);
-  const badText  = activeDiet === 'nonveg' ? biomarker.bad_to_eat_nonveg  : (activeDiet === 'veg' ? biomarker.bad_to_eat_veg  : null);
+  const goodText = activeDiet ? biomarker[`good_to_eat_${activeDiet}`] : null;
+  const badText = activeDiet ? biomarker[`bad_to_eat_${activeDiet}`] : null;
 
   const goodTitle = isOptimal ? 'Supportive Foods' : 'Include More';
   const badTitle  = isOptimal ? 'Items to Moderate' : 'Limit / Avoid';

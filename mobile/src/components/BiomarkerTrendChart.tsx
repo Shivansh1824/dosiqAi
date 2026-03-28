@@ -42,8 +42,11 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
   const chartHeight = 150; // Slightly increased height for better visibility
 
   // Parse reference values as numbers
-  const refMin = currentTest.ref_min !== null ? parseFloat(String(currentTest.ref_min)) : null;
-  const refMax = currentTest.ref_max !== null ? parseFloat(String(currentTest.ref_max)) : null;
+  const refMin = currentTest.ref_min != null ? Number(currentTest.ref_min) : null;
+  const refMax = currentTest.ref_max != null ? Number(currentTest.ref_max) : null;
+
+  const hasRefMin = refMin !== null && !isNaN(refMin);
+  const hasRefMax = refMax !== null && !isNaN(refMax);
 
   // Calculate Y-axis domain for better scaling
   const values = allDataPoints.map(p => p.y);
@@ -51,8 +54,8 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
   const dataMax = Math.max(...values);
   
   const boundaries = [dataMin, dataMax];
-  if (refMin !== null) boundaries.push(refMin);
-  if (refMax !== null) boundaries.push(refMax);
+  if (hasRefMin) boundaries.push(refMin as number);
+  if (hasRefMax) boundaries.push(refMax as number);
   
   const absoluteMin = Math.min(...boundaries);
   const absoluteMax = Math.max(...boundaries);
@@ -100,18 +103,18 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
         />
 
         {/* Shaded Normal Range Area (Green) */}
-        {(refMin !== null || refMax !== null) && (
+        {(hasRefMin || hasRefMax) && (
           <VictoryArea
             data={[
               { 
                 x: allDataPoints[0].x, 
-                y: (refMax !== null && !isNaN(refMax)) ? refMax : domainY[1], 
-                y0: (refMin !== null && !isNaN(refMin)) ? refMin : ((refMax !== null && !isNaN(refMax)) ? 0 : domainY[0]) 
+                y: hasRefMax ? (refMax as number) : domainY[1], 
+                y0: hasRefMin ? (refMin as number) : (hasRefMax ? 0 : domainY[0]) 
               },
               { 
                 x: allDataPoints[allDataPoints.length - 1].x, 
-                y: (refMax !== null && !isNaN(refMax)) ? refMax : domainY[1], 
-                y0: (refMin !== null && !isNaN(refMin)) ? refMin : ((refMax !== null && !isNaN(refMax)) ? 0 : domainY[0])
+                y: hasRefMax ? (refMax as number) : domainY[1], 
+                y0: hasRefMin ? (refMin as number) : (hasRefMax ? 0 : domainY[0])
               }
             ]}
             style={{
@@ -124,11 +127,11 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
         )}
 
         {/* Shaded Danger Area - Above Max (Red) */}
-        {refMax !== null && !isNaN(refMax) && (
+        {hasRefMax && (
           <VictoryArea
             data={[
-              { x: allDataPoints[0].x, y: domainY[1], y0: refMax },
-              { x: allDataPoints[allDataPoints.length - 1].x, y: domainY[1], y0: refMax }
+              { x: allDataPoints[0].x, y: domainY[1], y0: refMax as number },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: domainY[1], y0: refMax as number }
             ]}
             style={{
               data: { 
@@ -140,11 +143,11 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
         )}
 
         {/* Shaded Danger Area - Below Min (Red) */}
-        {refMin !== null && !isNaN(refMin) && (
+        {hasRefMin && (
           <VictoryArea
             data={[
-              { x: allDataPoints[0].x, y: refMin, y0: domainY[0] },
-              { x: allDataPoints[allDataPoints.length - 1].x, y: refMin, y0: domainY[0] }
+              { x: allDataPoints[0].x, y: refMin as number, y0: domainY[0] },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMin as number, y0: domainY[0] }
             ]}
             style={{
               data: { 
@@ -156,11 +159,11 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
         )}
 
         {/* Reference Lines boundaries */}
-        {refMin !== null && !isNaN(refMin) && (
+        {hasRefMin && (
           <VictoryLine
             data={[
-              { x: allDataPoints[0].x, y: refMin },
-              { x: allDataPoints[allDataPoints.length - 1].x, y: refMin }
+              { x: allDataPoints[0].x, y: refMin as number },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMin as number }
             ]}
             style={{
               data: { 
@@ -172,11 +175,11 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
             } as any}
           />
         )}
-        {refMax !== null && !isNaN(refMax) && (
+        {hasRefMax && (
           <VictoryLine
             data={[
-              { x: allDataPoints[0].x, y: refMax },
-              { x: allDataPoints[allDataPoints.length - 1].x, y: refMax }
+              { x: allDataPoints[0].x, y: refMax as number },
+              { x: allDataPoints[allDataPoints.length - 1].x, y: refMax as number }
             ]}
             style={{
               data: { 
@@ -190,10 +193,10 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
         )}
 
         {/* Reference Labels */}
-        {refMin !== null && !isNaN(refMin) && (
+        {hasRefMin && (
           <VictoryLabel
-            text={refMin}
-            datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMin }}
+            text={refMin as number}
+            datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMin as number }}
             textAnchor="start"
             dx={8}
             style={{ 
@@ -204,10 +207,10 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
             }}
           />
         )}
-        {refMax !== null && !isNaN(refMax) && (
+        {hasRefMax && (
           <VictoryLabel
-            text={refMax}
-            datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMax }}
+            text={refMax as number}
+            datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMax as number }}
             textAnchor="start"
             dx={8}
             style={{ 
