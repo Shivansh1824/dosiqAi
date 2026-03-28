@@ -20,11 +20,17 @@ export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedC
         </View>
       )}
 
+      <Text style={styles.expandSectionTitle} numberOfLines={1} ellipsizeMode="tail">
+        {test.test_name} Trend:
+      </Text>
       <View style={{ marginHorizontal: -Sizes.md }}>
         <BiomarkerTrendChart currentTest={test} pastTests={pastTests || []} />
       </View>
 
-      <View style={[styles.pastValuesList, { marginTop: Sizes.md }]}>
+      <Text style={styles.expandSectionTitle} numberOfLines={1} ellipsizeMode="tail">
+        Past {test.test_name} results:
+      </Text>
+      <View style={styles.pastValuesList}>
         {[test, ...(pastTests || [])]
           .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())
           .slice(0, 6)
@@ -70,6 +76,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     lineHeight: 18,
+  },
+  expandSectionTitle: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 10,
+    color: Colors.gray400,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: Sizes.md,
+    marginBottom: Sizes.xs,
   },
   pastValuesList: {
     gap: Sizes.xs,

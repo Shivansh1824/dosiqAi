@@ -66,7 +66,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
       <VictoryChart
         width={chartWidth}
         height={chartHeight}
-        padding={{ top: 15, bottom: 35, left: 15, right: 35 }} // Adjusted for edge-to-edge
+        padding={{ top: 5, bottom: 35, left: 15, right: 35 }} // Reduced top padding to bring chart closer to headline
         containerComponent={<VictoryContainer disableContainerEvents />}
         scale={{ x: "time" }}
         domain={{ y: domainY }}
@@ -274,7 +274,6 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: Sizes.xs,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
