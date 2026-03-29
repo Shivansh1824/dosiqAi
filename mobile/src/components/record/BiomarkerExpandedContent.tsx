@@ -7,6 +7,7 @@ import { Colors, Sizes } from '@/constants';
 import { TestResult } from '@/hooks/useLabReport';
 import { CollapsibleText } from '@/components/common/CollapsibleText';
 import { DietarySuggestionsBlock } from './DietarySuggestionsBlock';
+import { formatReferenceRange } from '@/utils/stringUtils';
 
 interface BiomarkerExpandedContentProps {
   test: TestResult;
@@ -46,10 +47,7 @@ export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedC
         {test.biomarker && (test.ref_min != null || test.ref_max != null) && (
           <View style={styles.normalRangeTextContainer}>
             <Text style={styles.normalRangeText}>
-              The green section indicates the normal range (
-              {test.ref_min != null && test.ref_max != null ? `${test.ref_min} - ${test.ref_max}` : 
-               test.ref_max != null ? `< ${test.ref_max}` : 
-               test.ref_min != null ? `> ${test.ref_min}` : ''} {test.unit})
+              The green section indicates the normal range ({formatReferenceRange(test.ref_min, test.ref_max, test.unit)})
             </Text>
           </View>
         )}
@@ -100,15 +98,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     lineHeight: 18,
-  },
-  expandSectionTitle: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 10,
-    color: Colors.gray400,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginTop: Sizes.md,
-    marginBottom: Sizes.xs,
   },
   historyCard: {
     marginTop: Sizes.md,
