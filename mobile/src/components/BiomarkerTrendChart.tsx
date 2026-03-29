@@ -38,7 +38,8 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
   if (allDataPoints.length < 1) return null;
 
   // Chart dimensions
-  const chartWidth = SCREEN_WIDTH - (Sizes.md * 2); // Full width of the parent card
+  // Chart dimensions - accounting for screen padding (Sizes.md * 2) and card padding (Sizes.md * 2)
+  const chartWidth = SCREEN_WIDTH - (Sizes.md * 4); 
   const chartHeight = 150; // Slightly increased height for better visibility
 
   // Parse reference values as numbers
@@ -69,7 +70,7 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
       <VictoryChart
         width={chartWidth}
         height={chartHeight}
-        padding={{ top: 5, bottom: 35, left: 15, right: 35 }} // Reduced top padding to bring chart closer to headline
+        padding={{ top: 5, bottom: 35, left: 15, right: 15 }} // Centered horizontal padding since labels are now inside
         containerComponent={<VictoryContainer disableContainerEvents />}
         scale={{ x: "time" }}
         domain={{ y: domainY }}
@@ -197,8 +198,8 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           <VictoryLabel
             text={refMin as number}
             datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMin as number }}
-            textAnchor="start"
-            dx={8}
+            textAnchor="end"
+            dx={-10}
             style={{ 
               fill: Colors.successDark, 
               fontSize: 9, 
@@ -211,8 +212,8 @@ export default function BiomarkerTrendChart({ currentTest, pastTests }: Biomarke
           <VictoryLabel
             text={refMax as number}
             datum={{ x: allDataPoints[allDataPoints.length - 1].x, y: refMax as number }}
-            textAnchor="start"
-            dx={8}
+            textAnchor="end"
+            dx={-10}
             style={{ 
               fill: Colors.successDark, 
               fontSize: 9, 
