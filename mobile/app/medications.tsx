@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Typography } from '../src/constants';
 import { useRouter } from 'expo-router';
@@ -29,6 +29,7 @@ const formatTime12h = (timeStr: string): string => {
 export default function MedicationsScreen() {
     const router = useRouter();
     const { user } = useAuthStore();
+    const insets = useSafeAreaInsets();
     const { deleteAllMedications } = useMedicationsStore();
     const { scheduleAllForMedication } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(getTodayLocal());
@@ -198,7 +199,7 @@ export default function MedicationsScreen() {
     const progressPercent = totalCount > 0 ? (takenCount / totalCount) * 100 : 0;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
             <View
                 style={[
                     StyleSheet.absoluteFill,
@@ -206,7 +207,7 @@ export default function MedicationsScreen() {
                 ]}
             />
             {/* ── Header ── */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top, height: (64 + insets.top) }]}>
                 <TouchableOpacity
                     onPress={() => router.back()}
                     style={styles.backButton}
@@ -376,7 +377,7 @@ export default function MedicationsScreen() {
                     onChange={onTimeChange}
                 />
             )}
-        </SafeAreaView>
+        </View>
     );
 }
 

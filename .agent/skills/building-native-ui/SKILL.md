@@ -82,7 +82,15 @@ See `./references/route-structure.md` for detailed route conventions.
 - Never use legacy expo-permissions
 - `expo-audio` not `expo-av`
 - `expo-video` not `expo-av`
-- `expo-image` with `source="sf:name"` for SF Symbols, not `expo-symbols` or `@expo/vector-icons`
+- `expo-image` with `source="sf:name"` for SF Symbols on iOS — **SF Symbols are iOS-only**; always guard with `process.env.EXPO_OS === 'ios'` and provide a `@expo/vector-icons` Feather fallback for Android:
+  ```tsx
+  {process.env.EXPO_OS === 'ios' ? (
+    <Image source="sf:magnifyingglass" style={{ width: 20, height: 20 }} tintColor={color} />
+  ) : (
+    <Feather name="search" size={20} color={color} />
+  )}
+  ```
+- Do not use bare `sf:` sources without a platform guard — on Android `expo-image` silently renders nothing for `sf:` URIs
 - `react-native-safe-area-context` not react-native SafeAreaView
 - `process.env.EXPO_OS` not `Platform.OS`
 - `React.use` not `React.useContext`
@@ -132,13 +140,50 @@ Follow Apple Human Interface Guidelines.
 
 ## Shadows
 
-Use CSS `boxShadow` style prop. NEVER use legacy React Native shadow or elevation styles.
+Use CSS `boxShadow` style prop for most cases as it provides consistent, web-spec-compliant styling across platforms. 
 
 ```tsx
 <View style={{ boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" }} />
 ```
 
-'inset' shadows are supported.
+**Android Circular Shapes:**
+On Android, `boxShadow` may sometimes render as a square for circular containers (e.g., buttons where `borderRadius` is 50% of the size). In such cases, use `Platform.select` to provide `elevation` as an override for Android:
+
+```tsx
+<View style={{
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: 'white',
+  ...Platform.select({
+    ios: {
+      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+    },
+    android: {
+      elevation: 4,
+    },
+  }),
+}} />
+```
+
+'inset' shadows are also supported via `boxShadow`.
+
+## SVG / Charts (Android Gotcha)
+
+**Never reference SVG `<Defs>` / `<LinearGradient>` across separate `<Svg>` elements.** Each `<Svg>` is an isolated context on Android — `url(#id)` references to a gradient defined in a different `<Svg>` resolve to nothing and Android falls back to solid black fill. On iOS the renderer happens to share the ID space on the same screen, hiding the bug.
+
+Wrong — cross-SVG `url()` reference (black fill on Android):
+```tsx
+<Svg style={{ height: 0, width: 0 }}>
+  <Defs><LinearGradient id="grad" .../></Defs>
+</Svg>
+<VictoryArea style={{ data: { fill: 'url(#grad)' } }} />
+```
+
+Correct — use a plain semi-transparent color instead:
+```tsx
+<VictoryArea style={{ data: { fill: Colors.primary, fillOpacity: 0.08 } }} />
+```
 
 # Navigation
 

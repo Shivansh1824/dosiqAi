@@ -117,14 +117,10 @@ export function useLabReport(documentId?: string) {
       setReportData({ actionRequired, optimalResults });
 
       // Fetch past values for tests with biomarker_id
-      const biomarkerIds = results
-        .map(r => r.biomarker_id)
-        .filter((id): id is string => !!id);
-
-      if (biomarkerIds.length > 0) {
+      if (currentBiomarkerIds.length > 0) {
         const { data: pastData, error: pastError } = await api.from('test_results')
           .select('*')
-          .in('biomarker_id', biomarkerIds)
+          .in('biomarker_id', currentBiomarkerIds)
           .neq('document_id', documentId) // Exclude current report
           .order('report_date', { ascending: false });
 

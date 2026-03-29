@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Sizes } from '../src/constants';
 import { } from '@react-navigation/native';
@@ -20,6 +20,7 @@ import BMICalculatorModal from '../src/components/BMICalculatorModal';
 export default function HealthScreen() {
     const router = useRouter();
     const { user } = useAuthStore();
+    const insets = useSafeAreaInsets();
     const { medications, isLoading: isLoadingMeds, fetchMedications } = useMedicationsStore();
     const { appointments, isLoading: isLoadingApts, fetchAppointments } = useAppointmentsStore();
     const { vitals: healthVitals, isLoading: isLoadingVitals, fetchVitals, addVital } = useHealthVitalsStore();
@@ -223,9 +224,9 @@ export default function HealthScreen() {
     const isLoading = isLoadingMeds || isLoadingApts || isLoadingVitals;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, Platform.OS === 'android' && { paddingTop: insets.top, height: 64 + insets.top }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
@@ -350,7 +351,7 @@ export default function HealthScreen() {
                 onSave={handleSaveBMI}
                 currentBMI={currentBMI}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 

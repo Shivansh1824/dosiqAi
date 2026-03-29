@@ -31,6 +31,11 @@ export default {
         foregroundImage: "./assets/icon-android-foreground.png",
         backgroundColor: "#373636"
       },
+      statusBar: {
+        barStyle: "light-content",
+        backgroundColor: "#ffffff",
+        translucent: true
+      },
       predictiveBackGestureEnabled: false,
       package: "com.dosiqai"
     },
@@ -63,7 +68,7 @@ export default {
             }
           },
           android: {
-            minSdkVersion: 24,
+            minSdkVersion: 33,
             useHermesV1: true,
             buildReactNativeFromSource: true
           }

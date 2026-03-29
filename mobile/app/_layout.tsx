@@ -116,7 +116,7 @@ export default function RootLayout() {
             <ErrorBoundary>
                 <SafeAreaProvider>
                     <View style={styles.container}>
-                        <StatusBar style="dark" />
+                        <StatusBar style="dark" translucent backgroundColor="transparent" />
                         <View style={styles.appWrapper}>
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'white' } }}>
                                 <Stack.Screen name="index" />
@@ -129,6 +129,14 @@ export default function RootLayout() {
                                         headerTransparent: true,
                                         headerBlurEffect: 'systemUltraThinMaterial',
                                         headerBackButtonDisplayMode: 'minimal',
+                                        headerTitleAlign: 'center',
+                                    }}
+                                />
+                                <Stack.Screen
+                                    name="lab-report/[id]"
+                                    options={{
+                                        headerShown: true,
+                                        headerTransparent: true,
                                         headerTitleAlign: 'center',
                                     }}
                                 />
