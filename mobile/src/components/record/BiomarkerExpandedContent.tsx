@@ -14,6 +14,15 @@ interface BiomarkerExpandedContentProps {
   pastTests?: TestResult[];
 }
 
+const getStatusColor = (status?: string | null) => {
+  const s = status?.toUpperCase();
+  if (!s || s === 'NORMAL' || s === 'OPTIMAL') return Colors.success;
+  // Red for high/low/critical
+  if (s === 'HIGH' || s === 'LOW' || s === 'CRITICAL' || s === 'ABNORMAL') return Colors.error;
+  // Yellow/Amber for borderline or warning
+  return Colors.warning;
+};
+
 export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedContentProps) => {
   const displayResults = React.useMemo(() => {
     return [test, ...(pastTests || [])]
@@ -68,7 +77,14 @@ export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedC
                     {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
                   </Text>
                 </View>
-                <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]} selectable>
+                <Text
+                  style={[
+                    styles.pastValueText,
+                    { color: getStatusColor(past.status) },
+                    isCurrent && styles.currentPastValueText
+                  ]}
+                  selectable
+                >
                   {past.value} {past.unit}
                 </Text>
               </View>
@@ -192,7 +208,6 @@ const styles = StyleSheet.create({
     left: -12,
   },
   currentPastValueText: {
-    color: Colors.primary,
     fontFamily: 'PlusJakartaSans-Bold',
   },
 });
