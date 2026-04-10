@@ -1,17 +1,17 @@
 import React from 'react';
 import { Text, StyleProp, TextStyle } from 'react-native';
 
+import { formatReferenceRange } from '@/utils/stringUtils';
+
 interface RefRangeTextProps {
-  refMin: number | null;
-  refMax: number | null;
-  unit: string | null;
+  refMin: number | string | null | undefined;
+  refMax: number | string | null | undefined;
+  unit: string | null | undefined;
   style: StyleProp<TextStyle>;
 }
 
 export const RefRangeText = ({ refMin, refMax, unit, style }: RefRangeTextProps) => {
-  if (refMin === null && refMax === null) return null;
-  const range = refMin !== null
-    ? (refMax !== null ? `${refMin} - ${refMax}` : `> ${refMin}`)
-    : `< ${refMax}`;
-  return <Text style={style} selectable>Ref: {range} {unit}</Text>;
+  const range = formatReferenceRange(refMin, refMax, unit);
+  if (!range) return null;
+  return <Text style={style} selectable>Ref: {range}</Text>;
 };

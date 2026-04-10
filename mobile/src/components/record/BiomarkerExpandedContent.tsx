@@ -1,15 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { Feather } from '@expo/vector-icons';
 import { BiomarkerTrendChart } from '@/components';
 import { Colors, Sizes } from '@/constants';
 import { TestResult } from '@/hooks/useLabReport';
 import { CollapsibleText } from '@/components/common/CollapsibleText';
 import { DietarySuggestionsBlock } from './DietarySuggestionsBlock';
+import { formatReferenceRange } from '@/utils/stringUtils';
 
 interface BiomarkerExpandedContentProps {
   test: TestResult;
   pastTests?: TestResult[];
 }
+
+const getStatusColor = (status?: string | null) => {
+  const s = status?.toUpperCase();
+  if (!s || s === 'NORMAL' || s === 'OPTIMAL') return Colors.success;
+  // Red for high/low/critical
+  if (s === 'HIGH' || s === 'LOW' || s === 'CRITICAL' || s === 'ABNORMAL') return Colors.error;
+  // Yellow/Amber for borderline or warning
+  return Colors.warning;
+};
 
 export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedContentProps) => {
   const displayResults = React.useMemo(() => {
@@ -26,36 +38,59 @@ export const BiomarkerExpandedContent = ({ test, pastTests }: BiomarkerExpandedC
         </View>
       )}
 
-      <Text style={styles.expandSectionTitle} numberOfLines={1} ellipsizeMode="tail">
-        {test.test_name} Trend:
-      </Text>
-      <View style={{ marginHorizontal: -Sizes.md }}>
-        <BiomarkerTrendChart currentTest={test} pastTests={pastTests || []} />
-      </View>
+      <View style={styles.historyCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.iconCircle}>
+            {process.env.EXPO_OS === 'ios' ? (
+              <Image source="sf:chart.line.uptrend.xyaxis" style={{ width: 14, height: 14 }} tintColor={Colors.primary} />
+            ) : (
+              <Feather name="activity" size={14} color={Colors.primary} />
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>{test.test_name} History</Text>
+            <Text style={styles.cardSubtitle}>Tracking your trends over time</Text>
+          </View>
+        </View>
 
-      <Text style={styles.expandSectionTitle} numberOfLines={1} ellipsizeMode="tail">
-        Past {test.test_name} results:
-      </Text>
-      <View style={styles.pastValuesList}>
-        {displayResults.map((past) => {
-          const isCurrent = past.id === test.id;
-          return (
-            <View
-              key={past.id}
-              style={[styles.pastValueItem, isCurrent && styles.currentPastValueItem]}
-            >
-              <View style={styles.pastValueLeft}>
-                {isCurrent && <View style={styles.currentIndicator} />}
-                <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]} selectable>
-                  {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
+        {test.biomarker && (test.ref_min != null || test.ref_max != null) && (
+          <View style={styles.normalRangeTextContainer}>
+            <Text style={styles.normalRangeText}>
+              The green section indicates the normal range ({formatReferenceRange(test.ref_min, test.ref_max, test.unit)})
+            </Text>
+          </View>
+        )}
+
+        <BiomarkerTrendChart currentTest={test} pastTests={pastTests || []} />
+
+        <View style={styles.pastValuesList}>
+          {displayResults.map((past) => {
+            const isCurrent = past.id === test.id;
+            return (
+              <View
+                key={past.id}
+                style={[styles.pastValueItem, isCurrent && styles.currentPastValueItem]}
+              >
+                <View style={styles.pastValueLeft}>
+                  {isCurrent && <View style={styles.currentIndicator} />}
+                  <Text style={[styles.pastValueDate, isCurrent && styles.currentPastValueText]} selectable>
+                    {new Date(past.report_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.pastValueText,
+                    { color: getStatusColor(past.status) },
+                    isCurrent && styles.currentPastValueText
+                  ]}
+                  selectable
+                >
+                  {past.value} {past.unit}
                 </Text>
               </View>
-              <Text style={[styles.pastValueText, isCurrent && styles.currentPastValueText]} selectable>
-                {past.value} {past.unit}
-              </Text>
-            </View>
-          );
-        })}
+            );
+          })}
+        </View>
       </View>
 
       <DietarySuggestionsBlock
@@ -80,14 +115,40 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 18,
   },
-  expandSectionTitle: {
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 10,
-    color: Colors.gray400,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+  historyCard: {
     marginTop: Sizes.md,
-    marginBottom: Sizes.xs,
+    backgroundColor: Colors.white,
+    borderRadius: Sizes.radiusMd,
+    borderCurve: 'continuous',
+    padding: Sizes.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: Sizes.sm,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 14,
+    color: Colors.textPrimary,
+  },
+  cardSubtitle: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 11,
+    color: Colors.textTertiary,
   },
   pastValuesList: {
     gap: Sizes.xs,
@@ -95,6 +156,17 @@ const styles = StyleSheet.create({
     borderRadius: Sizes.radiusMd,
     borderCurve: 'continuous',
     padding: Sizes.md,
+    marginTop: Sizes.sm / 2,
+  },
+  normalRangeTextContainer: {
+    marginTop: Sizes.xs,
+    marginBottom: Sizes.xs,
+  },
+  normalRangeText: {
+    fontFamily: 'PlusJakartaSans-Medium',
+    fontSize: 10,
+    color: Colors.textTertiary,
+    textAlign: 'left',
   },
   pastValueItem: {
     flexDirection: 'row',
@@ -136,7 +208,6 @@ const styles = StyleSheet.create({
     left: -12,
   },
   currentPastValueText: {
-    color: Colors.primary,
     fontFamily: 'PlusJakartaSans-Bold',
   },
 });
