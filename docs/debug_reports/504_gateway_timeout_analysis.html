@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Report: 504 Gateway Time-out</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f9fafb;
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h1 {
+            color: #111827;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #2563eb;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .meta-info {
+            background-color: #f3f4f6;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+        .meta-info p {
+            margin: 5px 0;
+            font-weight: 500;
+        }
+        .alert {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 20px 0;
+            color: #991b1b;
+        }
+        .success {
+            background-color: #dcfce7;
+            border-left: 4px solid #22c55e;
+            padding: 15px;
+            margin: 20px 0;
+            color: #166534;
+        }
+        code {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Technical Incident Report: API 504 Gateway Time-out</h1>
+    
+    <div class="meta-info">
+        <p><strong>Date:</strong> April 11, 2026</p>
+        <p><strong>Component:</strong> Mobile App (Frontend) & Custom VPS API (Backend)</p>
+        <p><strong>Issue Tracking:</strong> <code>504 Gateway Time-out</code> during AI Document Analysis.</p>
+    </div>
+
+    <h2>1. Executive Summary</h2>
+    <p>When users upload complex PDF documents (like prescriptions or lab reports) for AI analysis, the mobile application actively loops in the backend VPS API endpoint (<code>/functions/v1/document-manager</code>). However, because extracting and structuring data using AI (Gemini) is a high-latency operation, the remote AI processing consistently exceeds <strong>60 seconds</strong> to complete.</p>
+    
+    <div class="alert">
+        <strong>The Problem:</strong> The NGINX web server hosting the VPS custom domain enforcing the API (<code>api.dosiqai.com</code>) has a strict default 60-second connection timeout (<code>proxy_read_timeout</code>). At exactly 60 seconds, NGINX forcefully terminates the client connection, throwing a <strong>504 Gateway Time-out</strong> HTML error page to the mobile app.
+    </div>
+
+    <h2>2. The Disconnect Phenomenon</h2>
+    <p>Despite the proxy explicitly dropping the connection to the mobile application, the custom backend API <strong>does not stop processing the document.</strong> The backend script securely continues operating in the background, completes the exact AI parsing 10 to 20 seconds later, and successfully writes the AI payload directly to the PostgreSQL database.</p>
+    <p>Because the mobile app frontend previously relied on a synchronous HTTP response to update its UI, the dropped connection caused the app to trap an error. This prevented the app from rendering the newly populated AI data that was just successfully generated on the backend.</p>
+
+    <h2>3. Required Action & Approval Request</h2>
+    <p>A permanent networking fix requires standard server administration to align HTTP capacities with AI workloads.</p>
+
+    <p><strong>Proposed Solution: Increase VPS Proxy Timeout to 120s+</strong></p>
+    <p>Since the initial premature disconnect strictly originates from the NGINX proxy on the VPS, updating the <code>location</code> block in the NGINX configuration to allow extended processing time will restore synchronous harmony.</p>
+    
+    <pre><code>location / {
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 300s;
+    proxy_send_timeout 300s;
+    # ... existing configuration
+}</code></pre>
+
+    <p>We kindly request approval to standardize the VPS NGINX configurations to support long-polling AI tasks.</p>
+
+</div>
+
+</body>
+</html>

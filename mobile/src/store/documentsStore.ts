@@ -192,6 +192,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         return false;
       }
 
+      // Update local state so subsequent calls (like triggerAnalysis) can access the key
+      set((state) => ({
+        documents: state.documents.map((doc) => 
+          doc.id === documentId ? { ...doc, cloud_file_key: cloudFileKey } : doc
+        )
+      }));
+
       console.log('[DocumentsStore] ✅ cloud_file_key updated successfully');
       return true;
     } catch (error) {
@@ -364,6 +371,11 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       // Use analysis result directly from the API response (more reliable than refetching)
       console.log(`[DocumentsStore] Edge Function result (documentId: ${documentId}):`, JSON.stringify(result, null, 2));
 
+      // Check for 504 Gateway Timeout or success failure
+      if (!result.success) {
+        throw new Error(result.error || 'Analysis failed (Timeout or Server Error)');
+      }
+
       const analysisResult = result.analysis;
       const aiDocumentType = analysisResult?.document_type;
 
@@ -398,7 +410,6 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
             }
 
-
             await from('documents')
               .update(updateFields)
               .eq('id', documentId);
@@ -410,10 +421,6 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
         // Always refresh documents after analysis to get the latest state
         await get().fetchDocuments(document.user_id, true);
-      }
-
-      if (!result.success) {
-        throw new Error(result.error || 'Analysis failed');
       }
 
       console.log('[DocumentsStore] Analysis completed successfully');

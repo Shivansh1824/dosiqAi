@@ -294,7 +294,13 @@ class QueryBuilder {
 
       if (res.status === 204) return { data: null, error: null };
 
-      const json = await res.json();
+      let json;
+      const resText = await res.text();
+      try {
+        json = JSON.parse(resText);
+      } catch (e) {
+        return { data: null, error: { message: `Server error: ${res.status} ${res.statusText}. Response: ${resText.substring(0, 200)}`, code: res.status } };
+      }
       if (!res.ok) return { data: null, error: { message: json.error || 'Request failed', code: json.code } };
 
       let data = json.data ?? json;
@@ -317,7 +323,13 @@ export const functions = {
         body: JSON.stringify(options?.body),
         headers: options?.headers,
       });
-      const data = await res.json();
+      const resText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        return { data: null, error: { message: `Server error: ${res.status} ${res.statusText}. Response: ${resText.substring(0, 100)}` } };
+      }
       if (!res.ok) return { data: null, error: { message: data.error || 'Function call failed' } };
       return { data, error: null };
     } catch (err: any) {
