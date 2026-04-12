@@ -438,6 +438,27 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
               {(() => {
                 const summary = document?.ai_analysis_result?.summary;
 
+                // Safely format additional_notes to handle arrays AND object key-value pairs
+                const rawNotes = document?.ai_analysis_result?.additional_notes;
+                let normalizedNotes: any[] | undefined = undefined;
+
+                if (Array.isArray(rawNotes)) {
+                  // Handle Array structure: [{"text": "...", "type": "..."}] or [{"key": "...", "value": "..."}]
+                  normalizedNotes = rawNotes.map((note: any) => {
+                    if (typeof note === 'string') return { value: note, category: 'Note' };
+                    return {
+                      value: note.text || note.value || '',
+                      category: note.type || note.category || note.key || 'Note'
+                    };
+                  }).filter(n => n.value !== '');
+                } else if (rawNotes && typeof rawNotes === 'object') {
+                  // Handle direct Object structure: {"Vitals": "120/80", "Warning": "Avoid alcohol..."}
+                  normalizedNotes = Object.entries(rawNotes).map(([key, val]) => ({
+                    category: key,
+                    value: String(val)
+                  })).filter(n => n.value !== '');
+                }
+
                 return (
                   <Animated.View layout={LinearTransition.duration(300)} style={{ gap: 12 }}>
                     {/* Verification Prompt — subtle inline note for handwritten prescriptions */}
@@ -456,7 +477,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                         <PrescriptionSummary
                           summary={summary}
                           recommendedTests={document?.ai_analysis_result?.advised_tests}
-                          otherInformation={(document?.ai_analysis_result?.additional_notes as any) ?? undefined}
+                          otherInformation={normalizedNotes && normalizedNotes.length > 0 ? normalizedNotes : undefined}
                           followUp={document?.ai_analysis_result?.follow_up_days ? { follow_up_days: document.ai_analysis_result.follow_up_days } : undefined}
                           defaultExpanded={document?.ai_analysis_result?.document_type?.toLowerCase() === 'invalid'}
                         />
