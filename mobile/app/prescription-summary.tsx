@@ -504,7 +504,7 @@ export default function PrescriptionSummaryScreen({ onBack, document: documentPr
                                       <Text style={styles.medicationsHeaderTitle}>MEDICATIONS DETECTED</Text>
                                       <Text style={styles.medicationsHeaderSubtitle}>
                                         dosiq Ai found {count}{' '}
-                                        {count === 1 ? 'medication' : 'medications'} in your prescription. See details below.
+                                        {count === 1 ? 'medication' : 'medications'} in your prescription. Verify details and schedule reminders below.
                                       </Text>
                                     </View>
                                   </View>

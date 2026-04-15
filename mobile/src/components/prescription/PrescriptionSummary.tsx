@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated2, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming, withRepeat } from 'react-native-reanimated';
+import Animated2, { FadeIn, FadeInDown, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming, withRepeat } from 'react-native-reanimated';
 import { Colors, Typography } from '../../constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Path } from 'react-native-svg';
@@ -142,7 +142,7 @@ export function PrescriptionSummary({
     // OPTIMIZED: No layout thrashing (borderWidth is constant)
     const containerStyle = useAnimatedStyle(() => {
         return {
-            borderColor: withTiming(isExpanded ? '#BFDBFE' : 'transparent', { duration: 250 }), // Lighter blue (Blue-200)
+            borderColor: withTiming(isExpanded ? '#BFDBFE' : 'rgba(230, 240, 255, 0.5)', { duration: 250 }), // Subtle glass edge when collapsed
         };
     }, [isExpanded]);
 
@@ -151,7 +151,7 @@ export function PrescriptionSummary({
             // Use standard duration for no-bounce, high-performance transition
             // Tuned to 250ms for snappier feel
             layout={LinearTransition.duration(250)}
-            style={[styles.outerShell, style, containerStyle, { borderWidth: 0 }]}
+            style={[styles.outerShell, style, containerStyle]}
         >
             {/* Pulsing blue-violet aura glow just behind/before the icon - Always visible */}
             <IconGlow />
@@ -161,6 +161,10 @@ export function PrescriptionSummary({
                 style={styles.aiSummaryHeader}
                 onPress={() => setIsExpanded(prev => !prev)}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isExpanded }}
+                accessibilityLabel="AI Analysis Summary"
+                accessibilityHint="Double tap to expand or collapse the AI generated summary"
             >
                 <View style={styles.headerLeft}>
                     <View style={styles.iconContainer}>
@@ -195,42 +199,44 @@ export function PrescriptionSummary({
 
             {/* ── Expanded Content (dropdown) ── */}
             {isExpanded && (
-                <Animated2.View
-                    entering={FadeIn.duration(400)}
-                    exiting={FadeOut.duration(200)}
-                    style={styles.contentContainer}
-                >
-                    <Text style={styles.infoLabel}>SUMMARY</Text>
-                    <Text style={styles.aiSummaryText}>{summary}</Text>
+                <View style={styles.contentContainer}>
+                    <Animated2.View
+                        entering={FadeInDown.duration(400).delay(0)}
+                        exiting={FadeOut.duration(200)}
+                    >
+                        <Text style={styles.infoLabel}>SUMMARY</Text>
+                        <Text style={styles.aiSummaryText}>{summary}</Text>
+                    </Animated2.View>
 
 
                     {/* Follow-up */}
                     {followUp && (followUp.follow_up_date || followUp.follow_up_days) && (
-                        <View style={styles.infoBlock}>
-                            <View style={styles.infoIcon}>
-                                <SymbolView
-                                    name={{ ios: 'calendar.badge.clock', android: 'event_upcoming' }}
-                                    size={18}
-                                    tintColor="#60A5FA"
-                                    fallback={<MaterialCommunityIcons name="calendar-clock" size={18} color="#60A5FA" />}
-                                />
+                        <Animated2.View 
+                            entering={FadeInDown.duration(400).delay(100)}
+                            exiting={FadeOut.duration(200)}
+                        >
+                            <View style={styles.infoBlock}>
+                                <View style={styles.infoContent}>
+                                    <Text style={styles.infoLabel}>Follow Up</Text>
+                                    <Text style={styles.infoValue}>
+                                        {followUp.follow_up_days && followUp.follow_up_date
+                                            ? `After ${followUp.follow_up_days} days, on ${followUp.follow_up_date}`
+                                            : followUp.follow_up_date
+                                                ? `On ${followUp.follow_up_date}`
+                                                : `In ${followUp.follow_up_days} days`}
+                                    </Text>
+                                </View>
                             </View>
-                            <View style={styles.infoContent}>
-                                <Text style={styles.infoLabel}>Follow Up</Text>
-                                <Text style={styles.infoValue}>
-                                    {followUp.follow_up_days && followUp.follow_up_date
-                                        ? `After ${followUp.follow_up_days} days, on ${followUp.follow_up_date}`
-                                        : followUp.follow_up_date
-                                            ? `On ${followUp.follow_up_date}`
-                                            : `In ${followUp.follow_up_days} days`}
-                                </Text>
-                            </View>
-                        </View>
+                        </Animated2.View>
                     )}
 
                     {/* Other Information */}
                     {otherInformation && otherInformation.length > 0 && (
-                        <View style={styles.sectionContainer}>
+                        <Animated2.View 
+                            entering={FadeInDown.duration(400).delay(200)}
+                            exiting={FadeOut.duration(200)}
+                            style={styles.sectionContainer}
+                        >
                             {otherInformation.map((info, index) => (
                                 <View key={index} style={styles.infoBlock}>
                                     <View style={styles.infoContent}>
@@ -239,9 +245,9 @@ export function PrescriptionSummary({
                                     </View>
                                 </View>
                             ))}
-                        </View>
+                        </Animated2.View>
                     )}
-                </Animated2.View>
+                </View>
             )}
 
 
@@ -259,12 +265,13 @@ const styles = StyleSheet.create({
         paddingBottom: 20,     // Increased bottom padding
         position: 'relative',
         overflow: 'hidden',
+        borderWidth: 1, // subtle glass border
         // Card Shadows
-        shadowColor: '#1a1a2e',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-        elevation: 2,
+        shadowColor: '#60A5FA', // Premium blue tinted glow
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 4,
     },
     // bottomDivider removed (no longer needed for card design)
 
@@ -295,7 +302,7 @@ const styles = StyleSheet.create({
     aiSummaryTitle: {
         fontSize: 20, // Increased title size
         fontWeight: '800',
-        color: Colors.gray900,
+        color: '#1E293B', // Softened slate/navy for a less harsh look
         letterSpacing: 0.5,
     },
     aiSummarySubtitle: {
@@ -319,7 +326,7 @@ const styles = StyleSheet.create({
     // Content
     contentContainer: {
         marginTop: 20, // Increased spacing
-        gap: 6,
+        gap: 16,
     },
     aiSummaryText: {
         fontSize: 16, // Increased body text size
@@ -327,7 +334,6 @@ const styles = StyleSheet.create({
         color: Colors.gray700,
         ...Typography.fontWeights.regular,
         marginTop: 4,
-        marginBottom: 10,
     },
     sectionContainer: {
         gap: 12,
@@ -335,7 +341,6 @@ const styles = StyleSheet.create({
     infoBlock: {
         flexDirection: 'row',
         gap: 12,
-        marginTop: 8,
     },
     infoIcon: {
         marginTop: 2,
