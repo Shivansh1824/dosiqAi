@@ -749,7 +749,7 @@ export default function MedicationVerificationCard({
             <CoursePeriodSection
               startDate={startDate}
               endDate={endDate}
-              durationDays={medication.duration_days}
+              durationDays={medication.duration_days ?? undefined}
               interval={medication.interval_days ?? medication.source_raw?.gap_between_days}
               onStartDatePress={() => setShowDatePicker(true)}
               onEndDatePress={() => setShowEndDatePicker(true)}
