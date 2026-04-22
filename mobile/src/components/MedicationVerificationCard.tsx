@@ -739,23 +739,7 @@ export default function MedicationVerificationCard({
                   </TouchableOpacity>
                 )}
 
-                {/* 6. Duration */}
-                {medication.duration_days && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    onPress={(e) => handleTooltipPress(e, 'Duration')}
-                  >
-                    <View style={styles.aiButton}>
-                      <View style={styles.aiButtonIcon}>
-                        <Feather name="clock" size={10} color={Colors.gray600} />
-                      </View>
-                      <Text style={styles.aiButtonText}>
-                        {medication.duration_days} Days
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+
               </View>
             </View>
 
@@ -765,10 +749,25 @@ export default function MedicationVerificationCard({
             <CoursePeriodSection
               startDate={startDate}
               endDate={endDate}
+              durationDays={medication.duration_days}
               interval={medication.interval_days ?? medication.source_raw?.gap_between_days}
               onStartDatePress={() => setShowDatePicker(true)}
               onEndDatePress={() => setShowEndDatePicker(true)}
               onIntervalChange={handleIntervalChange}
+              onDurationChange={(days) => {
+                // Determine new end date mathematically
+                const start = new Date(startDate);
+                start.setDate(start.getDate() + (days - 1));
+                const newEndDate = start.toISOString().split('T')[0];
+
+                setEndDate(newEndDate);
+                setMedication(prev => ({ ...prev, duration_days: days }));
+
+                onLiveUpdate?.({
+                  end_date: newEndDate,
+                  duration_days: days
+                });
+              }}
               isVerified={isVerified}
               fixedFrequencyText={(medication.interval_days === null || medication.interval_days === 0) ? "S.O.S" : undefined}
             />
@@ -785,13 +784,16 @@ export default function MedicationVerificationCard({
                 const start = new Date(date);
                 const end = new Date(endDate);
                 const diffTime = end.getTime() - start.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-                onLiveUpdate?.({
-                  start_date: date,
-                  end_date: endDate,
-                  duration_days: diffDays
-                });
+                setMedication(prev => ({ ...prev, duration_days: diffDays }));
+
+                if (start > end) {
+                    setEndDate(date);
+                    onLiveUpdate?.({ start_date: date, end_date: date, duration_days: 1 });
+                } else {
+                    onLiveUpdate?.({ start_date: date, end_date: endDate, duration_days: diffDays });
+                }
               }}
               onCancel={() => setShowDatePicker(false)}
               maximumDate={new Date().toISOString().split('T')[0]}
@@ -810,7 +812,9 @@ export default function MedicationVerificationCard({
                 const start = new Date(startDate);
                 const end = new Date(date);
                 const diffTime = end.getTime() - start.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
+                setMedication(prev => ({ ...prev, duration_days: diffDays }));
 
                 onLiveUpdate?.({
                   start_date: startDate,

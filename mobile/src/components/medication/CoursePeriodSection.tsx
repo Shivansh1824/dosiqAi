@@ -8,10 +8,12 @@ import NumberPickerModal from '../NumberPickerModal';
 interface CoursePeriodSectionProps {
     startDate: string;
     endDate: string;
+    durationDays?: number;
     interval?: number;
     onStartDatePress: () => void;
     onEndDatePress: () => void;
     onIntervalChange?: (days: number) => void;
+    onDurationChange?: (days: number) => void;
     isVerified?: boolean;
     hasEndDate?: boolean;
     onToggleEndDate?: (value: boolean) => void;
@@ -34,16 +36,19 @@ const formatDateDisplay = (isoDate: string) => {
 export function CoursePeriodSection({
     startDate,
     endDate,
+    durationDays,
     interval = 1,
     onStartDatePress,
     onEndDatePress,
     onIntervalChange,
+    onDurationChange,
     isVerified = false,
     hasEndDate = true,
     onToggleEndDate,
     fixedFrequencyText,
 }: CoursePeriodSectionProps) {
     const [showIntervalPicker, setShowIntervalPicker] = useState(false);
+    const [showDurationPicker, setShowDurationPicker] = useState(false);
 
     const getIntervalLabel = () => {
         if (!interval || interval === 1) return 'EVERYDAY';
@@ -57,16 +62,28 @@ export function CoursePeriodSection({
                     <Feather name="calendar" size={16} color={Colors.primary} />
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
                 </View>
-                {(onIntervalChange || fixedFrequencyText) && (
-                    <TouchableOpacity
-                        onPress={() => setShowIntervalPicker(true)}
-                        disabled={isVerified}
-                        style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]}
-                    >
-                        <Text style={styles.frequencyText}>{fixedFrequencyText || getIntervalLabel()}</Text>
-                        {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
-                    </TouchableOpacity>
-                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {durationDays != null && (
+                        <TouchableOpacity 
+                            onPress={() => setShowDurationPicker(true)}
+                            disabled={isVerified}
+                            style={[styles.frequencyChip, { backgroundColor: Colors.primary + '10' }]}
+                        >
+                            <Text style={styles.frequencyText}>{durationDays} {durationDays === 1 ? 'Day' : 'Days'}</Text>
+                            {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
+                        </TouchableOpacity>
+                    )}
+                    {(onIntervalChange || fixedFrequencyText) && (
+                        <TouchableOpacity
+                            onPress={() => setShowIntervalPicker(true)}
+                            disabled={isVerified}
+                            style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]}
+                        >
+                            <Text style={styles.frequencyText}>{fixedFrequencyText || getIntervalLabel()}</Text>
+                            {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
             <View style={styles.coursePeriodCards}>
                 {/* Start Date Card - Green Box */}
@@ -122,6 +139,19 @@ export function CoursePeriodSection({
                     </BlurView>
                 </TouchableOpacity>
             </View>
+
+            <NumberPickerModal
+                visible={showDurationPicker}
+                initialValue={durationDays || 5}
+                onConfirm={(val) => {
+                    if (onDurationChange) onDurationChange(val);
+                    setShowDurationPicker(false);
+                }}
+                onCancel={() => setShowDurationPicker(false)}
+                title="Select Duration (Days)"
+                showSOS={false}
+                mode="duration"
+            />
 
             <NumberPickerModal
                 visible={showIntervalPicker}

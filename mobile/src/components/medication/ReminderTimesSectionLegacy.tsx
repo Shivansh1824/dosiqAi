@@ -825,9 +825,9 @@ export function ReminderTimesSectionLegacy({
                             <View style={styles.numberColumn} />
 
                             <View style={styles.barWithNoteContainer}>
-                                <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress}>
+                                <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress} activeOpacity={0.7}>
                                     <Feather name="plus-circle" size={18} color={Colors.primary} />
-                                    <Text style={styles.addTimeCleanText}>Add Reminder</Text>
+                                    <Text style={styles.addTimeCleanText}>Add Dose Time</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -1220,9 +1220,8 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: Colors.primary,
-        borderStyle: 'dashed',
-        backgroundColor: Colors.primary + '05',
+        borderColor: Colors.primary + '40',
+        backgroundColor: Colors.primary + '15',
     },
     addTimeCleanText: {
         fontSize: 13,

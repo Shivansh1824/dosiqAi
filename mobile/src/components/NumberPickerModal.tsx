@@ -12,6 +12,7 @@ interface NumberPickerModalProps {
     min?: number;
     max?: number;
     showSOS?: boolean; // NEW: Option to show SOS
+    mode?: 'interval' | 'duration'; // NEW: formatting mode
 }
 
 export default function NumberPickerModal({
@@ -23,6 +24,7 @@ export default function NumberPickerModal({
     min = 1,
     max = 120,
     showSOS = false,
+    mode = 'interval',
 }: NumberPickerModalProps) {
     const [selectedValue, setSelectedValue] = useState(initialValue);
 
@@ -42,6 +44,13 @@ export default function NumberPickerModal({
 
     const renderItem = ({ item }: { item: number }) => {
         const isSelected = item === selectedValue;
+        const getLabel = (val: number) => {
+            if (mode === 'duration') {
+                return val === 1 ? '1 Day' : `${val} Days`;
+            }
+            return val === 0 ? 'As Needed (S.O.S)' : val === 1 ? 'Everyday' : `Every ${val} Days`;
+        };
+
         return (
             <TouchableOpacity
                 style={[styles.item, isSelected && styles.selectedItem]}
@@ -51,7 +60,7 @@ export default function NumberPickerModal({
                 }}
             >
                 <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
-                    {item === 0 ? 'As Needed (S.O.S)' : item === 1 ? 'Everyday' : `Every ${item} Days`}
+                    {getLabel(item)}
                 </Text>
                 {isSelected && (
                     <Feather name="check" size={20} color={Colors.primary} />
@@ -135,11 +144,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 16,
         paddingHorizontal: 20,
         borderRadius: 16,
         marginBottom: 8,
         backgroundColor: Colors.gray50,
+        height: 56, // Hardcoded to match getItemLayout (56 + 8 margin = 64)
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
     selectedItem: {
         backgroundColor: Colors.primary + '10',
