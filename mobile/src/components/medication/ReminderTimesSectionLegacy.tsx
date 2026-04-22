@@ -827,7 +827,7 @@ export function ReminderTimesSectionLegacy({
                             <View style={styles.barWithNoteContainer}>
                                 <TouchableOpacity style={styles.addTimeCleanButton} onPress={onAddPress} activeOpacity={0.7}>
                                     <Feather name="plus-circle" size={18} color={Colors.primary} />
-                                    <Text style={styles.addTimeCleanText}>Add Dose Time</Text>
+                                    <Text style={styles.addTimeCleanText}>Add Reminder</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -1220,13 +1220,14 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: Colors.primary + '40',
-        backgroundColor: Colors.primary + '15',
+        borderColor: Colors.primary,
+        borderStyle: 'dashed',
+        backgroundColor: Colors.primary + '05',
     },
     addTimeCleanText: {
         fontSize: 13,
         ...Typography.fontWeights.semibold,
-        color: Colors.primary,
+        color: Colors.primaryDark,
     },
     // iOS Modal Styles
     centeredView: {

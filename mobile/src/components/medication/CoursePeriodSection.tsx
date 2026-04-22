@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     frequencyText: {
         fontSize: 10, // Reduced
         ...Typography.fontWeights.bold,
-        color: Colors.primary,
+        color: Colors.primaryDark,
         letterSpacing: 0.5,
     },
 });
