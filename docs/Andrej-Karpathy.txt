@@ -10,3 +10,39 @@ On top of context engineering itself, an LLM app has to:
 - a lot more - guardrails, security, evals, parallelism, prefetching, ...
 
 So context engineering is just one small piece of an emerging thick layer of non-trivial software that coordinates individual LLM calls (and a lot more) into full LLM apps. The term "ChatGPT wrapper" is tired and really, really wrong.
+
+---
+
+### Interpretive Expansions of Context Engineering
+
+#### Key Mental Model: The LLM as a Computer
+
+To engineer context effectively, think of the AI system using this hardware analogy:
+
+1. **The LLM is the CPU:** It is the reasoning engine. It performs the "thinking," logic, and pattern matching. However, it has no long-term memory of the current task other than what is in front of it.
+2. **The Context Window is the RAM:** This is the working memory. Just as a computer can only process data currently loaded into RAM, an LLM can only reason over information currently inside its context window.
+3. **The Developer/System is the OS Scheduler:** Your job is to manage the "RAM" efficiently—loading the right "nuggets" of data, clearing out old junk, and ensuring the "CPU" has everything it needs for the next instruction.
+
+### The Science of Context Engineering
+
+Doing this "right" involves a precise orchestration of data:
+* **Few-Shot Examples:** Providing 2-3 examples of the input-output pattern. This is often more effective than long explanations.
+* **RAG (Retrieval Augmented Generation):** Dynamically pulling in relevant external data from a database/knowledge base.
+* **Multimodal Data:** Integrating images, audio, or video into the flow.
+* **Tools & State:** Including the current "world state" (e.g., API schemas, date/time, user preferences).
+* **Compacting & Pruning:** Summarizing history or removing irrelevant context to prevent "context rot" (where the model loses focus due to too much noise).
+
+### The Art of Context Engineering
+
+This involves "LLM Psychology"—understanding the "vibe" and nuances of how different models react.
+* **Ordering:** Realizing that models often pay more attention to the beginning and end of a context (the "Lost in the Middle" phenomenon).
+* **Formatting:** Using clear delimiters (like XML tags `<role>`, `<rules>`) to help the model distinguish between instructions, examples, and user data.
+* **Instructional Spirit:** Crafting the persona and constraints so the model understands the *intent* and *boundaries* of the task, not just the steps.
+
+### Industrial-Strength LLM Apps
+
+Beyond the individual call, a robust app must manage:
+* **Control Flows:** Breaking one complex problem into a sequence of smaller, verifiable LLM calls.
+* **Dispatching:** Selecting the right model for the right task (e.g., a fast/cheap model for classification, a powerful/reasoning model for extraction).
+* **Verification Loops:** Using the LLM to verify its own (or another model's) output.
+* **Guardrails & Evals:** Ensuring safety, consistency, and accuracy through rigorous testing and systematic checks.
