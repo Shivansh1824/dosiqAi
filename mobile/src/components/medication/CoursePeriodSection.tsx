@@ -47,13 +47,15 @@ export function CoursePeriodSection({
     onToggleEndDate,
     fixedFrequencyText,
 }: CoursePeriodSectionProps) {
-    const [showIntervalPicker, setShowIntervalPicker] = useState(false);
     const [showDurationPicker, setShowDurationPicker] = useState(false);
+    const [showIntervalPicker, setShowIntervalPicker] = useState(false);
 
     const getIntervalLabel = () => {
-        if (!interval || interval === 1) return 'EVERYDAY';
-        return `EVERY ${interval} DAYS`;
+        if (!interval || interval === 1) return 'Everyday';
+        return `Every ${interval} Days`;
     };
+
+    const displayFrequency = fixedFrequencyText === 'S.O.S' ? 'As Needed' : (fixedFrequencyText || getIntervalLabel());
 
     return (
         <View style={styles.coursePeriodContainer}>
@@ -62,25 +64,48 @@ export function CoursePeriodSection({
                     <Feather name="calendar" size={16} color={Colors.primary} />
                     <Text style={styles.coursePeriodTitle}>COURSE PERIOD</Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {durationDays != null && (
-                        <TouchableOpacity 
-                            onPress={() => setShowDurationPicker(true)}
-                            disabled={isVerified}
-                            style={[styles.frequencyChip, { backgroundColor: Colors.primary + '10' }]}
-                        >
-                            <Text style={styles.frequencyText}>{durationDays} {durationDays === 1 ? 'Day' : 'Days'}</Text>
-                            {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
-                        </TouchableOpacity>
-                    )}
+            </View>
+
+            {/* Protocol Row */}
+            <View style={[styles.coursePeriodCards, { marginBottom: 12 }]}>
+                <View style={{ flex: 1, flexBasis: '40%', alignItems: 'flex-start' }}>
                     {(onIntervalChange || fixedFrequencyText) && (
-                        <TouchableOpacity
+                        <TouchableOpacity 
+                            style={[styles.protocolPill, { width: '100%' }]}
                             onPress={() => setShowIntervalPicker(true)}
                             disabled={isVerified}
-                            style={[styles.frequencyChip, fixedFrequencyText && { backgroundColor: Colors.primary + '15' }]}
                         >
-                            <Text style={styles.frequencyText}>{fixedFrequencyText || getIntervalLabel()}</Text>
-                            {!isVerified && <Feather name="chevron-down" size={14} color={Colors.primary} />}
+                            <View style={styles.protocolIconContainer}>
+                                <Feather name="repeat" size={14} color={Colors.primary} />
+                            </View>
+                            <View style={{ flexShrink: 1 }}>
+                                <Text style={styles.bentoLabel}>INTERVAL</Text>
+                                <Text style={[styles.bentoValue, { color: Colors.primaryDark, marginTop: 2 }]} numberOfLines={1} adjustsFontSizeToFit>
+                                    {displayFrequency.toUpperCase()}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                </View>
+                
+                <View style={{ width: 24 }} />
+
+                <View style={{ flex: 1, flexBasis: '40%', alignItems: 'flex-end' }}>
+                    {durationDays != null && (
+                        <TouchableOpacity 
+                            style={[styles.protocolPill, { width: '100%' }]}
+                            onPress={() => setShowDurationPicker(true)}
+                            disabled={isVerified}
+                        >
+                            <View style={styles.protocolIconContainer}>
+                                <Feather name="clock" size={14} color={Colors.primary} />
+                            </View>
+                            <View style={{ flexShrink: 1 }}>
+                                <Text style={styles.bentoLabel}>NO OF DAYS</Text>
+                                <Text style={[styles.bentoValue, { color: Colors.primaryDark, marginTop: 2 }]} numberOfLines={1} adjustsFontSizeToFit>
+                                    {durationDays} {durationDays === 1 ? 'DAY' : 'DAYS'}
+                                </Text>
+                            </View>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -139,7 +164,6 @@ export function CoursePeriodSection({
                     </BlurView>
                 </TouchableOpacity>
             </View>
-
             <NumberPickerModal
                 visible={showDurationPicker}
                 initialValue={durationDays || 5}
@@ -171,7 +195,7 @@ export function CoursePeriodSection({
 const styles = StyleSheet.create({
     coursePeriodContainer: {
         paddingHorizontal: 20,
-        marginTop: 16,
+        marginTop: 8,
         marginBottom: 22,
     },
     coursePeriodHeader: {
@@ -254,19 +278,38 @@ const styles = StyleSheet.create({
         letterSpacing: -0.2, // Tighter tracking
         lineHeight: 16, // Fixed line height
     },
-    frequencyChip: {
+    protocolPillsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 4, // Reduced
-        paddingHorizontal: 8, // Reduced
-        backgroundColor: Colors.primary + '10',
-        borderRadius: 6,
-        gap: 4,
+        gap: 8,
+        marginBottom: 12,
     },
-    frequencyText: {
-        fontSize: 10, // Reduced
-        ...Typography.fontWeights.bold,
-        color: Colors.primaryDark,
-        letterSpacing: 0.5,
+    protocolPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.primary + '0A', // Light blue tint
+        borderRadius: 10,
+        paddingVertical: 3, // tighter top/bottom padding
+        paddingHorizontal: 10, // match bentoCard left padding
+        borderWidth: 1,
+        borderColor: Colors.primary + '20', // subtle blue border
+    },
+    protocolIconContainer: {
+        width: 28, // Matches bentoIconBadge width
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8, // Matches bentoIconBadge marginRight
+    },
+    protocolPillLabel: {
+        fontSize: 10,
+        ...Typography.fontWeights.semibold,
+        color: '#000000', // changed from Colors.primary to black
+        letterSpacing: 0.3,
+    },
+    protocolPillValue: {
+        fontSize: 10,
+        ...Typography.fontWeights.extrabold,
+        color: Colors.primaryDark, // bold dark blue
+        letterSpacing: 0.3,
     },
 });
