@@ -80,7 +80,7 @@ export function CoursePeriodSection({
                             </View>
                             <View style={{ flexShrink: 1 }}>
                                 <Text style={styles.bentoLabel}>INTERVAL</Text>
-                                <Text style={[styles.bentoValue, { color: Colors.primaryDark, marginTop: 2 }]} numberOfLines={1} adjustsFontSizeToFit>
+                                <Text style={[styles.protocolPillValue, { marginTop: 2 }]} numberOfLines={1}>
                                     {displayFrequency.toUpperCase()}
                                 </Text>
                             </View>
@@ -102,7 +102,7 @@ export function CoursePeriodSection({
                             </View>
                             <View style={{ flexShrink: 1 }}>
                                 <Text style={styles.bentoLabel}>NO OF DAYS</Text>
-                                <Text style={[styles.bentoValue, { color: Colors.primaryDark, marginTop: 2 }]} numberOfLines={1} adjustsFontSizeToFit>
+                                <Text style={[styles.protocolPillValue, { marginTop: 2 }]} numberOfLines={1}>
                                     {durationDays} {durationDays === 1 ? 'DAY' : 'DAYS'}
                                 </Text>
                             </View>
