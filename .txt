@@ -1,0 +1,22 @@
+1.Analysis Timing: Do you want the AI analysis to happen:
+ I want that when  upload is completed and user can move to screen where user can see that file is uploaded, but there should be one more thing that it automatically starts the making the api call and show a processing bar or a modern visual hint that its processing the image so that user will have an idea that file is uploaded. Now it is analysing the image.
+2.File Storage Preference:
+  Keep files local and send them as base64 to the API
+3.API Security: Where should the OpenRouter API key be stored:
+  Please work with the backend Api/Edge Function to proxy requests.
+4.Analysis Type: What specific analysis do you want from the AI?
+  i will be providing the prompt for this analysis requirments
+5.Cost Considerations: OpenRouter charges per API call. Would you like:
+  i am planning that for user would be able to upload only 5 maximum per day and will be analysis on every upload.`
+
+Note: i will be google gemini 2.5 flash model via open router api call.
+
+1. Rarely the prompt will be updated or changed (but as in current development phase it will be changed and updated accordingly).
+2.Same Prompt for all document type 
+3.does the third option means that prompt will be in the supabase and also not make any additional api call .
+4. can you provide me more info about this.
+
+
+
+[Patient Name] - [Primary Diagnosis] [Type] - [Date]
+Ashvika Patel - Gout Prescription - 6 Dec 2025
