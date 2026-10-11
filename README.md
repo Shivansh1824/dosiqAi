@@ -6,6 +6,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_%26_Auth-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Cloudflare R2](https://img.shields.io/badge/Storage-Cloudflare_R2-F38020?logo=cloudflare&logoColor=white)](https://www.cloudflare.com/products/r2/)
 [![AI Engine](https://img.shields.io/badge/AI_Vision-Gemini_2.5_Flash-4285F4?logo=google-gemini&logoColor=white)](https://openrouter.ai/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Dosiq AI** is an AI-powered personal and family healthcare management platform. It digitizes physical prescriptions and diagnostic lab reports, provides automated multimodal AI extraction, tracks medications with iOS Live Activities and high-priority alarms, monitors health vitals and lab metrics over time, and secures family health records with end-to-end user isolation.
 
@@ -230,6 +231,6 @@ The mobile application utilizes 8 specialized Zustand stores with persistence:
 
 ---
 
-## 📄 License
+## License
 
-Private repository. All rights reserved.
+Open Source under the [MIT License](LICENSE).
